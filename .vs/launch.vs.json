@@ -1,0 +1,16 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "authenticationType": "none",
+      "name": "weatherTest with args",
+      "project": "CMakeLists.txt",
+      "projectTarget": "weatherTest.exe",
+      "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
+      "args": [ "--input=data/308b7eae-6b7b-4a69-aa2c-d01798c23dde_2.json --output=data/308b7eae-6b7b-4a69-aa2c-d01798c23dde_4_res.json" ],
+      "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
+    }
+  ]
+}

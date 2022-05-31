@@ -1,0 +1,460 @@
+// Tips for Getting Started: 
+//   1. Use the Solution Explorer window to add/manage files
+//   2. Use the Team Explorer window to connect to source control
+//   3. Use the Output window to see build output and other messages
+//   4. Use the Error List window to view errors
+//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
+//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+
+#ifndef PCH_H
+#define PCH_H
+#include <string>
+#include "sphericalpoint.h"
+#include"raster.cpp"
+#include "sp.h"
+#include <chrono>
+
+
+using namespace erkir;
+
+
+
+// TODO: add headers that you want to pre-compile here
+
+#define CHAR_ALLOC 257
+struct dataStr
+{
+	int length;
+	//	char data[257];
+	char data[CHAR_ALLOC];
+};
+
+struct strFuel
+{
+	double base;
+	double vlsfo;
+	double lsmgo;
+};
+
+struct strPriceFuel {
+	double vlsfo;
+	double lsmgo;
+};
+
+struct strSafety
+{
+	double base;
+	double hurricane;
+	double lowPressure;
+	double waves;
+	double stability;
+};
+
+struct strParams
+{
+	std::string indataPath;
+	std::string indataPathName;
+	std::string resultPath;
+
+	double knots_to_km;
+	double shipSpeed_average; // km/h = 20 knots, 1 knot = 1.852 km/h
+	//std::string mapPhysicalFileName;
+	std::string mapPhysicalBFileName;
+	std::string mapPhysicalAFileName;
+	//int physicalMapRasterPos;
+	std::string mapFuelGeographyFileName;
+	std::string preferedPath;
+	std::string corridorPath;
+	std::string channelsName;
+
+	double nHours_changeCourseInterval;
+	double ortoDist_nPointsPerHour;
+	int nPkterOrto;
+	int* preferedPathOrtoPos;
+	int preferedPath_followExactOK;
+	std::string readSolPathFile;
+	std::string solutionFileName;
+
+	double epsilon;
+	int save_weatherNodes;
+	int nShip_speedSettings;
+	//double *ship_speedSettings;
+	char **ship_speedSettingID;
+	// int *ship_speedSettingNr;
+	int maxDiffTimeFastSlow; // max time difference between fastest and slowest route
+	int loadSavedDijkstraData; // if no changes has been made to data except obj weighting since last run
+
+	int max_changeDirection;
+	double lengthIntervall; // length of a time intervall in hours
+	double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
+	
+	std::string variableFileName;
+
+	double weightTime;
+	double priceTime;
+	strPriceFuel priceFuel;
+	strFuel weightFuel;
+	strSafety weightSafety;
+
+	int useStandardWeather; // -1 for standard 0, 1 for standard last, 0 for changing forecast
+
+	double basDistArcs;
+	double physicalMap_noDataValue;
+	int speedSettings_addOnlyCheapestArcs;
+
+	int runAlt;
+	int startDelay_h;
+	std::string fromHarbour;
+	std::string toHarbour;
+	std::string type;
+
+	double storm_windUBD; // storm level 64 kt
+	double storm_1dist_ahead; // first ring ahead, 200 nautiska miles
+	double storm_2dist_ahead; // second ring ahead, 500 nautiska miles
+	double storm_1costInside_ahead; // 1e10
+	double storm_1cost_ahead; // 100
+	double storm_2cost_ahead; // 1
+
+	double storm_1dist_behind; // first ring ahead, 200 nautiska miles
+	double storm_2dist_behind; // second ring, 120 nautiska miles
+	double storm_1costInside_behind; // 1e10
+	double storm_1cost_behind; // 100
+	double storm_2cost_behind; // 1
+	int startYear; // = 2018;
+	int startMonth_nr; // = 9; // sep
+	int startDay_nr; //  = 1;
+	int startHour; // 0
+	int startMinute; // 0
+
+	double maxDeviationPrefered_km;
+
+};
+
+struct strVariables
+{
+	int weatherNr;
+	int elementPos;
+	char *nameID;
+};
+
+struct strFileWeather
+{
+	char *fileName;
+	double minX;
+	double minY;
+	double maxX;
+	double maxY;
+};
+
+struct strWeather
+{
+	char *weatherFileTypeName;
+	int nElement;
+	int nTimeIntervals;
+	int useStandardWeather;
+	int timeIntervall_h;
+	int *timeOrder;
+	//int nFiles;
+	Raster rasterPos;
+	float*** rasterBandData;
+	double** rasterBandDataNy2;
+	double minX;
+	double minY;
+	double maxX;
+	double maxY;
+
+	char* fileName;
+	float** valueCell;
+	Raster::strWeatherRaster raster;
+};
+
+struct strPath
+{
+	int nPoints;
+	spherical::Point* point;
+	double minX;
+	double maxX;
+};
+
+struct strCorrLines
+{
+	int nLines;
+	int *nPoints;
+	spherical::Point** point;
+};
+
+struct strArcInfo
+{
+	int fromPointNr;
+	int fromLevel;
+	int toLevel;
+	int toPointNr;
+	int fromTime;
+	int toTime;
+	int speedSetting;
+
+	int nodNr1;
+	int nodNr2;
+	int nodNr1_utNodPos;
+
+	double distance;
+	double time;
+	double fuelBase;
+	double fuelVLSFO;
+	double fuelLSMGO;
+	double safetyBase;
+	double safetyHurricane;
+	double safetyStability;
+	double safetyPressure;
+	double channelCost;
+	double totCost;
+};
+
+struct strNodeSeq
+{
+	int nPoints;
+	spherical::Point *point;
+	int *nOutNodes;
+	int** outNode;
+	int** outLevel;
+
+	double* minDistPrevNode;
+	int* minDistPrevNode_level;
+	int* minDistPrevNode_pos;
+
+	//int *nAllocOutArcs;
+	//int *nOutArcs;
+	//strArcInfo **outArc;
+	int *nTimeIntervals;
+	int *nAllocTimeIntervals;
+	int **timeInterval;
+	int **nodNr_from_pt;
+	int* nArcsToPoint;
+
+	int* usedPoint;
+	int* allowedPoint;
+	double* distanceFromStart;
+	double extraCostChannel;
+	double extraTimeChannel;
+	spherical::Point* preferedPathPoint;
+	int nPreferedPathPoints;
+};
+
+struct strNetwork
+{
+	int nPhysicalLevels;
+	strNodeSeq *physicalLev;
+	//int useLongitudeKvadrant[4];
+	int nMaxNodesInPath;
+	int nChannels;
+	strNodeSeq* channel;
+	int nUsedChannels;
+	int* usedChannel;
+};
+
+struct strPhysicalMap
+{
+public:
+	std::vector<Raster> raster;
+	double min_latitude;
+	double min_longitude;
+
+};
+
+struct strCheckPkt
+{
+	//double uVesselDirection;
+	//double vVesselDirection;
+	double distToNextPkt;
+	int *latPos;
+	int *lonPos;
+	//int *fileNr;
+};
+
+struct strFunc
+{
+	int nCheckPoints;
+	int nAllocPoints;
+	strCheckPkt *checkPoint;
+	spherical::Point *point;
+	double *vesselBearing;
+
+	//double uVesselDirection;
+	//double vVesselDirection;
+	//int *lastFileNr;
+
+	int nFunctions;
+	double *funcVal;
+	double ***param;
+
+	//	double *row1Dbl;
+//	double *col1Dbl;
+//	double *row2Dbl;
+//	double *col2Dbl;
+//	double *delta_row;
+//	double *delta_col;
+
+
+};
+
+struct strDijkstra {
+	long long minArcLen;
+	long long maxArcLen;
+	int nNoder;
+	int nArcs;
+	SP *sp;
+	Node *nodes;
+	Node *source;
+	Node *sink;
+	Arc2 *arcs;
+	ulong cLevels;
+	int logDelta;
+	bool doBFS;
+	long node_min;
+	long long OptCost;
+	double FAKTOR_NATVERK;
+};
+
+struct strNoder
+{
+	int nUtNoder;
+	int nAllocUtNoder;
+	int *UtNod;
+	double *UtNodCost;
+	int *outArcNr;
+	int physicalLevel;
+	int pointNr;
+	int timeInterval;
+
+};
+
+struct strStormQuadr
+{
+	double NE;
+	double SE;
+	double SW;
+	double NW;
+	double windMaxRadius;
+};
+
+struct strStormFeature
+{
+	double datum;
+	double maxWind;
+	double lat;
+	double lon;
+	spherical::Point midPoint;
+	double bearing;
+	int nQuadrants;
+	strStormQuadr* quadrant;
+};
+
+struct strStorm
+{
+	char* fileName;
+	int nFeatures;
+	int tidsIntervall;
+	strStormFeature* feature;
+};
+
+struct strRasterData {
+	float** fuelGeography;
+	//float** physicalMap;
+
+};
+
+struct strModel
+{
+	strBoundBox boundingBox;
+	strRasterData rasterData;
+	strParams params;
+	int nVariables;
+	strVariables *variable;
+	int nWeatherFiles;
+	strWeather *weather;
+	int nStorms;
+	strStorm* storms;
+	strPath preferedPath;
+	strPath solutionPath;
+	strCorrLines corridorPath;
+	strNetwork network;
+	//Raster physicalMapRaster;
+	Raster::strPhysRaster physicalMapA;
+	Raster::strPhysRaster physicalMapB;
+	Raster rasterPhysicalMapA;
+	Raster rasterPhysicalMapB;
+
+
+	Raster* fuelGeographyMapRaster;
+	strFunc weatherFunctions;
+	int nNoder;
+	int nAllocNoder;
+	int nArcs;
+	int nAllocArcs;
+	strArcInfo *arc;
+	strNoder *Noder;
+	strDijkstra Dijkstra;
+
+	int nBVArcs;
+	int *BVArc;
+	int *BVtempNodOrder;
+
+#ifdef WIN32
+	std::chrono::steady_clock::time_point tmpTid[2];
+	std::chrono::steady_clock::time_point tmpTid2[2];
+	std::chrono::steady_clock::time_point tmpTid3[2];
+	std::chrono::steady_clock::time_point tmpTid4[2];
+	std::chrono::steady_clock::time_point tmpTid5[2];
+#else
+	std::chrono::system_clock::time_point tmpTid[2];
+	std::chrono::system_clock::time_point tmpTid2[2];
+	std::chrono::system_clock::time_point tmpTid3[2];
+	std::chrono::system_clock::time_point tmpTid4[2];
+	std::chrono::system_clock::time_point tmpTid5[2];
+#endif
+	std::chrono::duration<double, std::milli> durationMilliTot;
+	std::chrono::duration<double, std::milli> *durationMilli;
+	int* nCallsWeatherBand;
+
+	std::chrono::duration<double, std::milli> durationCheckAddBagar;
+	std::chrono::duration<double, std::milli> duration1;
+	std::chrono::duration<double, std::milli> duration2;
+	std::chrono::duration<double, std::milli> duration3;
+	std::chrono::duration<double, std::milli> duration4;
+};
+
+
+int errlog(const char* format, ...);
+int errlog0(const char* format, ...);
+int reset_errlog();
+char *str_alloc_cpy(const char *data);
+int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
+
+int SattUppDijkstraNatverk3(strModel *model);
+int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);
+double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost);
+int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos, float** fuelRaster);
+
+double char_to_double(char* object);
+double char_to_doubleConst(const char* object);
+int char_to_int(char* object);
+int get_data_objects_till_EOL_semkol(char objects[][CHAR_ALLOC], dataStr* data, FILE* FilPek);
+int check_isChannelNodePosAllowed(int nr, int pos);
+int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2);
+double getStormValue(int t, spherical::Point point);
+double getVariableValue(int varNr, int checkPointNr, double tidpkt);
+
+int test2(int a);
+int testing(int a);
+
+int voyageOpt_old(string inputPath);
+int voyageOpt(string inputName, string resultName);
+int exitKontrollerat(int codeLine, int callType = 1);
+int writeSolutionToJson(string filename, int resAlt);
+string splitFilename(string namn);
+int fixReadableDate(struct tm tmBas, char* namn);
+int initGeoJsonFil(FILE* filpek, const char* namn);
+
+
+#endif //PCH_H
+

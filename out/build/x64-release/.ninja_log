@@ -1,0 +1,5 @@
+# ninja log v5
+3	222	6756846025221384	CMakeFiles/weatherTest.dir/test.cpp.obj	4258e5c68e3fb2a7
+5	756	6756846030531423	CMakeFiles/weatherTest.dir/weatherTest.cpp.obj	48f002193ee88ecf
+2570	2999	6756846052568848	weatherTest.exe	1e6851dc21cef072
+0	2553	6756846048441713	CMakeFiles/weatherTest.dir/voyageOpt.cpp.obj	527acf8c144f8477

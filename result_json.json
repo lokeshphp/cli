@@ -1,0 +1,23 @@
+{
+	"solutionShape": "/resultLokesh/optRoute_10h19_33",
+	"objective":{"totCost":690.11,
+		"dist":{"value":16633.44, "weight": 0.00, "objAdd": 0.00},
+		"time":{"value":690.11, "weight": 1.00, "objAdd": 690.11},
+		"fuel":{"value":0.00, "weight": 0.00, "objAdd": 0.00, 
+			"sub":{
+			"VLSFO":{"value":686.00, "weight": 0.00, "objAdd": 0.00},
+			"LSMGO":{"value":9.18, "weight": 0.00, "objAdd": 0.00}
+			}
+		},		"safety":{"value":0.00, "weight": 0.00, "objAdd": 0.00, 
+			"sub":{
+			"hurricane":{"value":0.00, "weight": 0.00, "objAdd": 0.00},
+			"lowPressure":{"value":0.00, "weight": 0.00, "objAdd": 0.00},
+			"waves":{"value":0.00, "weight": 0.00, "objAdd": 0.00},
+			"stability":{"value":112.43, "weight": 0.00, "objAdd": 0.00}
+			}
+		},
+		"channel":{"value":0.00, "weight": 1.00, "objAdd": 0.00}
+	},
+	"no of times using speedSetting speed_13": 161,
+	"no of times the speed setting is changed": 0
+}
