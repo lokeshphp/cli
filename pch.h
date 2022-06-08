@@ -62,16 +62,18 @@ struct strParams
 	std::string mapPhysicalBFileName;
 	std::string mapPhysicalAFileName;
 	//int physicalMapRasterPos;
-	std::string mapFuelGeographyFileName;
-	std::string preferedPath;
+	std::string mapFuelGeographyAFileName;
+	std::string mapFuelGeographyBFileName;
+	//std::string mapFuelGeographyFileName;
+	std::string preferredPath;
 	std::string corridorPath;
 	std::string channelsName;
 
 	double nHours_changeCourseInterval;
 	double ortoDist_nPointsPerHour;
 	int nPkterOrto;
-	int* preferedPathOrtoPos;
-	int preferedPath_followExactOK;
+	int* preferredPathOrtoPos;
+	int preferredPath_followExactOK;
 	std::string readSolPathFile;
 	std::string solutionFileName;
 
@@ -236,8 +238,8 @@ struct strNodeSeq
 	double* distanceFromStart;
 	double extraCostChannel;
 	double extraTimeChannel;
-	spherical::Point* preferedPathPoint;
-	int nPreferedPathPoints;
+	spherical::Point* preferredPathPoint;
+	int npreferredPathPoints;
 };
 
 struct strNetwork
@@ -357,16 +359,15 @@ struct strStorm
 	strStormFeature* feature;
 };
 
-struct strRasterData {
-	float** fuelGeography;
-	//float** physicalMap;
-
-};
+//struct strRasterData {
+//	float** fuelGeography;
+//	//float** physicalMap;
+//};
 
 struct strModel
 {
 	strBoundBox boundingBox;
-	strRasterData rasterData;
+	// strRasterData rasterData;
 	strParams params;
 	int nVariables;
 	strVariables *variable;
@@ -374,18 +375,22 @@ struct strModel
 	strWeather *weather;
 	int nStorms;
 	strStorm* storms;
-	strPath preferedPath;
+	strPath preferredPath;
 	strPath solutionPath;
 	strCorrLines corridorPath;
 	strNetwork network;
 	//Raster physicalMapRaster;
 	Raster::strPhysRaster physicalMapA;
 	Raster::strPhysRaster physicalMapB;
-	Raster rasterPhysicalMapA;
-	Raster rasterPhysicalMapB;
+	//Raster rasterPhysicalMapA;
+	//Raster rasterPhysicalMapB;
 
+	Raster::strPhysRaster fuelMapA;
+	Raster::strPhysRaster fuelMapB;
+	//Raster rasterFuelMapA;
+	//Raster rasterFuelMapB;
 
-	Raster* fuelGeographyMapRaster;
+	//Raster* fuelGeographyMapRaster;
 	strFunc weatherFunctions;
 	int nNoder;
 	int nAllocNoder;
@@ -433,7 +438,7 @@ int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 int SattUppDijkstraNatverk3(strModel *model);
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);
 double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost);
-int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos, float** fuelRaster);
+int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos); // , float** fuelRaster);
 
 double char_to_double(char* object);
 double char_to_doubleConst(const char* object);
@@ -454,6 +459,7 @@ int writeSolutionToJson(string filename, int resAlt);
 string splitFilename(string namn);
 int fixReadableDate(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
+void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 
 
 #endif //PCH_H

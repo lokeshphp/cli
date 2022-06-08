@@ -1,0 +1,5 @@
+# ninja log v5
+4	262	6763900716253477	CMakeFiles/voyageOpt.dir/test.cpp.obj	d40712b168bf734
+0	603	6763900719823473	CMakeFiles/voyageOpt.dir/weatherTest.cpp.obj	a9ffa2cf9a8f33bd
+2	1477	6763900728541034	CMakeFiles/voyageOpt.dir/voyageOpt.cpp.obj	809fb9d5c7b7c1bc
+1490	2581	6763900738469135	voyageOpt.exe	8d17305be8b53f80

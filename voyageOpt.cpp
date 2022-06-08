@@ -313,11 +313,11 @@ int writeAllArcsToGeojson(char* pszFilename)
 				i2b = model.network.physicalLev[i].outNode[i1][i2];
 				ib = model.network.physicalLev[i].outLevel[i1][i2];
 				if (ib >= 0) {
-					if (i1 == model.params.preferedPathOrtoPos[i] && i2b == model.params.preferedPathOrtoPos[ib] && i + 1 == ib) {
+					if (i1 == model.params.preferredPathOrtoPos[i] && i2b == model.params.preferredPathOrtoPos[ib] && i + 1 == ib) {
 						nPkter = 1;
-						for (int i3 = 0; i3 < model.network.physicalLev[i].nPreferedPathPoints; i3++) {
-							y[nPkter] = model.network.physicalLev[i].preferedPathPoint[i3].latitude().degrees();
-							x[nPkter] = model.network.physicalLev[i].preferedPathPoint[i3].longitude().degrees();
+						for (int i3 = 0; i3 < model.network.physicalLev[i].npreferredPathPoints; i3++) {
+							y[nPkter] = model.network.physicalLev[i].preferredPathPoint[i3].latitude().degrees();
+							x[nPkter] = model.network.physicalLev[i].preferredPathPoint[i3].longitude().degrees();
 							z[nPkter] = 0;
 							nPkter++;
 						}
@@ -502,8 +502,8 @@ int writeKorridorToGeojson(char* pszFilename)
 			x[i] = model.network.physicalLev[i].point[i1].longitude().degrees();
 			z[i] = 0;
 		}
-		y[i] = model.preferedPath.point[model.preferedPath.nPoints - 1].latitude().degrees();
-		x[i] = model.preferedPath.point[model.preferedPath.nPoints - 1].longitude().degrees();
+		y[i] = model.preferredPath.point[model.preferredPath.nPoints - 1].latitude().degrees();
+		x[i] = model.preferredPath.point[model.preferredPath.nPoints - 1].longitude().degrees();
 		z[i] = 0;
 
 		psShape = SHPCreateObject(nSHPType, -1, 0, NULL, NULL,
@@ -624,7 +624,7 @@ int readGivenSolutionPath()
 				}
 			}
 			if (i1 >= model.nArcs) {
-				i1 = try_addBage_fromPath(prevLevel, level, prevNodPos, nodPos, prevSpeedSetting, tNu, model.rasterData.fuelGeography);
+				i1 = try_addBage_fromPath(prevLevel, level, prevNodPos, nodPos, prevSpeedSetting, tNu);//, model.rasterData.fuelGeography);
 				if (i1 >= 0) {
 					model.BVArc[model.nBVArcs] = i1;
 					(model.nBVArcs)++;
@@ -657,7 +657,7 @@ int readGivenSolutionPath()
 			}
 		}
 		if (i1 >= model.nArcs) {
-			i1 = try_addBage_fromPath(prevLevel, level, prevNodPos, nodPos, prevSpeedSetting, tNu, model.rasterData.fuelGeography);
+			i1 = try_addBage_fromPath(prevLevel, level, prevNodPos, nodPos, prevSpeedSetting, tNu); // , model.rasterData.fuelGeography);
 			if (i1 >= 0) {
 				model.BVArc[model.nBVArcs] = i1;
 				(model.nBVArcs)++;
@@ -905,20 +905,20 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 		else {
 			prefPath = 0;
 			if (lev1 >= 0 && lev2 >= 0) {
-				if (pointNr1 == model.params.preferedPathOrtoPos[lev1] &&
-					pointNr2 == model.params.preferedPathOrtoPos[lev2] && lev1 == lev2 - 1) {
+				if (pointNr1 == model.params.preferredPathOrtoPos[lev1] &&
+					pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1) {
 					y[0] = model.network.physicalLev[lev1].point[pointNr1].latitude().degrees();
 					x[0] = model.network.physicalLev[lev1].point[pointNr1].longitude().degrees();
 					pointLast = spherical::Point(y[0], x[0]);
 					nPkter = 1;
 					distNu = 0;
 					ii3 = 0;
-					for (int i3 = 0; i3 < model.network.physicalLev[lev1].nPreferedPathPoints; i3++) {
-						distTmp = pointLast.distanceTo(model.network.physicalLev[lev1].preferedPathPoint[i3]);
+					for (int i3 = 0; i3 < model.network.physicalLev[lev1].npreferredPathPoints; i3++) {
+						distTmp = pointLast.distanceTo(model.network.physicalLev[lev1].preferredPathPoint[i3]);
 						for (ii = 0; ii < nTp; ii++) {
-							if (distNu + distTmp >= distanceTp || (i3 == model.network.physicalLev[lev1].nPreferedPathPoints - 1 && distNu + distTmp >= distanceTp * 0.95)) {
+							if (distNu + distTmp >= distanceTp || (i3 == model.network.physicalLev[lev1].npreferredPathPoints - 1 && distNu + distTmp >= distanceTp * 0.95)) {
 								// identifiera pkten dar distTmp + distNu = distanceTp
-								pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev1].preferedPathPoint[i3]));
+								pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev1].preferredPathPoint[i3]));
 								y[nPkter] = pointLast.latitude().degrees();
 								x[nPkter] = pointLast.longitude().degrees();
 								z[nPkter] = 0;
@@ -1028,8 +1028,8 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 								break;
 							}
 						}
-						y[nPkter] = model.network.physicalLev[lev1].preferedPathPoint[i3].latitude().degrees();
-						x[nPkter] = model.network.physicalLev[lev1].preferedPathPoint[i3].longitude().degrees();
+						y[nPkter] = model.network.physicalLev[lev1].preferredPathPoint[i3].latitude().degrees();
+						x[nPkter] = model.network.physicalLev[lev1].preferredPathPoint[i3].longitude().degrees();
 						pointLast = spherical::Point(y[nPkter], x[nPkter]);
 						z[nPkter] = 0;
 						nPkter++;
@@ -1371,8 +1371,8 @@ int writeSolutionToJson(string filename, int resAlt)
 		else {
 			prefPath = 0;
 			if (lev1 >= 0 && lev2 >= 0) {
-				if (pointNr1 == model.params.preferedPathOrtoPos[lev1] &&
-					pointNr2 == model.params.preferedPathOrtoPos[lev2] && lev1 == lev2 - 1) {
+				if (pointNr1 == model.params.preferredPathOrtoPos[lev1] &&
+					pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1) {
 					if (nPkter == 0) {
 						y[nPkter] = model.network.physicalLev[lev1].point[pointNr1].latitude().degrees();
 						x[nPkter] = model.network.physicalLev[lev1].point[pointNr1].longitude().degrees();
@@ -1383,12 +1383,12 @@ int writeSolutionToJson(string filename, int resAlt)
 					//nPkter = 1;
 					distNu = 0;
 					ii3 = 0;
-					for (int i3 = 0; i3 < model.network.physicalLev[lev1].nPreferedPathPoints; i3++) {
-						distTmp = pointLast.distanceTo(model.network.physicalLev[lev1].preferedPathPoint[i3]);
+					for (int i3 = 0; i3 < model.network.physicalLev[lev1].npreferredPathPoints; i3++) {
+						distTmp = pointLast.distanceTo(model.network.physicalLev[lev1].preferredPathPoint[i3]);
 						for (ii = 0; ii < nTp; ii++) {
-							if (distNu + distTmp >= distanceTp || (i3 == model.network.physicalLev[lev1].nPreferedPathPoints - 1 && distNu + distTmp >= distanceTp * 0.95)) {
+							if (distNu + distTmp >= distanceTp || (i3 == model.network.physicalLev[lev1].npreferredPathPoints - 1 && distNu + distTmp >= distanceTp * 0.95)) {
 								// identifiera pkten dar distTmp + distNu = distanceTp
-								pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev1].preferedPathPoint[i3]));
+								pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev1].preferredPathPoint[i3]));
 								//y[nPkter] = pointLast.latitude().degrees();
 								//x[nPkter] = pointLast.longitude().degrees();
 								//z[nPkter] = 0;
@@ -1433,8 +1433,8 @@ int writeSolutionToJson(string filename, int resAlt)
 							x = (double*)realloc(x, nAlloc * sizeof(double));
 							y = (double*)realloc(y, nAlloc * sizeof(double));
 						}
-						y[nPkter] = model.network.physicalLev[lev1].preferedPathPoint[i3].latitude().degrees();
-						x[nPkter] = model.network.physicalLev[lev1].preferedPathPoint[i3].longitude().degrees();
+						y[nPkter] = model.network.physicalLev[lev1].preferredPathPoint[i3].latitude().degrees();
+						x[nPkter] = model.network.physicalLev[lev1].preferredPathPoint[i3].longitude().degrees();
 						pointLast = spherical::Point(y[nPkter], x[nPkter]);
 						//z[nPkter] = 0;
 						nPkter++;
@@ -1836,17 +1836,17 @@ int writeSolutionPathForWeatherToGeojson(char* pszFilename)
 		else {
 			prefPath = 0;
 			if (lev1 >= 0 && lev2 >= 0) {
-				if (pointNr1 == model.params.preferedPathOrtoPos[lev1] &&
-					pointNr2 == model.params.preferedPathOrtoPos[lev2] && lev1 == lev2 - 1) {
+				if (pointNr1 == model.params.preferredPathOrtoPos[lev1] &&
+					pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1) {
 					y[0] = model.network.physicalLev[lev1].point[pointNr1].latitude().degrees();
 					x[0] = model.network.physicalLev[lev1].point[pointNr1].longitude().degrees();
 					nPkter = 1;
 					p1 = model.network.physicalLev[lev1].point[pointNr1];
-					for (int i3 = 0; i3 < model.network.physicalLev[lev1].nPreferedPathPoints; i3++) {
-						distToNext = p1.distanceTo(model.network.physicalLev[lev1].preferedPathPoint[i3]);
+					for (int i3 = 0; i3 < model.network.physicalLev[lev1].npreferredPathPoints; i3++) {
+						distToNext = p1.distanceTo(model.network.physicalLev[lev1].preferredPathPoint[i3]);
 						for (i1 = 0; i1 < 100; i1++) {
 							if (distNu + distToNext >= distInt) {
-								bearing = p1.bearingTo(model.network.physicalLev[lev1].preferedPathPoint[i3]);
+								bearing = p1.bearingTo(model.network.physicalLev[lev1].preferredPathPoint[i3]);
 								p2 = p1.destinationPoint(distInt - distNu, bearing);
 								// addera bage p1 till p2
 								y[nPkter] = p2.latitude().degrees();
@@ -1871,7 +1871,7 @@ int writeSolutionPathForWeatherToGeojson(char* pszFilename)
 								break;
 							}
 						}
-						p1 = model.network.physicalLev[lev1].preferedPathPoint[i3];
+						p1 = model.network.physicalLev[lev1].preferredPathPoint[i3];
 						y[nPkter] = p1.latitude().degrees();
 						x[nPkter] = p1.longitude().degrees();
 						z[nPkter] = 0;
@@ -2172,32 +2172,32 @@ int writeNodeWeatherDataToGeojson(char* pszFilename)
 }
 
 /*
-int loadPreferedPath()
+int loadpreferredPath()
 {
 	DBFHandle	hDBF;
 	SHPHandle	hSHP;
 	int iRecord, j, iPart;
 
-	model.preferedPath.nPoints = 0;
+	model.preferredPath.nPoints = 0;
 
 	char* namn2;
 	namn2 = (char*)malloc(256 * sizeof(char));
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.preferedPath.c_str());
+	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.preferredPath.c_str());
 	//	hSHP = SHPOpen("path0.shp", "rb");
-	//hSHP = SHPOpen(model.params.preferedPath.c_str(), "rb");
+	//hSHP = SHPOpen(model.params.preferredPath.c_str(), "rb");
 	hSHP = SHPOpen(namn2, "rb");
 	if (hSHP == NULL)
 	{
-		printf("SHPOpen(%s,\"r\") failed.\n", model.params.preferedPath.c_str());
-		errlog("ERROR! Could not open %s.shp. I quit!\n", model.params.preferedPath.c_str());
+		printf("SHPOpen(%s,\"r\") failed.\n", model.params.preferredPath.c_str());
+		errlog("ERROR! Could not open %s.shp. I quit!\n", model.params.preferredPath.c_str());
 		exit(2);
 	}
-	//hDBF = DBFOpen(model.params.preferedPath.c_str(), "rb");
+	//hDBF = DBFOpen(model.params.preferredPath.c_str(), "rb");
 	hDBF = DBFOpen(namn2, "rb");
 	if (hDBF == NULL)
 	{
-		printf("DBFOpen(%s,\"r\") failed.\n", model.params.preferedPath.c_str());
-		errlog("ERROR! Could not open %s.dbf. I quit!\n", model.params.preferedPath.c_str());
+		printf("DBFOpen(%s,\"r\") failed.\n", model.params.preferredPath.c_str());
+		errlog("ERROR! Could not open %s.dbf. I quit!\n", model.params.preferredPath.c_str());
 		exit(2);
 	}
 
@@ -2218,11 +2218,11 @@ int loadPreferedPath()
 		psShape = SHPReadObject(hSHP, iRecord);
 
 		nVertices = psShape->nVertices;
-		if (model.preferedPath.nPoints == 0)
-			model.preferedPath.point = (spherical::Point*)malloc(nVertices * sizeof(spherical::Point));
+		if (model.preferredPath.nPoints == 0)
+			model.preferredPath.point = (spherical::Point*)malloc(nVertices * sizeof(spherical::Point));
 		else
-			model.preferedPath.point = (spherical::Point*)realloc(model.preferedPath.point,
-				(model.preferedPath.nPoints + nVertices) * sizeof(spherical::Point));
+			model.preferredPath.point = (spherical::Point*)realloc(model.preferredPath.point,
+				(model.preferredPath.nPoints + nVertices) * sizeof(spherical::Point));
 		if (psShape == NULL)
 		{
 			errlog("ERROR! Unable to read shape %d, terminating object reading.\n",
@@ -2243,8 +2243,8 @@ int loadPreferedPath()
 				xVal -= 360;
 			if (xVal < -180)
 				xVal += 360;
-			model.preferedPath.point[model.preferedPath.nPoints] = spherical::Point(psShape->padfY[j], xVal);
-			(model.preferedPath.nPoints)++;
+			model.preferredPath.point[model.preferredPath.nPoints] = spherical::Point(psShape->padfY[j], xVal);
+			(model.preferredPath.nPoints)++;
 
 		}
 		SHPDestroyObject(psShape);
@@ -2553,12 +2553,13 @@ int loadParams(strParams* params)
 	params->mapPhysicalBFileName = std::string();
 	params->mapPhysicalAFileName = std::string();
 	//params->physicalMapRasterPos = 0;
-	params->mapFuelGeographyFileName = std::string();
+	params->mapFuelGeographyAFileName = std::string();
+	params->mapFuelGeographyBFileName = std::string();
 
 	model.weather = NULL;
-	params->preferedPath = "";
+	params->preferredPath = "";
 	params->corridorPath = "";
-	params->preferedPath_followExactOK = 1;
+	params->preferredPath_followExactOK = 1;
 	params->channelsName = "";
 	params->readSolPathFile = "";
 	params->solutionFileName = "solution";
@@ -2606,8 +2607,9 @@ int loadParams(strParams* params)
 		errlog("%s does not exist. I quit\n", namn);
 		exit(0);
 	}
+	printf("opens %s\n", namn);
 	fil.open(namn);
-
+	
 	json data, dataSpeed;
 	fil >> data;
 	if (!data["knots_to_km"].is_null())
@@ -2628,8 +2630,14 @@ int loadParams(strParams* params)
 	//}
 	if (!data["physicalMap_noDataValue"].is_null())
 		params->physicalMap_noDataValue = data["physicalMap_noDataValue"];
-	if (!data["mapFuelGeographyFileName"].is_null()) {
-		params->mapFuelGeographyFileName = data["mapFuelGeographyFileName"];
+	//if (!data["mapFuelGeographyFileName"].is_null()) {
+	//	params->mapFuelGeographyFileName = data["mapFuelGeographyFileName"];
+	//}
+	if (!data["mapFuelGeographyAFileName"].is_null()) {
+		params->mapFuelGeographyAFileName = data["mapFuelGeographyAFileName"];
+	}
+	if (!data["mapFuelGeographyBFileName"].is_null()) {
+		params->mapFuelGeographyBFileName = data["mapFuelGeographyBFileName"];
 	}
 
 	if (!data["speedSettings_addOnlyCheapestArcs"].is_null()) {
@@ -2812,6 +2820,7 @@ int loadParams(strParams* params)
 
 	sprintf(namn, "%s/obj_weights.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
+	printf("opens %s\n", namn);
 	fil.open(namn);
 	fil >> data;
 
@@ -2872,23 +2881,24 @@ int loadParams(strParams* params)
 	std::ifstream fil2;
 	sprintf(namn, "%s/qgis_params.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
+	printf("opens %s\n", namn);
 	fil2.open(namn);
 	fil2 >> data;
 	string testString;
 
 	if (!data["solutionFileName"].is_null())
 		params->solutionFileName = data["solutionFileName"];
-	if (!data["preferedPath"].is_null()) {
-		params->preferedPath = data["preferedPath"];
-		size_t i = params->preferedPath.rfind('.', params->preferedPath.length());
+	if (!data["preferredPath"].is_null()) {
+		params->preferredPath = data["preferredPath"];
+		size_t i = params->preferredPath.rfind('.', params->preferredPath.length());
 		// check that the extension is .geojson
 		if (i != std::string::npos) {
-			testString = params->preferedPath.substr(i + 1, i + 3);
-			if (params->preferedPath.substr(i + 1, i + 3) != "geojson") {
+			testString = params->preferredPath.substr(i + 1, i + 3);
+			if (params->preferredPath.substr(i + 1, i + 3) != "geojson") {
 				errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
 				exit(0);
 			}
-			// params->preferedPath = params->preferedPath.substr(0, params->preferedPath.length() - 4);
+			// params->preferredPath = params->preferredPath.substr(0, params->preferredPath.length() - 4);
 		}
 		else {
 			errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
@@ -2911,8 +2921,8 @@ int loadParams(strParams* params)
 			exit(0);
 		}
 	}
-	if (!data["preferedPath_followExactOK"].is_null())
-		params->preferedPath_followExactOK = data["preferedPath_followExactOK"];
+	if (!data["preferredPath_followExactOK"].is_null())
+		params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
 	if (!data["editCorridor"].is_null())
 		params->runAlt = data["editCorridor"];
 	if (!data["startDelay_h"].is_null()) {
@@ -2927,7 +2937,7 @@ int loadParams(strParams* params)
 
 	if (!data["channelsName"].is_null()) {
 		params->channelsName = data["channelsName"];
-		size_t i = params->channelsName.rfind('.', params->preferedPath.length());
+		size_t i = params->channelsName.rfind('.', params->preferredPath.length());
 		// check that the extension is .geojson
 		if (i != std::string::npos) {
 			if (params->channelsName.substr(i + 1, i + 3) != "geojson") {
@@ -2961,8 +2971,9 @@ int loadParams_theRestOld(strParams* params)
 		errlog("%s does not exist. I quit\n", namn);
 		exit(0);
 	}
+	printf("opens %s\n", namn);
 	fil.open(namn);
-
+	
 	json data, dataSpeed;
 	fil >> data;
 	if (!data["knots_to_km"].is_null())
@@ -2981,8 +2992,14 @@ int loadParams_theRestOld(strParams* params)
 	//}
 	if (!data["physicalMap_noDataValue"].is_null())
 		params->physicalMap_noDataValue = data["physicalMap_noDataValue"];
-	if (!data["mapFuelGeographyFileName"].is_null()) {
-		params->mapFuelGeographyFileName = data["mapFuelGeographyFileName"];
+	//if (!data["mapFuelGeographyFileName"].is_null()) {
+	//	params->mapFuelGeographyFileName = data["mapFuelGeographyFileName"];
+	//}
+	if (!data["mapFuelGeographyAFileName"].is_null()) {
+		params->mapFuelGeographyAFileName = data["mapFuelGeographyAFileName"];
+	}
+	if (!data["mapFuelGeographyBFileName"].is_null()) {
+		params->mapFuelGeographyBFileName = data["mapFuelGeographyBFileName"];
 	}
 
 	if (!data["speedSettings_addOnlyCheapestArcs"].is_null()) {
@@ -3151,23 +3168,24 @@ int loadParams_theRestOld(strParams* params)
 	std::ifstream fil2;
 	sprintf(namn, "%s/qgis_params.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
+	printf("opens %s\n", namn);
 	fil2.open(namn);
 	fil2 >> data;
 	string testString;
 
 	if (!data["solutionFileName"].is_null())
 		params->solutionFileName = data["solutionFileName"];
-	if (!data["preferedPath"].is_null()) {
-		params->preferedPath = data["preferedPath"];
-		size_t i = params->preferedPath.rfind('.', params->preferedPath.length());
+	if (!data["preferredPath"].is_null()) {
+		params->preferredPath = data["preferredPath"];
+		size_t i = params->preferredPath.rfind('.', params->preferredPath.length());
 		// check that the extension is .geojson
 		if (i != std::string::npos) {
-			testString = params->preferedPath.substr(i + 1, i + 3);
-			if (params->preferedPath.substr(i + 1, i + 3) != "geojson") {
+			testString = params->preferredPath.substr(i + 1, i + 3);
+			if (params->preferredPath.substr(i + 1, i + 3) != "geojson") {
 				errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
 				exit(0);
 			}
-			// params->preferedPath = params->preferedPath.substr(0, params->preferedPath.length() - 4);
+			// params->preferredPath = params->preferredPath.substr(0, params->preferredPath.length() - 4);
 		}
 		else {
 			errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
@@ -3185,13 +3203,13 @@ int loadParams_theRestOld(strParams* params)
 			}
 			//params->corridorPath = params->corridorPath.substr(0, params->corridorPath.length() - 4);
 		}
-		else {
+		else { 
 			errlog("ERROR! The corridor path must be given as a geojson (.geojson). I quit.\n");
 			exit(0);
 		}
 	}
-	if (!data["preferedPath_followExactOK"].is_null())
-		params->preferedPath_followExactOK = data["preferedPath_followExactOK"];
+	//if (!data["preferredPath_followExactOK"].is_null())
+	//	params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
 	if (!data["editCorridor"].is_null())
 		params->runAlt = data["editCorridor"];
 	if (!data["startDelay_h"].is_null()) {
@@ -3206,7 +3224,7 @@ int loadParams_theRestOld(strParams* params)
 
 	if (!data["channelsName"].is_null()) {
 		params->channelsName = data["channelsName"];
-		size_t i = params->channelsName.rfind('.', params->preferedPath.length());
+		size_t i = params->channelsName.rfind('.', params->preferredPath.length());
 		// check that the extension is .geojson
 		if (i != std::string::npos) {
 			if (params->channelsName.substr(i + 1, i + 3) != "geojson") {
@@ -3250,12 +3268,14 @@ int loadParams_new(strParams* params)
 	params->mapPhysicalAFileName = std::string();
 	params->mapPhysicalBFileName = std::string();
 	//params->physicalMapRasterPos = 0;
-	params->mapFuelGeographyFileName = std::string();
+	//params->mapFuelGeographyFileName = std::string();
+	params->mapFuelGeographyAFileName = std::string();
+	params->mapFuelGeographyBFileName = std::string();
 
 	model.weather = NULL;
-	params->preferedPath = "";
+	params->preferredPath = "";
 	params->corridorPath = "";
-	params->preferedPath_followExactOK = 1;
+	params->preferredPath_followExactOK = 1;
 	params->channelsName = "";
 	params->readSolPathFile = "";
 	params->solutionFileName = "solution";
@@ -3305,6 +3325,7 @@ int loadParams_new(strParams* params)
 		errlog("%s does not exist. I quit\n", namn);
 		exitKontrollerat(__LINE__);
 	}
+	printf("opens %s\n", namn);
 	fil.open(namn);
 
 	json data, dataGeo, dataGeo2, dataFeature, dataProp, dataGeo3, dataCoord;
@@ -3326,6 +3347,8 @@ int loadParams_new(strParams* params)
 		params->startHour = data["startHour"];
 	if (!data["startMinute"].is_null())
 		params->startMinute = data["startMinute"];
+	if (!data["preferredPath_followExactOK"].is_null())
+		params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
 
 	if (!data["shipSpeed"].is_null())
 		params->shipSpeed_average = data["shipSpeed"];
@@ -3336,8 +3359,8 @@ int loadParams_new(strParams* params)
 	}
 	dataGeo = data["geoData"];
 	if (!dataGeo["features"].is_null()) {
-		model.preferedPath.minX = 180;
-		model.preferedPath.maxX = -180;
+		model.preferredPath.minX = 180;
+		model.preferredPath.maxX = -180;
 
 		dataGeo2 = dataGeo["features"];
 		i = 0;
@@ -3369,12 +3392,12 @@ int loadParams_new(strParams* params)
 				nPointsNu = (int)dataIt.size();
 				if (nAlloc == 0) {
 					nAlloc = nPointsNu;
-					model.preferedPath.point = (spherical::Point*)malloc(nAlloc * sizeof(spherical::Point));
+					model.preferredPath.point = (spherical::Point*)malloc(nAlloc * sizeof(spherical::Point));
 				}
 				else {
 					if (nPointsTot + nPointsNu >= nAlloc) {
 						nAlloc += nPointsNu;
-						model.preferedPath.point = (spherical::Point*)realloc(model.preferedPath.point,
+						model.preferredPath.point = (spherical::Point*)realloc(model.preferredPath.point,
 							nAlloc * sizeof(spherical::Point));
 					}
 				}
@@ -3398,17 +3421,17 @@ int loadParams_new(strParams* params)
 									last_x = xVal;
 							}else
 								last_x = xVal;
-							if (model.preferedPath.minX > last_x)
-								model.preferedPath.minX = last_x;
-							if (model.preferedPath.maxX < last_x)
-								model.preferedPath.maxX = last_x;
+							if (model.preferredPath.minX > last_x)
+								model.preferredPath.minX = last_x;
+							if (model.preferredPath.maxX < last_x)
+								model.preferredPath.maxX = last_x;
 						}
 						if (i2 == 1)
 							yVal = it3.value();
 						i2++;
 					}
 					if (abs(xVal - xValOld) > 0.00001 || abs(yVal - yValOld) > 0.00001) {
-						model.preferedPath.point[nPointsTot] = spherical::Point(yVal, xVal);
+						model.preferredPath.point[nPointsTot] = spherical::Point(yVal, xVal);
 						xValOld = xVal;
 						yValOld = yVal;
 						nPointsTot++;
@@ -3416,13 +3439,13 @@ int loadParams_new(strParams* params)
 				}
 			}
 			i++;
-			model.preferedPath.nPoints = nPointsTot;
+			model.preferredPath.nPoints = nPointsTot;
 		}
 	}
 
-	if (model.preferedPath.minX < -180) {
-		model.preferedPath.minX += 360;
-		model.preferedPath.maxX += 360;
+	if (model.preferredPath.minX < -180) {
+		model.preferredPath.minX += 360;
+		model.preferredPath.maxX += 360;
 	}
 
 	params->weightFuel.base = 1;
@@ -3508,16 +3531,17 @@ int loadParams_new(strParams* params)
 	return 0;
 }
 
-int loadPreferedPathGeojson()
+int loadpreferredPathGeojson()
 {
 	int i, vardeInt;
 
 	std::ifstream fil;
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.preferedPath.c_str());
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.preferredPath.c_str());
+	printf("opens %s\n", namn);
 	fil.open(namn);
-
+	
 	json data, dataGeo, dataCoord;
 	fil >> data;
 	
@@ -3538,8 +3562,8 @@ int loadPreferedPathGeojson()
 	double xVal, yVal, min_x = 180, max_x = -180, last_x = -999;
 	for (auto it = dataCoord.begin(); it != dataCoord.end(); ++it) {
 		dataIt = it.value();
-		model.preferedPath.nPoints = (int)dataIt.size();
-		model.preferedPath.point = (spherical::Point*)malloc(model.preferedPath.nPoints * sizeof(spherical::Point));
+		model.preferredPath.nPoints = (int)dataIt.size();
+		model.preferredPath.point = (spherical::Point*)malloc(model.preferredPath.nPoints * sizeof(spherical::Point));
 		for (auto it2 = dataIt.begin(); it2 != dataIt.end(); ++it2) {
 			dataIt2 = it2.value();
 			i2 = 0;
@@ -3555,7 +3579,7 @@ int loadPreferedPathGeojson()
 					yVal = it3.value();
 				i2++;
 			}
-			model.preferedPath.point[i] = spherical::Point(yVal, xVal);
+			model.preferredPath.point[i] = spherical::Point(yVal, xVal);
 			i++;
 		}
 	}
@@ -3566,7 +3590,7 @@ int loadPreferedPathGeojson()
 
 
 
-	errlog("preferedPath nPoints along arc %d\n", model.preferedPath.nPoints);
+	errlog("preferredPath nPoints along arc %d\n", model.preferredPath.nPoints);
 	return 0;
 }
 
@@ -3633,6 +3657,7 @@ int loadStormsData()
 
 	for (i = 0; i < model.nStorms; i++) {
 		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.storms[i].fileName);
+		printf("opens %s\n", namn2);
 		fil.open(namn2);
 		//fil.open(model.storms[i].fileName);
 		fil >> data;
@@ -3757,6 +3782,7 @@ int loadWeatherData()
 	std::ifstream fil;
 	for (int i0 = 0; i0 < model.nWeatherFiles; i0++) {
 		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.weather[i0].weatherFileTypeName);
+		printf("opens %s\n", namn2);
 		fil.open(namn2);
 		if (!fil.is_open()) {
 			errlog("ERROR! Could not open the file %s with information about weather.\n"
@@ -3897,13 +3923,13 @@ void calc_boundingBoxFromAllNodes() {
 	double x, y, x_last, lat, lon;
 	int i, i1;
 
-	model.boundingBox.xMin = model.preferedPath.minX;
+	model.boundingBox.xMin = model.preferredPath.minX;
 	model.boundingBox.yMin = 90;
-	model.boundingBox.xMax = model.preferedPath.maxX;
+	model.boundingBox.xMax = model.preferredPath.maxX;
 	model.boundingBox.yMax = -90;
 
-	for (int i = 0; i < model.preferedPath.nPoints; i++) {
-		y = model.preferedPath.point[i].latitude().degrees();
+	for (int i = 0; i < model.preferredPath.nPoints; i++) {
+		y = model.preferredPath.point[i].latitude().degrees();
 		if (y < model.boundingBox.yMin)
 			model.boundingBox.yMin = y;
 		if (y > model.boundingBox.yMax)
@@ -3918,9 +3944,9 @@ void calc_boundingBoxFromAllNodes() {
 			if (y > model.boundingBox.yMax)
 				model.boundingBox.yMax = y;
 			x = model.network.physicalLev[i].point[i1].longitude().degrees();
-			if (x < model.preferedPath.minX - 10)
+			if (x < model.preferredPath.minX - 10)
 				x += 360;
-			if (x > model.preferedPath.maxX + 10)
+			if (x > model.preferredPath.maxX + 10)
 				x -= 360;
 			if (x < model.boundingBox.xMin)
 				model.boundingBox.xMin = x;
@@ -3937,16 +3963,16 @@ void calc_boundingBoxFromAllNodes() {
 	*/
 }
 
-void calc_boundingBoxFromPreferedPath() {
+void calc_boundingBoxFrompreferredPath() {
 	double x, y, x_last;
 
-	model.boundingBox.xMin = model.preferedPath.minX;
+	model.boundingBox.xMin = model.preferredPath.minX;
 	model.boundingBox.yMin = 90;
-	model.boundingBox.xMax = model.preferedPath.maxX;
+	model.boundingBox.xMax = model.preferredPath.maxX;
 	model.boundingBox.yMax = -90;
 
-	for (int i = 0; i < model.preferedPath.nPoints; i++) {
-		y = model.preferedPath.point[i].latitude().degrees();
+	for (int i = 0; i < model.preferredPath.nPoints; i++) {
+		y = model.preferredPath.point[i].latitude().degrees();
 		if (y < model.boundingBox.yMin)
 			model.boundingBox.yMin = y;
 		if (y > model.boundingBox.yMax)
@@ -3966,20 +3992,26 @@ int openNeededRasterFiles()
 {
 	char* namn2;
 	namn2 = (char*)malloc(256 * sizeof(char));
-
+	Raster rasterPhysicalMapA, rasterPhysicalMapB, rasterFuelMapA, rasterFuelMapB;
 	calc_boundingBoxFromAllNodes();
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalAFileName.c_str());
-	model.rasterPhysicalMapA.open(namn2);
-	model.physicalMapA.valueCell = model.rasterPhysicalMapA.GetRasterBand_intArr(1, &(model.physicalMapA), model.boundingBox);
+	rasterPhysicalMapA.open(namn2);
+	model.physicalMapA.valueCell = rasterPhysicalMapA.GetRasterBand_intArr(1, &(model.physicalMapA), model.boundingBox);
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalBFileName.c_str());
-	model.rasterPhysicalMapB.open(namn2);
-	model.physicalMapB.valueCell = model.rasterPhysicalMapB.GetRasterBand_intArr(1, &(model.physicalMapB), model.boundingBox);
+	rasterPhysicalMapB.open(namn2);
+	model.physicalMapB.valueCell = rasterPhysicalMapB.GetRasterBand_intArr(1, &(model.physicalMapB), model.boundingBox);
 
-	model.fuelGeographyMapRaster = (Raster*)malloc(sizeof(Raster));
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyFileName.c_str());
-	model.fuelGeographyMapRaster[0].open(namn2);
+	//model.fuelGeographyMapRaster = (Raster*)malloc(sizeof(Raster));
+	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyAFileName.c_str());
+	rasterFuelMapA.open(namn2);
+	model.fuelMapA.valueCell = rasterFuelMapA.GetRasterBand_intArr(1, &(model.fuelMapA), model.boundingBox);
+	//model.fuelGeographyMapRaster[0].open(namn2);
+
+	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyBFileName.c_str());
+	rasterFuelMapB.open(namn2);
+	model.fuelMapB.valueCell = rasterFuelMapB.GetRasterBand_intArr(1, &(model.fuelMapB), model.boundingBox);
 
 	int i1, i2;
 	for (int i = 0; i < model.nWeatherFiles; i++) {
@@ -4034,15 +4066,16 @@ int openNeededRasterFiles_test()
 		//model.physicalMapRaster = testRaster; //  .open(model.params.mapPhysicalFileName.c_str());
 
 	char* namn2;
+	Raster rasterPhysicalMapA, rasterPhysicalMapB, rasterFuelMapA, rasterFuelMapB;
 	namn2 = (char*)malloc(256 * sizeof(char));
 	//sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalFileName.c_str());
 	//model.physicalMapRaster.open(namn2);
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalAFileName.c_str());
-	model.rasterPhysicalMapA.open(namn2);
+	rasterPhysicalMapA.open(namn2);
 	unsigned short* test;
 
-	// calc_boundingBoxFromPreferedPath();
+	// calc_boundingBoxFrompreferredPath();
 
 	/*
 	model.boundingBox.xMin = -15.44;
@@ -4061,15 +4094,24 @@ int openNeededRasterFiles_test()
 	model.boundingBox.yMax = 15.8983; // 69.27;// 
 	*/
 
-	model.physicalMapA.valueCell = model.rasterPhysicalMapA.GetRasterBand_intArr(1, &(model.physicalMapA), model.boundingBox);
+	model.physicalMapA.valueCell = rasterPhysicalMapA.GetRasterBand_intArr(1, &(model.physicalMapA), model.boundingBox);
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalBFileName.c_str());
-	model.rasterPhysicalMapB.open(namn2);
-	model.physicalMapB.valueCell = model.rasterPhysicalMapB.GetRasterBand_intArr(1, &(model.physicalMapB), model.boundingBox);
+	rasterPhysicalMapB.open(namn2);
+	model.physicalMapB.valueCell = rasterPhysicalMapB.GetRasterBand_intArr(1, &(model.physicalMapB), model.boundingBox);
 
-	model.fuelGeographyMapRaster = (Raster*)malloc(sizeof(Raster));
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyFileName.c_str());
-	model.fuelGeographyMapRaster[0].open(namn2);
+	//model.fuelGeographyMapRaster = (Raster*)malloc(sizeof(Raster));
+	//sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyFileName.c_str());
+	//model.fuelGeographyMapRaster[0].open(namn2);
+	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyAFileName.c_str());
+	rasterFuelMapA.open(namn2);
+	model.fuelMapA.valueCell = rasterFuelMapA.GetRasterBand_intArr(1, &(model.fuelMapA), model.boundingBox);
+
+	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyBFileName.c_str());
+	rasterFuelMapB.open(namn2);
+	model.fuelMapB.valueCell = rasterFuelMapB.GetRasterBand_intArr(1, &(model.fuelMapB), model.boundingBox);
+
+
 	/*
 	float **rasterData = model.physicalMapRaster.GetRasterBand(1);
 	int row, col;
@@ -4101,18 +4143,17 @@ int openNeededRasterFiles_test()
 	return 0;
 }
 
-double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2, float** rasterData)
+double detDistLatLon(double lat1, double lon1, double lat2, double lon2) {
+	spherical::Point p1(lat1, lon1), p2(lat2, lon2);
+	return p1.distanceTo(p2);
+}
+
+
+double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2)
 {
 	int arcOK = 1, mittPktPos1, mittPktPos2, level1, level2;
-	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
 	spherical::Point p1, p2;
-	double noDataVal = 0.0;
-
-	//float** rasterData = model.fuelGeographyMapRaster.GetRasterBand(1);
-	float dataNu;
-	double v1, v2, v3, v4, v5, rowSize, colSize, distance;
-	double kvot, kvot_r, kvot_c, kvotNu, rowNu, colNu, maxLat, minLon;
-	int row, col, riktning_r, riktning_c, nValVarde1 = 0, nValVarden = 0;
+	double distECA = 0.0, distOther = 0.0, distTot;
 
 	if (thisLevel >= 0) {
 		p1 = model.network.physicalLev[thisLevel].point[pos1];
@@ -4134,91 +4175,10 @@ double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2, flo
 		}
 	}
 
-	// distance = p1.distanceTo(p2) / 1000.0;
-
-	row1Dbl = (model.fuelGeographyMapRaster[0].Get_maxLatitude() - p1.latitude().degrees()) / model.fuelGeographyMapRaster[0].Get_sizeRow();
-	col1Dbl = (p1.longitude().degrees() - model.fuelGeographyMapRaster[0].Get_minLongitude()) / model.fuelGeographyMapRaster[0].Get_sizeCol();
-	if (col1Dbl < 0)
-		col1Dbl += model.fuelGeographyMapRaster[0].Get_nCols();
-	row2Dbl = (model.fuelGeographyMapRaster[0].Get_maxLatitude() - p2.latitude().degrees()) / model.fuelGeographyMapRaster[0].Get_sizeRow();
-	col2Dbl = (p2.longitude().degrees() - model.fuelGeographyMapRaster[0].Get_minLongitude()) / model.fuelGeographyMapRaster[0].Get_sizeCol();
-	if (col2Dbl < 0)
-		col2Dbl += model.fuelGeographyMapRaster[0].Get_nCols();
-
-	delta_row = row2Dbl - row1Dbl;
-	if (delta_row > model.fuelGeographyMapRaster[0].Get_nRows() / 2) {
-		delta_row = model.fuelGeographyMapRaster[0].Get_nRows() - delta_row;
-	}
-	else {
-		if (delta_row < -model.fuelGeographyMapRaster[0].Get_nRows() / 2) {
-			delta_row = -model.fuelGeographyMapRaster[0].Get_nRows() - delta_row;
-		}
-	}
-	delta_col = col2Dbl - col1Dbl;
-	if (delta_col > model.fuelGeographyMapRaster[0].Get_nCols() / 2) {
-		delta_col = model.fuelGeographyMapRaster[0].Get_nCols() - delta_col;
-	}
-	else {
-		if (delta_col < -model.fuelGeographyMapRaster[0].Get_nCols() / 2) {
-			delta_col = -model.fuelGeographyMapRaster[0].Get_nCols() - delta_col;
-		}
-	}
-
-	kvot = 0;
-	row = (int)row2Dbl;
-	col = (int)col2Dbl;
-	rowNu = row1Dbl;
-	colNu = col1Dbl;
-	row = (int)rowNu;
-	col = (int)colNu;
-	if (delta_row > 0)
-		riktning_r = 1;
-	else {
-		if (delta_row != 0)
-			riktning_r = -1;
-		else
-			riktning_r = 0;
-	}
-	if (delta_col > 0)
-		riktning_c = 1;
-	else {
-		if (delta_col != 0)
-			riktning_c = -1;
-		else
-			riktning_c = 0;
-	}
-	for (int i = 0; i < riktning_r * delta_row + riktning_c * delta_col + 3; i++) {
-		if (riktning_r != 0)
-			kvot_r = (row + riktning_r - rowNu) / delta_row;
-		else
-			kvot_r = 10000;
-		if (riktning_c != 0)
-			kvot_c = (col + riktning_c - colNu) / delta_col;
-		else
-			kvot_c = 10000;
-		kvotNu = min(kvot_r, kvot_c);
-		kvot += kvotNu;
-		if (kvot > 0.99)
-			break;
-		rowNu += kvotNu * delta_row;
-		if (rowNu < 0) rowNu += model.fuelGeographyMapRaster[0].Get_nRows();
-		if (rowNu >= model.fuelGeographyMapRaster[0].Get_nRows()) rowNu -= model.fuelGeographyMapRaster[0].Get_nRows();
-		colNu += kvotNu * delta_col;
-		if (colNu < 0) colNu += model.fuelGeographyMapRaster[0].Get_nCols();
-		if (colNu >= model.fuelGeographyMapRaster[0].Get_nCols()) colNu -= model.fuelGeographyMapRaster[0].Get_nCols();
-		row = (int)rowNu;
-		col = (int)colNu;
-		dataNu = rasterData[row][col];
-		if (abs(dataNu - noDataVal) > 0.001) {
-			nValVarde1++;
-		}
-		else
-			i = i;
-		nValVarden++;
-	}
-
-	if (nValVarden > 0)
-		return nValVarde1 / (double)nValVarden;
+	get_fuelUseKvotECA(p1.latitude().degrees(), p1.longitude().degrees(), p2.latitude().degrees(), p2.longitude().degrees(), 0, &distECA, &distOther);
+	distTot = distECA + distOther;
+	if (distTot > 0)
+		return distOther / distTot;
 	else
 		return 0.0;
 }
@@ -4380,18 +4340,40 @@ int check_isPhysicalArcOK_old(int startLevel, int slutLevel, spherical::Point p1
 }
 */
 
-int check_feasibleNodeRasterA(double lat1, double lon1) {
-	double row1Dbl, col1Dbl;
-	int row, col;
-	Raster::strPhysRaster physicalMap = model.physicalMapA;
+void getRowColDblFromPhysicalMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl) {
 	if (lon1 < physicalMap.minLongitude)
 		lon1 += 360;
 	else {
 		if (lon1 > physicalMap.maxLongitude)
 			lon1 -= 360;
 	}
-	row1Dbl = (physicalMap.maxLatitude - lat1) / physicalMap.size_row; // .raster.Get_sizeRow();
-	col1Dbl = (lon1 - physicalMap.minLongitude) / physicalMap.size_col; // .raster.Get_sizeCol();
+	*row1Dbl = (physicalMap.maxLatitude - lat1) / physicalMap.size_row; // .raster.Get_sizeRow();
+	*col1Dbl = (lon1 - physicalMap.minLongitude) / physicalMap.size_col; // .raster.Get_sizeCol();
+}
+
+void getLatLonFromPhysicalMap(Raster::strPhysRaster physicalMap, double* lat1, double* lon1, double row1Dbl, double col1Dbl) {
+
+	*lat1 = physicalMap.maxLatitude - row1Dbl * physicalMap.size_row;
+	*lon1 = col1Dbl * physicalMap.size_col + physicalMap.minLongitude;
+	if (*lon1 < physicalMap.minLongitude)
+		*lon1 += 360;
+	else {
+		if (*lon1 > physicalMap.maxLongitude)
+			*lon1 -= 360;
+	}
+	if (*lat1 < physicalMap.minLatitude)
+		*lat1 = physicalMap.minLatitude;
+	else {
+		if (*lat1 > physicalMap.maxLatitude)
+			*lat1 = physicalMap.maxLatitude;
+	}
+}
+
+int check_feasibleNodeRasterA(double lat1, double lon1) {
+	double row1Dbl, col1Dbl;
+	int row, col;
+	Raster::strPhysRaster physicalMap = model.physicalMapA;
+	getRowColDblFromPhysicalMap(physicalMap, lat1, lon1, &row1Dbl, &col1Dbl);
 	row = (int)row1Dbl;
 	col = (int)col1Dbl;
 	if (col >= physicalMap.nCols)
@@ -4416,23 +4398,8 @@ int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int
 	else
 		physicalMap = model.physicalMapA;
 
-	if (lon1 < physicalMap.minLongitude)
-		lon1 += 360;
-	else {
-		if (lon1 > physicalMap.maxLongitude)
-			lon1 -= 360;
-	}
-	if (lon2 < physicalMap.minLongitude)
-		lon2 += 360;
-	else{
-		if (lon2 > physicalMap.maxLongitude)
-			lon2 -= 360;
-	}
-
-	row1Dbl = (physicalMap.maxLatitude - lat1) / physicalMap.size_row; // .raster.Get_sizeRow();
-	col1Dbl = (lon1 - physicalMap.minLongitude) / physicalMap.size_col; // .raster.Get_sizeCol();
-	row2Dbl = (physicalMap.maxLatitude - lat2) / physicalMap.size_row; // .raster.Get_sizeRow();
-	col2Dbl = (lon2 - physicalMap.minLongitude) / physicalMap.size_col; // .raster.Get_sizeCol();
+	getRowColDblFromPhysicalMap(physicalMap, lat1, lon1, &row1Dbl, &col1Dbl);
+	getRowColDblFromPhysicalMap(physicalMap, lat2, lon2, &row2Dbl, &col2Dbl);
 
 	delta_row = row2Dbl - row1Dbl;
 	if (delta_row > physicalMap.nRows / 2) {
@@ -4456,6 +4423,7 @@ int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int
 	kvot = 0;
 	row = (int)row1Dbl;
 	colDbl = col1Dbl;
+	rowDbl = row1Dbl;
 	col = (int)colDbl;
 	//rowDbl_old = row1Dbl;
 	//colDbl_old = col1Dbl;
@@ -4473,13 +4441,16 @@ int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int
 		if (physicalMap.valueCell[row * physicalMap.nCols + colUse] == 0)
 			return 0; // arc is not okay
 
-		if(delta_col > 0)
+		if (delta_col > 0)
 			ac = (col + 1 - col1Dbl) / delta_col;
 		else {
 			if (delta_col == 0)
 				ac = 999999;
 			else {
-				ac = (col - 1 - col1Dbl) / delta_col;
+				if (colDbl > col + 0.001)
+					ac = (col - col1Dbl) / delta_col;
+				else
+					ac = (col - 1 - col1Dbl) / delta_col;
 			}
 		}
 		if (delta_row > 0)
@@ -4487,8 +4458,12 @@ int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int
 		else {
 			if (delta_row == 0)
 				ar = 999999;
-			else
-				ar = (row - row1Dbl) / delta_row;
+			else {
+				if (rowDbl > row + 0.001)
+					ar = (row - row1Dbl) / delta_row;
+				else
+					ar = (row - 1 - row1Dbl) / delta_row;
+			}
 		}
 		if (ac < ar)
 			a1 = ac;
@@ -4522,10 +4497,134 @@ int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int
 			rowDbl = rowDbl;
 
 		colForeg = colDbl;
+		a0 = a1;
 		//rowDbl_old = rowDbl;
 		//colDbl_old = colDbl;
 	}
 	return 1;
+}
+
+void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther) {
+	Raster::strPhysRaster fuelMap;
+	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
+	double kvot, a0, a1, ac, ar, colDbl, rowDbl;
+	double x1, y1, x2, y2, colForeg, dist;
+	int row, col, i, isOK, colUse;
+
+	if (mapAlt == 0)
+		fuelMap = model.fuelMapB;
+	else
+		fuelMap = model.fuelMapA;
+
+	getRowColDblFromPhysicalMap(fuelMap, lat1, lon1, &row1Dbl, &col1Dbl);
+	getRowColDblFromPhysicalMap(fuelMap, lat2, lon2, &row2Dbl, &col2Dbl);
+
+	delta_row = row2Dbl - row1Dbl;
+	if (delta_row > fuelMap.nRows / 2) {
+		delta_row = fuelMap.nRows - delta_row;
+	}
+	else {
+		if (delta_row < -fuelMap.nRows / 2) {
+			delta_row = -fuelMap.nRows - delta_row;
+		}
+	}
+	delta_col = col2Dbl - col1Dbl;
+	if (delta_col > fuelMap.nCols / 2) {
+		delta_col = delta_col - fuelMap.nCols;
+	}
+	else {
+		if (delta_col < -fuelMap.nCols / 2) {
+			delta_col = fuelMap.nCols + delta_col;
+		}
+	}
+
+	kvot = 0;
+	row = (int)row1Dbl;
+	colDbl = col1Dbl;
+	rowDbl = row1Dbl;
+	col = (int)colDbl;
+	//rowDbl_old = row1Dbl;
+	//colDbl_old = col1Dbl;
+
+	a0 = 0;
+	for (i = 0; i < 10000; i++) {
+		if (col >= fuelMap.nCols)
+			colUse = col - fuelMap.nCols;
+		else {
+			if (col < 0)
+				colUse = col + fuelMap.nCols;
+			else
+				colUse = col;
+		}
+
+		if(delta_col > 0)
+			ac = (col + 1 - col1Dbl) / delta_col;
+		else {
+			if (delta_col == 0)
+				ac = 999999;
+			else {
+				if(colDbl > col + 0.001)
+					ac = (col - col1Dbl) / delta_col;
+				else
+					ac = (col - 1 - col1Dbl) / delta_col;
+			}
+		}
+		if (delta_row > 0)
+			ar = (row + 1 - row1Dbl) / delta_row;
+		else {
+			if (delta_row == 0)
+				ar = 999999;
+			else {
+				if (rowDbl > row + 0.001)
+					ar = (row - row1Dbl) / delta_row;
+				else
+					ar = (row - 1 - row1Dbl) / delta_row;
+			}
+		}
+		if (ac < ar)
+			a1 = ac;
+		else
+			a1 = ar;
+		if (a1 > 1)
+			a1 = 1;
+
+		y1 = fuelMap.maxLatitude - (row1Dbl + a0 * delta_row) * fuelMap.size_row;
+		x1 = (col1Dbl + a0 * delta_col) * fuelMap.size_col + fuelMap.minLongitude;
+		y2 = fuelMap.maxLatitude - (row1Dbl + a1 * delta_row) * fuelMap.size_row;
+		x2 = (col1Dbl + a1 * delta_col) * fuelMap.size_col + fuelMap.minLongitude;
+		if (fuelMap.valueCell[row * fuelMap.nCols + colUse] == 2) {
+			get_fuelUseKvotECA(y1, x1, y2, x2, 1, distECA, distOther);
+		}
+		else {
+			dist = detDistLatLon(y1, x1, y2, x2);
+			if (fuelMap.valueCell[row * fuelMap.nCols + colUse] == 1) {
+				*distECA += dist;
+			}
+			else
+				*distOther += dist;
+		}
+
+
+		if (mapAlt == 1)
+			mapAlt = mapAlt;
+		if (a1 >= 0.9999)
+			break;
+
+		colDbl = col1Dbl + a1 * delta_col;
+		rowDbl = row1Dbl + a1 * delta_row;
+
+		col = (int)(colDbl + 0.0001 * delta_col);
+		if (colDbl < 0)
+			colDbl = colDbl;
+		row = (int)(rowDbl + 0.0001 * delta_row);
+		if (rowDbl < 0)
+			rowDbl = rowDbl;
+
+		colForeg = colDbl;
+		a0 = a1;
+		//rowDbl_old = rowDbl;
+		//colDbl_old = colDbl;
+	}
 }
 
 
@@ -4631,7 +4730,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 				continue; // cannot turn too much...
 			if (thisLevel == 33 && pointPos == 30 && i2 == 33)
 				i2 = i2;
-			if (pointPos != model.params.preferedPathOrtoPos[thisLevel] || i2 != model.params.preferedPathOrtoPos[nextLevel] || nextLevel != thisLevel + 1)
+			if (pointPos != model.params.preferredPathOrtoPos[thisLevel] || i2 != model.params.preferredPathOrtoPos[nextLevel] || nextLevel != thisLevel + 1)
 				arcOK = check_isPhysicalArcOK(thisLevel, nextLevel, model.network.physicalLev[thisLevel].point[pointPos],
 					model.network.physicalLev[nextLevel].point[i2], noDataVal);
 			else
@@ -4843,6 +4942,144 @@ int addArcsToNetwork()
 	return 0;
 }
 
+int movePointToFeasible(int level, int pos) {
+	int row, col, isFeasible = 0, i, nCellsOK, colUse;
+	double rowDbl, colDbl, col2Dbl, row2Dbl, row1Dbl, col1Dbl;
+	double delta_row, delta_col, kvot, a0, ac, ar, a1, dist, bastDist;
+	double bastCol, bastRow, lat, lon;
+
+	bastDist = 1e10;
+	getRowColDblFromPhysicalMap(model.physicalMapA, model.network.physicalLev[level].point[pos].latitude().degrees(),
+		model.network.physicalLev[level].point[pos].longitude().degrees(), &row1Dbl, &col1Dbl);
+
+	for (int i0 = 0; i0 < 2; i0++) {
+		if (i0 == 0) {
+			if (pos == 0)
+				continue;
+			getRowColDblFromPhysicalMap(model.physicalMapA, model.network.physicalLev[level].point[pos - 1].latitude().degrees(),
+				model.network.physicalLev[level].point[pos - 1].longitude().degrees(), &row2Dbl, &col2Dbl);
+		}else{
+			if (pos + 1 >= model.network.physicalLev[level].nPoints)
+				continue;
+			getRowColDblFromPhysicalMap(model.physicalMapA, model.network.physicalLev[level].point[pos + 1].latitude().degrees(),
+				model.network.physicalLev[level].point[pos + 1].longitude().degrees(), &row2Dbl, &col2Dbl);
+		}
+		delta_row = row2Dbl - row1Dbl;
+		if (delta_row > model.physicalMapA.nRows / 2) {
+			delta_row = model.physicalMapA.nRows - delta_row;
+		}
+		else {
+			if (delta_row < -model.physicalMapA.nRows / 2) {
+				delta_row = -model.physicalMapA.nRows - delta_row;
+			}
+		}
+		delta_col = col2Dbl - col1Dbl;
+		if (delta_col > model.physicalMapA.nCols / 2) {
+			delta_col = delta_col - model.physicalMapA.nCols;
+		}
+		else {
+			if (delta_col < -model.physicalMapA.nCols / 2) {
+				delta_col = model.physicalMapA.nCols + delta_col;
+			}
+		}
+
+		kvot = 0;
+		row = (int)row1Dbl;
+		colDbl = col1Dbl;
+		col = (int)colDbl;
+
+		a0 = 0;
+		nCellsOK = 0;
+		for (i = 0; i < 10000; i++) {
+			if (col >= model.physicalMapA.nCols)
+				colUse = col - model.physicalMapA.nCols;
+			else {
+				if (col < 0)
+					colUse = col + model.physicalMapA.nCols;
+				else
+					colUse = col;
+			}
+			if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 1)
+				nCellsOK++;
+			else
+				nCellsOK = 0;
+			if (nCellsOK >= 2)
+				break;
+
+			if (delta_col > 0)
+				ac = (col + 1 - col1Dbl) / delta_col;
+			else {
+				if (delta_col == 0)
+					ac = 999999;
+				else {
+					ac = (col - 1 - col1Dbl) / delta_col;
+				}
+			}
+			if (delta_row > 0)
+				ar = (row + 1 - row1Dbl) / delta_row;
+			else {
+				if (delta_row == 0)
+					ar = 999999;
+				else
+					ar = (row - row1Dbl) / delta_row;
+			}
+			if (ac < ar)
+				a1 = ac;
+			else
+				a1 = ar;
+			if (a1 > 1)
+				a1 = 1;
+
+			if (a1 >= 0.9999)
+				break;
+
+			colDbl = col1Dbl + a1 * delta_col;
+			rowDbl = row1Dbl + a1 * delta_row;
+
+			col = (int)(colDbl + 0.0001 * delta_col);
+			if (colDbl < 0)
+				colDbl = colDbl;
+			row = (int)(rowDbl + 0.0001 * delta_row);
+			if (rowDbl < 0)
+				rowDbl = rowDbl;
+		}
+		if (nCellsOK >= 2) {
+			dist = sqrt((colDbl - col1Dbl) * (colDbl - col1Dbl) + (rowDbl - row1Dbl) * (rowDbl - row1Dbl));
+			if(dist < bastDist) {
+				bastDist = dist;
+				bastCol = colDbl;
+				bastRow = rowDbl;
+			}
+		}
+	}
+	if (bastDist < 99999) {
+		getLatLonFromPhysicalMap(model.physicalMapA, &lat, &lon, bastRow, bastCol);
+		model.network.physicalLev[level].point[pos] = spherical::Point(lat, lon);
+
+		return 1;
+	}
+	else
+		return 0;
+}
+
+int makeSure_feasibleNodes(int level, int mittPos) {
+	int i, i1, isFeasible;
+
+	for (i = 0; i < model.network.physicalLev[level].nPoints; i++) {
+		if (i == 35)
+			i = i;
+		isFeasible = check_feasibleNodeRasterA(model.network.physicalLev[level].point[i].latitude().degrees(),
+			model.network.physicalLev[level].point[i].longitude().degrees());
+		if (isFeasible == 0 && model.params.preferredPathOrtoPos[level] != i) {
+			isFeasible = movePointToFeasible(level, i);
+			model.network.physicalLev[level].allowedPoint[i] = isFeasible;
+		}
+	}
+
+
+	return 0;
+}
+
 int createPhysicalNetwork(int sparaKorridorEnbart)
 {
 	int i, nInt, nPkterOrto;
@@ -4853,8 +5090,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	spherical::Point pointNu;
 
 	distTot = 0;
-	for (i = 1; i < model.preferedPath.nPoints; i++) {
-		dist = model.preferedPath.point[i - 1].distanceTo(model.preferedPath.point[i]) / 1000;
+	for (i = 1; i < model.preferredPath.nPoints; i++) {
+		dist = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000;
 		distTot += dist;
 	}
 	errlog("tot haversine dist of prefered path %lf\n", distTot);
@@ -4875,34 +5112,34 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 
 	intervallPoint = (spherical::Point*)malloc((nInt + 1) * sizeof(spherical::Point));
 	nIntervallPoints = 0;
-	intervallPoint[nIntervallPoints] = model.preferedPath.point[0];
+	intervallPoint[nIntervallPoints] = model.preferredPath.point[0];
 	nIntervallPoints++;
 
 	model.network.physicalLev = (strNodeSeq*)malloc((nInt + 1) * sizeof(strNodeSeq));
 	nAllocPoints = 100;
-	model.network.physicalLev[0].preferedPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
-	model.network.physicalLev[0].nPreferedPathPoints = 0;
+	model.network.physicalLev[0].preferredPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
+	model.network.physicalLev[0].npreferredPathPoints = 0;
 	// add nodes at even distances along given path
 	dist = 0;
 	posNu = 0;
-	for (i = 1; i < model.preferedPath.nPoints; i++) {
-		distNu = model.preferedPath.point[i - 1].distanceTo(model.preferedPath.point[i]) / 1000.0;
+	for (i = 1; i < model.preferredPath.nPoints; i++) {
+		distNu = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000.0;
 		distKvar = distNu;
 		while (dist + distKvar >= distInt) {
 			// add an intervall here
 			kvot = (distInt - dist + distNu - distKvar) / distNu;
-			auto pMid = model.preferedPath.point[i - 1].intermediatePointTo(
-				model.preferedPath.point[i], kvot); // 51.3721°N, 000.7073°E
+			auto pMid = model.preferredPath.point[i - 1].intermediatePointTo(
+				model.preferredPath.point[i], kvot); // 51.3721°N, 000.7073°E
 			intervallPoint[nIntervallPoints] = pMid;
-			model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint[posNu] = pMid;
+			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = pMid;
 			posNu++;
-			model.network.physicalLev[nIntervallPoints - 1].nPreferedPathPoints = posNu;
+			model.network.physicalLev[nIntervallPoints - 1].npreferredPathPoints = posNu;
 			if (posNu + 1 > model.network.nMaxNodesInPath)
 				model.network.nMaxNodesInPath = posNu + 1;
 			posNu = 0;
 			nIntervallPoints++;
 			nAllocPoints = 100;
-			model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
+			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
 			if (dist > distInt)
 				dist -= distInt;
 			else {
@@ -4913,20 +5150,20 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 		if (dist + distKvar > 0.1) {
 			if (posNu >= nAllocPoints - 1) {
 				nAllocPoints += 100;
-				model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint = (spherical::Point*)realloc(
-					model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint, nAllocPoints * sizeof(spherical::Point));
+				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)realloc(
+					model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint, nAllocPoints * sizeof(spherical::Point));
 			}
-			model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint[posNu] = model.preferedPath.point[i];
+			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = model.preferredPath.point[i];
 			posNu++;
 		}
 		dist += distKvar;
 	}
 	if (nIntervallPoints >= nInt + 1)
 		errlog("ERROR! Memory problem. Fix this on code row %d\n", __LINE__);
-	intervallPoint[nIntervallPoints] = model.preferedPath.point[model.preferedPath.nPoints - 1];
-	model.network.physicalLev[nIntervallPoints - 1].preferedPathPoint[posNu] = intervallPoint[nIntervallPoints];
+	intervallPoint[nIntervallPoints] = model.preferredPath.point[model.preferredPath.nPoints - 1];
+	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = intervallPoint[nIntervallPoints];
 	posNu++;
-	model.network.physicalLev[nIntervallPoints - 1].nPreferedPathPoints = posNu;
+	model.network.physicalLev[nIntervallPoints - 1].npreferredPathPoints = posNu;
 	if (posNu + 1 > model.network.nMaxNodesInPath)
 		model.network.nMaxNodesInPath = posNu + 1;
 	nIntervallPoints++;
@@ -4939,7 +5176,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	namn = (char*)malloc(256 * sizeof(char));
 	sprintf(namn, "%s/tmpCheck.txt", model.params.resultPath.c_str());
 	filtmp = fopen(namn, "w");
-	model.params.preferedPathOrtoPos = (int*)malloc(nIntervallPoints * sizeof(int));
+	model.params.preferredPathOrtoPos = (int*)malloc(nIntervallPoints * sizeof(int));
 
 	for (i = 0; i < nIntervallPoints; i++) {
 		if (i == nIntervallPoints - 2)
@@ -4951,10 +5188,10 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 			model.network.physicalLev[i].point[model.network.physicalLev[i].nPoints] = intervallPoint[i];
 			//updateCoordUsage(model.network.physicalLev[i].point[model.network.physicalLev[i].nPoints]);
 			(model.network.physicalLev[i].nPoints)++;
-			if (model.params.preferedPath_followExactOK == 1)
-				model.params.preferedPathOrtoPos[i] = 0;
+			if (model.params.preferredPath_followExactOK == 1)
+				model.params.preferredPathOrtoPos[i] = 0;
 			else
-				model.params.preferedPathOrtoPos[i] = -1;
+				model.params.preferredPathOrtoPos[i] = -1;
 			for (int i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 				model.network.physicalLev[i].allowedPoint[i1] = 1;
 			}
@@ -4987,10 +5224,10 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 				model.network.physicalLev[i].allowedPoint[i1] = 1;
 			}
 			model.network.physicalLev[i].nPoints = nPkterOrto;
-			if (model.params.preferedPath_followExactOK == 1)
-				model.params.preferedPathOrtoPos[i] = (int)(nPkterOrto / 2);
+			if (model.params.preferredPath_followExactOK == 1)
+				model.params.preferredPathOrtoPos[i] = (int)(nPkterOrto / 2);
 			else
-				model.params.preferedPathOrtoPos[i] = -1;
+				model.params.preferredPathOrtoPos[i] = -1;
 
 			if (model.corridorPath.nLines > 0) {
 				auto bearing2 = model.network.physicalLev[i].point[0].bearingTo(model.network.physicalLev[i].point[nPkterOrto - 1]);
@@ -5052,6 +5289,12 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	model.network.nPhysicalLevels = i;
 	fclose(filtmp);
 
+	openNeededRasterFiles();
+	for(i = 0; i < model.network.nPhysicalLevels; i++)
+		makeSure_feasibleNodes(i, (int)(nPkterOrto / 2));
+
+
+
 	if (sparaKorridorEnbart == 1) {
 		writeKorridorToGeojson((char*)"CorridorTmp");
 		return 0;
@@ -5061,8 +5304,6 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	//writeAllNodesToShape((char*)"networkNodes");
 	writeAllNodesToGeojson((char*)"networkNodes");
 
-	openNeededRasterFiles();
-	
 	addArcsToNetwork();
 
 	int saveArcs = 1;
@@ -5347,30 +5588,30 @@ spherical::Point getNextPointAlongChannel(int cNr, int* posNu, int endPos, doubl
 	return p1;
 }
 
-spherical::Point getNextPointAlongPreferedPathArc(spherical::Point pLast, int level, int* posNu, double distHittils, double totDist)
+spherical::Point getNextPointAlongpreferredPathArc(spherical::Point pLast, int level, int* posNu, double distHittils, double totDist)
 {
 	spherical::Point pNu = pLast;
 	int i;
 	double dist = 0, bearing, distNu, distTmp;
 
-	for (i = *posNu + 1; i < model.network.physicalLev[level].nPreferedPathPoints; i++) {
-		distTmp = pNu.distanceTo(model.network.physicalLev[level].preferedPathPoint[i]) / 1000.0;
+	for (i = *posNu + 1; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
+		distTmp = pNu.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
 		dist += distTmp;
 		if (dist >= totDist) {
 			if (dist > totDist + model.params.epsilon) {
-				bearing = pNu.bearingTo(model.network.physicalLev[level].preferedPathPoint[i]);
+				bearing = pNu.bearingTo(model.network.physicalLev[level].preferredPathPoint[i]);
 				distNu = (distTmp - (dist - totDist));
 				pNu = pNu.destinationPoint(distNu * 1000.0, bearing);
 				*posNu = i - 1;
 			}
 			else {
-				pNu = model.network.physicalLev[level].preferedPathPoint[i];
+				pNu = model.network.physicalLev[level].preferredPathPoint[i];
 				*posNu = i;
 			}
 			break;
 		}
 		else
-			pNu = model.network.physicalLev[level].preferedPathPoint[i];
+			pNu = model.network.physicalLev[level].preferredPathPoint[i];
 
 	}
 	return pNu;
@@ -5460,7 +5701,7 @@ int calcWeatherPosAlongChannel(int cNr)
 	return 0;
 }
 
-int calcWeatherPosAlongPreferedPathArc(spherical::Point p1, int level)
+int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level)
 {
 	int i, i1, nr, posLast;
 	strFunc fkn;
@@ -5472,16 +5713,16 @@ int calcWeatherPosAlongPreferedPathArc(spherical::Point p1, int level)
 	model.tmpTid3[0] = std::chrono::high_resolution_clock::now();
 	totDist = 0;
 	pMid = p1;
-	for (i = 0; i < model.network.physicalLev[level].nPreferedPathPoints; i++) {
-		totDist += pMid.distanceTo(model.network.physicalLev[level].preferedPathPoint[i]) / 1000.0;
-		if (i < model.network.physicalLev[level].nPreferedPathPoints - 1)
-			pMid = model.network.physicalLev[level].preferedPathPoint[i];
+	for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
+		totDist += pMid.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
+		if (i < model.network.physicalLev[level].npreferredPathPoints - 1)
+			pMid = model.network.physicalLev[level].preferredPathPoint[i];
 	}
 	dist = model.params.shipSpeed_average;
 	distHittils = 0;
 	pMid = p1;
 	posLast = 0;
-	bearing = pMid.bearingTo(model.network.physicalLev[level].preferedPathPoint[posLast]);
+	bearing = pMid.bearingTo(model.network.physicalLev[level].preferredPathPoint[posLast]);
 	posLast = -1;
 	for (i = 0;; i++) {
 		if (i >= 98)
@@ -5519,7 +5760,7 @@ int calcWeatherPosAlongPreferedPathArc(spherical::Point p1, int level)
 		if (distHittils + dist * 1.05 < totDist) {
 			model.weatherFunctions.checkPoint[i].distToNextPkt = dist;
 			distHittils += dist;
-			pMid = getNextPointAlongPreferedPathArc(pMid, level, &posLast, distHittils, dist);
+			pMid = getNextPointAlongpreferredPathArc(pMid, level, &posLast, distHittils, dist);
 
 		}
 		else {
@@ -5982,7 +6223,7 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 
 	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
 	if (thisLevel >= 0 && nextLevel >= 0) {
-		if (pos1 == model.params.preferedPathOrtoPos[thisLevel] && pos2 == model.params.preferedPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1)
+		if (pos1 == model.params.preferredPathOrtoPos[thisLevel] && pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1)
 			prefPath = 1;
 	}
 
@@ -5991,7 +6232,7 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 			if (thisLevel >= 0) {
 				if (nextLevel >= 0) {
 					if (prefPath == 1)
-						calcWeatherPosAlongPreferedPathArc(model.network.physicalLev[thisLevel].point[pos1], thisLevel);
+						calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[thisLevel].point[pos1], thisLevel);
 					else
 						calcWeatherPosAlongArc(model.network.physicalLev[thisLevel].point[pos1],
 							model.network.physicalLev[nextLevel].point[pos2]);
@@ -6130,7 +6371,7 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 	return nArcsNu;
 }
 
-int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos, float** fuelRaster)
+int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos)
 {
 	// i = thisLevel, i1 = pointPos, i+1 = nextLevel, i2 = outNodePos, i3 = tPos
 	int i4, tidInt, nArcsNu = 0, nodNr1, nodNr2, posNy, arcNr, prefPath = 0;
@@ -6138,12 +6379,12 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 	double fuelVLSFO, fuelLSMGO, fuelBase, safetyBase;
 	double worstStormValue, worstStabilityValue;
 
-	double fuelQualityKvot = get_fuelQualityKvot(thisLevel, pos1, nextLevel, pos2, fuelRaster);
+	double fuelQualityKvot = get_fuelQualityKvot(thisLevel, pos1, nextLevel, pos2); //, fuelRaster);
 
 	model.params.speedSettings_addOnlyCheapestArcs = 0;
 
 	if (thisLevel >= 0 && nextLevel >= 0) {
-		if (pos1 == model.params.preferedPathOrtoPos[thisLevel] && pos2 == model.params.preferedPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1)
+		if (pos1 == model.params.preferredPathOrtoPos[thisLevel] && pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1)
 			prefPath = 1;
 	}
 
@@ -6151,7 +6392,7 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 	if (thisLevel >= 0) {
 		if (nextLevel >= 0) {
 			if (prefPath == 1)
-				calcWeatherPosAlongPreferedPathArc(model.network.physicalLev[thisLevel].point[pos1], thisLevel);
+				calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[thisLevel].point[pos1], thisLevel);
 			else
 				calcWeatherPosAlongArc(model.network.physicalLev[thisLevel].point[pos1],
 					model.network.physicalLev[nextLevel].point[pos2]);
@@ -6253,7 +6494,7 @@ int createTimeArcs()
 	int endPos, cNr;
 	double fuel, safety, tid, totCost, distance, fuelQualityKvot;
 
-	model.rasterData.fuelGeography = model.fuelGeographyMapRaster[0].GetRasterBand(1);
+	// model.rasterData.fuelGeography = model.fuelGeographyMapRaster[0].GetRasterBand(1);
 	//float** fuelRaster = model.fuelGeographyMapRaster[0].GetRasterBand(1);
 
 	errlog("OBS! Fixed variables, order and operations. Develop when I know more about the variables\n");
@@ -6333,12 +6574,12 @@ int createTimeArcs()
 	errlog("test14\n");
 	for(int ii = 0; ii < model.nWeatherFiles; ii++){
 		model.tmpTid[0] = std::chrono::high_resolution_clock::now();
-		printf("weather %d file %s nTimeInt %d dim %d %d tid %lf nTint %d\n", ii, model.weather[ii].fileName, model.weather[ii].nTimeIntervals,
-			model.weather[ii].raster.nRows,
-			model.weather[ii].raster.nCols,
-			model.durationMilli[ii], model.weather[ii].nTimeIntervals);
+		printf("weather %d file %s nTimeInt %d rasterInfo ", ii, model.weather[ii].fileName, model.weather[ii].nTimeIntervals);
 
 		model.weather[ii].valueCell = model.weather[ii].rasterPos.GetRasterBand_realArrAllBands(&(model.weather[ii].raster), model.boundingBox);
+		printf("used dim %d %d tid %lf nBands %d\n", model.weather[ii].raster.nRows,
+			model.weather[ii].raster.nCols, model.durationMilli[ii], model.weather[ii].rasterPos.Get_nBands());
+
 
 		for (int ii3 = 0; ii3 < model.weather[ii].nTimeIntervals; ii3++) {
 			if (ii == 3 && ii3 == 3)
@@ -6421,7 +6662,7 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 				if (nextLevel > i + 1)
 					i = i;
 				setupCheckPoints = 1;
-				fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2, model.rasterData.fuelGeography);
+				fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				for (i3 = 0; i3 < model.network.physicalLev[i].nTimeIntervals[i1]; i3++) {
 					if (i == 11 && i1 == 42 && nextLevel == 12 && model.network.physicalLev[i].outNode[i1][i2b] == 40 &&
 						model.network.physicalLev[i].timeInterval[i1][i3] == 64)
@@ -6435,7 +6676,7 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 				}
 				if (nextLevel < 0) { // add arcs for the channel path
 					setupCheckPoints = 1;
-					fuelQualityKvot = get_fuelQualityKvot(nextLevel, 0, nextLevel, 1, model.rasterData.fuelGeography);
+					fuelQualityKvot = get_fuelQualityKvot(nextLevel, 0, nextLevel, 1);
 					// endPos = model.network.channel[-nextLevel - 1].nOutNodes[0] - 1;
 					for (i3 = 0; i3 < model.network.channel[-nextLevel - 1].nTimeIntervals[0]; i3++) {
 						model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
@@ -6462,7 +6703,7 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 				if (nextLevel != i + 1)
 					continue;
 				setupCheckPoints = 1;
-				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[0][i2b], model.rasterData.fuelGeography);
+				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[0][i2b]);
 				for (i3 = 0; i3 < model.network.channel[cNr].nTimeIntervals[1]; i3++) {
 					nArcsNu += checkAddBagar_AB(-cNr - 1, 1, nextLevel,
 						model.network.channel[cNr].outNode[0][i2b], i3, &setupCheckPoints, max_t, &min_t_nu, &max_t_nu, fuelQualityKvot);
@@ -6712,7 +6953,7 @@ int voyageOpt_old(string inputPath)
 	}
 
 	if (model.params.runAlt == 1) {
-		loadPreferedPathGeojson();
+		loadpreferredPathGeojson();
 		createPhysicalNetwork(1);
 		exit(0);
 	}
@@ -6723,7 +6964,7 @@ int voyageOpt_old(string inputPath)
 		loadStormsData();
 
 		loadChannels();
-		loadPreferedPathGeojson();
+		loadpreferredPathGeojson();
 		if (model.params.corridorPath != "")
 			loadCorridorPath();
 		else
@@ -6745,8 +6986,8 @@ int voyageOpt_old(string inputPath)
 	}
 
 	if (model.nArcs == 0) {
-		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferedPath_followExactOK = 1. I quit.\n", model.nArcs);
-		printf("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferedPath_followExactOK = 1. I quit.\n", model.nArcs);
+		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
+		printf("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
 		exit(0);
 	}
 
@@ -6852,7 +7093,7 @@ int voyageOpt(string inputPath, string resultName)
 	}
 
 	if (model.params.runAlt == 1) {
-		//loadPreferedPathGeojson();
+		//loadpreferredPathGeojson();
 		createPhysicalNetwork(1);
 		exit(0);
 	}
@@ -6863,7 +7104,7 @@ int voyageOpt(string inputPath, string resultName)
 		loadStormsData();
 
 		loadChannels();
-		//loadPreferedPathGeojson();
+		//loadpreferredPathGeojson();
 		if (model.params.corridorPath != "")
 			loadCorridorPath();
 		else
@@ -6885,8 +7126,8 @@ int voyageOpt(string inputPath, string resultName)
 	}
 
 	if (model.nArcs == 0) {
-		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferedPath_followExactOK = 1. I quit.\n", model.nArcs);
-		printf("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferedPath_followExactOK = 1. I quit.\n", model.nArcs);
+		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
+		printf("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
 		exit(0);
 	}
 
@@ -6963,15 +7204,15 @@ int generate_solutionPathTest() {
 	int i;
 	double yNext, yNu, yUse, xNext, xNu, xUse;
 
-	model.solutionPath.point = (spherical::Point*)malloc(model.preferedPath.nPoints * sizeof(spherical::Point));
+	model.solutionPath.point = (spherical::Point*)malloc(model.preferredPath.nPoints * sizeof(spherical::Point));
 
-	for (i = 0; i < model.preferedPath.nPoints; i++) {
-		if (i == 0 || i == model.preferedPath.nPoints - 1)
-			model.solutionPath.point[i] = spherical::Point(model.preferedPath.point[i].latitude().degrees(),
-				model.preferedPath.point[i].longitude().degrees());
+	for (i = 0; i < model.preferredPath.nPoints; i++) {
+		if (i == 0 || i == model.preferredPath.nPoints - 1)
+			model.solutionPath.point[i] = spherical::Point(model.preferredPath.point[i].latitude().degrees(),
+				model.preferredPath.point[i].longitude().degrees());
 		else {
-			yNext = model.preferedPath.point[i + 1].latitude().degrees();
-			yNu = model.preferedPath.point[i].latitude().degrees();
+			yNext = model.preferredPath.point[i + 1].latitude().degrees();
+			yNu = model.preferredPath.point[i].latitude().degrees();
 			if (abs(yNext - yNu) < 0.5)
 				yUse = yNu / 2 + yNext / 2;
 			else {
@@ -6980,8 +7221,8 @@ int generate_solutionPathTest() {
 				else
 					yUse = yNu - 0.25;
 			}
-			xNext = model.preferedPath.point[i + 1].longitude().degrees();
-			xNu = model.preferedPath.point[i].longitude().degrees();
+			xNext = model.preferredPath.point[i + 1].longitude().degrees();
+			xNu = model.preferredPath.point[i].longitude().degrees();
 			if (abs(xNext - xNu) < 0.5)
 				xUse = xNu / 2 + xNext / 2;
 			else {
@@ -6993,7 +7234,7 @@ int generate_solutionPathTest() {
 			model.solutionPath.point[i] = spherical::Point(yUse, xUse);
 		}
 	}
-	model.solutionPath.nPoints = model.preferedPath.nPoints;
+	model.solutionPath.nPoints = model.preferredPath.nPoints;
 
 	return 0;
 }
@@ -7042,16 +7283,16 @@ int check_isChannelNodePosAllowed(int nr, int pos) {
 	distLimit = model.params.shipSpeed_average / model.params.ortoDist_nPointsPerHour * (model.params.nPkterOrto - 1) / 2;
 	minDist = distLimit;
 	pC = model.network.channel[nr].point[pos];
-	for (i = 1; i < model.preferedPath.nPoints; i++) {
+	for (i = 1; i < model.preferredPath.nPoints; i++) {
 		if (i == 1) {
-			p1 = model.preferedPath.point[i - 1];
+			p1 = model.preferredPath.point[i - 1];
 			dist1 = p1.distanceTo(pC) / 1000.0;
 		}
 		else {
 			p1 = p2;
 			dist1 = dist2;
 		}
-		p2 = model.preferedPath.point[i];
+		p2 = model.preferredPath.point[i];
 		pMid = p1.midpointTo(p2);
 
 		dist2 = p2.distanceTo(pC) / 1000.0;

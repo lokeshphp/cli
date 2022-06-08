@@ -5,11 +5,11 @@
     {
       "type": "default",
       "authenticationType": "none",
-      "name": "weatherTest with args",
+      "name": "voyageOpt with args",
       "project": "CMakeLists.txt",
-      "projectTarget": "weatherTest.exe",
+      "projectTarget": "voyageOpt.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": [ "--input=data/308b7eae-6b7b-4a69-aa2c-d01798c23dde_2.json --output=data/308b7eae-6b7b-4a69-aa2c-d01798c23dde_4_res.json" ],
+      "args": ["--input=data/input_no.json --output=data/res_no.json"],
       "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
     }
   ]

@@ -64,6 +64,8 @@ public:
 		double minLatitude;// yMinUse;
 		double maxLongitude; // xMaxUse;
 		double maxLatitude;// yMaxUse;
+		int nTimeIntervals;
+		long long* secondsUTC;
 		//double xMaxUse;
 		//double yMaxUse;
 	};
@@ -495,6 +497,9 @@ public:
 		unsigned short* valueCell;
 		GDALRasterBand* poBand = rasterDataset->GetRasterBand(z);
 
+		//char** test2 = rasterDataset->GetMetadata("AREA_OR_PONT");
+		//char** test3 = rasterDataset->GetMetadata();
+
 		poBand->GetBlockSize(&pnXSize, &pnYSize);
 		//printf("Block=%dx%d Type=%s, ColorInterp=%s\n",
 		//	pnXSize, pnYSize,
@@ -900,6 +905,28 @@ public:
 
 		return valueCell;
 	}
+
+	long long getSecondsFromUTC(const char* time) {
+		int i;
+		long long varde = 0, faktor = 10;
+		if (time == NULL)
+			return -1;
+
+		for (i = 0; i < 256; i++) {
+			if(time[i]=='\0')
+				break;
+			if (time[i] == ' ') {
+				if (varde > 0)
+					break;
+				else
+					continue;
+			}
+			varde = faktor * varde + (long long)(time[i] - '0');
+		}
+
+		return varde;
+	}
+
 	
 	float** GetRasterBand_realArrAllBands(strWeatherRaster* rasterData, strBoundBox boundingBox) {
 
@@ -910,19 +937,42 @@ public:
 		long long nXBlocks;
 		long long nYBlocks;
 		int n_yBlocks, n_xBlocks;
-		int nbytes;
+		int nbytes, nBands;
 		double* pabyData;
 		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y, first_y;
+		long long nSecondsUTC;
 		GDALRasterBand* poBand;
 		GDALDataType bandType;
 
-		for (z = 1; z <= rasterDataset->GetRasterCount(); z++) {
+		nBands = rasterDataset->GetRasterCount();
+		for (z = 1; z <= nBands; z++) {
+			poBand = rasterDataset->GetRasterBand(z);
+			poBand->GetBlockSize(&pnXSize, &pnYSize);
+			//printf("GRIB_FORECAST_SECONDS %s\n", poBand->GetMetadataItem("GRIB_FORECAST_SECONDS"));
+			//const char* refTime = poBand->GetMetadataItem("GRIB_REF_TIME");
+			//nSecondsUTC = getSecondsFromUTC(refTime);
+			//tm* localTime = localtime(&nSecondsUTC);
+			//printf("local DateTime: %d/%d/%d_%d:%d:%d\n", 1900 + localTime->tm_year,
+			//	1 + localTime->tm_mon, localTime->tm_mday, localTime->tm_hour,
+			//	localTime->tm_min, localTime->tm_sec);
+			//tm* gmTime = gmtime(&nSecondsUTC);
+			//printf("UTC DateTime: %d/%d/%d_%d:%d:%d ascii %s\n", 1900 + gmTime->tm_year,
+			//	1 + gmTime->tm_mon, gmTime->tm_mday, gmTime->tm_hour,
+			//	gmTime->tm_min, gmTime->tm_sec, asctime(gmTime));
+			//printf("GRIB_REF_TIME %s\n", refTime);
+			nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
+			//const char* validTime = poBand->GetMetadataItem("GRIB_VALID_TIME");
+			//nSecondsUTC = getSecondsFromUTC(validTime);
+			//tm* gmTime = gmtime(&nSecondsUTC);
+			//printf("UTC valid DateTime: %d/%d/%d_%d:%d:%d ascii %s\n", 1900 + gmTime->tm_year,
+			//	1 + gmTime->tm_mon, gmTime->tm_mday, gmTime->tm_hour,
+			//	gmTime->tm_min, gmTime->tm_sec, asctime(gmTime));
+			//printf("GRIB_VALID_TIME %s\n", poBand->GetMetadataItem("GRIB_VALID_TIME"));
+			//printf("REF_TIME %s\n", poBand->GetMetadataItem("REF_TIME"));
+			//printf("GRIB_IDS %s\n", poBand->GetMetadataItem("GRIB_IDS"));
+			nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
+			nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 			if (z == 1) {
-				poBand = rasterDataset->GetRasterBand(z);
-				poBand->GetBlockSize(&pnXSize, &pnYSize);
-
-				nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
-				nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 
 				printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
 					GDALGetDataTypeName(poBand->GetRasterDataType()));
@@ -956,6 +1006,8 @@ public:
 				rasterData->minLatitude = max_lat - (double)(yMax + 1) * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
 				rasterData->maxLongitude = min_lon + (double)(xMax + 1) * pnXSize * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
 				rasterData->maxLatitude = max_lat - (double)yMin * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
+				rasterData->nTimeIntervals = nBands;
+				rasterData->secondsUTC = (long long*)malloc(nBands * sizeof(long long));
 
 				bandType = GDALGetRasterDataType(
 					rasterDataset->GetRasterBand(z));
@@ -966,7 +1018,7 @@ public:
 				rasterData->nRows = (yMax - yMin + 1) * pnYSize;
 				rasterData->size_col = size_col;
 				rasterData->size_row = size_row;
-				valueCell = (float**)malloc(rasterDataset->GetRasterCount() * sizeof(float*));
+				valueCell = (float**)malloc(nBands * sizeof(float*));
 				bas_pnXSize = pnXSize;
 				bas_pnYSize = pnYSize;
 				bas_nXBlocks = nXBlocks;
@@ -974,10 +1026,6 @@ public:
 				bas_nbytes = nbytes;
 			}
 			else {
-				poBand = rasterDataset->GetRasterBand(z);
-				poBand->GetBlockSize(&pnXSize, &pnYSize);
-				nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
-				nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 				bandType = GDALGetRasterDataType(
 					rasterDataset->GetRasterBand(z));
 				nbytes = GDALGetDataTypeSize(bandType); // pfg ty nasta rad fungerade ej
@@ -1002,6 +1050,7 @@ public:
 					return NULL;
 				}
 			}
+			rasterData->secondsUTC[z-1] = nSecondsUTC;
 			valueCell[z-1] = (float*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(float));
 			for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 			{
