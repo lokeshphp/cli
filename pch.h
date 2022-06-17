@@ -14,7 +14,6 @@
 #include "sp.h"
 #include <chrono>
 
-
 using namespace erkir;
 
 
@@ -137,37 +136,6 @@ struct strVariables
 	int weatherNr;
 	int elementPos;
 	char *nameID;
-};
-
-struct strFileWeather
-{
-	char *fileName;
-	double minX;
-	double minY;
-	double maxX;
-	double maxY;
-};
-
-struct strWeather
-{
-	char *weatherFileTypeName;
-	int nElement;
-	int nTimeIntervals;
-	int useStandardWeather;
-	int timeIntervall_h;
-	int *timeOrder;
-	//int nFiles;
-	Raster rasterPos;
-	float*** rasterBandData;
-	double** rasterBandDataNy2;
-	double minX;
-	double minY;
-	double maxX;
-	double maxY;
-
-	char* fileName;
-	float** valueCell;
-	Raster::strWeatherRaster raster;
 };
 
 struct strPath
@@ -369,8 +337,8 @@ struct strModel
 	strBoundBox boundingBox;
 	// strRasterData rasterData;
 	strParams params;
-	int nVariables;
-	strVariables *variable;
+	// int nVariables;
+	//strVariables *variable;
 	int nWeatherFiles;
 	strWeather *weather;
 	int nStorms;
@@ -436,6 +404,7 @@ char *str_alloc_cpy(const char *data);
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
 int SattUppDijkstraNatverk3(strModel *model);
+int ChangeArcCosts3(strModel* model);
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);
 double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost);
 int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos); // , float** fuelRaster);

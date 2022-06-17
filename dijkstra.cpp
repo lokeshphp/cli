@@ -300,6 +300,81 @@ int SattUppDijkstraNatverk3(strModel *model) {
 }
 
 
+int ChangeArcCosts3(strModel* model) {
+	double dist;
+	long long minArcLen = -1, maxArcLen = -1;
+	Arc2* arc;
+	long long length;
+	int i, i1, taMedBage;//, NodNr, Forsta = 0;
+	//	 Node *nod;
+	//	 Arc2 *lastArc;
+
+
+	arc = model->Dijkstra.nodes->first;
+	for (i = 0; i < model->nNoder; i++) {
+		for (i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
+			taMedBage = 1;
+			if (taMedBage == 1) {
+				length = (long long)(model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK);
+				if (length < 0)
+					errlog("ERROR: negativ kostnad for nod %d pos %d, flyttal %.4lf, heltal %I64d\n",
+						i, i1, model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK, length);
+				if (length == 0)
+					length = 1;
+				arc->len = length;
+				arc++;
+			}
+		}
+	}
+	if (arc > (model->Dijkstra.nodes + model->Dijkstra.nNoder)->first)
+		errlog("ERROR: fler bagkostnader andrade an vad det finns bagar... rad %d\n",
+			__LINE__);
+
+	model->Dijkstra.sp = new SP(model->Dijkstra.nNoder, model->Dijkstra.nodes,
+		model->Dijkstra.cLevels, model->Dijkstra.logDelta,
+		model->Dijkstra.doBFS);
+
+	ArcLen(model->Dijkstra.nNoder, model->Dijkstra.nodes,
+		&minArcLen, &maxArcLen, model->Dijkstra.sp);      // other useful stats
+
+	model->Dijkstra.minArcLen = minArcLen;
+	model->Dijkstra.maxArcLen = maxArcLen;
+
+	// sanity check
+	dist = (double)model->Dijkstra.maxArcLen * (double)(model->Dijkstra.nNoder - 1);
+	if (dist > VERY_FAR) {
+		fprintf(stderr, "Warning: distances may overflow\n");
+		fprintf(stderr, "         proceed at your own risk!\n");
+		fprintf(stderr, "         maxArcLen %I64d nNoder %d ger %.10e och veryFar ar %I64d\n",
+			model->Dijkstra.maxArcLen, model->Dijkstra.nNoder, dist,
+			VERY_FAR);
+	}
+
+	/*
+	FILE *FilPek;
+	FilPek = fopen("NatverkCheck.txt", "w");
+	for(nod = model->Dijkstra->nodes; nod < model->Dijkstra->nodes+model->Dijkstra->nNoder; nod++){
+	lastArc = (nod+1)->first - 1;
+	Forsta = 0;
+	NodNr = model->Dijkstra->sp->nodeId(nod)+model->Dijkstra->node_min-1;
+	for(arc = nod->first; arc <= lastArc; arc++){
+	if(Forsta == 0){
+	fprintf(FilPek, "nod %d (verkl %d, adr %ld), bagar:\n",
+	NodNr, model->Noder[NodNr]->NodID, (long)nod);
+	Forsta = 1;
+	}
+	NodNr = model->Dijkstra->sp->nodeId(arc->head)+model->Dijkstra->node_min-1;
+	fprintf(FilPek, "\tbagadr %ld baglangd %d till nod %d (verkl %d, adr %ld)\n",
+	(long) arc, (int)arc->len, NodNr, model->Noder[NodNr]->NodID, (long)(arc->head));
+	}
+	}
+	fclose(FilPek);
+	*/
+	return 0;
+}
+
+
+
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached) {
 	Node *source;
 	long long OptCost = 0;

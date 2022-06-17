@@ -10,12 +10,12 @@
 #include "stdlib.h"
 #include "gdal.h"
 
-
-
 int errlog(const char* format, ...);
 
 using namespace std;
 typedef std::string String;
+
+class Raster;
 
 struct strBoundBox {
 	double xMin;
@@ -24,6 +24,45 @@ struct strBoundBox {
 	double yMax;
 };
 
+struct strFileWeather
+{
+	char* fileName;
+	double minX;
+	double minY;
+	double maxX;
+	double maxY;
+};
+
+
+struct strWeather
+{
+	char* weatherFileTypeName;
+	//int nElement;
+	int nTimeIntervals;
+	long long* secondsUTC;
+	int useStandardWeather;
+	int timeIntervall_h;
+	int nFiles;
+	strFileWeather* filePos;
+
+	//int *timeOrder;
+	Raster* rasterPos;
+	//float*** rasterBandData;
+	//double** rasterBandDataNy2;
+
+	//char* fileName;
+	float** valueCell;
+	int nCols;
+	int nRows;
+	double size_row;
+	double size_col;
+	double minX;
+	double minY;
+	double maxX;
+	double maxY;
+
+	//Raster::strWeatherRaster raster;
+};
 
 class Raster { 
 
@@ -482,6 +521,8 @@ public:
 
 	int fix_minMaxFromFrac(double indexFrac, int minVal, int maxVal) {
 		int index = (int)indexFrac;
+		if (index < indexFrac - 0.99999)
+			index++;
 
 		if (index < minVal)
 			index = minVal;
@@ -927,7 +968,6 @@ public:
 		return varde;
 	}
 
-	
 	float** GetRasterBand_realArrAllBands(strWeatherRaster* rasterData, strBoundBox boundingBox) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse;
@@ -1050,8 +1090,8 @@ public:
 					return NULL;
 				}
 			}
-			rasterData->secondsUTC[z-1] = nSecondsUTC;
-			valueCell[z-1] = (float*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(float));
+			rasterData->secondsUTC[z - 1] = nSecondsUTC;
+			valueCell[z - 1] = (float*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(float));
 			for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 			{
 				yPosNu = (iYBlock - yMin) * pnYSize;
@@ -1076,9 +1116,9 @@ public:
 						first_y = 0;
 						for (iX = 0; iX < pnXSize; iX++) {
 							if (iY < nYValid && iX < nXValid)
-								valueCell[z-1][iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+								valueCell[z - 1][iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
 							else
-								valueCell[z-1][iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = 0;
+								valueCell[z - 1][iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = 0;
 							if (pabyData[iX + iY * pnXSize] < 9998)
 								iX = iX;
 						}
@@ -1088,6 +1128,198 @@ public:
 		}
 
 		return valueCell;
+	}
+
+	void GetRasterValues_realAllBands(strWeather* weatherData) {
+
+		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse;
+		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
+		int z, bas_pnXSize, bas_pnYSize, bas_nXBlocks, bas_nYBlocks, bas_nbytes;
+		long long nXBlocks;
+		long long nYBlocks;
+		int n_yBlocks, n_xBlocks, x0b;
+		int nbytes, nBands, xPosNu2, x2;
+		double* pabyData, useMinX, useMaxX;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y;
+		long long nSecondsUTC, y0, y1, x0, x1, startX0, startY0, basX, basY;
+		double min_lonUse, max_lonUse, basXdbl, basYdbl;
+		GDALRasterBand* poBand;
+		GDALDataType bandType;
+
+		if (max_lon < weatherData->minX) {
+			min_lonUse = min_lon + 360;
+			max_lonUse = max_lon + 360;
+		}
+		else {
+			min_lonUse = min_lon;
+			max_lonUse = max_lon;
+		}
+
+
+		nBands = rasterDataset->GetRasterCount();
+		for (z = 1; z <= nBands; z++) {
+			poBand = rasterDataset->GetRasterBand(z);
+			poBand->GetBlockSize(&pnXSize, &pnYSize);
+			nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
+			nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
+			nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
+			if (z == 1) {
+
+				printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
+					GDALGetDataTypeName(poBand->GetRasterDataType()));
+
+				n_xBlocks = (double)NCOLS / pnXSize;
+				if (n_xBlocks * pnXSize < NCOLS)
+					n_xBlocks++;
+
+				 
+				if (pnXSize == NCOLS) {
+					useMinX = min_lonUse;
+					useMaxX = max_lonUse;
+				}
+				else {
+					useMinX = weatherData->minX;
+					useMaxX = weatherData->maxX;
+				}
+
+				xPosFrac1 = (useMinX - min_lonUse) * NCOLS / pnXSize / (max_lon - min_lonUse);
+				xPosFrac2 = (useMaxX - min_lonUse) * NCOLS / pnXSize / (max_lonUse - min_lonUse);
+				yPosFrac1 = (max_lat - weatherData->maxY) * NROWS / pnYSize / (max_lat - min_lat);
+				yPosFrac2 = (max_lat - weatherData->minY) * NROWS / pnYSize / (max_lat - min_lat);
+
+
+				xMin = fix_minMaxFromFrac(xPosFrac1, 0, nXBlocks - 1);
+				xMax = fix_minMaxFromFrac(xPosFrac2, 0, nXBlocks - 1);
+				yMin = fix_minMaxFromFrac(yPosFrac1, 0, nYBlocks - 1);
+				yMax = fix_minMaxFromFrac(yPosFrac2, 0, nYBlocks - 1);
+
+				bandType = GDALGetRasterDataType(
+					rasterDataset->GetRasterBand(z));
+				nbytes = GDALGetDataTypeSize(bandType); // pfg ty nasta rad fungerade ej
+				pabyData = (double*)CPLMalloc(pnXSize * pnYSize * nbytes);
+
+				bas_pnXSize = pnXSize;
+				bas_pnYSize = pnYSize;
+				bas_nXBlocks = nXBlocks;
+				bas_nYBlocks = nYBlocks;
+				bas_nbytes = nbytes;
+			}
+			else {
+				bandType = GDALGetRasterDataType(
+					rasterDataset->GetRasterBand(z));
+				nbytes = GDALGetDataTypeSize(bandType); // pfg ty nasta rad fungerade ej
+				if (bas_pnXSize != pnXSize) {
+					errlog("ERROR! Different pnXSize of bands in weather raster, %d and %d\n", bas_pnXSize, pnXSize);
+				}
+				if (bas_pnYSize != pnYSize) {
+					errlog("ERROR! Different pnYSize of bands in weather raster, %d and %d\n", bas_pnYSize, pnYSize);
+				}
+				if (bas_nXBlocks != nXBlocks) {
+					errlog("ERROR! Different nXBlocks of bands in weather raster, %d and %d\n", bas_nXBlocks, nXBlocks);
+				}
+				if (bas_nYBlocks != nYBlocks) {
+					errlog("ERROR! Different nYBlocks of bands in weather raster, %d and %d\n", bas_nYBlocks, nYBlocks);
+				}
+				if (bas_nbytes != nbytes) {
+					errlog("ERROR! Different nbytes of bands in weather raster, %d and %d\n", bas_nbytes, nbytes);
+				}
+			}
+			weatherData->secondsUTC[z-1] = nSecondsUTC;
+
+			basXdbl = (min_lonUse - weatherData->minX) / weatherData->size_col;
+			basX = (long long)basXdbl;
+			if (basX - 0.99999 > basXdbl)
+				basX--;
+			if (basX < 0) {
+				startX0 = -basX;
+				basX = 0;
+			}
+			else {
+				startX0 = 0;
+			}
+			basYdbl = (weatherData->maxY - max_lat) / weatherData->size_row;
+			basY = (long long)basYdbl;
+			if (basY - 0.99999 > basYdbl)
+				basY--;
+			if (basY < 0) {
+				startY0 = -basY;
+				basY = 0;
+			}
+			else
+				startY0 = 0;
+
+			
+			for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
+			{
+				//yPosNu = (iYBlock - yMin) * pnYSize;
+				yPosNu = iYBlock * pnYSize;
+				if (yPosNu < startY0)
+					y0 = startY0 - yPosNu;
+				else
+					y0 = 0;
+				yPosNu += -startY0 + basY;
+				if (y0 + yPosNu + pnYSize > weatherData->nRows)
+					y1 = weatherData->nRows - yPosNu;
+				else
+					y1 = pnYSize;
+
+				for (iXBlock = xMin; iXBlock <= xMax; iXBlock++)
+				{
+					if (iXBlock < 0)
+						xUse = iXBlock + n_xBlocks;
+					else {
+						if (iXBlock >= n_xBlocks)
+							xUse = iXBlock - n_xBlocks;
+						else
+							xUse = iXBlock;
+					}
+					poBand->ReadBlock(xUse, iYBlock, pabyData);
+
+					//xPosNu = (iXBlock - xMin) * pnXSize;
+					xPosNu = iXBlock * pnXSize;
+
+					// Compute the portion of the block that is valid
+					// for partial edge blocks.
+					poBand->GetActualBlockSize(iXBlock, iYBlock, &nXValid, &nYValid);
+					if (startX0 > xPosNu)
+						x0 = startX0 - xPosNu;
+					else
+						x0 = 0;
+					xPosNu += -startX0 + basX;
+					x2 = 0;
+					x0b = 0;
+					if (xPosNu + pnXSize > weatherData->nCols) {
+						x1 = weatherData->nCols - xPosNu;
+						if (max_lon - min_lon > 280) {
+							if (useMinX > weatherData->minX) {
+								x0b = NCOLS - xPosNu;
+								x2 = NCOLS;
+								xPosNu2 = -x0b;
+							}
+						}
+					}
+					else {
+						x1 = pnXSize;
+						if (max_lon - min_lon > 280) {
+							xPosNu2 = x1 + xPosNu;
+							x2 = weatherData->nCols - xPosNu2;
+						}
+					}
+					for (iY = y0; iY < y1; iY++) {
+						for (iX = x0; iX < x1; iX++) {
+							if (iY < nYValid && iX < nXValid)
+								weatherData->valueCell[z-1][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+							else
+								weatherData->valueCell[z-1][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = 0;
+						}
+
+						for (iX = x0b; iX < x2; iX++) {
+							weatherData->valueCell[z - 1][iX + xPosNu2 + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+						}
+					}
+				}
+			}
+		}
 	}
 
 	int GetRasterBand_ny(int layerIndex, float* rowBuff) {
