@@ -83,8 +83,7 @@ struct strParams
 	char **ship_speedSettingID;
 	// int *ship_speedSettingNr;
 	int maxDiffTimeFastSlow; // max time difference between fastest and slowest route
-	int loadSavedDijkstraData; // if no changes has been made to data except obj weighting since last run
-
+	
 	int max_changeDirection;
 	double lengthIntervall; // length of a time intervall in hours
 	double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
@@ -249,21 +248,60 @@ struct strFunc
 	spherical::Point *point;
 	double *vesselBearing;
 
-	//double uVesselDirection;
-	//double vVesselDirection;
-	//int *lastFileNr;
-
 	int nFunctions;
 	double *funcVal;
 	double ***param;
 
-	//	double *row1Dbl;
-//	double *col1Dbl;
-//	double *row2Dbl;
-//	double *col2Dbl;
-//	double *delta_row;
-//	double *delta_col;
+};
 
+struct strCalmWaterFkn {
+	double c0;
+	double c1_rpm;
+	double c2_rpm;
+};
+
+struct strFuelConsumptionFkn {
+	double c0;
+	double c1_rpm;
+	double c2_rpm;
+	double c3_rpm;
+};
+
+struct strFunc2 {
+	//double* rpmSetting_gerSpeed;
+	//double* rpmSetting_gerFuelConsumption;
+
+	double iceCoverMaxFree;
+	double iceCoverCost_fix;
+
+
+	int nWindDir;
+	int nWaveDir;
+	int table_niWaveDir;
+	int table_niWave;
+	int table_niWavePeriod;
+	int table_niWindDir;
+	int table_niWindSpeed;
+	double* table_speedDiff;
+
+	double* rpm;
+	strCalmWaterFkn calmWaterSpeed;
+	strFuelConsumptionFkn fuelConsumption;
+
+	double rel_windSpeed_kvotIndex; // 2
+	double max_windSpeed;
+	int max_windSpeedSkalad; // omskalad med kvotIndex
+	int* rel_windSpeed_ger_index;
+
+	double rel_waveHeight_kvotIndex; // 2
+	double max_waveHeight;
+	int max_waveHeightSkalad; // omskalad med kvotIndex
+	int* rel_waveHeight_ger_index;
+
+	double rel_wavePeriod_kvotIndex; // 2
+	double max_wavePeriod;
+	int max_wavePeriodSkalad; // omskalad med kvotIndex
+	int* rel_wavePeriod_ger_index;
 
 };
 
@@ -360,6 +398,7 @@ struct strModel
 
 	//Raster* fuelGeographyMapRaster;
 	strFunc weatherFunctions;
+	strFunc2 functions;
 	int nNoder;
 	int nAllocNoder;
 	int nArcs;

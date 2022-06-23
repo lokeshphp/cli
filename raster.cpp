@@ -550,7 +550,7 @@ public:
 
 		long long nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
 		long long nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
-		int n_yBlocks, n_xBlocks;
+		int n_xBlocks;
 
 		printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
 			GDALGetDataTypeName(poBand->GetRasterDataType()));
@@ -558,7 +558,7 @@ public:
 		//boundingBox.yMin = -39.0553;
 		//boundingBox.yMax = -38.553;
 
-		n_xBlocks = (double)NCOLS / pnXSize;
+		n_xBlocks = (int)((double)NCOLS / pnXSize);
 		if (n_xBlocks * pnXSize < NCOLS)
 			n_xBlocks++;
 
@@ -604,10 +604,9 @@ public:
 		rasterData->size_row = size_row;
 		valueCell = (unsigned short*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(unsigned short));
 
-		FILE* filpek;
 		//filpek = fopen("testRasterData.txt", "w");
 
-		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y, first_y;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, first_y;
 		for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 		{
 			yPosNu = (iYBlock - yMin) * pnYSize;
@@ -761,7 +760,7 @@ public:
 
 		long long nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
 		long long nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
-		int n_yBlocks, n_xBlocks;
+		int n_xBlocks;
 
 		//boundingBox.yMin = -39.0553;
 		//boundingBox.yMax = -38.553;
@@ -817,10 +816,9 @@ public:
 		rasterData->size_row = size_row;
 		valueCell = (float*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(float));
 
-		FILE* filpek;
 		//filpek = fopen("testRasterData.txt", "w");
 
-		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y, first_y;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, first_y;
 		for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 		{
 			yPosNu = (iYBlock - yMin) * pnYSize;
@@ -976,10 +974,10 @@ public:
 		int z, bas_pnXSize, bas_pnYSize, bas_nXBlocks, bas_nYBlocks, bas_nbytes;
 		long long nXBlocks;
 		long long nYBlocks;
-		int n_yBlocks, n_xBlocks;
+		int n_xBlocks;
 		int nbytes, nBands;
 		double* pabyData;
-		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y, first_y;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, first_y;
 		long long nSecondsUTC;
 		GDALRasterBand* poBand;
 		GDALDataType bandType;
@@ -1137,10 +1135,10 @@ public:
 		int z, bas_pnXSize, bas_pnYSize, bas_nXBlocks, bas_nYBlocks, bas_nbytes;
 		long long nXBlocks;
 		long long nYBlocks;
-		int n_yBlocks, n_xBlocks, x0b;
+		int n_xBlocks, x0b;
 		int nbytes, nBands, xPosNu2, x2;
 		double* pabyData, useMinX, useMaxX;
-		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, pos, pos2, pos_x, pos_y;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock;
 		long long nSecondsUTC, y0, y1, x0, x1, startX0, startY0, basX, basY;
 		double min_lonUse, max_lonUse, basXdbl, basYdbl;
 		GDALRasterBand* poBand;

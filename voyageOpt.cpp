@@ -24,7 +24,7 @@ extern long long MAXVARDE_NATVERK;
 
 
 int freeMemory() {
-	int i, i1;
+	int i;
 
 	for (i = 0; i < model.nNoder; i++) {
 		free(model.Noder[i].UtNod);
@@ -152,7 +152,7 @@ int writePointsToGeojson(char* pszFilename, spherical::Point* point, int nPkter)
 
 int writeAllNodesToGeojson(char* pszFilename)
 {
-	int forsta = 1, arcPos, nod2, nextLevel;
+	int forsta = 1;
 	FILE* filpekG;
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
@@ -248,7 +248,7 @@ int writeAllNodesToGeojson(char* pszFilename)
 
 int writeAllArcsToGeojson(char* pszFilename)
 {
-	int forsta = 1, arcPos, nod2, nextLevel;
+	int forsta = 1, nod2, nextLevel;
 	double distance;
 	FILE* filpekG;
 	char* namn;
@@ -694,12 +694,12 @@ int initGeoJsonFil(FILE* filpek, const char* namn) {
 
 int writeSolutionPathToGeoJson(char* filename, int resAlt)
 {
-	int nAllocPkter, i, iPos, levTo, nPkter, cNr, nArcs, ii3;
-	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
-	double* x, * y, * z, lat, lon;
+	int i, iPos, nPkter, nArcs, ii3;
+	int arcNr, lev1, lev2, pointNr1, pointNr2, * nSpeedSettingUsed, nSpeedChanges = 0;
+	double* x, * y, * z;
 	struct tm tmBas;
 	FILE* filpekG;
-	time_t rawtime, timeNu;
+	time_t rawtime;
 
 	time(&rawtime);
 	tmBas = *localtime(&rawtime);
@@ -1224,12 +1224,12 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 
 int writeSolutionToJson(string filename, int resAlt)
 {
-	int nAllocPkter, i, iPos, levTo, nPkter, cNr, nArcs, ii3;
+	int nAllocPkter, i, iPos, nPkter, nArcs, ii3;
 	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
-	double* x, * y, lat, lon;
+	double* x, * y;
 	struct tm tmBas;
 	FILE* filpekG;
-	time_t rawtime, timeNu;
+	time_t rawtime;
 
 	time(&rawtime);
 	tmBas = *localtime(&rawtime);
@@ -1611,12 +1611,12 @@ int fixReadableDate(struct tm tmBas, char* namn) {
 
 int writeSolutionToJson_dummy(string resultName)
 {
-	int nAllocPkter, i, iPos, levTo, nPkter, cNr, nArcs, ii3;
-	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
-	double* x, * y, * z, lat, lon;
+	int i;
+	int nSpeedChanges = 0;
+	double* y;
 	struct tm tmBas;
 	FILE* filpekG;
-	time_t rawtime, timeNu;
+	time_t rawtime;
 
 	time(&rawtime);
 	tmBas = *localtime(&rawtime);
@@ -1628,7 +1628,6 @@ int writeSolutionToJson_dummy(string resultName)
 	tmBas.tm_sec = 0;
 	//timeNu = mktime(&tmBas);
 
-	FILE* filPek3;
 	//string namn = resultPath;// +"/result.json";
 	filpekG = fopen(resultName.c_str(), "w");
 	if (filpekG == NULL)
@@ -2569,7 +2568,6 @@ int loadParams(strParams* params)
 	params->nHours_changeCourseInterval = 12;
 	params->ortoDist_nPointsPerHour = 2;
 	params->maxDiffTimeFastSlow = 48;
-	params->loadSavedDijkstraData = 0;
 	params->nPkterOrto = 11;
 	params->epsilon = 0.000001;
 	params->save_weatherNodes = 0;
@@ -2651,8 +2649,6 @@ int loadParams(strParams* params)
 	if (!data["readSolPathFile"].is_null()) {
 		params->readSolPathFile = data["readSolPathFile"];
 	}
-	if (!data["loadSavedDijkstraData"].is_null())
-		params->loadSavedDijkstraData = data["loadSavedDijkstraData"];
 	if (!data["epsilon"].is_null())
 		params->epsilon = data["epsilon"];
 	if (!data["save_weatherNodes"].is_null())
@@ -2814,7 +2810,6 @@ int loadParams(strParams* params)
 	params->weightFuel.lsmgo = 0;
 	params->weightFuel.vlsfo = 0;
 	params->weightTime = 0;
-	strSafety* weightSafety;
 	params->weightSafety.base = 0;
 	params->weightSafety.hurricane = 0;
 	params->weightSafety.stability = 0;
@@ -3014,8 +3009,6 @@ int loadParams_theRestOld(strParams* params)
 	if (!data["readSolPathFile"].is_null()) {
 		params->readSolPathFile = data["readSolPathFile"];
 	}
-	if (!data["loadSavedDijkstraData"].is_null())
-		params->loadSavedDijkstraData = data["loadSavedDijkstraData"];
 	if (!data["epsilon"].is_null())
 		params->epsilon = data["epsilon"];
 	if (!data["save_weatherNodes"].is_null())
@@ -3287,7 +3280,6 @@ int loadParams_new(strParams* params)
 	params->nHours_changeCourseInterval = 12;
 	params->ortoDist_nPointsPerHour = 2;
 	params->maxDiffTimeFastSlow = 48;
-	params->loadSavedDijkstraData = 0;
 	params->nPkterOrto = 11;
 	params->epsilon = 0.000001;
 	params->save_weatherNodes = 0;
@@ -3539,7 +3531,7 @@ int loadParams_new(strParams* params)
 
 int loadpreferredPathGeojson()
 {
-	int i, vardeInt;
+	int i;
 
 	std::ifstream fil;
 	char* namn;
@@ -3603,7 +3595,7 @@ int loadpreferredPathGeojson()
 int loadVariables()
 {
 	json data, dataVar, dataIt, dataIt2, dataFiles;
-	int i1, nAllocWeather, i0;
+	int i1, i0;
 	std::string typeName, namn;
 
 	std::ifstream fil(model.params.indataPath + "/" + model.params.variableFileName);
@@ -3860,7 +3852,7 @@ double calc_haversine_dist_latlon(double lat1, double lon1, double lat2, double 
 int test_OpenTheSameRasterMultipleTimesAndRead()
 {
 	Raster* map;
-	int nRows, nCols, i, i1, nCopies = 1000, i0;
+	int nRows, nCols, i, nCopies = 1000;
 	float*** raster;
 	FILE* filpek;
 
@@ -3894,7 +3886,7 @@ int test_OpenTheSameRasterMultipleTimesAndRead()
 
 
 void calc_boundingBoxFromAllNodes() {
-	double x, y, x_last, lat, lon;
+	double x, y;
 	int i, i1;
 
 	model.boundingBox.xMin = model.preferredPath.minX;
@@ -3940,7 +3932,7 @@ void calc_boundingBoxFromAllNodes() {
 }
 
 void calc_boundingBoxFrompreferredPath() {
-	double x, y, x_last;
+	double y;
 	// not used
 	model.boundingBox.xMin = model.preferredPath.minX;
 	model.boundingBox.yMin = 90;
@@ -4006,7 +3998,6 @@ int openNeededRasterFiles_test()
 
 	calc_boundingBoxFromAllNodes();
 
-	int i1, i2;
 	/*
 	for (int i = 0; i < model.nWeatherFiles; i++) {
 		model.weather[i].rasterPos.open(model.weather[i].fileName);
@@ -4050,7 +4041,6 @@ int openNeededRasterFiles_test()
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalAFileName.c_str());
 	rasterPhysicalMapA.open(namn2);
-	unsigned short* test;
 
 	// calc_boundingBoxFrompreferredPath();
 
@@ -4132,7 +4122,7 @@ double detDistLatLon(double lat1, double lon1, double lat2, double lon2) {
 
 double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2)
 {
-	int arcOK = 1, mittPktPos1, mittPktPos2, level1, level2;
+	int arcOK = 1;
 	spherical::Point p1, p2;
 	double distECA = 0.0, distOther = 0.0, distTot;
 
@@ -4514,7 +4504,7 @@ void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int 
 	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
 	double kvot, a0, a1, ac, ar, colDbl, rowDbl;
 	double x1, y1, x2, y2, colForeg, dist;
-	int row, col, i, isOK, colUse;
+	int row, col, i, colUse;
 
 	if (mapAlt == 0)
 		fuelMap = model.fuelMapB;
@@ -4636,14 +4626,11 @@ void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int 
 int check_isPhysicalArcOK(int startLevel, int slutLevel, spherical::Point p1, spherical::Point p2, double noDataVal)
 {
 	int arcOK = 1, mittPktPos1, mittPktPos2, level1, level2;
-	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
 
 
 	// model.rasterData.physicalMap = model.physicalMapRaster.GetRasterBand(1);
 	// float** rasterData = model.physicalMapRaster.GetRasterBand(1);
-	double v1, v2, v3, v4, v5, rowSize, colSize, distance;
-	double kvot, kvot_r, kvot_c, kvotNu, rowNu, colNu, maxLat, minLon;
-	int row, col, riktning_r, riktning_c;
+	double distance;
 
 	distance = p1.distanceTo(p2) / 1000.0;
 
@@ -4838,7 +4825,7 @@ int try_addPhysicalArcsFromChannel(int cNr, double noDataVal)
 int addArcsToNetwork()
 {
 	int i, i1, i2, cNr;
-	int arcOK, arcPos, checkNextLevel;
+	int checkNextLevel;
 
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		model.network.physicalLev[i].nOutNodes = (int*)malloc(
@@ -5072,7 +5059,7 @@ int movePointToFeasible(int level, int pos) {
 }
 
 int makeSure_feasibleNodes(int level, int mittPos) {
-	int i, i1, isFeasible;
+	int i, isFeasible;
 
 	for (i = 0; i < model.network.physicalLev[level].nPoints; i++) {
 		if (i == 35)
@@ -5119,7 +5106,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	model.params.basDistArcs = distInt;
 
 
-	int nIntervallPoints, nAllocLevels, nAllocPoints, posNu;
+	int nIntervallPoints, nAllocPoints, posNu;
 	spherical::Point* intervallPoint;
 	double distKvar, kvot;
 
@@ -5529,11 +5516,9 @@ int testCoordValue(int weatherNr, double lon, double lat) {
 
 int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2)
 {
-	int i, i1, nr;
-	strFunc fkn;
-	double totDist, dist, distHittils, bearing, rowDbl, colDbl, lon;
+	int i, i1;
+	double totDist, dist, distHittils, bearing, rowDbl, colDbl;
 	spherical::Point pMid, pTmp;
-	double distTmp, distTmp2;
 
 	totDist = p1.distanceTo(p2) / 1000;
 	dist = model.params.shipSpeed_average;
@@ -5663,11 +5648,9 @@ spherical::Point getNextPointAlongpreferredPathArc(spherical::Point pLast, int l
 
 int calcWeatherPosAlongChannel(int cNr)
 {
-	int i, i1, nr, posLast;
-	strFunc fkn;
-	double totDist, dist, distHittils, bearing, rowDbl, colDbl, lon;
+	int i, i1, posLast;
+	double totDist, dist, distHittils, bearing, rowDbl, colDbl;
 	spherical::Point pMid, pTmp;
-	double distTmp, distTmp2;
 	int pointPos1, pointPos2;
 
 	pointPos1 = 0;
@@ -5747,12 +5730,9 @@ int calcWeatherPosAlongChannel(int cNr)
 
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level)
 {
-	int i, i1, nr, posLast;
-	strFunc fkn;
-	double totDist, dist, distHittils, bearing, rowDbl, colDbl, lon;
+	int i, i1, posLast;
+	double totDist, dist, distHittils, bearing, rowDbl, colDbl;
 	spherical::Point pMid, pTmp;
-	double distTmp, distTmp2;
-	int pointPos1, pointPos2;
 
 	model.tmpTid3[0] = std::chrono::high_resolution_clock::now();
 	totDist = 0;
@@ -6013,7 +5993,7 @@ int getRadierToStorm(strStormQuadr* quadrant, double bearing, int nivaNoGo, int 
 
 double getStormValue(int t, spherical::Point point)
 {
-	int i, pos, riktning, kvadrant, i1, nivaNoGo, niva34;
+	int i, pos, riktning, i1, nivaNoGo, niva34;
 	double varde = 0, vardeNu, dist, bearingFromStorm, bearingStormMove;
 	double bearingDiff, wind, wind2, radieExtraNoGo, radieExtra34;
 
@@ -6101,13 +6081,13 @@ double getStormValue(int t, spherical::Point point)
 
 double calcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* fuel, double* safety, double* distance, double* worstStormValue, double* worstStabilityValue)
 {
-	double tidTot = t, distNu, tidTmp, costTmp, costTot = 0, safetyTot = 0;
-	double bearing, uWind, vWind, uCurrent, vCurrent, uVessel, vVessel; //  , uSpeed, vSpeed;
-	double factorWind, factorCurrent, dist = 0;
+	double tidTot = t, distNu, tidTmp, costTot = 0, safetyTot = 0;
+	double uWind, vWind, uCurrent, vCurrent, uVessel, vVessel; //  , uSpeed, vSpeed;
+	double dist = 0;
 	double tailWind, headWind, crossWind, windDirection, windSpeed;
 	double tailCurrent, headCurrent, crossCurrent, currentDirection, currentSpeed;
 	int i, i1;
-	double waveHeight, wavePeriod, stormVarde, stabilityVarde, windSpeed2;
+	double stormVarde, windSpeed2;
 
 	model.tmpTid4[0] = std::chrono::high_resolution_clock::now();
 	*worstStormValue = 0;
@@ -6213,7 +6193,7 @@ double calcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* 
 			////	model.weatherFunctions.param[i1][14] * speedNu * speedNu;
 			////model.weatherFunctions.funcVal[i1] += model.weatherFunctions.param[i1][15] * fuelNu +
 			////	model.weatherFunctions.param[i1][16] * fuelNu * fuelNu;
-			
+
 			// not using waveHeight and wavePeriod for now...
 			//model.weatherFunctions.funcVal[i1] += model.weatherFunctions.param[speedSettingNr][i1][17] * waveHeight +
 			//	model.weatherFunctions.param[speedSettingNr][i1][18] * waveHeight * waveHeight;
@@ -6235,6 +6215,270 @@ double calcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* 
 	}
 	*distance = dist;
 	*fuel = costTot;
+	*safety = safetyTot;
+	//	errlog("speedSetting %d tidStart %d tidSlut %.2lf cost %.2lf safety %.2lf\n",
+	//		speedSettingNr, t, tidTot, costTot, safetyTot);
+
+
+	model.tmpTid4[1] = std::chrono::high_resolution_clock::now();
+	model.duration3 += model.tmpTid4[1] - model.tmpTid4[0];
+	return tidTot - t;
+}
+
+double eval_calmWaterSpeed(int speedNr) {
+	double varde;
+
+	varde = model.functions.calmWaterSpeed.c0
+		+ model.functions.calmWaterSpeed.c1_rpm * model.functions.rpm[speedNr]
+		+ model.functions.calmWaterSpeed.c2_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];
+	return varde;
+}
+
+double eval_fuelConsumption(int speedNr) {
+	double varde;
+
+	varde = model.functions.fuelConsumption.c0
+		+ model.functions.fuelConsumption.c1_rpm * model.functions.rpm[speedNr]
+		+ model.functions.fuelConsumption.c2_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr]
+		+ model.functions.fuelConsumption.c3_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];
+
+	return varde;
+	//return model.functions.rpmSetting_gerFuelConsumption[speedNr];
+}
+
+double eval_safety(double iceCover) {
+
+	if (iceCover > model.functions.iceCoverMaxFree)
+		return model.functions.iceCoverCost_fix;
+	else
+		return 0.0;
+}
+
+double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed) {
+	double rel_currentDir, speed, B, C, sinA;
+
+	// basic variant, not correct
+	// rel_currentDir = currentDir * 180.0 / M_PI - bearing;
+	// speed_y = calmWaterSpeed + currentSpeed * cos(rel_currentDir);
+	// speed_x = currentSpeed * sin(rel_currentDir);
+	// speed = sqrt(speed_y * speed_y - speed_x * speed_x);
+
+	rel_currentDir = abs(currentDir - bearing / 180.0 * M_PI);
+	if (rel_currentDir > M_PI)
+		rel_currentDir = 2 * M_PI - rel_currentDir;
+	sinA = sin(rel_currentDir);
+	if (sinA < 0.01)
+		speed = calmWaterSpeed + currentSpeed * cos(rel_currentDir);
+	else {
+		B = asin(currentSpeed * sinA / calmWaterSpeed);
+		C = M_PI - B - rel_currentDir;
+		speed = calmWaterSpeed * sin(C) / sinA;
+	}
+	return speed;
+}
+
+double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir) {
+	double rel_speed, x, y;
+
+	windDir = (windDir - (180 + bearing) / 180.0 * M_PI); // in radians relative to ship bearing
+	x = windSpeed * cos(windDir) - baseGroundSpeed;
+	y = sin(windSpeed);
+	*rel_windDir = atan2(y, x);
+	rel_speed = sqrt(x * x + y * y);
+	return rel_speed;
+}
+
+int get_relWindDirIndex(double rel_windDir) { // windDir: [-pi, +pi]
+
+	rel_windDir = M_PI - rel_windDir; // need it in opposite direction
+	if (rel_windDir < 0)
+		rel_windDir = -rel_windDir; // windDir [0, +pi]
+	int index = (int)rel_windDir * model.functions.nWindDir / M_PI;// 180.0;
+
+	if (index < 0)
+		index = 0;
+	else {
+		if (index >= model.functions.nWindDir)
+			index = model.functions.nWindDir - 1;
+	}
+	return index;
+}
+
+int get_relWaveDirIndex(double rel_waveDir) { // windDir: [-pi, +pi]
+
+	rel_waveDir = M_PI - rel_waveDir; // need it in opposite direction
+	if (rel_waveDir < -M_PI)
+		rel_waveDir += 2 * M_PI;
+	if (rel_waveDir > 2 * M_PI)
+		rel_waveDir -= 2 * M_PI;
+	if (rel_waveDir < 0)
+		rel_waveDir = -rel_waveDir; // windDir [0, +pi]
+	int index = (int)rel_waveDir * model.functions.nWaveDir / M_PI;// 180.0;
+
+	if (index < 0)
+		index = 0;
+	else {
+		if (index >= model.functions.nWaveDir)
+			index = model.functions.nWaveDir - 1;
+	}
+	return index;
+}
+
+int get_relWindSpeedIndex(double rel_windSpeed) { 
+
+	int tmp = (int)rel_windSpeed * model.functions.rel_windSpeed_kvotIndex;
+	if (tmp >= model.functions.max_windSpeedSkalad)
+		return model.functions.rel_windSpeed_ger_index[model.functions.max_windSpeedSkalad - 1];
+	else
+		return model.functions.rel_windSpeed_ger_index[tmp];
+}
+
+int get_relWaveHeightIndex(double waveHeight) {
+	int tmp = (int)waveHeight * model.functions.rel_waveHeight_kvotIndex;
+	if (tmp >= model.functions.max_waveHeightSkalad)
+		return model.functions.rel_waveHeight_ger_index[model.functions.max_waveHeightSkalad - 1];
+	else
+		return model.functions.rel_waveHeight_ger_index[tmp];
+}
+
+int get_relWavePeriodIndex(double wavePeriod) {
+	int tmp = (int)wavePeriod * model.functions.rel_wavePeriod_kvotIndex;
+	if (tmp >= model.functions.max_wavePeriodSkalad)
+		return model.functions.rel_wavePeriod_ger_index[model.functions.max_wavePeriodSkalad - 1];
+	else
+		return model.functions.rel_wavePeriod_ger_index[tmp];
+}
+
+double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir) {
+	int iWindDir = get_relWindDirIndex(rel_windDir);
+	int iWaveDir = get_relWaveDirIndex(rel_waveDir);
+	int iWindSpeed = get_relWindSpeedIndex(rel_windDir);
+	int iWaveHeight = get_relWaveHeightIndex(waveHeight); // / model.functions.waveHeightDiscr);
+	int iWavePeriod = get_relWavePeriodIndex(wavePeriod); // / model.functions.wavePeriodDiscr);
+	int iWave, pos;
+
+	pos = iWaveDir + model.functions.table_niWaveDir * (iWavePeriod + model.functions.table_niWavePeriod * (
+		iWave + model.functions.table_niWave * (
+		iWindDir + model.functions.table_niWindDir * iWindSpeed)));
+	return model.functions.table_speedDiff[pos]; // windSpeed, windDir, wave, wavePeriod, waveDir
+
+}
+
+double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* fuel, double* safety, double* distance, double* worstStormValue, double* worstStabilityValue)
+{
+	double tidTot = t, distNu, fuelTot = 0, safetyTot = 0;
+	double uWind, vWind, uCurrent, vCurrent, uVessel, vVessel; //  , uSpeed, vSpeed;
+	double dist = 0;
+	double windDirection, windSpeed;
+	double currentDirection, currentSpeed, rel_windSpeed;
+	int i;
+	double waveHeight, wavePeriod, stormVarde, windSpeed2, waveDirection;
+	double calmWaterSpeed, baseGroundSpeed, rel_windDir, rel_waveDir, speedDiffWindWave;
+	double speedOverGround, timeArc, fuelConsumption, fuelUsage, iceCover, safetyArc;
+
+	// a speed setting (rpm) gives a calm water speed (function)
+	// calm water speed and its heading plus current and its direction gives baseGroundSpeed and its heading
+	// baseGroundSpeed and its heading plus windspeed and its direction gives relative wind speed
+	// // (ground speed direction including current or is the current dealt with when choosing the heading) or too small to worry about?
+	// relative wind speed and its relative direction plus wave height, wave frequence and wave direction relative to ship heading => table value of real speed loss
+	// // right now we only have a table for one ship speed (13.4 knots), I assume it is calm water speed. We need tables for other ship speeds as well or can we scale the table depending on the give calm water speed?
+	// // should we interpolate between different Beaufort, different combination of (wave height and frequence), relative wind angle, relative wave angle (then it is a lot of places in the table to check…...)??
+	// // should we choose the table entry with the highest of frequence and wave height, or??????????
+	// baseGroundSpeed minus/plus real speed loss gives real ship speed over ground
+	// real ship speed over ground and length of arc gives time on arc
+	// rpm gives fuel consumption per time unit (function), possibly with some weather dependence as well, IVADO decides…
+	// time on arc plus fuel consumption per time unit gives total fuel consumption on an arc
+
+	// data problematic with discrete jumps
+	// // change in Beaufort value - interpolate
+	// // wave direction change from 45 to 56 degrees, same effect if 56 degrees (sideways from the front) or 180 degrees (back). Is that correct?
+
+	// // wave height change – interpolate
+	// // how does different load affect speed and fuel consumption?
+	// // we need one weather factor table for each ‘main’ type of ship
+	// // different calm water ship speeds => more tables?
+
+	// safety is only measured in ice coverage, over a threshold value it is expensive
+
+
+	model.tmpTid4[0] = std::chrono::high_resolution_clock::now();
+	*worstStormValue = 0;
+	*worstStabilityValue = 0;
+	for (i = 0; i < model.weatherFunctions.nCheckPoints; i++) {
+		distNu = model.weatherFunctions.checkPoint[i].distToNextPkt;
+		dist += distNu;
+
+		calmWaterSpeed = eval_calmWaterSpeed(speedSettingNr);
+
+		uVessel = sin(model.weatherFunctions.vesselBearing[i] * M_PI / 180);
+		vVessel = cos(model.weatherFunctions.vesselBearing[i] * M_PI / 180);
+
+		stormVarde = getStormValue(t, model.weatherFunctions.point[i]);
+		if (stormVarde > *worstStormValue)
+			*worstStormValue = stormVarde;
+
+		uCurrent = getVariableValue(2, i, tidTot);
+		vCurrent = getVariableValue(3, i, tidTot);
+		if (uCurrent < 1000 && vCurrent < 1000) {
+			currentDirection = atan2(vCurrent, uCurrent);
+			currentSpeed = sqrt(pow(uCurrent, 2) + pow(vCurrent, 2));
+		}
+		else {
+			currentDirection = 0;
+			currentSpeed = 0;
+		}
+
+		baseGroundSpeed = eval_baseGroundSpeed(calmWaterSpeed, model.weatherFunctions.vesselBearing[i],
+			currentDirection, currentSpeed);
+
+		uWind = getVariableValue(0, i, tidTot);
+		vWind = getVariableValue(1, i, tidTot);
+		if (uWind < 1000 && vWind < 1000) {
+			windDirection = atan2(vWind, uWind);
+			windSpeed2 = pow(uWind, 2) + pow(vWind, 2);
+			windSpeed = sqrt(windSpeed2);
+
+			rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
+				windDirection, windSpeed, &rel_windDir);
+
+			*worstStabilityValue += distNu * rel_windSpeed / 10000.0;
+		}
+		else {
+			windSpeed = 0;
+			rel_windDir = 0;
+		}
+
+		waveHeight = getVariableValue(4, i, tidTot);
+		if (waveHeight > 100)
+			waveHeight = 0;
+		wavePeriod = getVariableValue(5, i, tidTot);
+		if (wavePeriod > 1000)
+			wavePeriod = 0;
+		waveDirection = getVariableValue(6, i, tidTot);
+		if (waveDirection > 1000)
+			waveDirection = 0;
+		rel_waveDir = (waveDirection - model.weatherFunctions.vesselBearing[i] / 180.0 * M_PI); // / model.functions.nWaveDir;
+
+
+		speedDiffWindWave = lookup_speedDiffWindWaveTable(rel_windSpeed, rel_windDir, waveHeight, wavePeriod, rel_waveDir);
+		speedOverGround = baseGroundSpeed + speedDiffWindWave;
+		timeArc = distNu / speedOverGround / model.params.knots_to_km;
+
+		fuelConsumption = eval_fuelConsumption(speedSettingNr);
+		fuelUsage = fuelConsumption * timeArc;
+
+		tidTot += timeArc;
+		fuelTot += fuelUsage;
+
+		iceCover = getVariableValue(7, i, tidTot);
+		if (iceCover > 1000)
+			iceCover = 0;
+
+		safetyArc = eval_safety(iceCover);
+		safetyTot += safetyArc;
+	}
+	*distance = dist;
+	*fuel = fuelTot;
 	*safety = safetyTot;
 	//	errlog("speedSetting %d tidStart %d tidSlut %.2lf cost %.2lf safety %.2lf\n",
 	//		speedSettingNr, t, tidTot, costTot, safetyTot);
@@ -6297,13 +6541,13 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 			tPos = tPos;
 		if (thisLevel >= 0) {
 			nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][tPos];
-			tid = calcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
+			tid = calcArcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
 				i4, *setupCheckPoints, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
 			tidInt = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos] + (int)tid;
 		}
 		else {
 			nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][tPos];
-			tid = calcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
+			tid = calcArcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
 				i4, *setupCheckPoints, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
 			tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)tid;
 		}
@@ -6447,13 +6691,13 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 	}
 	if (thisLevel >= 0) {
 		nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][tPos];
-		tid = calcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
+		tid = calcArcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
 			i4, 1, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
 		tidInt = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos] + (int)tid;
 	}
 	else {
 		nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][tPos];
-		tid = calcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
+		tid = calcArcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
 			i4, 1, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
 		tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)tid;
 	}
@@ -6533,11 +6777,11 @@ int check_useRaster_longitude(int weatherNr, int filNr) {
 
 int createTimeArcs()
 {
-	int i, i1, nAlloc, i2, i3, i4, setupCheckPoints;
+	int i, i1, nAlloc, i2, i3, setupCheckPoints;
 	int tidInt, min_t_nu, nArcsTot, max_t, n_added_t, nArcsNu;
-	int pos, i2b, nodNr1, nodNr2, posNy, arcNr, max_t_nu, nextLevel;
-	int endPos, cNr;
-	double fuel, safety, tid, totCost, distance, fuelQualityKvot;
+	int i2b, nodNr1, nodNr2, posNy, arcNr, max_t_nu, nextLevel;
+	int cNr;
+	double fuel, safety, tid, totCost, fuelQualityKvot;
 
 	// model.rasterData.fuelGeography = model.fuelGeographyMapRaster[0].GetRasterBand(1);
 	//float** fuelRaster = model.fuelGeographyMapRaster[0].GetRasterBand(1);
@@ -6973,78 +7217,6 @@ int saveDijkstraData()
 	return 0;
 }
 
-int readSavedDijkstraData()
-{
-	FILE* filPek;
-	int i, i1, nAlloc, iNu, i1Nu;
-	double lat, lon, totCost;
-
-	filPek = fopen("dijkstraData.txt", "r");
-	fscanf(filPek, "%d\t%d\n", &model.nNoder, &iNu);
-	model.Noder = (strNoder*)malloc(model.nNoder * sizeof(strNoder));
-	//	if (model.params.nPkterOrto > 2 * model.params.max_changeDirection + 1)
-	//		nAlloc = 2 * model.params.max_changeDirection + 1;
-	//	else
-	//		nAlloc = model.params.nPkterOrto;
-	//	nAlloc *= model.params.nShip_speedSettings;
-	for (i = 0; i < model.nNoder; i++) {
-		fscanf(filPek, "%d\t%d\n", &iNu, &(model.Noder[i].nUtNoder));
-		if (i != iNu)
-			errlog("ERROR! i %d != iNu %d\n", i, iNu);
-		if (model.Noder[i].nUtNoder > 0) {
-			model.Noder[model.nNoder].nAllocUtNoder = model.Noder[i].nUtNoder;
-			model.Noder[i].UtNod = (int*)malloc(model.Noder[i].nUtNoder * sizeof(int));
-			model.Noder[i].outArcNr = (int*)malloc(model.Noder[i].nUtNoder * sizeof(int));
-			model.Noder[i].UtNodCost = (double*)malloc(model.Noder[i].nUtNoder * sizeof(double));
-			for (i1 = 0; i1 < model.Noder[i].nUtNoder; i1++) {
-				fscanf(filPek, "%d\t%d\t%d\t%d\t%lf\n", &iNu, &i1Nu, &(model.Noder[i].UtNod[i1]),
-					&(model.Noder[i].outArcNr[i1]), &(model.Noder[i].UtNodCost[i1]));
-				if (i != iNu)
-					errlog("ERROR2! i %d != iNu %d\n", i, iNu);
-				if (i1 != i1Nu)
-					errlog("ERROR! i1 %d != i1Nu %d\n", i, i1Nu);
-			}
-		}
-	}
-	fscanf(filPek, "%d\n", &iNu);
-	fscanf(filPek, "%d\t%d\n", &(model.nArcs), &iNu);
-	model.arc = (strArcInfo*)malloc(model.nArcs * sizeof(strArcInfo));
-	for (i = 0; i < model.nArcs; i++) {
-		fscanf(filPek, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", &iNu, &(model.arc[i].fromPointNr),
-			&(model.arc[i].fromLevel), &(model.arc[i].toPointNr), &(model.arc[i].toLevel), &(model.arc[i].fromTime),
-			&(model.arc[i].speedSetting), &(model.arc[i].nodNr1), &(model.arc[i].nodNr2),
-			&(model.arc[i].nodNr1_utNodPos), &(model.arc[i].distance),
-			&(model.arc[i].time), &(model.arc[i].fuelBase), &(model.arc[i].safetyBase), &(model.arc[i].channelCost),
-			&(model.arc[i].totCost));
-		if (i != iNu)
-			errlog("ERROR3! i %d != iNu %d\n", i, iNu);
-		totCost = model.params.weightTime * model.params.priceTime * model.arc[i].time +
-			model.params.weightFuel.base * model.arc[i].fuelBase + model.params.weightSafety.base * model.arc[i].safetyBase +
-			model.arc[i].channelCost;
-		model.arc[i].totCost = totCost;
-		model.Noder[model.arc[i].nodNr1].UtNodCost[model.arc[i].nodNr1_utNodPos] = totCost;
-	}
-	fscanf(filPek, "%d\n", &iNu);
-	fscanf(filPek, "%d\n", &(model.network.nPhysicalLevels));
-	model.network.physicalLev = (strNodeSeq*)malloc(model.network.nPhysicalLevels * sizeof(strNodeSeq));
-	for (i = 0; i < model.network.nPhysicalLevels; i++) {
-		fscanf(filPek, "%d\t%d\n", &iNu, &(model.network.physicalLev[i].nPoints));
-		if (i != iNu)
-			errlog("ERROR4! i %d != iNu %d\n", i, iNu);
-		model.network.physicalLev[i].point = (spherical::Point*)malloc(model.network.physicalLev[i].nPoints * sizeof(spherical::Point));
-		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			fscanf(filPek, "%d\t%lf\t%lf\n", &i1Nu, &lat, &lon);
-			if (i1 != i1Nu)
-				errlog("ERROR2! i1 %d != i1Nu %d\n", i1, i1Nu);
-			model.network.physicalLev[i].point[i1] = spherical::Point(lat, lon);
-		}
-	}
-	fscanf(filPek, "%d\n", &iNu);
-	fclose(filPek);
-
-	return 0;
-}
-
 int voyageOpt_old(string inputPath)
 {
 
@@ -7076,32 +7248,27 @@ int voyageOpt_old(string inputPath)
 		exit(0);
 	}
 
-	if (model.params.loadSavedDijkstraData == 0) {
-		loadVariables();
-		// loadWeatherData();
-		loadStormsData();
+	loadVariables();
+	// loadWeatherData();
+	loadStormsData();
 
-		loadChannels();
-		loadpreferredPathGeojson();
-		if (model.params.corridorPath != "")
-			loadCorridorPath();
-		else
-			model.corridorPath.nLines = 0;
+	loadChannels();
+	loadpreferredPathGeojson();
+	if (model.params.corridorPath != "")
+		loadCorridorPath();
+	else
+		model.corridorPath.nLines = 0;
 
-		printf("Creating the physical network.\n");
-		createPhysicalNetwork(0);
+	printf("Creating the physical network.\n");
+	createPhysicalNetwork(0);
 
 
-		printf("Creating the time dimension.\n");
-		createTimeArcs();
+	printf("Creating the time dimension.\n");
+	createTimeArcs();
 
-		//printf("saveDijkstraData..");
-		//saveDijkstraData();
-		//printf("..\n");
-	}
-	else {
-		readSavedDijkstraData();
-	}
+	//printf("saveDijkstraData..");
+	//saveDijkstraData();
+	//printf("..\n");
 
 	if (model.nArcs == 0) {
 		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
@@ -7130,12 +7297,9 @@ int voyageOpt_old(string inputPath)
 	int nod1, nod2;
 	nod1 = 0;
 	nod2 = model.nNoder - 1;
-	FILE* FilLogg;
 	bool Reached;
 	char* namn;
 	namn = (char*)malloc(265 * sizeof(char));
-
-	Node* sink;
 
 	printf("solving dijkstra's algorithm..");
 	AnropDijkstra2(nod1, nod2, &model, &Reached);
@@ -7174,6 +7338,7 @@ int voyageOpt_old(string inputPath)
 
 
 	//callJsonTest();
+	return 0;
 }
 
 int modify_utNodCost(int alt) {
@@ -7221,7 +7386,7 @@ int modify_utNodCost(int alt) {
 	}
 
 	if (maxCost > 0)
-		model.Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
+		model.Dijkstra.FAKTOR_NATVERK = (MAXVARDE_NATVERK / maxCost);
 
 	return 0;
 }
@@ -7266,32 +7431,23 @@ int voyageOpt(string inputPath, string resultName)
 		exit(0);
 	}
 
-	if (model.params.loadSavedDijkstraData == 0) {
-		loadVariables();
-		// loadWeatherData();
-		loadStormsData();
+	loadVariables();
+	// loadWeatherData();
+	loadStormsData();
 
-		loadChannels();
-		//loadpreferredPathGeojson();
-		if (model.params.corridorPath != "")
-			loadCorridorPath();
-		else
-			model.corridorPath.nLines = 0;
+	loadChannels();
+	//loadpreferredPathGeojson();
+	if (model.params.corridorPath != "")
+		loadCorridorPath();
+	else
+		model.corridorPath.nLines = 0;
 
-		printf("Creating the physical network.\n");
-		createPhysicalNetwork(0);
+	printf("Creating the physical network.\n");
+	createPhysicalNetwork(0);
 
 
-		printf("Creating the time dimension.\n");
-		createTimeArcs();
-
-		//printf("saveDijkstraData..");
-		//saveDijkstraData();
-		//printf("..\n");
-	}
-	else {
-		readSavedDijkstraData();
-	}
+	printf("Creating the time dimension.\n");
+	createTimeArcs();
 
 	if (model.nArcs == 0) {
 		errlog("ERROR! Number of arcs is %d. No use to solve Dijkstra. Try setting preferredPath_followExactOK = 1. I quit.\n", model.nArcs);
@@ -7320,10 +7476,8 @@ int voyageOpt(string inputPath, string resultName)
 	int nod1, nod2;
 	nod1 = 0;
 	nod2 = model.nNoder - 1;
-	FILE* FilLogg;
 	bool Reached;
 
-	Node* sink;
 	int nExtraOpt = 6;
 	string resAltName;
 
@@ -7385,6 +7539,7 @@ int voyageOpt(string inputPath, string resultName)
 
 
 	//callJsonTest();
+	return 0;
 }
 
 
@@ -7430,11 +7585,7 @@ int generate_solutionPathTest() {
 int voyageOpt_dummy(string inputName, string resultName)
 {
 
-	double dist;
-	long long Cost;
-
 	reset_errlog();
-	FILE* filPek3;
 
 	auto tid0 = std::chrono::high_resolution_clock::now();
 	//filPek3 = fopen("result_json.json", "w");
@@ -7464,7 +7615,7 @@ int voyageOpt_dummy(string inputName, string resultName)
 
 int check_isChannelNodePosAllowed(int nr, int pos) {
 	int i, i1, i2;
-	double distNu, dist1, dist1b, dist2, dist3, minDist, kvot, distTmp, distNu1, distNu3, bearing1;
+	double distNu, dist1, dist2, dist1b, dist3, minDist, kvot, distTmp, distNu1, distNu3;
 	double distCorridorSegm, distIntersectCorridor, distPrefPath, distIntersect, distLimit;
 	spherical::Point p1, p2, pMid, pC, pN, pointNu;
 
