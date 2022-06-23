@@ -3309,7 +3309,7 @@ int loadParams_new(strParams* params)
 	params->startMonth_nr = 9; // sep
 	params->startDay_nr = 1;
 	params->startHour = 0;
-	params->maxDeviationPrefered_km = 500; 
+	params->maxDeviationPrefered_km = 500;
 
 
 	std::ifstream fil;
@@ -3415,9 +3415,11 @@ int loadParams_new(strParams* params)
 										last_x = xVal + 360;
 									else
 										last_x = xVal - 360;
-								}else
+								}
+								else
 									last_x = xVal;
-							}else
+							}
+							else
 								last_x = xVal;
 							if (model.preferredPath.minX > last_x)
 								model.preferredPath.minX = last_x;
@@ -3519,6 +3521,143 @@ int loadParams_new(strParams* params)
 			}
 		}
 	}
+
+
+	fil.close();
+
+
+
+
+	return 0;
+}
+
+int loadFunctions()
+{
+
+	std::ifstream fil;
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/function_parameters.json", model.params.indataPath.c_str());
+	errlog("trying to open %s\n", namn);
+	if (!(exists_test3(namn))) {
+		errlog("%s does not exist. I quit\n", namn);
+		printf("%s does not exist. I quit\n", namn);
+		exitKontrollerat(__LINE__);
+	}
+	printf("opens %s\n", namn);
+	fil.open(namn);
+
+	json data;
+	fil >> data;
+
+	model.functions.iceCoverMaxFree = 0;
+	model.functions.iceCoverCost_fix = 100000;
+	model.functions.nWindDir = 17;
+	model.functions.nWaveDir = 17;
+	model.functions.calmWaterSpeed.c0 = 5;
+	model.functions.calmWaterSpeed.c1_rpm = 0.1;
+	model.functions.calmWaterSpeed.c2_rpm = 0.0001;
+	model.functions.fuelConsumption.c0 = 0.5;
+	model.functions.fuelConsumption.c1_rpm = 0.01;
+	model.functions.fuelConsumption.c2_rpm = 0.00001;
+	model.functions.fuelConsumption.c3_rpm = 0.000001;
+	model.functions.windMagnitude.min = 0;
+	model.functions;
+	model.functions;
+	model.functions;
+	model.functions;
+	model.functions;
+	model.functions;
+	model.functions;
+
+	if (!data["iceCoverMaxFree"].is_null())
+		model.functions.iceCoverMaxFree = data["iceCoverMaxFree"];
+	if (!data["iceCoverCost_fix"].is_null())
+		model.functions.iceCoverCost_fix = data["iceCoverCost_fix"];
+	if (!data["nWindDir"].is_null())
+		model.functions.nWindDir = data["nWindDir"];
+	if (!data["nWaveDir"].is_null())
+		model.functions.nWaveDir = data["nWaveDir"];
+	if (!data["calmWaterSpeed"].is_null()) {
+		json data2 = data["calmWaterSpeed"];
+		if (!data2["c0"].is_null())
+			model.functions.calmWaterSpeed.c0 = data2["c0"];
+		if (!data2["c1_rpm"].is_null())
+			model.functions.calmWaterSpeed.c1_rpm = data2["c1_rpm"];
+		if (!data2["c2_rpm"].is_null())
+			model.functions.calmWaterSpeed.c2_rpm = data2["c2_rpm"];
+	}
+	if (!data["fuelConsumption"].is_null()) {
+		json data2 = data["fuelConsumption"];
+		if (!data2["c0"].is_null())
+			model.functions.fuelConsumption.c0 = data2["c0"];
+		if (!data2["c1_rpm"].is_null())
+			model.functions.fuelConsumption.c1_rpm = data2["c1_rpm"];
+		if (!data2["c2_rpm"].is_null())
+			model.functions.fuelConsumption.c2_rpm = data2["c2_rpm"];
+		if (!data2["c3_rpm"].is_null())
+			model.functions.fuelConsumption.c3_rpm = data2["c3_rpm"];
+	}
+	if (!data["windMagnitudeTable"].is_null()) {
+		json data2 = data["windMagnitudeTable"];
+		int pos = 0;
+		model.functions.table_niWindSpeed = (int)data2.size();
+		for (auto it = data2.begin(); it != data2.end(); ++it) {
+			json dataIt = it.value();
+			pos = dataIt["index"];
+			if (pos < 0 || pos >= model.functions.table_niWindSpeed) {
+				errlog("ERROR! Wrong index %d for windMagnitudeTable in function_parameters.json, is %d, must be 0 - %d\n",
+					pos, model.functions.table_niWindSpeed);
+				exitKontrollerat(__LINE__);
+			}
+			model.functions.windSpeed_minVal_array[pos] = dataIt["minWind_m_s"];
+			model.functions.windSpeed_maxVal_array[pos] = dataIt["maxWind_m_s"];
+		}
+	}
+
+	if (!data["waveHeightTable"].is_null()) {
+		json data2 = data["waveHeightTable"];
+		int pos = 0;
+		model.functions.table_niWave = (int)data2.size();
+		for (auto it = data2.begin(); it != data2.end(); ++it) {
+			json dataIt = it.value();
+			pos = dataIt["index"];
+			if (pos < 0 || pos >= model.functions.table_niWave) {
+				errlog("ERROR! Wrong index %d for waveHeightTable in function_parameters.json, is %d, must be 0 - %d\n",
+					pos, model.functions.table_niWave);
+				exitKontrollerat(__LINE__);
+			}
+			model.functions.waveHeight_minVal_array[pos] = dataIt["minWaveHeight_m"];
+			model.functions.waveHeight_maxVal_array[pos] = dataIt["maxWaveHeight_m"];
+		}
+	}
+
+	if (!data["wavePeriodTable"].is_null()) {
+		json data2 = data["wavePeriodTable"];
+		int pos = 0;
+		model.functions.table_niWavePeriod = (int)data2.size();
+		for (auto it = data2.begin(); it != data2.end(); ++it) {
+			json dataIt = it.value();
+			pos = dataIt["index"];
+			if (pos < 0 || pos >= model.functions.table_niWavePeriod) {
+				errlog("ERROR! Wrong index %d for wavePeriodTable in function_parameters.json, is %d, must be 0 - %d\n",
+					pos, model.functions.table_niWavePeriod);
+				exitKontrollerat(__LINE__);
+			}
+			model.functions.wavePeriod_minVal_array[pos] = dataIt["minWavePeriod_s"];
+			model.functions.wavePeriod_maxVal_array[pos] = dataIt["maxWavePeriod_s"];
+		}
+	}
+	std::string nameTable;
+	if (!data["weatherFactor_tableName"].is_null()) {
+		nameTable = data["weatherFactor_tableName"];
+		loadWeatherFactorTable(nameTable);
+	}
+	else {
+		errlog("ERROR! ")
+	}
+
+
 
 
 	fil.close();
@@ -7418,6 +7557,7 @@ int voyageOpt(string inputPath, string resultName)
 	printf("Reading data for the problem\n");
 	loadParams_new(&(model.params));
 	loadParams_theRestOld(&(model.params));
+	loadFunctions();
 
 	int testOpenMultipleTimes = 0;
 	if (testOpenMultipleTimes == 1) {
