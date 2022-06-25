@@ -11,8 +11,8 @@
 		"commands" : 
 		[
 			"add_executable",
-			"target_link_libraries",
 			"add_definitions",
+			"INCLUDE_DIRECTORIES",
 			"include_directories"
 		],
 		"files" : 
@@ -33,31 +33,31 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 41,
-				"parent" : 0
-			},
-			{
-				"command" : 2,
-				"file" : 0,
 				"line" : 8,
 				"parent" : 0
 			},
 			{
-				"command" : 2,
+				"command" : 1,
 				"file" : 0,
 				"line" : 9,
 				"parent" : 0
 			},
 			{
-				"command" : 3,
+				"command" : 2,
 				"file" : 0,
-				"line" : 35,
+				"line" : 50,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 37,
+				"line" : 88,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 90,
 				"parent" : 0
 			}
 		]
@@ -68,22 +68,29 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-O3 -DNDEBUG"
+					"fragment" : "-O3 -DNDEBUG  "
+				},
+				{
+					"fragment" : "-std=gnu++17"
 				}
 			],
 			"defines" : 
 			[
 				{
-					"backtrace" : 3,
+					"backtrace" : 2,
 					"define" : "UNICODE"
 				},
 				{
-					"backtrace" : 4,
+					"backtrace" : 3,
 					"define" : "_UNICODE"
 				}
 			],
 			"includes" : 
 			[
+				{
+					"backtrace" : 4,
+					"path" : "/home/pafli/usr/include/hiredis"
+				},
 				{
 					"backtrace" : 5,
 					"path" : "/usr/include/gdal"
@@ -116,12 +123,34 @@
 				"role" : "flags"
 			},
 			{
-				"backtrace" : 2,
+				"fragment" : "-Wl,-rpath,/usr/local/lib",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libhiredis.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libredis++.so",
+				"role" : "libraries"
+			},
+			{
 				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 2,
+				"fragment" : "/usr/lib/libgdal.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libredis++.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
+				"role" : "libraries"
+			},
+			{
 				"fragment" : "/usr/lib/libgdal.so",
 				"role" : "libraries"
 			}

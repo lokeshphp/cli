@@ -38,7 +38,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "voyageOpt::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-voyageOpt-Release-c817295815c7b073abbb.json",
+					"jsonFile" : "target-voyageOpt-Release-291b52cc88b150d16a33.json",
 					"name" : "voyageOpt",
 					"projectIndex" : 0
 				}
@@ -54,6 +54,6 @@
 	"version" : 
 	{
 		"major" : 2,
-		"minor" : 2
+		"minor" : 0
 	}
 }

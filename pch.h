@@ -275,8 +275,8 @@ struct strFunc2 {
 	double iceCoverCost_fix;
 
 
-	int nWindDir;
-	int nWaveDir;
+	//int nWindDir;
+	//int nWaveDir;
 	int table_niWaveDir;
 	int table_niWave;
 	int table_niWavePeriod;
@@ -288,15 +288,29 @@ struct strFunc2 {
 	strCalmWaterFkn calmWaterSpeed;
 	strFuelConsumptionFkn fuelConsumption;
 
+	double windSpeed_max;
+	double* windSpeed_minVal_array;
+	double* windSpeed_maxVal_array;
+
+	double waveHeight_max;
+	double* waveHeight_minVal_array;
+	double* waveHeight_maxVal_array;
+
+	double wavePeriod_max;
+	double* wavePeriod_minVal_array;
+	double* wavePeriod_maxVal_array;
+
+	double windMagnitude_discreteSize_kts;
 	double rel_windSpeed_kvotIndex; // 2
 	double max_windSpeed;
-	int max_windSpeedSkalad; // omskalad med kvotIndex
-	int* rel_windSpeed_ger_index;
+	int nWindSpeedSkalad; // omskalad med kvotIndex
+	int* rel_windSpeedSkalad_ger_index;
 
+	double waveHeight_discreteSize_m;
 	double rel_waveHeight_kvotIndex; // 2
 	double max_waveHeight;
-	int max_waveHeightSkalad; // omskalad med kvotIndex
-	int* rel_waveHeight_ger_index;
+	int nWaveHeightSkalad; // omskalad med kvotIndex
+	int* rel_waveHeightSkalad_ger_index;
 
 	double rel_wavePeriod_kvotIndex; // 2
 	double max_wavePeriod;

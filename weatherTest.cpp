@@ -5,6 +5,19 @@
 #include <time.h>
 #include <chrono>
 
+#include <iostream>
+#include <unordered_map>
+//#include<fstream>
+
+#ifndef WIN32
+#include </usr/local/include/sw/redis++/redis++.h>
+//#include <sw/redis++/redis++.h>
+ using namespace sw::redis;
+//#include <redox.hpp>
+//#include </usr/local/include/redox.hpp>
+//using namespace redox;
+#endif
+
 using namespace std;
 
 using std::chrono::duration_cast;
@@ -207,6 +220,89 @@ int main(int argc, char* argv[])
 			}
 			fprintf(filpek, "{\nerror\n}\n");
 			fclose(filpek);
+
+#ifndef WIN32
+			auto redis = Redis("tcp://127.0.0.1:6379/1");
+			// std::cout << redis.ping() << std::endl;
+
+			auto val = redis.get("optimizer_database_weather:icetk0");
+			if (val) {
+				std::cout << "Tjoho!! Got an answer from icetk0" << std::endl;
+				//std::ofstream out("out.txt");
+				//std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
+				//std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
+				freopen("output.txt", "w", stdout);
+				std::cout << *val << std::endl;
+			}
+			else
+				std::cout << "ERROR! No value from icetk0" << std::endl;
+			exit(0);
+
+			using Attrs = std::vector<std::pair<std::string, std::string>>;
+
+			// You can also use std::unordered_map, if you don't care the order of attributes:
+			// using Attrs = std::unordered_map<std::string, std::string>;
+
+			Attrs attrs = { {"f1", "v1"}, {"f2", "v2"} };
+			auto id = redis.xadd("key", "*", attrs.begin(), attrs.end());
+
+			using Item = std::pair<std::string, Optional<Attrs>>;
+			using ItemStream = std::vector<Item>;
+
+			std::unordered_map<std::string, ItemStream> result;
+			auto id2 = "$";
+			//redis.xread("optimizer_database_weather:icetk0", id2, 10, std::inserter(result, result.end()));
+			redis.xread("optimizer_database_weather:icetk0", id, 10, std::inserter(result, result.end()));
+			printf("size of result %d\n", result.size());
+			redis.xread("optimizer_database_weather:icetk0", id, 10000000, std::inserter(result, result.end()));
+			printf("size of result %d\n", result.size());
+
+
+			std::cout << "\nIterate and print key-value pairs using C++17 structured binding:\n";
+			for (const auto& [key, value] : result) {
+				std::cout << "Key:[" << key << "] Value:[\n";
+				for (auto i : value) {
+					auto [a, b] = i;
+					std::cout << a;
+					std::cout << " .. ";
+					//std::cout << b;
+					std::cout << "\n";
+				}
+			}
+
+			auto val2 = redis.get("optimizer_database_weather:icetk0");
+			if (val2) {
+				std::cout << "Tjoho!! Got an answer from icetk0" << std::endl;
+				//std::ofstream out("out.txt");
+				//std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
+				//std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
+				freopen("output.txt", "w", stdout);
+				std::cout << *val2 << std::endl;
+			}
+			else
+				std::cout << "ERROR! No value from icetk0" << std::endl;
+
+			//redis.set("testKey", "testValue");
+			//auto value = redis.get("testKey");
+			//if (value) {
+			//	std::cout << "TjohoLiten" << std::endl;
+			//	std::cout << *value << std::endl;
+			//}else
+			//	std::cout << "ERROR! No value from testKey" << std::endl;
+
+
+
+			//Redox rdx;
+			//if (!rdx.connect("localhost", 6379))
+			//	printf("ERROR! Could not connect to redox\n");
+			//else {
+			//	cout << "Hello, " << rdx.get("hello") << endl;
+			//	rdx.disconnect();
+			//}
+
+			exit(0);
+#endif
+
 
 			printf("Calling voyageOpt with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
 			auto tid0 = std::chrono::high_resolution_clock::now();

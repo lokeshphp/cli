@@ -3531,6 +3531,104 @@ int loadParams_new(strParams* params)
 	return 0;
 }
 
+void generate_helpTable_windSpeed() {
+	int i, pos;
+	double maxVarde;
+
+	model.functions.nWindSpeedSkalad = model.functions.windSpeed_max / model.functions.windMagnitude_discreteSize_kts;
+	model.functions.rel_windSpeed_kvotIndex = 1 / model.params.knots_to_km / model.functions.windMagnitude_discreteSize_kts;
+	model.functions.rel_windSpeedSkalad_ger_index = (int*)malloc(model.functions.nWindSpeedSkalad * sizeof(int));
+	pos = 0;
+	for (i = 0; i < model.functions.table_niWindSpeed; i++) {
+		maxVarde = model.functions.windSpeed_maxVal_array[i] / model.functions.windMagnitude_discreteSize_kts *
+			model.params.knots_to_km;
+		for (pos; pos < model.functions.nWindSpeedSkalad; pos++) {
+			if (pos > maxVarde)
+				break;
+			model.functions.rel_windSpeedSkalad_ger_index[pos] = i;
+		}
+	}
+	model.functions.rel_windSpeedSkalad_ger_index[model.functions.nWindSpeedSkalad - 1] = model.functions.table_niWindSpeed - 1;
+
+}
+
+void generate_helpTable_waveHeight() {
+	int i, pos;
+	double maxVarde;
+
+	model.functions.nWaveHeightSkalad = model.functions.waveHeight_max / model.functions.waveHeight_discreteSize_m;
+	model.functions.rel_waveHeight_kvotIndex = 1 / model.functions.waveHeight_discreteSize_m;
+	model.functions.rel_waveHeightSkalad_ger_index = (int*)malloc(model.functions.nWaveHeightSkalad * sizeof(int));
+	pos = 0;
+	for (i = 0; i < model.functions.table_niWave; i++) {
+		maxVarde = model.functions.waveHeight_maxVal_array[i] / model.functions.waveHeight_discreteSize_m;
+		for (pos; pos < model.functions.nWaveHeightSkalad; pos++) {
+			if (pos > maxVarde)
+				break;
+			model.functions.rel_waveHeightSkalad_ger_index[pos] = i;
+		}
+	}
+	model.functions.rel_waveHeightSkalad_ger_index[model.functions.nWaveHeightSkalad - 1] = model.functions.table_niWave - 1;
+
+}
+
+void loadWeatherFactorTable(std::string nameTable) {
+	FILE* filpek;
+	int nAlloc, i, pos, wind, windDirPos, wave, waveDirPos, wavePeriod, antal;
+	double varde;
+
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), nameTable.c_str());
+	filpek = fopen(namn, "r");
+	if (filpek == NULL) {
+		errlog("ERROR! Could not open weather factor file %s\n", namn);
+		exitKontrollerat(__LINE__);
+	}
+	free(namn);
+
+	nAlloc = model.functions.table_niWindSpeed * model.functions.table_niWindDir * 
+		model.functions.table_niWave * model.functions.table_niWaveDir * 
+		model.functions.table_niWavePeriod;
+	model.functions.table_speedDiff = (double*)calloc(nAlloc, sizeof(double));
+	for (i = 0; i < 2 * nAlloc; i++) {
+		antal = fscanf(filpek, "%d %d %d %d %d %lf", &wind, &windDirPos, &wave, &waveDirPos, &wavePeriod, &varde);
+		if (antal <= 0)
+			break;
+		if (wind < 0 || wind >= model.functions.table_niWindSpeed) {
+			errlog("ERROR! Wind index wrong, is %d must be between 0 - %d, i skip this one\n",
+				wind, model.functions.table_niWindSpeed - 1);
+			continue;
+		}
+		if (windDirPos < 0 || windDirPos >= model.functions.table_niWindDir) {
+			errlog("ERROR! windDirPos index wrong, is %d must be between 0 - %d, i skip this one\n",
+				windDirPos, model.functions.table_niWindDir - 1);
+			continue;
+		}
+		if (wave < 0 || wave >= model.functions.table_niWave) {
+			errlog("ERROR! wave index wrong, is %d must be between 0 - %d, i skip this one\n",
+				wave, model.functions.table_niWave - 1);
+			continue;
+		}
+		if (waveDirPos < 0 || waveDirPos >= model.functions.table_niWaveDir) {
+			errlog("ERROR! waveDirPos index wrong, is %d must be between 0 - %d, i skip this one\n",
+				waveDirPos, model.functions.table_niWaveDir - 1);
+			continue;
+		}
+		if (wavePeriod < 0 || wavePeriod >= model.functions.table_niWavePeriod) {
+			errlog("ERROR! wavePeriod index wrong, is %d must be between 0 - %d, i skip this one\n",
+				wavePeriod, model.functions.table_niWavePeriod - 1);
+			continue;
+		}
+		pos = wind + model.functions.table_niWindSpeed * (windDirPos + model.functions.table_niWindDir * (
+			wave + model.functions.table_niWave * (
+				waveDirPos + model.functions.table_niWaveDir * wavePeriod)));
+		model.functions.table_speedDiff[pos] = varde;
+	}
+	fclose(filpek);
+
+}
+
 int loadFunctions()
 {
 
@@ -3552,8 +3650,6 @@ int loadFunctions()
 
 	model.functions.iceCoverMaxFree = 0;
 	model.functions.iceCoverCost_fix = 100000;
-	model.functions.nWindDir = 17;
-	model.functions.nWaveDir = 17;
 	model.functions.calmWaterSpeed.c0 = 5;
 	model.functions.calmWaterSpeed.c1_rpm = 0.1;
 	model.functions.calmWaterSpeed.c2_rpm = 0.0001;
@@ -3561,23 +3657,19 @@ int loadFunctions()
 	model.functions.fuelConsumption.c1_rpm = 0.01;
 	model.functions.fuelConsumption.c2_rpm = 0.00001;
 	model.functions.fuelConsumption.c3_rpm = 0.000001;
-	model.functions.windMagnitude.min = 0;
-	model.functions;
-	model.functions;
-	model.functions;
-	model.functions;
-	model.functions;
-	model.functions;
-	model.functions;
 
 	if (!data["iceCoverMaxFree"].is_null())
 		model.functions.iceCoverMaxFree = data["iceCoverMaxFree"];
 	if (!data["iceCoverCost_fix"].is_null())
 		model.functions.iceCoverCost_fix = data["iceCoverCost_fix"];
 	if (!data["nWindDir"].is_null())
-		model.functions.nWindDir = data["nWindDir"];
+		model.functions.table_niWindDir = data["nWindDir"];
+	else
+		model.functions.table_niWindDir = 8;
 	if (!data["nWaveDir"].is_null())
-		model.functions.nWaveDir = data["nWaveDir"];
+		model.functions.table_niWaveDir = data["nWaveDir"];
+	else
+		model.functions.table_niWaveDir = 8;
 	if (!data["calmWaterSpeed"].is_null()) {
 		json data2 = data["calmWaterSpeed"];
 		if (!data2["c0"].is_null())
@@ -3598,10 +3690,18 @@ int loadFunctions()
 		if (!data2["c3_rpm"].is_null())
 			model.functions.fuelConsumption.c3_rpm = data2["c3_rpm"];
 	}
+	if (!data["windMagnitude_discreteSize_kts"].is_null())
+		model.functions.windMagnitude_discreteSize_kts = data["windMagnitude_discreteSize_kts"];
+	else
+		model.functions.windMagnitude_discreteSize_kts = 0.25;
 	if (!data["windMagnitudeTable"].is_null()) {
 		json data2 = data["windMagnitudeTable"];
 		int pos = 0;
 		model.functions.table_niWindSpeed = (int)data2.size();
+		model.functions.windSpeed_minVal_array = (double*)malloc(model.functions.table_niWindSpeed *
+			sizeof(double));
+		model.functions.windSpeed_maxVal_array = (double*)malloc(model.functions.table_niWindSpeed *
+			sizeof(double));
 		for (auto it = data2.begin(); it != data2.end(); ++it) {
 			json dataIt = it.value();
 			pos = dataIt["index"];
@@ -3610,15 +3710,32 @@ int loadFunctions()
 					pos, model.functions.table_niWindSpeed);
 				exitKontrollerat(__LINE__);
 			}
-			model.functions.windSpeed_minVal_array[pos] = dataIt["minWind_m_s"];
-			model.functions.windSpeed_maxVal_array[pos] = dataIt["maxWind_m_s"];
+			model.functions.windSpeed_minVal_array[pos] = dataIt["minWind_kts"];
+			model.functions.windSpeed_maxVal_array[pos] = dataIt["maxWind_kts"];
 		}
+		if (model.functions.table_niWindSpeed > 0)
+			model.functions.windSpeed_max = model.functions.windSpeed_maxVal_array[model.functions.table_niWindSpeed - 1];
+		else
+			model.functions.windSpeed_max = 0;
 	}
+	else {
+		model.functions.table_niWindSpeed = 0;
+		model.functions.windSpeed_max = 0;
+	}
+	generate_helpTable_windSpeed();
 
+	if (!data["waveHeight_discreteSize_m"].is_null())
+		model.functions.waveHeight_discreteSize_m = data["waveHeight_discreteSize_m"];
+	else
+		model.functions.waveHeight_discreteSize_m = 0.15;
 	if (!data["waveHeightTable"].is_null()) {
 		json data2 = data["waveHeightTable"];
 		int pos = 0;
 		model.functions.table_niWave = (int)data2.size();
+		model.functions.waveHeight_minVal_array = (double*)malloc(model.functions.table_niWave *
+			sizeof(double));
+		model.functions.waveHeight_maxVal_array = (double*)malloc(model.functions.table_niWave *
+			sizeof(double));
 		for (auto it = data2.begin(); it != data2.end(); ++it) {
 			json dataIt = it.value();
 			pos = dataIt["index"];
@@ -3630,12 +3747,25 @@ int loadFunctions()
 			model.functions.waveHeight_minVal_array[pos] = dataIt["minWaveHeight_m"];
 			model.functions.waveHeight_maxVal_array[pos] = dataIt["maxWaveHeight_m"];
 		}
+		if (model.functions.table_niWave > 0)
+			model.functions.waveHeight_max = model.functions.waveHeight_maxVal_array[model.functions.table_niWave - 1];
+		else
+			model.functions.waveHeight_max = 0;
 	}
+	else {
+		model.functions.table_niWave = 0;
+		model.functions.waveHeight_max = 0;
+	}
+	generate_helpTable_waveHeight();
 
 	if (!data["wavePeriodTable"].is_null()) {
 		json data2 = data["wavePeriodTable"];
 		int pos = 0;
 		model.functions.table_niWavePeriod = (int)data2.size();
+		model.functions.wavePeriod_minVal_array = (double*)malloc(model.functions.table_niWavePeriod *
+			sizeof(double));
+		model.functions.wavePeriod_maxVal_array = (double*)malloc(model.functions.table_niWavePeriod *
+			sizeof(double));
 		for (auto it = data2.begin(); it != data2.end(); ++it) {
 			json dataIt = it.value();
 			pos = dataIt["index"];
@@ -3647,14 +3777,24 @@ int loadFunctions()
 			model.functions.wavePeriod_minVal_array[pos] = dataIt["minWavePeriod_s"];
 			model.functions.wavePeriod_maxVal_array[pos] = dataIt["maxWavePeriod_s"];
 		}
+		if(model.functions.table_niWavePeriod > 0)
+			model.functions.wavePeriod_max = model.functions.wavePeriod_maxVal_array[model.functions.table_niWavePeriod - 1];
+		else
+			model.functions.wavePeriod_max = 0;
 	}
+	else {
+		model.functions.table_niWavePeriod = 0;
+		model.functions.wavePeriod_max = 0;
+	}
+
 	std::string nameTable;
 	if (!data["weatherFactor_tableName"].is_null()) {
 		nameTable = data["weatherFactor_tableName"];
 		loadWeatherFactorTable(nameTable);
 	}
 	else {
-		errlog("ERROR! ")
+		errlog("ERROR! No weatherFactor_tableName given in function_parameters.json\n");
+		exitKontrollerat(__LINE__);
 	}
 
 
@@ -6432,13 +6572,13 @@ int get_relWindDirIndex(double rel_windDir) { // windDir: [-pi, +pi]
 	rel_windDir = M_PI - rel_windDir; // need it in opposite direction
 	if (rel_windDir < 0)
 		rel_windDir = -rel_windDir; // windDir [0, +pi]
-	int index = (int)rel_windDir * model.functions.nWindDir / M_PI;// 180.0;
+	int index = (int)rel_windDir * model.functions.table_niWindDir / M_PI;// 180.0;
 
 	if (index < 0)
 		index = 0;
 	else {
-		if (index >= model.functions.nWindDir)
-			index = model.functions.nWindDir - 1;
+		if (index >= model.functions.table_niWindDir)
+			index = model.functions.table_niWindDir - 1;
 	}
 	return index;
 }
@@ -6452,13 +6592,13 @@ int get_relWaveDirIndex(double rel_waveDir) { // windDir: [-pi, +pi]
 		rel_waveDir -= 2 * M_PI;
 	if (rel_waveDir < 0)
 		rel_waveDir = -rel_waveDir; // windDir [0, +pi]
-	int index = (int)rel_waveDir * model.functions.nWaveDir / M_PI;// 180.0;
+	int index = (int)rel_waveDir * model.functions.table_niWaveDir / M_PI;// 180.0;
 
 	if (index < 0)
 		index = 0;
 	else {
-		if (index >= model.functions.nWaveDir)
-			index = model.functions.nWaveDir - 1;
+		if (index >= model.functions.table_niWaveDir)
+			index = model.functions.table_niWaveDir - 1;
 	}
 	return index;
 }
@@ -6466,18 +6606,18 @@ int get_relWaveDirIndex(double rel_waveDir) { // windDir: [-pi, +pi]
 int get_relWindSpeedIndex(double rel_windSpeed) { 
 
 	int tmp = (int)rel_windSpeed * model.functions.rel_windSpeed_kvotIndex;
-	if (tmp >= model.functions.max_windSpeedSkalad)
-		return model.functions.rel_windSpeed_ger_index[model.functions.max_windSpeedSkalad - 1];
+	if (tmp >= model.functions.nWindSpeedSkalad)
+		return model.functions.rel_windSpeedSkalad_ger_index[model.functions.nWindSpeedSkalad - 1];
 	else
-		return model.functions.rel_windSpeed_ger_index[tmp];
+		return model.functions.rel_windSpeedSkalad_ger_index[tmp];
 }
 
 int get_relWaveHeightIndex(double waveHeight) {
 	int tmp = (int)waveHeight * model.functions.rel_waveHeight_kvotIndex;
-	if (tmp >= model.functions.max_waveHeightSkalad)
-		return model.functions.rel_waveHeight_ger_index[model.functions.max_waveHeightSkalad - 1];
+	if (tmp >= model.functions.nWaveHeightSkalad)
+		return model.functions.rel_waveHeightSkalad_ger_index[model.functions.nWaveHeightSkalad - 1];
 	else
-		return model.functions.rel_waveHeight_ger_index[tmp];
+		return model.functions.rel_waveHeightSkalad_ger_index[tmp];
 }
 
 int get_relWavePeriodIndex(double wavePeriod) {
