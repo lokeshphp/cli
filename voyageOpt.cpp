@@ -3283,7 +3283,6 @@ int loadParams_new(strParams* params)
 	params->nPkterOrto = 11;
 	params->epsilon = 0.000001;
 	params->save_weatherNodes = 0;
-	params->nShip_speedSettings = 0; // 15, 20, 25
 	params->max_changeDirection = 1;
 	params->lengthIntervall = 1;
 	params->dist_checkOKroute = 1;
@@ -3350,6 +3349,22 @@ int loadParams_new(strParams* params)
 
 	if (!data["shipSpeed"].is_null())
 		params->shipSpeed_average = data["shipSpeed"];
+
+	if (!data["shipSpeedSettings"].is_null()) {
+		json dataSpeed = data["shipSpeedSettings"];
+		params->nShip_speedSettings = dataSpeed.size();
+		model.functions.rpm = (double*)malloc(params->nShip_speedSettings * sizeof(double));
+		i = 0;
+		for (auto it = dataSpeed.begin(); it != dataSpeed.end(); ++it) {
+			json dataSpeed2 = it.value();
+			model.functions.rpm[i++] = dataSpeed2["rpm"];
+		}
+	}
+	else {
+		params->nShip_speedSettings = 1; // 15, 20, 25
+		model.functions.rpm = (double*)malloc(params->nShip_speedSettings * sizeof(double));
+		model.functions.rpm[0] = 80.0;
+	}
 
 	if (data["geoData"].is_null()) {
 		errlog("ERROR! No geoData tag in input.json. I quit\n");
@@ -3572,6 +3587,7 @@ void generate_helpTable_waveHeight() {
 
 }
 
+
 void loadWeatherFactorTable(std::string nameTable) {
 	FILE* filpek;
 	int nAlloc, i, pos, wind, windDirPos, wave, waveDirPos, wavePeriod, antal;
@@ -3757,6 +3773,8 @@ int loadFunctions()
 		model.functions.waveHeight_max = 0;
 	}
 	generate_helpTable_waveHeight();
+	model.functions.max_wavePeriodSkalad = 1;
+	model.functions.rel_wavePeriod_ger_index = (int*)calloc(model.functions.max_wavePeriodSkalad, sizeof(int));
 
 	if (!data["wavePeriodTable"].is_null()) {
 		json data2 = data["wavePeriodTable"];
@@ -3917,6 +3935,68 @@ int loadVariables()
 		(model.nWeatherFiles)++;
 		i0++;
 	}
+
+	model.functions.pos_wind_u = -1;
+	model.functions.pos_wind_v = -1;
+	model.functions.pos_current_u = -1;
+	model.functions.pos_current_v = -1;
+	model.functions.pos_waveHeight = -1;
+	model.functions.pos_wavePeriod = -1;
+	model.functions.pos_waveDirection = -1;
+	model.functions.pos_iceThickness = -1;
+
+	for (i0 = 0; i0 < model.nWeatherFiles; i0++) {
+		if (strcmp(model.weather[i0].weatherFileTypeName, "wind_uComponent") == 0)
+			model.functions.pos_wind_u = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "wind_vComponent") == 0)
+			model.functions.pos_wind_v = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "current_uComponent") == 0)
+			model.functions.pos_current_u = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "current_vComponent") == 0)
+			model.functions.pos_current_v = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "waveHeight") == 0)
+			model.functions.pos_waveHeight = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "wavePeriod") == 0)
+			model.functions.pos_wavePeriod = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "waveDirection") == 0)
+			model.functions.pos_waveDirection = i0;
+		if (strcmp(model.weather[i0].weatherFileTypeName, "ice thickness(m)") == 0)
+			model.functions.pos_iceThickness = i0;
+	}
+
+	if (model.functions.pos_wind_u == -1) {
+		errlog("ERROR! weather parameter wind_uComponent not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_wind_v == -1) {
+		errlog("ERROR! weather parameter wind_vComponent not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_current_u == -1) {
+		errlog("ERROR! weather parameter current_uComponent not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_current_v == -1) {
+		errlog("ERROR! weather parameter current_vComponent not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_waveHeight == -1) {
+		errlog("ERROR! weather parameter waveHeight not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_wavePeriod == -1) {
+		errlog("ERROR! weather parameter wavePeriod not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_waveDirection == -1) {
+		errlog("ERROR! weather parameter waveDirection not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+	if (model.functions.pos_iceThickness == -1) {
+		errlog("ERROR! weather parameter ice thickness(m) not given. It must exist\n");
+		exitKontrollerat(__LINE__);
+	}
+
 
 	return 0;
 }
@@ -6382,8 +6462,8 @@ double calcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* 
 			*worstStormValue = stormVarde;
 
 
-		uWind = getVariableValue(0, i, tidTot);
-		vWind = getVariableValue(1, i, tidTot);
+		uWind = getVariableValue(model.functions.pos_wind_u, i, tidTot);
+		vWind = getVariableValue(model.functions.pos_wind_v, i, tidTot);
 		if (uWind < 1000 && vWind < 1000) {
 			//		errlog("checkP %d latPos %d lonPos %d timePos_uWind %d uWind %.2lf\n", i, latPos,
 			//			lonPos, timePos_uWind, uWind);
@@ -6410,8 +6490,8 @@ double calcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* 
 			headWind = 0;
 			crossWind = 0;
 		}
-		uCurrent = getVariableValue(2, i, tidTot);
-		vCurrent = getVariableValue(3, i, tidTot);
+		uCurrent = getVariableValue(model.functions.pos_current_u, i, tidTot);
+		vCurrent = getVariableValue(model.functions.pos_current_v, i, tidTot);
 		//		errlog("checkP %d latPos %d lonPos %d timePos_uCurrent %d uCurrent %.2lf\n", i, latPos,
 		//			lonPos, timePos_uCurrent, uCurrent);
 		//		errlog("checkP %d latPos %d lonPos %d timePos_vCurrent %d vCurrent %.2lf\n", i, latPos,
@@ -6631,13 +6711,13 @@ int get_relWavePeriodIndex(double wavePeriod) {
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir) {
 	int iWindDir = get_relWindDirIndex(rel_windDir);
 	int iWaveDir = get_relWaveDirIndex(rel_waveDir);
-	int iWindSpeed = get_relWindSpeedIndex(rel_windDir);
+	int iWindSpeed = get_relWindSpeedIndex(rel_windSpeed);
 	int iWaveHeight = get_relWaveHeightIndex(waveHeight); // / model.functions.waveHeightDiscr);
 	int iWavePeriod = get_relWavePeriodIndex(wavePeriod); // / model.functions.wavePeriodDiscr);
-	int iWave, pos;
+	int pos;
 
 	pos = iWaveDir + model.functions.table_niWaveDir * (iWavePeriod + model.functions.table_niWavePeriod * (
-		iWave + model.functions.table_niWave * (
+		iWaveHeight + model.functions.table_niWave * (
 		iWindDir + model.functions.table_niWindDir * iWindSpeed)));
 	return model.functions.table_speedDiff[pos]; // windSpeed, windDir, wave, wavePeriod, waveDir
 
@@ -6696,8 +6776,8 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 		if (stormVarde > *worstStormValue)
 			*worstStormValue = stormVarde;
 
-		uCurrent = getVariableValue(2, i, tidTot);
-		vCurrent = getVariableValue(3, i, tidTot);
+		uCurrent = getVariableValue(model.functions.pos_current_u, i, tidTot);
+		vCurrent = getVariableValue(model.functions.pos_current_v, i, tidTot);
 		if (uCurrent < 1000 && vCurrent < 1000) {
 			currentDirection = atan2(vCurrent, uCurrent);
 			currentSpeed = sqrt(pow(uCurrent, 2) + pow(vCurrent, 2));
@@ -6710,8 +6790,8 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 		baseGroundSpeed = eval_baseGroundSpeed(calmWaterSpeed, model.weatherFunctions.vesselBearing[i],
 			currentDirection, currentSpeed);
 
-		uWind = getVariableValue(0, i, tidTot);
-		vWind = getVariableValue(1, i, tidTot);
+		uWind = getVariableValue(model.functions.pos_wind_u, i, tidTot);
+		vWind = getVariableValue(model.functions.pos_wind_v, i, tidTot);
 		if (uWind < 1000 && vWind < 1000) {
 			windDirection = atan2(vWind, uWind);
 			windSpeed2 = pow(uWind, 2) + pow(vWind, 2);
@@ -6727,13 +6807,13 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 			rel_windDir = 0;
 		}
 
-		waveHeight = getVariableValue(4, i, tidTot);
+		waveHeight = getVariableValue(model.functions.pos_waveHeight, i, tidTot);
 		if (waveHeight > 100)
 			waveHeight = 0;
-		wavePeriod = getVariableValue(5, i, tidTot);
+		wavePeriod = getVariableValue(model.functions.pos_wavePeriod, i, tidTot);
 		if (wavePeriod > 1000)
 			wavePeriod = 0;
-		waveDirection = getVariableValue(6, i, tidTot);
+		waveDirection = getVariableValue(model.functions.pos_wavePeriod, i, tidTot);
 		if (waveDirection > 1000)
 			waveDirection = 0;
 		rel_waveDir = (waveDirection - model.weatherFunctions.vesselBearing[i] / 180.0 * M_PI); // / model.functions.nWaveDir;
@@ -6749,7 +6829,7 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 		tidTot += timeArc;
 		fuelTot += fuelUsage;
 
-		iceCover = getVariableValue(7, i, tidTot);
+		iceCover = getVariableValue(model.functions.pos_iceThickness, i, tidTot);
 		if (iceCover > 1000)
 			iceCover = 0;
 

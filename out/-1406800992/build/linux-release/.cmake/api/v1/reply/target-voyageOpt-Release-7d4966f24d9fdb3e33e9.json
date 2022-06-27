@@ -2,10 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "voyageOpt.exe"
-		},
-		{
-			"path" : "voyageOpt.pdb"
+			"path" : "voyageOpt"
 		}
 	],
 	"backtrace" : 1,
@@ -14,8 +11,6 @@
 		"commands" : 
 		[
 			"add_executable",
-			"target_link_libraries",
-			"add_definitions",
 			"include_directories"
 		],
 		"files" : 
@@ -36,31 +31,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 50,
+				"line" : 89,
 				"parent" : 0
 			},
 			{
-				"command" : 2,
+				"command" : 1,
 				"file" : 0,
-				"line" : 8,
-				"parent" : 0
-			},
-			{
-				"command" : 2,
-				"file" : 0,
-				"line" : 9,
-				"parent" : 0
-			},
-			{
-				"command" : 3,
-				"file" : 0,
-				"line" : 44,
-				"parent" : 0
-			},
-			{
-				"command" : 3,
-				"file" : 0,
-				"line" : 46,
+				"line" : 91,
 				"parent" : 0
 			}
 		]
@@ -71,29 +48,21 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1"
-				}
-			],
-			"defines" : 
-			[
-				{
-					"backtrace" : 3,
-					"define" : "UNICODE"
+					"fragment" : "-O3 -DNDEBUG  "
 				},
 				{
-					"backtrace" : 4,
-					"define" : "_UNICODE"
+					"fragment" : "-std=gnu++17"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 5,
+					"backtrace" : 2,
 					"path" : "/usr/include/gdal"
 				},
 				{
-					"backtrace" : 6,
-					"path" : "C:/OSGeo4W64/include"
+					"backtrace" : 3,
+					"path" : "/mnt/c/OSGeo4W64/include"
 				}
 			],
 			"language" : "CXX",
@@ -111,32 +80,34 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1",
+				"fragment" : "-O3 -DNDEBUG",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "/machine:x64 /debug /INCREMENTAL /subsystem:console",
+				"fragment" : "",
 				"role" : "flags"
 			},
 			{
-				"backtrace" : 2,
-				"fragment" : "C:\\OSGeo4W64\\lib\\zlib.lib",
+				"fragment" : "-Wl,-rpath,/usr/local/lib",
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 2,
-				"fragment" : "C:\\OSGeo4W64\\lib\\gdal_i.lib",
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib",
+				"fragment" : "/usr/lib/libgdal.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libredis++.so",
 				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"
 	},
 	"name" : "voyageOpt",
-	"nameOnDisk" : "voyageOpt.exe",
+	"nameOnDisk" : "voyageOpt",
 	"paths" : 
 	{
 		"build" : ".",

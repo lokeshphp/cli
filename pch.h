@@ -317,6 +317,14 @@ struct strFunc2 {
 	int max_wavePeriodSkalad; // omskalad med kvotIndex
 	int* rel_wavePeriod_ger_index;
 
+	int pos_wind_u;
+	int pos_wind_v;
+	int pos_current_u;
+	int pos_current_v;
+	int pos_waveHeight;
+	int pos_wavePeriod;
+	int pos_waveDirection;
+	int pos_iceThickness;
 };
 
 struct strDijkstra {

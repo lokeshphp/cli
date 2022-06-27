@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
 			fprintf(filpek, "{\nerror\n}\n");
 			fclose(filpek);
 
-#ifndef WIN32
+#ifdef WIN322
 			auto redis = Redis("tcp://127.0.0.1:6379/1");
 			// std::cout << redis.ping() << std::endl;
 
