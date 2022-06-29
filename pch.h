@@ -492,7 +492,7 @@ int initGeoJsonFil(FILE* filpek, const char* namn);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 
 int redisSetKeys(std::string inputPath);
-void putStringIntoArrayFloat(string strang, float* arrFloat);
+void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filtmp);
 
 #endif //PCH_H
 

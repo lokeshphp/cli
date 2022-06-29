@@ -4061,6 +4061,7 @@ void redisTestRead() {
 	int i1, i2, forsta, nBands, pos, pos2, i3, i4, i5;
 	size_t nAlloc;
 	float* arrFloat, lat, lon, rowDbl, colDbl;
+	FILE* filtmp;
 
 #ifndef WIN32
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
@@ -4070,9 +4071,9 @@ void redisTestRead() {
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		keyID = model.weather[ii].weatherFileTypeName;
 		keyID.append(":metaData");
-		printf("testAa\n");
+		//printf("testAa\n");
 		auto reply = redis.get(keyID);
-		printf("testAb\n");
+		//printf("testAb\n");
 		if (reply) {
 			auto val = nlohmann::json::parse(*reply);
 			model.weather[ii].nCols = val["nCols"];
@@ -4085,6 +4086,11 @@ void redisTestRead() {
 			model.weather[ii].minY = val["minY"];
 			model.weather[ii].maxY = val["maxY"];
 			nBlockRows = val["nBlockRows"];
+			printf("nBlockRows %d\n", nBlockRows);
+			if (model.weather[ii].nBlock_y < roundUp((double)(model.weather[ii].nRows / nBlockRows))) {
+				model.weather[ii].nBlock_y = roundUp((double)(model.weather[ii].nRows / nBlockRows));
+				printf("OBS OBS changes model.weather[ii].nBlock_y to %d\n", model.weather[ii].nBlock_y);
+			}
 			nBlockCols = val["nBlockCols"];
 			xBlockStart = 0;
 			xBlockEnd = model.weather[ii].nBlock_x - 1;// roundUp(model.weather[ii].nCols / nBlockCols);
@@ -4096,7 +4102,7 @@ void redisTestRead() {
 				model.weather[ii].weatherFileTypeName);
 			exitKontrollerat(__LINE__);
 		}
-		printf("testAc\n");
+		//printf("testAc\n");
 
 		nBands = model.weather[ii].nTimeIntervals;
 		model.weather[ii].valueCell = (float**)malloc(nBands * sizeof(float*));
@@ -4105,9 +4111,14 @@ void redisTestRead() {
 			model.weather[ii].valueCell[i2] = (float*)malloc(nAlloc * sizeof(float));
 		}
 		nAlloc = nBands * nBlockRows * nBlockCols;
+
+
+		auto tid1a = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_msa = tid1a - tid0;
+		printf("read first part of redis data from %s took %.3lf\n", model.weather[ii].weatherFileTypeName, fp_msa);
 		if (ii > 0)
 			delete arrFloat;
-		printf("testA nAlloc %d\n", nAlloc);
+		//printf("testA nAlloc %d\n", nAlloc);
 
 		forsta = 1;
 		for (i1 = yBlockStart; i1 <= yBlockEnd; i1++) {
@@ -4122,49 +4133,57 @@ void redisTestRead() {
 						arrFloat = new float[value->size()];
 						forsta = 0;
 					}
-					memcpy(arrFloat, value->data(), value->size());
-					printf("keyID %s size %d pos %d\n", keyID.c_str(), value->size(), pos);
-					if (pos == 8) {
-						for (int i = 0; i < nAlloc; i++) {
-							if (arrFloat[i] < 0.00001) {
-								printf("pos %d last pos > 0 is %d nAlloc %d\n", pos, i - 1, nAlloc);
-								break;
-							}
-						}
-						for (int i = nAlloc - 1; i >= 0; i--) {
-							if (arrFloat[i] > 0.00001) {
-								printf("pos %d last pos > 0 is %d nAlloc %d\n", pos, i, nAlloc);
-								break;
-							}
-						}
-					}
+					//printf("keyID %s size %d pos %d\n", keyID.c_str(), value->size(), pos);
+					//if (pos == 0) {
+					//	filtmp = fopen("test2.txt", "w");
+					//	putStringIntoArrayFloat(*value, arrFloat, filtmp);
+					//	fprintf(filtmp, "\n\n");
+					//}
+					//else
+						memcpy(arrFloat, value->data(), value->size());
 				}
 				else
 					printf("ERROR! Failed to load keyID %s\n", keyID.c_str());
-				printf("test i1 i2 %d %d nBands %d i4 %d %d i5 %d %d\n", i1, i2,
-					nBands, nBlockRows * i1, nBlockRows * (i1 + 1),
-					nBlockCols * i2, nBlockCols * (i2 + 1));
+				//printf("test i1 i2 %d %d nBands %d i4 %d %d i5 %d %d\n", i1, i2,
+				//	nBands, nBlockRows * i1, nBlockRows * (i1 + 1),
+				//	nBlockCols * i2, nBlockCols * (i2 + 1));
+				//for (int i = 0; i < nAlloc; i++) {
+				//	if (arrFloat[i] < 0.00001) {
+				//		printf("pos %d last pos > 0 is %d nAlloc %d", pos, i - 1, nAlloc);
+				//		break;
+				//	}
+				//}
+				for (int i = nAlloc - 1; i >= 0; i--) {
+					if (arrFloat[i] > 0.00001) {
+						printf("pos %d last pos > 0 backwards is %d nAlloc %d\n", pos, i - 1, nAlloc);
+						break;
+					}
+				}
+				//if (pos == 0) {
+				//	for (int i = 0; i < nAlloc; i++) {
+				//		fprintf(filtmp, "%d:%.3lf\n", i, arrFloat[i]);
+				//	}
+				//	fprintf(filtmp, "\n\n");
+				//	fprintf(filtmp, "%s\n", (*value).c_str());
+				//	fclose(filtmp);
+				//}
 				pos2 = 0;
 				for (i3 = 0; i3 < nBands; i3++) {
 					for (i4 = nBlockRows * i1; i4 < nBlockRows * (i1 + 1); i4++) {
 						for (i5 = nBlockCols * i2; i5 < nBlockCols * (i2 + 1); i5++) {
 							if (i4 < model.weather[ii].nRows && i5 < model.weather[ii].nCols) {
 								model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4] = arrFloat[pos2];
-								if (i3 < 10 && i4 == 194 && i5 == 3701) {
-									//if (abs(model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]) > 0.01 && i5== nBlockCols * i2)
-									printf("i345 %d %d %d lon/lat %.2lf %.2lf val %.4f pos %d pos2 %d\n", i3, i4, i5,
-										model.weather[ii].minX + i5 * model.weather[ii].size_col,
-										model.weather[ii].maxY - i4 * model.weather[ii].size_row,
-										model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4], pos, pos2);
-								}
 							}
 							pos2++;
 						}
 					}
 				}
-				printf("done\n");
 			}
 		}
+
+		auto tid1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+		printf("read and translate redis data from %s took %.3lf\n", model.weather[ii].weatherFileTypeName, fp_ms);
 
 		lat = 74.4812;
 		lon = 116.0802;
@@ -4173,13 +4192,11 @@ void redisTestRead() {
 		i4 = (int)rowDbl;
 		i5 = (int)colDbl;
 		for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
-			printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.4lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
-				model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+			printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+				model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
+				model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4+1)]);
 		}
 
-		auto tid1 = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
-		printf("read and translate redis data from %s took %.3lf\n", model.weather[ii].weatherFileTypeName, fp_ms);
 
 		//model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]));
 	}
@@ -4203,9 +4220,9 @@ int redisSetKeys(std::string inputPath) {
 	std::string keyID;
 	json mData;
 
-	//stringstream stream, stream2;
-	//stream.precision(3);
-	//stream << fixed;
+	stringstream stream, stream2;
+	stream.precision(3);
+	stream << fixed;
 	//stream2.precision(3);
 	//stream2 << fixed;
 
@@ -4279,6 +4296,16 @@ int redisSetKeys(std::string inputPath) {
 		nBlockCols = roundUp((double)model.weather[ii].nCols / model.weather[ii].nBlock_x);
 		pos = 0;
 		nAlloc = nBands * nBlockRows * nBlockCols;
+		printf("nAlloc = %d\n", nAlloc);
+		if (nAlloc > 1500000) {
+			nBlockRows = roundUp(1500000.0 / nBands / nBlockCols);
+			errlog("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
+				model.weather[ii].nBlock_y, roundUp((double)(model.weather[ii].nRows / nBlockRows)));
+			printf("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
+				model.weather[ii].nBlock_y, roundUp((double)(model.weather[ii].nRows / nBlockRows)));
+			model.weather[ii].nBlock_y = roundUp((double)(model.weather[ii].nRows / nBlockRows));
+			nAlloc = nBands * nBlockRows * nBlockCols;
+		}
 #ifndef WIN32
 		printf("Adding redis keys for weather parameter %s nAlloc %d\n", model.weather[ii].weatherFileTypeName, nAlloc);
 		arrFloat = (float*)malloc(nAlloc * sizeof(float));
@@ -4288,30 +4315,36 @@ int redisSetKeys(std::string inputPath) {
 				for (i3 = 0; i3 < nBands; i3++) {
 					for (i4 = nBlockRows * i1; i4 < nBlockRows * (i1 + 1); i4++) {
 						for (i5 = nBlockCols * i2; i5 < nBlockCols * (i2 + 1); i5++) {
-							if (i3 == 0 && i4 == 194 && i5 == 3701) {
-								printf("i345 %d %d %d i12 %d %d pos %d pos2 %d val %.4lf\n",
-									i3, i4, i5, i1, i2, pos, pos2,
-									model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
-							}
+							//if (i3 == 0 && i4 == 194 && i5 == 3701) {
+							//	printf("i345 %d %d %d i12 %d %d pos %d pos2 %d val %.4lf\n",
+							//		i3, i4, i5, i1, i2, pos, pos2,
+							//		model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+							//}
 							if (i4 < model.weather[ii].nRows && i5 < model.weather[ii].nCols)
 								arrFloat[pos2] = model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4];
 							else
 								arrFloat[pos2] = -9999.9;
-							//if (pos == 99) {
+							//if (pos == 0) {
+							//	//stream << pos2 << ":" << arrFloat[pos2] << " ";
 							//	stream << arrFloat[pos2] << " ";
 							//}
 							pos2++;
 						}
+						//if (pos == 0) 
+						//	stream << "\n";
 					}
 				}
 				keyID = model.weather[ii].weatherFileTypeName;
 				keyID.append(":");
 				keyID += to_string(pos);
-				printf("Setting key %s for i3 0 %d i4 %d %d i5 %d %d pos %d\n", keyID.c_str(),
-					nBands, nBlockRows * i1, i4-1, nBlockCols * i2, i5-1, pos);
-				//if (pos == 8)
+				//printf("Setting key %s for i3 0 %d i4 %d %d i5 %d %d pos %d\n", keyID.c_str(),
+				//	nBands, nBlockRows * i1, i4-1, nBlockCols * i2, i5-1, pos);
+				//if (pos == 0) {
+				//	redis.set(keyID, stream.str());
 				//	printf("pos %d arrFloat[471839] = %.3lf\n", pos, arrFloat[471839]);
-				redis.set(keyID, string_view(reinterpret_cast<const char*>(arrFloat), nAlloc));
+				//}
+				//else
+					redis.set(keyID, string_view(reinterpret_cast<const char*>(arrFloat), nAlloc));
 				pos++;
 			}
 		}

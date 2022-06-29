@@ -145,7 +145,7 @@ int setUserParam(char* argv, string* inPath, string* outPath) {
 
 }
 
-void putStringIntoArrayFloat(string strang, float* arrFloat) {
+void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filpek = NULL) {
 	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
 	double scale = 10, varde = 0;
 
@@ -155,6 +155,8 @@ void putStringIntoArrayFloat(string strang, float* arrFloat) {
 				arrFloat[pos2++] = varde;
 			else
 				arrFloat[pos2++] = -varde;
+			if (filpek != NULL)
+				fprintf(filpek, "%d:%.3lf\n", pos2 - 1, varde);
 			if (strang[i] == '\0')
 				break;
 			varde = 0;
