@@ -50,6 +50,7 @@ cmake_ninja_workdir = F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOp
 build cmake_object_order_depends_target_voyageOpt: phony || CMakeFiles\voyageOpt.dir
 
 build CMakeFiles\voyageOpt.dir\weatherTest.cpp.obj: CXX_COMPILER__voyageOpt_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp || cmake_object_order_depends_target_voyageOpt
+  DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
   INCLUDES = -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt.dir
@@ -58,6 +59,7 @@ build CMakeFiles\voyageOpt.dir\weatherTest.cpp.obj: CXX_COMPILER__voyageOpt_Debu
   TARGET_PDB = voyageOpt.pdb
 
 build CMakeFiles\voyageOpt.dir\voyageOpt.cpp.obj: CXX_COMPILER__voyageOpt_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp || cmake_object_order_depends_target_voyageOpt
+  DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
   INCLUDES = -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt.dir
@@ -66,6 +68,7 @@ build CMakeFiles\voyageOpt.dir\voyageOpt.cpp.obj: CXX_COMPILER__voyageOpt_Debug 
   TARGET_PDB = voyageOpt.pdb
 
 build CMakeFiles\voyageOpt.dir\test.cpp.obj: CXX_COMPILER__voyageOpt_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\test.cpp || cmake_object_order_depends_target_voyageOpt
+  DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
   INCLUDES = -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt.dir

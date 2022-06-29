@@ -15,7 +15,8 @@
 #include"smartq.cpp"
 #include"coordinate.cpp"
 
+#include "redisDef.h"
 // #include "voyageOpt.cpp"
 
-
 // TODO: Reference additional headers your program requires here.
+

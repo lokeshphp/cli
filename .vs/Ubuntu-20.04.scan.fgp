@@ -1,5 +1,6 @@
+-1530987183 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\#pch.h#
 -106447173 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\.gitignore
-240260970 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakeLists.txt
+1560835806 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakeLists.txt
 -1045371322 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakePresets.json
 -1397693450 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.cpp
 -1548871757 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.h
@@ -7,10 +8,12 @@
 -1496561719 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\filhantering.cpp
 2022163988 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\json.hpp
 -1685047203 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\nodearc.h
--1457254461 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
+804263390 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
 -1555585274 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.cpp
 -581598101 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.h
--256203477 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\raster.cpp
+-584546983 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\raster.cpp
+-1741210648 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\redisDef.h
+1747674136 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\redisDef.h~
 1983861705 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\result_json.json
 -593772348 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\smartq.cpp
 1239734813 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\smartq.h
@@ -20,7 +23,7 @@
 -1554900070 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\sphericalpoint.h
 -1886844367 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\stack.h
 1509793148 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\test.cpp
-1958545191 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
-950867084 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp
-549216124 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.h
-1089869457 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\
+905703339 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
+-1423709415 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp
+2031626499 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.h
+-505898618 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\

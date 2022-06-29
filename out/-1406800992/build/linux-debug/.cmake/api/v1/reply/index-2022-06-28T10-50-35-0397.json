@@ -3,39 +3,38 @@
 	{
 		"generator" : 
 		{
-			"multiConfig" : false,
 			"name" : "Ninja"
 		},
 		"paths" : 
 		{
-			"cmake" : "/home/pafli/.vs/cmake/bin/cmake",
-			"cpack" : "/home/pafli/.vs/cmake/bin/cpack",
-			"ctest" : "/home/pafli/.vs/cmake/bin/ctest",
-			"root" : "/home/pafli/.vs/cmake/share/cmake-3.19"
+			"cmake" : "/usr/bin/cmake",
+			"cpack" : "/usr/bin/cpack",
+			"ctest" : "/usr/bin/ctest",
+			"root" : "/usr/share/cmake-3.16"
 		},
 		"version" : 
 		{
 			"isDirty" : false,
 			"major" : 3,
-			"minor" : 19,
-			"patch" : 4,
-			"string" : "3.19.4",
+			"minor" : 16,
+			"patch" : 3,
+			"string" : "3.16.3",
 			"suffix" : ""
 		}
 	},
 	"objects" : 
 	[
 		{
-			"jsonFile" : "codemodel-v2-1fdce75dd432b41e6ab3.json",
+			"jsonFile" : "codemodel-v2-e97d19250e927b906e28.json",
 			"kind" : "codemodel",
 			"version" : 
 			{
 				"major" : 2,
-				"minor" : 2
+				"minor" : 0
 			}
 		},
 		{
-			"jsonFile" : "cache-v2-0c81a2d1a07e470850de.json",
+			"jsonFile" : "cache-v2-1a3d245498e81450b399.json",
 			"kind" : "cache",
 			"version" : 
 			{
@@ -44,7 +43,7 @@
 			}
 		},
 		{
-			"jsonFile" : "cmakeFiles-v1-878c125fb5591758ab15.json",
+			"jsonFile" : "cmakeFiles-v1-c04f4dea09b82fac6916.json",
 			"kind" : "cmakeFiles",
 			"version" : 
 			{
@@ -81,7 +80,7 @@
 				"responses" : 
 				[
 					{
-						"jsonFile" : "cache-v2-0c81a2d1a07e470850de.json",
+						"jsonFile" : "cache-v2-1a3d245498e81450b399.json",
 						"kind" : "cache",
 						"version" : 
 						{
@@ -90,7 +89,7 @@
 						}
 					},
 					{
-						"jsonFile" : "cmakeFiles-v1-878c125fb5591758ab15.json",
+						"jsonFile" : "cmakeFiles-v1-c04f4dea09b82fac6916.json",
 						"kind" : "cmakeFiles",
 						"version" : 
 						{
@@ -99,12 +98,12 @@
 						}
 					},
 					{
-						"jsonFile" : "codemodel-v2-1fdce75dd432b41e6ab3.json",
+						"jsonFile" : "codemodel-v2-e97d19250e927b906e28.json",
 						"kind" : "codemodel",
 						"version" : 
 						{
 							"major" : 2,
-							"minor" : 2
+							"minor" : 0
 						}
 					},
 					{

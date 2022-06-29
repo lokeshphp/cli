@@ -1,9 +1,4 @@
 {
-  "ExpandedNodes": [
-    ""
-  ],
-  "SelectedNode": "\\weatherTest.cpp",
-  "PreviewInSolutionExplorer": false,
   "ActiveTargetSystem": "WSL: Ubuntu-20.04",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
@@ -16,7 +11,12 @@
       "configure": "linux-debug"
     },
     "WSL: Ubuntu-20.04": {
-      "configure": "linux-release"
+      "configure": "linux-debug"
     }
-  }
+  },
+  "ExpandedNodes": [
+    ""
+  ],
+  "SelectedNode": "\\voyageOpt.cpp",
+  "PreviewInSolutionExplorer": false
 }

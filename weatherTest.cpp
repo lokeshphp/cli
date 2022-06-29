@@ -7,16 +7,14 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <sstream>
+
 //#include<fstream>
 
-#ifndef WIN32
-#include </usr/local/include/sw/redis++/redis++.h>
-//#include <sw/redis++/redis++.h>
- using namespace sw::redis;
-//#include <redox.hpp>
-//#include </usr/local/include/redox.hpp>
-//using namespace redox;
-#endif
+ struct testStruct
+ {
+	 float varden[90000];
+ };
 
 using namespace std;
 
@@ -147,6 +145,76 @@ int setUserParam(char* argv, string* inPath, string* outPath) {
 
 }
 
+void putStringIntoArrayFloat(string strang, float* arrFloat) {
+	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
+	double scale = 10, varde = 0;
+
+	for (int i = 0; i < 10000000; i++) {
+		if (strang[i] == ' ' || strang[i] == '\0') {
+			if (negativ == 0)
+				arrFloat[pos2++] = varde;
+			else
+				arrFloat[pos2++] = -varde;
+			if (strang[i] == '\0')
+				break;
+			varde = 0;
+			negativ = 0;
+			scale = 10;
+			continue;
+		}
+		if (strang[i] == '-') {
+			negativ = 1;
+			continue;
+		}
+		if (strang[i] == '.') {
+			scale = 0.1;
+			continue;
+		}
+
+		if (scale > 1)
+			varde = strang[i] - '0' + varde * 10;
+		else {
+			varde += (strang[i] - '0') * scale;
+			scale *= 0.1;
+		}
+	}
+}
+
+void putBinaryIntoArrayFloat(string strang, float* arrFloat) {
+	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
+	double scale = 10, varde = 0;
+
+	for (int i = 0; i < 10000000; i++) {
+		if (strang[i] == ' ' || strang[i] == '\0') {
+			if(negativ == 0)
+				arrFloat[pos2++] = varde;
+			else
+				arrFloat[pos2++] = -varde;
+			if (strang[i] == '\0')
+				break;
+			varde = 0;
+			negativ = 0;
+			scale = 10;
+			continue;
+		}
+		if (strang[i] == '-') {
+			negativ = 1;
+			continue;
+		}
+		if (strang[i] == '.') {
+			scale = 0.1;
+			continue;
+		}
+		
+		if(scale > 1)
+			varde = strang[i] - '0' + varde * 10;
+		else {
+			varde += (strang[i] - '0') * scale;
+			scale *= 0.1;
+		}
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	string dataName, inputPath;
@@ -221,87 +289,62 @@ int main(int argc, char* argv[])
 			fprintf(filpek, "{\nerror\n}\n");
 			fclose(filpek);
 
-#ifdef WIN322
-			auto redis = Redis("tcp://127.0.0.1:6379/1");
-			// std::cout << redis.ping() << std::endl;
+			printf("pass 1\n");
+			float number;
+			stringstream stream;
+			stream.precision(3);
+			stream << fixed;
+			//testStruct testArray0;
+			float* testArray0;
+			testArray0 = (float*)malloc(900 * 451 * sizeof(float));
 
-			auto val = redis.get("optimizer_database_weather:icetk0");
-			if (val) {
-				std::cout << "Tjoho!! Got an answer from icetk0" << std::endl;
-				//std::ofstream out("out.txt");
-				//std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
-				//std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
-				freopen("output.txt", "w", stdout);
-				std::cout << *val << std::endl;
-			}
-			else
-				std::cout << "ERROR! No value from icetk0" << std::endl;
-			exit(0);
-
-			using Attrs = std::vector<std::pair<std::string, std::string>>;
-
-			// You can also use std::unordered_map, if you don't care the order of attributes:
-			// using Attrs = std::unordered_map<std::string, std::string>;
-
-			Attrs attrs = { {"f1", "v1"}, {"f2", "v2"} };
-			auto id = redis.xadd("key", "*", attrs.begin(), attrs.end());
-
-			using Item = std::pair<std::string, Optional<Attrs>>;
-			using ItemStream = std::vector<Item>;
-
-			std::unordered_map<std::string, ItemStream> result;
-			auto id2 = "$";
-			//redis.xread("optimizer_database_weather:icetk0", id2, 10, std::inserter(result, result.end()));
-			redis.xread("optimizer_database_weather:icetk0", id, 10, std::inserter(result, result.end()));
-			printf("size of result %d\n", result.size());
-			redis.xread("optimizer_database_weather:icetk0", id, 10000000, std::inserter(result, result.end()));
-			printf("size of result %d\n", result.size());
-
-
-			std::cout << "\nIterate and print key-value pairs using C++17 structured binding:\n";
-			for (const auto& [key, value] : result) {
-				std::cout << "Key:[" << key << "] Value:[\n";
-				for (auto i : value) {
-					auto [a, b] = i;
-					std::cout << a;
-					std::cout << " .. ";
-					//std::cout << b;
-					std::cout << "\n";
+			printf("pass 1b\n");
+			int pos = 0;
+			for (int i = 0; i < 900; i++) {
+				for (int i1 = 0; i1 < 451; i1++) {
+					for (int i2 = 0; i2 < 1; i2++) {
+						number = i / 100.2 + i1 / 50.34 + i2 / 38.2;
+						stream << number << " ";
+						//testArray0.varden[pos++] = number;
+						testArray0[pos++] = number;
+					}
 				}
+				stream << endl;
 			}
+			string str = stream.str();
+			//freopen("output.txt", "w", stdout);
+			//cout << str;
 
-			auto val2 = redis.get("optimizer_database_weather:icetk0");
-			if (val2) {
-				std::cout << "Tjoho!! Got an answer from icetk0" << std::endl;
-				//std::ofstream out("out.txt");
-				//std::streambuf* coutbuf = std::cout.rdbuf(); //save old buf
-				//std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
-				freopen("output.txt", "w", stdout);
-				std::cout << *val2 << std::endl;
+			printf("pass 1c\n");
+			float* testArray;
+			testArray = (float*)malloc(900 * 451 * sizeof(float));
+			putStringIntoArrayFloat(str, testArray);
+			printf("pass 1d\n");
+
+			//vector <float> testVec;
+			//istringstream ss(str);
+			//copy(
+			//	istream_iterator <float>(ss),
+			//	istream_iterator <float>(),
+			//	back_inserter(testVec)
+			//);
+
+			/*
+			cout << endl << endl;
+			int pos = 0;
+			for (int i = 0; i < 900; i++) {
+				for (int i1 = 0; i1 < 451; i1++) {
+					for (int i2 = 0; i2 < 1; i2++) {
+						cout << testVec[pos] << " ";
+						pos++;
+					}
+				}
+				cout << endl;
 			}
-			else
-				std::cout << "ERROR! No value from icetk0" << std::endl;
-
-			//redis.set("testKey", "testValue");
-			//auto value = redis.get("testKey");
-			//if (value) {
-			//	std::cout << "TjohoLiten" << std::endl;
-			//	std::cout << *value << std::endl;
-			//}else
-			//	std::cout << "ERROR! No value from testKey" << std::endl;
+			*/
 
 
-
-			//Redox rdx;
-			//if (!rdx.connect("localhost", 6379))
-			//	printf("ERROR! Could not connect to redox\n");
-			//else {
-			//	cout << "Hello, " << rdx.get("hello") << endl;
-			//	rdx.disconnect();
-			//}
-
-			exit(0);
-#endif
+			//exit(0);
 
 
 			printf("Calling voyageOpt with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
@@ -315,16 +358,45 @@ int main(int argc, char* argv[])
 			errlog("voyageOpt took %.3lf\n", fp_ms);
 		}
 		else {
-			printf("%d arguments read, should be two\n", argc);
-			inputPath = "testIndata";
-			resultPath = "testResults";
-			filpek = fopen("test.txt", "w");
-			fprintf(filpek, "testing\n");
-			fclose(filpek);
-			printf("testFinal\n");
-			printf("Calling voyageOpt with arguments %s and %s\n", inputPath.c_str(), resultPath.c_str());
-			voyageOpt_old(inputPath);
-			printf("All done. give 'weatherDataPath dataName' or 'weatherDataPath dataName nAnropData' if you want to test more\n");
+			if (argc == 2) {
+				int i = 1;
+				inputPath = "-";
+				userGivenOK = setUserParam(argv[i], &inputPath, &dataName);
+				if (userGivenOK == 0) {
+					errlog0("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
+					printf("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
+					exitKontrollerat(__LINE__, 0);
+				}
+				if (inputPath == "-") {
+					errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+					printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+					exitKontrollerat(__LINE__, 0);
+				}
+				printf("input file for redis key generation '%s'\n", inputPath.c_str());
+				auto tid0 = std::chrono::high_resolution_clock::now();
+				int returnVal = 1;
+				if (inputPath != "-")
+					returnVal = redisSetKeys(inputPath);
+				if (returnVal != 0)
+					errlog("ERROR! Failed to set redis keys for weather\n");
+
+				auto tid1 = std::chrono::high_resolution_clock::now();
+				std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+				printf("redis key generation took %.3lf\n", fp_ms);
+				errlog("redis key generation took %.3lf\n", fp_ms);
+			}
+			else {
+				printf("%d arguments read, should be two\n", argc);
+				inputPath = "testIndata";
+				resultPath = "testResults";
+				filpek = fopen("test.txt", "w");
+				fprintf(filpek, "testing\n");
+				fclose(filpek);
+				printf("testFinal\n");
+				printf("Calling voyageOpt with arguments %s and %s\n", inputPath.c_str(), resultPath.c_str());
+				voyageOpt_old(inputPath);
+				printf("All done. give 'weatherDataPath dataName' or 'weatherDataPath dataName nAnropData' if you want to test more\n");
+			}
 		}
 	}
 	return 0;

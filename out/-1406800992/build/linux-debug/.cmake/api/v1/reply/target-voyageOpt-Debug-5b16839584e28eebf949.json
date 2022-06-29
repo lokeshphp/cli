@@ -11,6 +11,8 @@
 		"commands" : 
 		[
 			"add_executable",
+			"add_definitions",
+			"INCLUDE_DIRECTORIES",
 			"include_directories"
 		],
 		"files" : 
@@ -31,11 +33,29 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 89,
+				"line" : 8,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
+				"file" : 0,
+				"line" : 9,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 51,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 89,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
 				"file" : 0,
 				"line" : 91,
 				"parent" : 0
@@ -48,20 +68,35 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-O3 -DNDEBUG  "
+					"fragment" : "-g  "
 				},
 				{
 					"fragment" : "-std=gnu++17"
 				}
 			],
-			"includes" : 
+			"defines" : 
 			[
 				{
 					"backtrace" : 2,
-					"path" : "/usr/include/gdal"
+					"define" : "UNICODE"
 				},
 				{
 					"backtrace" : 3,
+					"define" : "_UNICODE"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "/home/pafli/usr/include/hiredis"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/usr/include/gdal"
+				},
+				{
+					"backtrace" : 6,
 					"path" : "/mnt/c/OSGeo4W64/include"
 				}
 			],
@@ -80,7 +115,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-O3 -DNDEBUG",
+				"fragment" : "-g",
 				"role" : "flags"
 			},
 			{
@@ -89,6 +124,14 @@
 			},
 			{
 				"fragment" : "-Wl,-rpath,/usr/local/lib",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libhiredis.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/local/lib/libredis++.so",
 				"role" : "libraries"
 			},
 			{
@@ -101,6 +144,14 @@
 			},
 			{
 				"fragment" : "/usr/local/lib/libredis++.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/lib/libgdal.so",
 				"role" : "libraries"
 			}
 		],

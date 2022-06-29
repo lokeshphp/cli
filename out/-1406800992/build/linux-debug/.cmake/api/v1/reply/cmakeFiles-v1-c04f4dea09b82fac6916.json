@@ -6,7 +6,7 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "out/build/linux-release/CMakeFiles/3.16.3/CMakeSystem.cmake"
+			"path" : "out/build/linux-debug/CMakeFiles/3.16.3/CMakeSystem.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -15,11 +15,11 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "out/build/linux-release/CMakeFiles/3.16.3/CMakeCCompiler.cmake"
+			"path" : "out/build/linux-debug/CMakeFiles/3.16.3/CMakeCCompiler.cmake"
 		},
 		{
 			"isGenerated" : true,
-			"path" : "out/build/linux-release/CMakeFiles/3.16.3/CMakeCXXCompiler.cmake"
+			"path" : "out/build/linux-debug/CMakeFiles/3.16.3/CMakeCXXCompiler.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -134,6 +134,21 @@
 		{
 			"isCMake" : true,
 			"isExternal" : true,
+			"path" : "/usr/share/cmake-3.16/Modules/FindPkgConfig.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/usr/share/cmake-3.16/Modules/FindPackageHandleStandardArgs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "/usr/share/cmake-3.16/Modules/FindPackageMessage.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
 			"path" : "/usr/share/cmake-3.16/Modules/FindGDAL.cmake"
 		},
 		{
@@ -170,7 +185,7 @@
 	"kind" : "cmakeFiles",
 	"paths" : 
 	{
-		"build" : "/home/pafli/.vs/TrueNorthRouteOptimization/out/build/linux-release",
+		"build" : "/home/pafli/.vs/TrueNorthRouteOptimization/out/build/linux-debug",
 		"source" : "/home/pafli/.vs/TrueNorthRouteOptimization"
 	},
 	"version" : 

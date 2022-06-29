@@ -1,0 +1,9 @@
+#ifndef REDISDEF_H
+#define REDISDEF_H
+
+#ifndef WIN32
+#include </usr/local/include/sw/redis++/redis++.h>
+using namespace sw::redis;
+#endif
+
+#endif //REDISDEF_H
