@@ -39,7 +39,7 @@ include CMakeFiles\rules.ninja
 #############################################
 # Logical path to working directory; prefix for absolute paths.
 
-cmake_ninja_workdir = F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug\
+cmake_ninja_workdir = D$:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug\
 # =============================================================================
 # Object build statements for EXECUTABLE target voyageOpt2
 
@@ -49,28 +49,28 @@ cmake_ninja_workdir = F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOp
 
 build cmake_object_order_depends_target_voyageOpt2: phony || CMakeFiles\voyageOpt2.dir
 
-build CMakeFiles\voyageOpt2.dir\weatherTest.cpp.obj: CXX_COMPILER__voyageOpt2_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp || cmake_object_order_depends_target_voyageOpt2
+build CMakeFiles\voyageOpt2.dir\weatherTest.cpp.obj: CXX_COMPILER__voyageOpt2_Debug D$:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp || cmake_object_order_depends_target_voyageOpt2
   DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
-  INCLUDES = -IF:\TNM\redis\hiredis-master -IF:\TNM\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
+  INCLUDES = -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\hiredis-master -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt2.dir
   OBJECT_FILE_DIR = CMakeFiles\voyageOpt2.dir
   TARGET_COMPILE_PDB = CMakeFiles\voyageOpt2.dir\
   TARGET_PDB = voyageOpt2.pdb
 
-build CMakeFiles\voyageOpt2.dir\voyageOpt.cpp.obj: CXX_COMPILER__voyageOpt2_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp || cmake_object_order_depends_target_voyageOpt2
+build CMakeFiles\voyageOpt2.dir\voyageOpt.cpp.obj: CXX_COMPILER__voyageOpt2_Debug D$:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp || cmake_object_order_depends_target_voyageOpt2
   DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
-  INCLUDES = -IF:\TNM\redis\hiredis-master -IF:\TNM\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
+  INCLUDES = -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\hiredis-master -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt2.dir
   OBJECT_FILE_DIR = CMakeFiles\voyageOpt2.dir
   TARGET_COMPILE_PDB = CMakeFiles\voyageOpt2.dir\
   TARGET_PDB = voyageOpt2.pdb
 
-build CMakeFiles\voyageOpt2.dir\test.cpp.obj: CXX_COMPILER__voyageOpt2_Debug F$:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\test.cpp || cmake_object_order_depends_target_voyageOpt2
+build CMakeFiles\voyageOpt2.dir\test.cpp.obj: CXX_COMPILER__voyageOpt2_Debug D$:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\test.cpp || cmake_object_order_depends_target_voyageOpt2
   DEFINES = -DUNICODE -D_UNICODE
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
-  INCLUDES = -IF:\TNM\redis\hiredis-master -IF:\TNM\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
+  INCLUDES = -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\hiredis-master -ID:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\..\..\redis\redis-plus-plus-master\src\sw\redis++ -I\usr\include\gdal -IC:\OSGeo4W64\include
   OBJECT_DIR = CMakeFiles\voyageOpt2.dir
   OBJECT_FILE_DIR = CMakeFiles\voyageOpt2.dir
   TARGET_COMPILE_PDB = CMakeFiles\voyageOpt2.dir\
@@ -84,10 +84,10 @@ build CMakeFiles\voyageOpt2.dir\test.cpp.obj: CXX_COMPILER__voyageOpt2_Debug F$:
 #############################################
 # Link the executable voyageOpt2.exe
 
-build voyageOpt2.exe: CXX_EXECUTABLE_LINKER__voyageOpt2_Debug CMakeFiles\voyageOpt2.dir\weatherTest.cpp.obj CMakeFiles\voyageOpt2.dir\voyageOpt.cpp.obj CMakeFiles\voyageOpt2.dir\test.cpp.obj | F$:\TNM\redis\hiredis-master\out\build\x64-Release\hiredis.lib F$:\TNM\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib C$:\OSGeo4W64\lib\zlib.lib C$:\OSGeo4W64\lib\gdal_i.lib F$:\TNM\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib C$:\OSGeo4W64\lib\zlib.lib C$:\OSGeo4W64\lib\gdal_i.lib
+build voyageOpt2.exe: CXX_EXECUTABLE_LINKER__voyageOpt2_Debug CMakeFiles\voyageOpt2.dir\weatherTest.cpp.obj CMakeFiles\voyageOpt2.dir\voyageOpt.cpp.obj CMakeFiles\voyageOpt2.dir\test.cpp.obj | ..\..\..\..\..\redis\hiredis-master\out\build\x64-Release\hiredis.lib ..\..\..\..\..\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib C$:\OSGeo4W64\lib\zlib.lib C$:\OSGeo4W64\lib\gdal_i.lib ..\..\..\..\..\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib C$:\OSGeo4W64\lib\zlib.lib C$:\OSGeo4W64\lib\gdal_i.lib
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1
   LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
-  LINK_LIBRARIES = F:\TNM\redis\hiredis-master\out\build\x64-Release\hiredis.lib  F:\TNM\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib  C:\OSGeo4W64\lib\zlib.lib  C:\OSGeo4W64\lib\gdal_i.lib  F:\TNM\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib  C:\OSGeo4W64\lib\zlib.lib  C:\OSGeo4W64\lib\gdal_i.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
+  LINK_LIBRARIES = ..\..\..\..\..\redis\hiredis-master\out\build\x64-Release\hiredis.lib  ..\..\..\..\..\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib  C:\OSGeo4W64\lib\zlib.lib  C:\OSGeo4W64\lib\gdal_i.lib  ..\..\..\..\..\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib  C:\OSGeo4W64\lib\zlib.lib  C:\OSGeo4W64\lib\gdal_i.lib  kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
   OBJECT_DIR = CMakeFiles\voyageOpt2.dir
   POST_BUILD = cd .
   PRE_LINK = cd .
@@ -101,7 +101,7 @@ build voyageOpt2.exe: CXX_EXECUTABLE_LINKER__voyageOpt2_Debug CMakeFiles\voyageO
 # Utility command for edit_cache
 
 build CMakeFiles\edit_cache.util: CUSTOM_COMMAND
-  COMMAND = cmd.exe /C "cd /D F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E echo "No interactive CMake dialog available.""
+  COMMAND = cmd.exe /C "cd /D D:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -E echo "No interactive CMake dialog available.""
   DESC = No interactive CMake dialog available...
   restat = 1
 
@@ -112,7 +112,7 @@ build edit_cache: phony CMakeFiles\edit_cache.util
 # Utility command for rebuild_cache
 
 build CMakeFiles\rebuild_cache.util: CUSTOM_COMMAND
-  COMMAND = cmd.exe /C "cd /D F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --regenerate-during-build -SF:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization -BF:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug"
+  COMMAND = cmd.exe /C "cd /D D:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug && "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --regenerate-during-build -SD:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization -BD:\projects\tnm\TrueNorthRouteOptimization\TrueNorthRouteOptimization\out\build\x64-debug"
   DESC = Running CMake to regenerate build system...
   pool = console
   restat = 1
@@ -130,7 +130,7 @@ build voyageOpt2: phony voyageOpt2.exe
 # =============================================================================
 
 #############################################
-# Folder: F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-debug
+# Folder: D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-debug
 
 build all: phony voyageOpt2.exe
 
