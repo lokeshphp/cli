@@ -379,8 +379,13 @@ int main(int argc, char* argv[])
 				int returnVal = 1;
 				if (inputPath != "-")
 					returnVal = redisSetKeys(inputPath);
-				if (returnVal != 0)
+				if (returnVal != 0) {
 					errlog("ERROR! Failed to set redis keys for weather\n");
+					printf("ERROR! Failed to set redis keys for weather\n");
+				}
+				else
+					printf("Setting of keys done\n");
+
 
 				auto tid1 = std::chrono::high_resolution_clock::now();
 				std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;

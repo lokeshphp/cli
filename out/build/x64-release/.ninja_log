@@ -1,5 +1,22 @@
 # ninja log v5
-5	226	6770885268191241	CMakeFiles/voyageOpt.dir/test.cpp.obj	14ebfcb9448e804b
-3	727	6770885273151220	CMakeFiles/voyageOpt.dir/weatherTest.cpp.obj	4f018b5029ca0e7f
-0	2395	6770885289743296	CMakeFiles/voyageOpt.dir/voyageOpt.cpp.obj	ec3a3d54fffac549
-2410	2852	6770885294053203	voyageOpt.exe	c5e4dd89e02a86bb
+3	66	6782293191362819	CMakeFiles/voyageOpt2.dir/test.cpp.obj	aec50547137ffb89
+5	1030	6782293200942812	CMakeFiles/voyageOpt2.dir/weatherTest.cpp.obj	8659e9b442feeb08
+0	2741	6782293217971653	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2752	3198	6782293222412068	voyageOpt2.exe	f1ca3e6980b39185
+1	2898	6782294019031141	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2907	3270	6782294022601553	voyageOpt2.exe	f1ca3e6980b39185
+1	2977	6782294520292707	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2987	3342	6782294523793009	voyageOpt2.exe	f1ca3e6980b39185
+1	2904	6782295434612939	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2913	3918	6782295444598067	voyageOpt2.exe	f1ca3e6980b39185
+1	2749	6782298748864164	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2758	3124	6782298752465668	voyageOpt2.exe	f1ca3e6980b39185
+1	2882	6782299413813306	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2892	3229	6782299417143307	voyageOpt2.exe	f1ca3e6980b39185
+1	2831	6782301660663800	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2840	3390	6782301666099470	voyageOpt2.exe	f1ca3e6980b39185
+0	2899	6782304320319384	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2908	3254	6782304323699386	voyageOpt2.exe	f1ca3e6980b39185
+4	1046	6782306169057253	CMakeFiles/voyageOpt2.dir/weatherTest.cpp.obj	8659e9b442feeb08
+1	2788	6782306186405873	CMakeFiles/voyageOpt2.dir/voyageOpt.cpp.obj	5404552acaa12895
+2798	3156	6782306189856021	voyageOpt2.exe	f1ca3e6980b39185

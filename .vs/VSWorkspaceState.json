@@ -1,8 +1,8 @@
 {
-  "ActiveTargetSystem": "WSL: Ubuntu-20.04",
+  "ActiveTargetSystem": "Local Machine",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
-      "configure": "x64-debug"
+      "configure": "x64-release"
     },
     "WSL: Ubuntu20.04LTS": {
       "configure": "linux-debug"
@@ -11,12 +11,12 @@
       "configure": "linux-debug"
     },
     "WSL: Ubuntu-20.04": {
-      "configure": "linux-debug"
+      "configure": "linux-release"
     }
   },
   "ExpandedNodes": [
     ""
   ],
-  "SelectedNode": "\\voyageOpt.cpp",
+  "SelectedNode": "\\CMakeLists.txt",
   "PreviewInSolutionExplorer": false
 }

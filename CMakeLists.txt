@@ -38,6 +38,26 @@ else()
 	#set(CMAKE_CXX_STANDARD 17)
 	#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+	if(WIN32)
+		set(HIREDIS_HEADER "F:\\TNM\\redis\\hiredis-master")	
+		#find_path(HIREDIS_HEADER hiredis)
+		target_include_directories(voyageOpt2 PUBLIC ${HIREDIS_HEADER})
+
+		set(HIREDIS_LIB "F:\\TNM\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib")
+		#find_library(HIREDIS_LIB hiredis)
+		target_link_libraries(voyageOpt2 ${HIREDIS_LIB})
+
+		# <------------ add redis-plus-plus dependency -------------->
+		# NOTE: this should be *sw* NOT *redis++*
+		set (REDIS_PLUS_PLUS_HEADER "F:\\TNM\\redis\\redis-plus-plus-master\\src\\sw\\redis++")
+		#find_path(REDIS_PLUS_PLUS_HEADER sw)
+		target_include_directories(voyageOpt2 PUBLIC ${REDIS_PLUS_PLUS_HEADER})
+
+		set(REDIS_PLUS_PLUS_LIB "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib")
+		#find_library(REDIS_PLUS_PLUS_LIB redis++) 
+		target_link_libraries(voyageOpt2 ${REDIS_PLUS_PLUS_LIB})	
+	endif()
+	
 	if(NOT WIN32)
 		set(ENV{PKG_CONFIG_PATH} "$ENV{HOME}/usr/lib/pkgconfig:" $ENV{PKG_CONFIG_PATH})
 		MESSAGE("PKG_CONFIG_PATH:" $ENV{PKG_CONFIG_PATH})

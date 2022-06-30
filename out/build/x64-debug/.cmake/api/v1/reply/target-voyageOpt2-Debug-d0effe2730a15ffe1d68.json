@@ -2,7 +2,10 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "voyageOpt2"
+			"path" : "voyageOpt2.exe"
+		},
+		{
+			"path" : "voyageOpt2.pdb"
 		}
 	],
 	"backtrace" : 1,
@@ -11,9 +14,11 @@
 		"commands" : 
 		[
 			"add_executable",
+			"target_link_libraries",
 			"add_definitions",
-			"INCLUDE_DIRECTORIES",
-			"include_directories"
+			"target_include_directories",
+			"include_directories",
+			"target_compile_features"
 		],
 		"files" : 
 		[
@@ -33,31 +38,61 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 8,
+				"line" : 48,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 9,
+				"line" : 58,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 115,
 				"parent" : 0
 			},
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 51,
+				"line" : 8,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 9,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 89,
+				"line" : 44,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 91,
+				"line" : 54,
+				"parent" : 0
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 109,
+				"parent" : 0
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 111,
+				"parent" : 0
+			},
+			{
+				"command" : 5,
+				"file" : 0,
+				"line" : 37,
 				"parent" : 0
 			}
 		]
@@ -68,39 +103,51 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-O3 -DNDEBUG  "
+					"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1"
 				},
 				{
-					"fragment" : "-std=gnu++17"
+					"fragment" : "-std:c++17"
 				}
 			],
 			"defines" : 
 			[
 				{
-					"backtrace" : 2,
+					"backtrace" : 5,
 					"define" : "UNICODE"
 				},
 				{
-					"backtrace" : 3,
+					"backtrace" : 6,
 					"define" : "_UNICODE"
 				}
 			],
 			"includes" : 
 			[
 				{
-					"backtrace" : 4,
-					"path" : "/home/pafli/usr/include/hiredis"
+					"backtrace" : 7,
+					"path" : "F:/TNM/redis/hiredis-master"
 				},
 				{
-					"backtrace" : 5,
+					"backtrace" : 8,
+					"path" : "F:/TNM/redis/redis-plus-plus-master/src/sw/redis++"
+				},
+				{
+					"backtrace" : 9,
 					"path" : "/usr/include/gdal"
 				},
 				{
-					"backtrace" : 6,
-					"path" : "/mnt/c/OSGeo4W64/include"
+					"backtrace" : 10,
+					"path" : "C:/OSGeo4W64/include"
 				}
 			],
 			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					11
+				],
+				"standard" : "17"
+			},
 			"sourceIndexes" : 
 			[
 				0,
@@ -115,50 +162,57 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-O3 -DNDEBUG",
+				"fragment" : "/DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "",
+				"fragment" : "/machine:x64 /debug /INCREMENTAL /subsystem:console",
 				"role" : "flags"
 			},
 			{
-				"fragment" : "-Wl,-rpath,/usr/local/lib",
+				"backtrace" : 2,
+				"fragment" : "F:\\TNM\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/local/lib/libhiredis.so",
+				"backtrace" : 3,
+				"fragment" : "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/local/lib/libredis++.so",
+				"backtrace" : 4,
+				"fragment" : "C:\\OSGeo4W64\\lib\\zlib.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
+				"backtrace" : 4,
+				"fragment" : "C:\\OSGeo4W64\\lib\\gdal_i.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/libgdal.so",
+				"backtrace" : 3,
+				"fragment" : "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/local/lib/libredis++.so",
+				"backtrace" : 4,
+				"fragment" : "C:\\OSGeo4W64\\lib\\zlib.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
+				"backtrace" : 4,
+				"fragment" : "C:\\OSGeo4W64\\lib\\gdal_i.lib",
 				"role" : "libraries"
 			},
 			{
-				"fragment" : "/usr/lib/libgdal.so",
+				"fragment" : "kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib",
 				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"
 	},
 	"name" : "voyageOpt2",
-	"nameOnDisk" : "voyageOpt2",
+	"nameOnDisk" : "voyageOpt2.exe",
 	"paths" : 
 	{
 		"build" : ".",

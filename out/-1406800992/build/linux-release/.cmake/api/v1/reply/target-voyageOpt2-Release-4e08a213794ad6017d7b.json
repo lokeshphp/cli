@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "voyageOpt"
+			"path" : "voyageOpt2"
 		}
 	],
 	"backtrace" : 1,
@@ -45,19 +45,19 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 51,
+				"line" : 71,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 89,
+				"line" : 109,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 91,
+				"line" : 111,
 				"parent" : 0
 			}
 		]
@@ -68,7 +68,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g  "
+					"fragment" : "-O3 -DNDEBUG  "
 				},
 				{
 					"fragment" : "-std=gnu++17"
@@ -109,13 +109,13 @@
 			]
 		}
 	],
-	"id" : "voyageOpt::@6890427a1f51a3e7e1df",
+	"id" : "voyageOpt2::@6890427a1f51a3e7e1df",
 	"link" : 
 	{
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-g",
+				"fragment" : "-O3 -DNDEBUG",
 				"role" : "flags"
 			},
 			{
@@ -157,8 +157,8 @@
 		],
 		"language" : "CXX"
 	},
-	"name" : "voyageOpt",
-	"nameOnDisk" : "voyageOpt",
+	"name" : "voyageOpt2",
+	"nameOnDisk" : "voyageOpt2",
 	"paths" : 
 	{
 		"build" : ".",

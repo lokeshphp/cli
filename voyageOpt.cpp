@@ -4063,11 +4063,11 @@ void redisTestRead() {
 	float* arrFloat, lat, lon, rowDbl, colDbl;
 	FILE* filtmp;
 
-#ifndef WIN32
+//#ifndef WIN32
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
 	auto tid0 = std::chrono::high_resolution_clock::now();
 
-	printf("testA\n");
+	//printf("testA\n");
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		keyID = model.weather[ii].weatherFileTypeName;
 		keyID.append(":metaData");
@@ -4134,16 +4134,20 @@ void redisTestRead() {
 						forsta = 0;
 					}
 					//printf("keyID %s size %d pos %d\n", keyID.c_str(), value->size(), pos);
-					//if (pos == 0) {
+					//if (pos == 10) {
 					//	filtmp = fopen("test2.txt", "w");
 					//	putStringIntoArrayFloat(*value, arrFloat, filtmp);
 					//	fprintf(filtmp, "\n\n");
 					//}
 					//else
 						memcpy(arrFloat, value->data(), value->size());
+					//printf("pos %d %.3lf %.3lf %.3lf %.3lf size %d\n", pos, arrFloat[0], arrFloat[1], arrFloat[384920], arrFloat[384921], value->size());
+					//	printf("pos %d\n", pos);
 				}
 				else
 					printf("ERROR! Failed to load keyID %s\n", keyID.c_str());
+				//if (pos > 12)
+				//	exit(0);
 				//printf("test i1 i2 %d %d nBands %d i4 %d %d i5 %d %d\n", i1, i2,
 				//	nBands, nBlockRows * i1, nBlockRows * (i1 + 1),
 				//	nBlockCols * i2, nBlockCols * (i2 + 1));
@@ -4153,13 +4157,13 @@ void redisTestRead() {
 				//		break;
 				//	}
 				//}
-				for (int i = nAlloc - 1; i >= 0; i--) {
-					if (arrFloat[i] > 0.00001) {
-						printf("pos %d last pos > 0 backwards is %d nAlloc %d\n", pos, i - 1, nAlloc);
-						break;
-					}
-				}
-				//if (pos == 0) {
+				//for (int i = nAlloc - 1; i >= 0; i--) {
+				//	if (arrFloat[i] > 0.00001) {
+				//		printf("pos %d last pos > 0 backwards is %d nAlloc %d\n", pos, i + 1, nAlloc);
+				//		break;
+				//	}
+				//}
+				//if (pos == 10) {
 				//	for (int i = 0; i < nAlloc; i++) {
 				//		fprintf(filtmp, "%d:%.3lf\n", i, arrFloat[i]);
 				//	}
@@ -4168,6 +4172,7 @@ void redisTestRead() {
 				//	fclose(filtmp);
 				//}
 				pos2 = 0;
+				
 				for (i3 = 0; i3 < nBands; i3++) {
 					for (i4 = nBlockRows * i1; i4 < nBlockRows * (i1 + 1); i4++) {
 						for (i5 = nBlockCols * i2; i5 < nBlockCols * (i2 + 1); i5++) {
@@ -4178,6 +4183,7 @@ void redisTestRead() {
 						}
 					}
 				}
+				
 			}
 		}
 
@@ -4185,17 +4191,17 @@ void redisTestRead() {
 		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
 		printf("read and translate redis data from %s took %.3lf\n", model.weather[ii].weatherFileTypeName, fp_ms);
 
-		lat = 74.4812;
-		lon = 116.0802;
-		rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
-		colDbl = get_colDblFromWeatherFile(ii, lon);
-		i4 = (int)rowDbl;
-		i5 = (int)colDbl;
-		for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
-			printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
-				model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
-				model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4+1)]);
-		}
+		//lat = 74.4812;
+		//lon = 116.0802;
+		//rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+		//colDbl = get_colDblFromWeatherFile(ii, lon);
+		//i4 = (int)rowDbl;
+		//i5 = (int)colDbl;
+		//for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
+		//	printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+		//		model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
+		//		model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4+1)]);
+		//}
 
 
 		//model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]));
@@ -4206,7 +4212,7 @@ void redisTestRead() {
 
 
 
-#endif
+//#endif
 
 
 }
@@ -4226,16 +4232,16 @@ int redisSetKeys(std::string inputPath) {
 	//stream2.precision(3);
 	//stream2 << fixed;
 
-	printf("test1\n");
+	//printf("test1\n");
 
 	model.params.variableFileName = inputPath;
 	loadVariables(1);
-	printf("test1b\n");
+	//printf("test1b\n");
 	Raster test;
 
-#ifndef WIN32
+//#ifndef WIN32
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
-#endif
+//#endif
 
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		size_col = -1;
@@ -4245,10 +4251,10 @@ int redisSetKeys(std::string inputPath) {
 				maxLong = model.weather[ii].filePos[i1].maxX;
 		}
 		for (i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
-			printf("test1 %d\n", i1);
+			//printf("test1 %d\n", i1);
 			model.weather[ii].rasterPos[i1].open(model.weather[ii].filePos[i1].fileName);
 			if (i1 == 0) {
-				printf("test1\n");
+				//printf("test1\n");
 				size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
 				model.weather[ii].size_col = size_col;
 				model.weather[ii].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
@@ -4285,19 +4291,19 @@ int redisSetKeys(std::string inputPath) {
 						model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
 			}
 
-			printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
-				model.weather[ii].rasterPos[i1].Get_minLongitude(), 
-				model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
+			//printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
+			//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
+			//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
 			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]));
 		}
 
-		printf("test1d %d\n", ii);
+		//printf("test1d %d\n", ii);
 		nBlockRows = roundUp((double)model.weather[ii].nRows / model.weather[ii].nBlock_y);
 		nBlockCols = roundUp((double)model.weather[ii].nCols / model.weather[ii].nBlock_x);
 		pos = 0;
 		nAlloc = nBands * nBlockRows * nBlockCols;
-		printf("nAlloc = %d\n", nAlloc);
-		if (nAlloc > 1500000) {
+		//printf("nAlloc = %d\n", nAlloc);
+		if (nAlloc > 1500000000) {
 			nBlockRows = roundUp(1500000.0 / nBands / nBlockCols);
 			errlog("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
 				model.weather[ii].nBlock_y, roundUp((double)(model.weather[ii].nRows / nBlockRows)));
@@ -4306,8 +4312,9 @@ int redisSetKeys(std::string inputPath) {
 			model.weather[ii].nBlock_y = roundUp((double)(model.weather[ii].nRows / nBlockRows));
 			nAlloc = nBands * nBlockRows * nBlockCols;
 		}
-#ifndef WIN32
-		printf("Adding redis keys for weather parameter %s nAlloc %d\n", model.weather[ii].weatherFileTypeName, nAlloc);
+//#ifndef WIN32
+		printf("Adding redis keys for weather parameter %s nAlloc %d nBlock xy %d %d\n", model.weather[ii].weatherFileTypeName, nAlloc,
+			model.weather[ii].nBlock_x, model.weather[ii].nBlock_y);
 		arrFloat = (float*)malloc(nAlloc * sizeof(float));
 		for (i1 = 0; i1 < model.weather[ii].nBlock_y; i1++) {
 			for (i2 = 0; i2 < model.weather[ii].nBlock_x; i2++) {
@@ -4324,7 +4331,7 @@ int redisSetKeys(std::string inputPath) {
 								arrFloat[pos2] = model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4];
 							else
 								arrFloat[pos2] = -9999.9;
-							//if (pos == 0) {
+							//if (pos == 10) {
 							//	//stream << pos2 << ":" << arrFloat[pos2] << " ";
 							//	stream << arrFloat[pos2] << " ";
 							//}
@@ -4334,22 +4341,24 @@ int redisSetKeys(std::string inputPath) {
 						//	stream << "\n";
 					}
 				}
+				//printf("pos %d %.3lf %.3lf %.3lf %.3lf\n", pos, arrFloat[0], arrFloat[1], arrFloat[384920], arrFloat[384921]);
 				keyID = model.weather[ii].weatherFileTypeName;
 				keyID.append(":");
 				keyID += to_string(pos);
 				//printf("Setting key %s for i3 0 %d i4 %d %d i5 %d %d pos %d\n", keyID.c_str(),
 				//	nBands, nBlockRows * i1, i4-1, nBlockCols * i2, i5-1, pos);
-				//if (pos == 0) {
+				//if (pos == 10) {
 				//	redis.set(keyID, stream.str());
 				//	printf("pos %d arrFloat[471839] = %.3lf\n", pos, arrFloat[471839]);
 				//}
 				//else
-					redis.set(keyID, string_view(reinterpret_cast<const char*>(arrFloat), nAlloc));
+					redis.set(keyID, string_view(reinterpret_cast<const char*>(arrFloat), nAlloc * sizeof(float)));
 				pos++;
 			}
 		}
 		free(arrFloat);
 
+		/*
 		lat = 74.4812;
 		lon = 116.0802;
 		rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
@@ -4360,6 +4369,7 @@ int redisSetKeys(std::string inputPath) {
 			printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.4f\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
 				model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
 		}
+		*/
 
 		keyID = model.weather[ii].weatherFileTypeName;
 		keyID.append(":metaData");
@@ -4376,39 +4386,11 @@ int redisSetKeys(std::string inputPath) {
 		mData["nBlockRows"] = nBlockRows;
 		mData["nBlockCols"] = nBlockCols;
 
-		printf("Setting key %s\n", keyID.c_str());
+		//printf("Setting key %s\n", keyID.c_str());
 		redis.set(keyID, mData.dump());
+		//printf("Setting of keys done\n");
 
-		/*
-		redis.incrby(keyID, model.weather[ii].nCols);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":nRows");
-		redis.incrby(keyID, model.weather[ii].nRows);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":nTimeIntervals");
-		redis.incrby(keyID, model.weather[ii].nTimeIntervals);
-
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":size_col");
-		redis.zadd("zset", keyID, model.weather[ii].size_col);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":size_row");
-		redis.zadd("zset", keyID, model.weather[ii].size_row);
-
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":minX");
-		redis.zadd("zset", keyID, model.weather[ii].minX);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":maxX");
-		redis.zadd("zset", keyID, model.weather[ii].maxX);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":minY");
-		redis.zadd("zset", keyID, model.weather[ii].minY);
-		keyID = model.weather[ii].weatherFileTypeName;
-		keyID.append(":maxY");
-		redis.zadd("zset", keyID, model.weather[ii].maxY);
-		*/
-#endif
+//#endif
 	}
 
 	return 0;
@@ -7505,110 +7487,30 @@ int check_useRaster_longitude(int weatherNr, int filNr) {
 	return 1;
 }
 
-int createTimeArcs()
-{
-	int i, i1, nAlloc, i2, i3, setupCheckPoints;
-	int tidInt, min_t_nu, nArcsTot, max_t, n_added_t, nArcsNu;
-	int i2b, nodNr1, nodNr2, posNy, arcNr, max_t_nu, nextLevel;
-	int cNr;
-	double fuel, safety, tid, totCost, fuelQualityKvot;
-
-	// model.rasterData.fuelGeography = model.fuelGeographyMapRaster[0].GetRasterBand(1);
-	//float** fuelRaster = model.fuelGeographyMapRaster[0].GetRasterBand(1);
-
-	errlog("OBS! Fixed variables, order and operations. Develop when I know more about the variables\n");
-
-	model.weatherFunctions.nAllocPoints = 50;
-	model.weatherFunctions.vesselBearing = (double*)malloc(
-		model.weatherFunctions.nAllocPoints * sizeof(double));
-	model.weatherFunctions.point = (spherical::Point*)malloc(
-		model.weatherFunctions.nAllocPoints * sizeof(spherical::Point));
-	model.weatherFunctions.checkPoint = (strCheckPkt*)malloc(model.weatherFunctions.nAllocPoints * sizeof(strCheckPkt));
-	for (i = 0; i < model.weatherFunctions.nAllocPoints; i++) {
-		//model.weatherFunctions.checkPoint[i].fileNr = (int*)malloc(model.nWeatherFiles * sizeof(int));
-		model.weatherFunctions.checkPoint[i].latPos = (int*)malloc(model.nWeatherFiles * sizeof(int));
-		model.weatherFunctions.checkPoint[i].lonPos = (int*)malloc(model.nWeatherFiles * sizeof(int));
-	}
-	errlog("test1\n");
-	//model.weatherFunctions.lastFileNr = (int*)calloc(model.nWeatherFiles, sizeof(int));
-	//errlog("test11\n");
-
-	model.nAllocArcs = 100000;
-	model.arc = (strArcInfo*)malloc(model.nAllocArcs * sizeof(strArcInfo));
-
-	errlog("test12\n");
-	for (i = 0; i < model.network.nPhysicalLevels; i++) {
-		model.network.physicalLev[i].nodNr_from_pt = (int**)malloc(
-			model.network.physicalLev[i].nPoints * sizeof(int*));
-		model.network.physicalLev[i].nTimeIntervals = (int*)malloc(
-			model.network.physicalLev[i].nPoints * sizeof(int));
-		model.network.physicalLev[i].nAllocTimeIntervals = (int*)malloc(
-			model.network.physicalLev[i].nPoints * sizeof(int));
-		model.network.physicalLev[i].timeInterval = (int**)malloc(
-			model.network.physicalLev[i].nPoints * sizeof(int*));
-		if (i == 0) {
-			model.network.physicalLev[i].timeInterval[0] = (int*)malloc(sizeof(int));
-			model.network.physicalLev[i].timeInterval[0][0] = model.params.startDelay_h;
-			model.network.physicalLev[i].nodNr_from_pt[0] = (int*)malloc(sizeof(int));
-			model.network.physicalLev[i].nTimeIntervals[0] = 1;
-			model.nAllocNoder = 50000;
-			model.Noder = (strNoder*)malloc(model.nAllocNoder * sizeof(strNoder));
-			model.nArcs = 0;
-			model.nNoder = 0;
-			model.network.physicalLev[i].nodNr_from_pt[0][0] = model.nNoder;
-			adderaNod(i, 0, 0);
-		}
-		else {
-			for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-				model.network.physicalLev[i].nTimeIntervals[i1] = 0;
-				model.network.physicalLev[i].nAllocTimeIntervals[i1] = 100;
-				model.network.physicalLev[i].timeInterval[i1] = (int*)malloc(
-					model.network.physicalLev[i].nAllocTimeIntervals[i1] * sizeof(int));
-				model.network.physicalLev[i].nodNr_from_pt[i1] = (int*)malloc(
-					model.network.physicalLev[i].nAllocTimeIntervals[i1] * sizeof(int));
-
-			}
-		}
-	}
-	errlog("test13\n");
-
-	auto tid0c = std::chrono::high_resolution_clock::now();
-	model.durationMilliTot = tid0c - tid0c;
-	model.durationCheckAddBagar = tid0c - tid0c;
-	model.duration1 = tid0c - tid0c;
-	model.duration2 = tid0c - tid0c;
-	model.duration3 = tid0c - tid0c;
-	model.duration4 = tid0c - tid0c;
-	model.durationMilli = (std::chrono::duration<double, std::milli> *)malloc(model.nWeatherFiles * sizeof(std::chrono::duration<double, std::milli>));
-	model.nCallsWeatherBand = (int*)calloc(model.nWeatherFiles, sizeof(int));
-	for(i = 0; i < model.nWeatherFiles; i++)
-		model.durationMilli[i] = tid0c - tid0c;
-
-	//float***  dataWeatherFile;
-	//dataWeatherFile = (float***)malloc(model.nWeatherFiles * sizeof(float**));
-
+void loadWeatherFiles() {
 	int latPos, lonPos, xPos0, xPos1, yPos0, yPos1, nBands;
+	int pos2, i4, i5;
 	int nBlockRows, nBlockCols, forsta, xBlockStart = 0, xBlockEnd = 0;
 	int yBlockStart = 0, yBlockEnd = 0, pos;
 	double lat, lon, size_col, size_row, xPosFrac, yPosFrac;
 	float* arrFloat;
 	std::string keyID;
 
-#ifndef WIN32
+	//#ifndef WIN32_AAAAA
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
-#endif
+	//#endif
 
-	errlog("test14\n");
-	for(int ii = 0; ii < model.nWeatherFiles; ii++){
+		//errlog("test14\n");
+	for (int ii = 0; ii < model.nWeatherFiles; ii++) {
 		model.tmpTid[0] = std::chrono::high_resolution_clock::now();
 		printf("weather %d variable %s ", ii, model.weather[ii].weatherFileTypeName);
 		if (ii == 3)
 			ii = ii;
-#ifdef WIN32
+#ifdef WIN32_AAAAA
 		// identifiera vilka raster som behover oppnas, och oppna dem
 		size_col = -1;
 		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
-			if (check_useRaster_longitude(ii, i1) == 1){
+			if (check_useRaster_longitude(ii, i1) == 1) {
 				model.weather[ii].rasterPos[i1].open(model.weather[ii].filePos[i1].fileName);
 				if (size_col < 0) {
 					size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
@@ -7672,23 +7574,71 @@ int createTimeArcs()
 		auto reply = redis.get(keyID);
 		if (reply) {
 			auto val = nlohmann::json::parse(*reply);
-			model.weather[ii].nCols = val["nCols"];
-			model.weather[ii].nRows = val["nRows"];
+			nCols = val["nCols"];
+			nRows = val["nRows"];
 			model.weather[ii].nTimeIntervals = val["nTimeIntervals"];
-			model.weather[ii].size_col = val["size_col"];
-			model.weather[ii].size_row = val["size_row"];
-			model.weather[ii].minX = val["minX"];
-			model.weather[ii].maxX = val["maxX"];
-			model.weather[ii].minY = val["minY"];
-			model.weather[ii].maxY = val["maxY"];
-			nBlockRows = val["nBlockRows"];
-			nBlockCols = val["nBlockCols"];
+			size_col = val["size_col"];
+			size_row = val["size_row"];
+			min_lon = val["minX"];
+			max_lon = val["maxX"];
+			min_lat = val["minY"];
+			max_lat = val["maxY"];
+			nRows_inBlock = val["nBlockRows"]; // pnYSize;
+			nCols_inBlock = val["nBlockCols"]; // pnXSize;
 		}
 		else {
 			errlog("ERROR! Failed to read metaData from redis for weather variable %s\n",
 				model.weather[ii].weatherFileTypeName);
 			exitKontrollerat(__LINE__);
 		}
+
+		model.weather[ii].size_col = size_col;
+		xPosFrac = (model.boundingBox.xMin - min_lon) / size_col;
+		xPos0 = (int)xPosFrac;
+		model.weather[ii].minX = min_lon +
+			xPos0 * size_col;
+		xPosFrac = (model.boundingBox.xMax - min_lon) /
+			size_col;
+		xPos1 = roundUp(xPosFrac);
+		model.weather[ii].maxX = model.weather[ii].minX +
+			xPos1 * size_col;
+		model.weather[ii].nCols = xPos1 + 1;
+
+		model.weather[ii].size_row = size_row;
+		yPosFrac = (max_lat - model.boundingBox.yMax) /
+			size_row;
+		yPos0 = (int)yPosFrac;
+		model.weather[ii].maxY = max_lat -
+			yPos0 * size_row;
+		yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+			size_row;
+		yPos1 = roundUp(yPosFrac);
+		if (yPos1 >= nRows)
+			yPos1 = nRows - 1;
+		model.weather[ii].minY = model.weather[ii].maxY -
+			yPos1 * size_row;
+		model.weather[ii].nRows = yPos1 + 1;
+
+		if (max_lon < model.weather[ii].minX) {
+			min_lonUse = min_lon + 360;
+			max_lonUse = max_lon + 360;
+		}
+		else {
+			min_lonUse = min_lon;
+			max_lonUse = max_lon;
+		}
+		useMinX = model.weather[ii].minX;
+		useMaxX = model.weather[ii].maxX;
+
+		xPosFrac1 = (useMinX - min_lonUse) / (max_lonUse - min_lonUse) * nCols / nCols_inBlock;
+		xPosFrac2 = (useMaxX - min_lonUse) / (max_lonUse - min_lonUse) * nCols / nCols_inBlock;
+		yPosFrac1 = (max_lat - model.weather[ii].maxY)/ (max_lat - min_lat) * nRows / nRows_inBlock;
+		yPosFrac2 = (max_lat - model.weather[ii].minY) / (max_lat - min_lat) * nRows / nRows_inBlock;
+
+		xMin = fix_minMaxFromFrac(xPosFrac1, 0, model.weather[ii].nBlock_x - 1);
+		xMax = fix_minMaxFromFrac(xPosFrac2, 0, model.weather[ii].nBlock_x - 1);
+		yMin = fix_minMaxFromFrac(yPosFrac1, 0, model.weather[ii].nBlock_y - 1);
+		yMax = fix_minMaxFromFrac(yPosFrac2, 0, model.weather[ii].nBlock_y - 1);
 
 		nBands = model.weather[ii].nTimeIntervals;
 		model.weather[ii].valueCell = (float**)malloc(nBands * sizeof(float*));
@@ -7702,10 +7652,51 @@ int createTimeArcs()
 
 		//identify which xy blocks are needed -- boundingbox;
 		//loop over needed xy blocks and add to valueCell;
+
+		basXdbl = (min_lonUse - model.weather[ii].minX) / size_col;
+		basX = (long long)basXdbl;
+		if (basX - 0.99999 > basXdbl)
+			basX--;
+		if (basX < 0) {
+			startX0 = -basX;
+			basX = 0;
+		}
+		else {
+			startX0 = 0;
+		}
+		basYdbl = (model.weather[ii].maxY - max_lat) / size_row;
+		basY = (long long)basYdbl;
+		if (basY - 0.99999 > basYdbl)
+			basY--;
+		if (basY < 0) {
+			startY0 = -basY;
+			basY = 0;
+		}
+		else
+			startY0 = 0;
+
 		forsta = 1;
-		for (i1 = xBlockStart; i1 <= xBlockEnd; i1++) {
-			for (i2 = yBlockStart; i2 <= yBlockEnd; i2++) {
-				pos = i1 + nBlockCols + i2;
+		for (iYBlock = yMin; iYBlock <= yMax; iYBlock++) {
+			yPosNu = iYBlock * nRows_inBlock;
+			if (yPosNu < startY0)
+				y0 = startY0 - yPosNu;
+			else
+				y0 = 0;
+			yPosNu += -startY0 + basY;
+			if (y0 + yPosNu + nRows_inBlock > nRows)
+				y1 = nRows - yPosNu;
+			else
+				y1 = nRows_inBlock;
+			for (iXBlock = xMin; iXBlock <= xMax; iXBlock++) {
+				if (iXBlock < 0)
+					xUse = iXBlock + model.weather[ii].nBlock_x;
+				else {
+					if (iXBlock >= model.weather[ii].nBlock_x)
+						xUse = iXBlock - model.weather[ii].nBlock_x;
+					else
+						xUse = iXBlock;
+				}
+				pos = xUse + nBlockCols * iYBlock;
 				keyID = model.weather[ii].weatherFileTypeName;
 				keyID.append(":");
 				keyID += to_string(pos);
@@ -7718,7 +7709,46 @@ int createTimeArcs()
 					memcpy(arrFloat, value->data(), value->size());
 
 				}
+				else
+					printf("ERROR! Failed to load keyID %s\n", keyID.c_str());
 				//kopiera in arrFloat pa ratt plats i valueCell;
+
+				if (startX0 > xPosNu)
+					x0 = startX0 - xPosNu;
+				else
+					x0 = 0;
+				xPosNu += -startX0 + basX;
+				x2 = 0;
+				x0b = 0;
+				if (xPosNu + nBlockCols > nCols) {
+					x1 = nCols - xPosNu;
+					if (max_lon - min_lon > 280) {
+						if (useMinX > minX) {
+							x0b = nCols - xPosNu;
+							x2 = nCols;
+							xPosNu2 = -x0b;
+						}
+					}
+				}
+				else {
+					x1 = pnXSize;
+					if (max_lon - min_lon > 280) {
+						xPosNu2 = x1 + xPosNu;
+						x2 = nCols - xPosNu2;
+					}
+				}
+
+				pos2 = 0;
+				for (i3 = 0; i3 < nBands; i3++) {
+					for (i4 = nBlockRows * i1; i4 < nBlockRows * (i1 + 1); i4++) {
+						for (i5 = nBlockCols * i2; i5 < nBlockCols * (i2 + 1); i5++) {
+							if (i4 < model.weather[ii].nRows && i5 < model.weather[ii].nCols) {
+								model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4] = arrFloat[pos2];
+							}
+							pos2++;
+						}
+					}
+				}
 
 			}
 		}
@@ -7726,8 +7756,7 @@ int createTimeArcs()
 		//model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]));
 #endif
 
-
-		//testCoordValue(ii, 167.6111, 81);
+	//testCoordValue(ii, 167.6111, 81);
 		//testCoordValue(ii, 179.6111, 82);
 		//testCoordValue(ii, -179.6111, 83);
 		//testCoordValue(ii, -132.39, 84);
@@ -7771,11 +7800,11 @@ int createTimeArcs()
 		model.durationMilli[ii] += model.tmpTid[1] - model.tmpTid[0];
 		(model.nCallsWeatherBand[ii])++;
 		model.durationMilliTot += model.tmpTid[1] - model.tmpTid[0];
-		errlog("weather %d variable %s nTimeInt %d dim %d %d tid %lf\nminLon %.3lf maxLon %.3lf\nminLat %.3lf maxLat %.3lf\n", ii, 
+		errlog("weather %d variable %s nTimeInt %d dim %d %d tid %lf\nminLon %.3lf maxLon %.3lf\nminLat %.3lf maxLat %.3lf\n", ii,
 			model.weather[ii].weatherFileTypeName, model.weather[ii].nTimeIntervals,
 			model.weather[ii].nRows,
 			model.weather[ii].nCols,
-			model.durationMilli[ii], 
+			model.durationMilli[ii],
 			model.weather[ii].minX, model.weather[ii].maxX,
 			model.weather[ii].minY, model.weather[ii].maxY);
 	}
@@ -7783,7 +7812,91 @@ int createTimeArcs()
 	//exit(0);
 	i = i;
 
+}
 
+int createTimeArcs()
+{
+	int i, i1, nAlloc, i2, i3, setupCheckPoints;
+	int tidInt, min_t_nu, nArcsTot, max_t, n_added_t, nArcsNu;
+	int i2b, nodNr1, nodNr2, posNy, arcNr, max_t_nu, nextLevel;
+	int cNr;
+	double fuel, safety, tid, totCost, fuelQualityKvot;
+
+	// model.rasterData.fuelGeography = model.fuelGeographyMapRaster[0].GetRasterBand(1);
+	//float** fuelRaster = model.fuelGeographyMapRaster[0].GetRasterBand(1);
+
+	errlog("OBS! Fixed variables, order and operations. Develop when I know more about the variables\n");
+
+	model.weatherFunctions.nAllocPoints = 50;
+	model.weatherFunctions.vesselBearing = (double*)malloc(
+		model.weatherFunctions.nAllocPoints * sizeof(double));
+	model.weatherFunctions.point = (spherical::Point*)malloc(
+		model.weatherFunctions.nAllocPoints * sizeof(spherical::Point));
+	model.weatherFunctions.checkPoint = (strCheckPkt*)malloc(model.weatherFunctions.nAllocPoints * sizeof(strCheckPkt));
+	for (i = 0; i < model.weatherFunctions.nAllocPoints; i++) {
+		//model.weatherFunctions.checkPoint[i].fileNr = (int*)malloc(model.nWeatherFiles * sizeof(int));
+		model.weatherFunctions.checkPoint[i].latPos = (int*)malloc(model.nWeatherFiles * sizeof(int));
+		model.weatherFunctions.checkPoint[i].lonPos = (int*)malloc(model.nWeatherFiles * sizeof(int));
+	}
+	//errlog("test1\n");
+	//model.weatherFunctions.lastFileNr = (int*)calloc(model.nWeatherFiles, sizeof(int));
+	//errlog("test11\n");
+
+	model.nAllocArcs = 100000;
+	model.arc = (strArcInfo*)malloc(model.nAllocArcs * sizeof(strArcInfo));
+
+	//errlog("test12\n");
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		model.network.physicalLev[i].nodNr_from_pt = (int**)malloc(
+			model.network.physicalLev[i].nPoints * sizeof(int*));
+		model.network.physicalLev[i].nTimeIntervals = (int*)malloc(
+			model.network.physicalLev[i].nPoints * sizeof(int));
+		model.network.physicalLev[i].nAllocTimeIntervals = (int*)malloc(
+			model.network.physicalLev[i].nPoints * sizeof(int));
+		model.network.physicalLev[i].timeInterval = (int**)malloc(
+			model.network.physicalLev[i].nPoints * sizeof(int*));
+		if (i == 0) {
+			model.network.physicalLev[i].timeInterval[0] = (int*)malloc(sizeof(int));
+			model.network.physicalLev[i].timeInterval[0][0] = model.params.startDelay_h;
+			model.network.physicalLev[i].nodNr_from_pt[0] = (int*)malloc(sizeof(int));
+			model.network.physicalLev[i].nTimeIntervals[0] = 1;
+			model.nAllocNoder = 50000;
+			model.Noder = (strNoder*)malloc(model.nAllocNoder * sizeof(strNoder));
+			model.nArcs = 0;
+			model.nNoder = 0;
+			model.network.physicalLev[i].nodNr_from_pt[0][0] = model.nNoder;
+			adderaNod(i, 0, 0);
+		}
+		else {
+			for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+				model.network.physicalLev[i].nTimeIntervals[i1] = 0;
+				model.network.physicalLev[i].nAllocTimeIntervals[i1] = 100;
+				model.network.physicalLev[i].timeInterval[i1] = (int*)malloc(
+					model.network.physicalLev[i].nAllocTimeIntervals[i1] * sizeof(int));
+				model.network.physicalLev[i].nodNr_from_pt[i1] = (int*)malloc(
+					model.network.physicalLev[i].nAllocTimeIntervals[i1] * sizeof(int));
+
+			}
+		}
+	}
+	//errlog("test13\n");
+
+	auto tid0c = std::chrono::high_resolution_clock::now();
+	model.durationMilliTot = tid0c - tid0c;
+	model.durationCheckAddBagar = tid0c - tid0c;
+	model.duration1 = tid0c - tid0c;
+	model.duration2 = tid0c - tid0c;
+	model.duration3 = tid0c - tid0c;
+	model.duration4 = tid0c - tid0c;
+	model.durationMilli = (std::chrono::duration<double, std::milli> *)malloc(model.nWeatherFiles * sizeof(std::chrono::duration<double, std::milli>));
+	model.nCallsWeatherBand = (int*)calloc(model.nWeatherFiles, sizeof(int));
+	for(i = 0; i < model.nWeatherFiles; i++)
+		model.durationMilli[i] = tid0c - tid0c;
+
+	//float***  dataWeatherFile;
+	//dataWeatherFile = (float***)malloc(model.nWeatherFiles * sizeof(float**));
+
+	loadWeatherFiles();
 
 	
 

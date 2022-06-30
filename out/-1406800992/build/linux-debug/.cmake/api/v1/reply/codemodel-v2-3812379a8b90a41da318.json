@@ -6,7 +6,6 @@
 			[
 				{
 					"build" : ".",
-					"jsonFile" : "directory-.-Release-d0094a50bb2071803777.json",
 					"minimumCMakeVersion" : 
 					{
 						"string" : "3.8"
@@ -19,7 +18,7 @@
 					]
 				}
 			],
-			"name" : "Release",
+			"name" : "Debug",
 			"projects" : 
 			[
 				{
@@ -38,9 +37,9 @@
 			[
 				{
 					"directoryIndex" : 0,
-					"id" : "voyageOpt::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-voyageOpt-Release-0a4f4addf52ec22bc861.json",
-					"name" : "voyageOpt",
+					"id" : "voyageOpt2::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-voyageOpt2-Debug-8df25ae9e9bad210f2d6.json",
+					"name" : "voyageOpt2",
 					"projectIndex" : 0
 				}
 			]
@@ -49,12 +48,12 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-release",
-		"source" : "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization"
+		"build" : "/home/pafli/.vs/TrueNorthRouteOptimization/out/build/linux-debug",
+		"source" : "/home/pafli/.vs/TrueNorthRouteOptimization"
 	},
 	"version" : 
 	{
 		"major" : 2,
-		"minor" : 3
+		"minor" : 0
 	}
 }

@@ -149,7 +149,7 @@ public:
 		max_lon = geotransform[0] + geotransform[1] * NCOLS;
 		size_row = -geotransform[5];
 		size_col = geotransform[1];
-		printf("opend raster min/max lon %.2lf %.2lf\n", min_lon, max_lon);
+		//printf("opend raster min/max lon %.2lf %.2lf\n", min_lon, max_lon);
 	}
 
 	/*
@@ -1147,7 +1147,7 @@ public:
 		GDALRasterBand* poBand;
 		GDALDataType bandType;
 
-		printf("test33a\n");
+		//printf("test33a\n");
 		if (max_lon < weatherData->minX) {
 			min_lonUse = min_lon + 360;
 			max_lonUse = max_lon + 360;
