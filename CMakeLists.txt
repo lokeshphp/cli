@@ -39,6 +39,7 @@ else()
 	#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 	if(WIN32) 
+		set(CMAKE_BUILD_TYPE  "RelWithDebInfo")
 		set(HIREDIS_HEADER ${voyageOpt_SOURCE_DIR}/../../redis/hiredis-master)
 		#set(HIREDIS_HEADER "F:\\TNM\\redis\\hiredis-master")	
 		#find_path(HIREDIS_HEADER hiredis)

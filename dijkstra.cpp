@@ -107,10 +107,13 @@ int SattUppDijkstraNatverk3(strModel *model) {
 				length = (long long)(model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK);
 
 				if (length < 0) {
-					errlog(0, "ERROR: arc fran nod %d till nodpos %d har neg kostn %ld, andrar den till 1e16, ",
+					printf("ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d utNodCost %.2lf, andrar den till 1e16, ",
+						i, i1, length, model->Noder[i].UtNodCost[i1]);
+					errlog(0, "ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d, andrar den till 1e16, ",
 						i, i1, length);
 					fprintf(stdout, "utnodcost %.3lf faktor %.3lf\n",
 						model->Noder[i].UtNodCost[i1], model->Dijkstra.FAKTOR_NATVERK);
+
 					length = 10000000000000000;
 				}
 				arc_first[tail + 1] ++; /* no of arcs outgoing from tail

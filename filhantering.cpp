@@ -872,7 +872,7 @@ int errlog (const char *format, ...)
 
   FILE *log;
   namn = resultPath + "/logfile.txt";
-
+  //printf("Skriver till %s\n", namn.c_str());
   log = fopen (namn.c_str(), "a+");
 
   if (log == NULL)

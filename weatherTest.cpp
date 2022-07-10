@@ -37,7 +37,7 @@ int test_OpenTheSameRasterMultipleTimesAndRead(string dataName, int nAnropData)
 
 	time(&tid0);
 	auto tid0c = std::chrono::high_resolution_clock::now();
-	printf("start test\n");
+	//printf("start test\n");
 	namn = weatherDataPath + dataName;
 	time(&tid1);
 	auto tid1c = std::chrono::high_resolution_clock::now();
@@ -384,7 +384,7 @@ int main(int argc, char* argv[])
 					printf("ERROR! Failed to set redis keys for weather\n");
 				}
 				else
-					printf("Setting of keys done\n");
+					printf("Setting of all the keys done\n");
 
 
 				auto tid1 = std::chrono::high_resolution_clock::now();
