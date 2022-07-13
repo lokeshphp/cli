@@ -1146,6 +1146,7 @@ public:
 		double min_lonUse, max_lonUse, basXdbl, basYdbl;
 		GDALRasterBand* poBand;
 		GDALDataType bandType;
+		FILE* filpek = NULL;
 
 		//printf("test33a\n");
 		if (max_lon < weatherData->minX) {
@@ -1277,6 +1278,19 @@ public:
 					}
 					poBand->ReadBlock(xUse, iYBlock, pabyData);
 
+					if (nBands >= 117) {
+						if(filpek==NULL)
+							filpek = fopen("filTmp.txt", "w");
+						for (int i = 0; i < pnYSize; i++) {
+							for (int i1 = 0; i1 < pnXSize; i1++) {
+								fprintf(filpek, " %d %d %d %.4f\n", z, i, i1, pabyData[i1 + i * pnXSize]);
+							}
+						}
+						if (z >= 2) {
+							fclose(filpek);
+							exit(0);
+						}
+					}
 					//xPosNu = (iXBlock - xMin) * pnXSize;
 					xPosNu = iXBlock * pnXSize;
 

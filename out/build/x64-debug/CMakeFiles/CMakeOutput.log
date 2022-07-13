@@ -1,10 +1,7 @@
 The system is: Windows - 10.0.18363 - AMD64
-The system is: Windows - 10.0.18363 - AMD64
-The system is: Windows - 10.0.18363 - AMD64
-The system is: Windows - 10.0.18363 - AMD64
 Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
 Compiler: C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/bin/Hostx64/x64/cl.exe 
-Build flags: /DWIN32;/D_WINDOWS;/W3
+Build flags: 
 Id flags:  
 
 The output was:
@@ -28,7 +25,7 @@ The C compiler identification is MSVC, found in "D:/projects/tnm/TrueNorthRouteO
 
 Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
 Compiler: C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Tools/MSVC/14.31.31103/bin/Hostx64/x64/cl.exe 
-Build flags: /DWIN32;/D_WINDOWS;/W3;/GR;/EHsc
+Build flags: 
 Id flags:  
 
 The output was:
@@ -53,16 +50,16 @@ The CXX compiler identification is MSVC, found in "D:/projects/tnm/TrueNorthRout
 Detecting C compiler ABI info compiled with the following output:
 Change Dir: D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-debug/CMakeFiles/CMakeTmp
 
-Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe cmTC_03e67 && [1/2] Building C object CMakeFiles\cmTC_03e67.dir\CMakeCCompilerABI.c.obj
-[2/2] Linking C executable cmTC_03e67.exe
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe cmTC_de277 && [1/2] Building C object CMakeFiles\cmTC_de277.dir\CMakeCCompilerABI.c.obj
+[2/2] Linking C executable cmTC_de277.exe
 
 
 
 Detecting CXX compiler ABI info compiled with the following output:
 Change Dir: D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-debug/CMakeFiles/CMakeTmp
 
-Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe cmTC_6d48c && [1/2] Building CXX object CMakeFiles\cmTC_6d48c.dir\CMakeCXXCompilerABI.cpp.obj
-[2/2] Linking CXX executable cmTC_6d48c.exe
+Run Build Command(s):C:/Program Files/Microsoft Visual Studio/2022/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/ninja.exe cmTC_65db9 && [1/2] Building CXX object CMakeFiles\cmTC_65db9.dir\CMakeCXXCompilerABI.cpp.obj
+[2/2] Linking CXX executable cmTC_65db9.exe
 
 
 

@@ -123,6 +123,7 @@ struct strParams
 	int startYear; // = 2018;
 	int startMonth_nr; // = 9; // sep
 	int startDay_nr; //  = 1;
+	time_t UCT_tid;
 	int startHour; // 0
 	int startMinute; // 0
 

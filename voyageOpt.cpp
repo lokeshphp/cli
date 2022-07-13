@@ -1617,6 +1617,23 @@ int fixReadableDate(struct tm tmBas, char* namn) {
 	return 0;
 }
 
+time_t make_gmtime(strParams* params) {
+	struct tm tmBas = { 0 };
+	tmBas.tm_year = params->startYear - 1900;
+	tmBas.tm_mon = params->startMonth_nr - 1; // sep
+	tmBas.tm_mday = params->startDay_nr;
+	tmBas.tm_hour = params->startHour; // 0;
+	tmBas.tm_min = params->startMinute;
+	tmBas.tm_sec = 0;
+#ifdef WIN32
+	time_t rawtime = _mkgmtime(&tmBas);
+#endif
+#ifndef WIN32
+	time_t rawtime = timegm(&tmBas);
+#endif
+	return rawtime;
+}
+
 int writeSolutionToJson_dummy(string resultName)
 {
 	int i;
@@ -3352,6 +3369,12 @@ int loadParams_new(strParams* params)
 		params->startHour = data["startHour"];
 	if (!data["startMinute"].is_null())
 		params->startMinute = data["startMinute"];
+
+	params->UCT_tid = make_gmtime(params);
+	printf("%jd seconds since the epoch began\n", (intmax_t)(params->UCT_tid));
+	printf("%s", asctime(gmtime(&(params->UCT_tid))));
+
+
 	if (!data["preferredPath_followExactOK"].is_null())
 		params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
 
@@ -3387,20 +3410,22 @@ int loadParams_new(strParams* params)
 		i = 0;
 		for (auto it = dataGeo2.begin(); it != dataGeo2.end(); ++it) {
 			dataFeature = it.value();
-			if (dataFeature["properties"].is_null())
+			if (dataFeature["properties"].is_null()) {
+				printf("ERROR! No properties for a feature in geoData. I skip this one\n");
+				errlog("ERROR! No properties for a feature in geoData. I skip this one\n");
 				continue; // no properties exists for this one, cannot be a preferred path
-
+			}
 			dataProp = dataFeature["properties"];
-			if (dataProp["type"].is_null())
-				continue; // no type exists for this one, cannot be a preferred path
-
 			string namnNu = dataProp["type"];
-			if (namnNu != "preferredPath")
+			if (namnNu != "preferredPath") {
+				printf("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
+				errlog("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
 				continue; //not a preferred path
-
+			}
 			dataGeo3 = dataFeature["geometry"];
 			if (dataGeo3["coordinates"].is_null()) {
 				errlog("ERROR! No coordinates given for the prefered path. I quit!\n");
+				printf("ERROR! No coordinates given for the prefered path. I quit!\n");
 				exitKontrollerat(__LINE__);
 			}
 			dataCoord = dataGeo3["coordinates"];
@@ -3464,6 +3489,14 @@ int loadParams_new(strParams* params)
 			i++;
 			model.preferredPath.nPoints = nPointsTot;
 		}
+	}
+
+	printf("nPoints in preferredPath %d\n", model.preferredPath.nPoints);
+	errlog("nPoints in preferredPath %d\n", model.preferredPath.nPoints);
+	if (model.preferredPath.nPoints == 0) {
+		printf("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
+		errlog("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
+		exitKontrollerat(__LINE__);
 	}
 
 	if (model.preferredPath.minX < -180) {
@@ -4225,6 +4258,8 @@ int redisSetKeys(std::string inputPath) {
 	std::string keyID;
 	json mData;
 
+	std::list<int> listOfInts;
+
 	stringstream stream, stream2;
 	stream.precision(3);
 	stream << fixed;
@@ -4238,9 +4273,8 @@ int redisSetKeys(std::string inputPath) {
 	//printf("test1b\n");
 	Raster test;
 
-//#ifndef WIN32
+	printf("opening redis\n");
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
-//#endif
 
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		size_col = -1;
@@ -4315,7 +4349,7 @@ int redisSetKeys(std::string inputPath) {
 			model.weather[ii].nBlock_y = roundUp((double)(model.weather[ii].nRows / nBlockRows));
 			nAlloc = nBands * nBlockRows * nBlockCols;
 		}
-//#ifndef WIN32
+
 		printf("Adding redis keys for weather parameter %s nAlloc %d nBlock xy %d %d\n", 
 			model.weather[ii].weatherFileTypeName, nAlloc,
 			model.weather[ii].nBlock_x, model.weather[ii].nBlock_y);
@@ -4371,18 +4405,19 @@ int redisSetKeys(std::string inputPath) {
 		}
 		free(arrFloat);
 
-		/*
-		lat = 74.4812;
-		lon = 116.0802;
-		rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
-		colDbl = get_colDblFromWeatherFile(ii, lon);
-		i4 = (int)rowDbl;
-		i5 = (int)colDbl;
-		for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
-			printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.4f\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
-				model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+		printf("ii %d nBands %d\n", ii, nBands);
+		if (ii == 2) {
+			lat = 74.4812;
+			lon = 116.0802;
+			rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+			colDbl = get_colDblFromWeatherFile(ii, lon);
+			i4 = (int)rowDbl;
+			i5 = (int)colDbl;
+			for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
+				printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.4f\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+			}
 		}
-		*/
 
 		printf("setting metadata\n");
 		keyID.assign(model.weather[ii].weatherFileTypeName);
@@ -4390,7 +4425,6 @@ int redisSetKeys(std::string inputPath) {
 		//redis.set(keyID, to_string(model.weather[ii].nCols));
 		mData["nCols"] = model.weather[ii].nCols;
 		mData["nRows"] = model.weather[ii].nRows;
-		mData["nTimeIntervals"] = model.weather[ii].nTimeIntervals;
 		mData["size_col"] = model.weather[ii].size_col;
 		mData["size_row"] = model.weather[ii].size_row;
 		mData["minX"] = model.weather[ii].minX;
@@ -4399,26 +4433,32 @@ int redisSetKeys(std::string inputPath) {
 		mData["maxY"] = model.weather[ii].maxY;
 		mData["nBlockRows"] = nBlockRows;
 		mData["nBlockCols"] = nBlockCols;
+		mData["nTimeIntervals"] = model.weather[ii].nTimeIntervals;
+		listOfInts.clear();
+		for (int i = 0; i < model.weather[ii].nTimeIntervals; i++)
+			listOfInts.push_back(model.weather[ii].secondsUTC[i]);
+		printf("metaData\n%s\n", mData.dump().c_str());
+		mData["UTCtimes"] = listOfInts;
 
 		//printf("Setting key %s\n", keyID.c_str());
 		redis.set(keyID, mData.dump());
 		printf("Setting of key %s done\n", keyID.c_str());
 		
-		//if (ii == 2) {
-		//	lat = 7.18;
-		//	lon = -87.8;
-		//	rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
-		//	colDbl = get_colDblFromWeatherFile(ii, lon);
-		//	i4 = (int)rowDbl;
-		//	i5 = (int)colDbl;
-		//	for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
-		//		printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
-		//			model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
-		//			model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4 + 1)]);
-		//	}
-		//}
+		if (ii == 2) {
+			lat = 9.8;
+			lon = 91.96;
+			rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+			colDbl = get_colDblFromWeatherFile(ii, lon);
+			i4 = (int)rowDbl;
+			i5 = (int)colDbl; 
+			for (i3 = 0; i3 < nBands && i3 < 10; i3++) {
+				printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
+					model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4 + 1)]);
+			}
+		}
 
-//#endif
+
 	}
 
 	return 0;
@@ -5871,7 +5911,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 		dist = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000;
 		distTot += dist;
 	}
-	errlog("tot haversine dist of prefered path %lf\n", distTot);
+	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n", 
+		distTot, model.preferredPath.nPoints);
 
 	nIntDbl = distTot / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
 	errlog("nHoursIntervals: %lf", model.params.nHours_changeCourseInterval);
@@ -7190,9 +7231,14 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 			currentSpeed = 0;
 		}
 
-		if (uCurrent > 10)
-			printf("currentSpeed %.2lf uCurr %.2lf vCurr %.2lf uCurrPos %d lonPos %d latPos %d tidInt %d lon/lat %.2lf %.2lf\n", 
-				currentSpeed, uCurrent, vCurrent, model.functions.pos_current_u,
+		if (uCurrent > 100000 || 
+			(model.weatherFunctions.checkPoint[i].lonPos[model.functions.pos_current_u]==9000&&
+			model.weatherFunctions.checkPoint[i].latPos[model.functions.pos_current_u]==10&&
+				(int)tidTot / model.weather[model.functions.pos_current_u].timeIntervall_h==3))
+			printf("currentSpeed %.2lf uCurr %.2lf vCurr %.2lf uCurrPos %d lonPos %d latPos %d "
+				"tidInt %d lon/lat %.2lf %.2lf speedSetting %d i %d av %d\n", 
+				currentSpeed, uCurrent, vCurrent, 
+				model.functions.pos_current_u,
 				model.weatherFunctions.checkPoint[i].lonPos[model.functions.pos_current_u],
 				model.weatherFunctions.checkPoint[i].latPos[model.functions.pos_current_u],
 				(int)tidTot / model.weather[model.functions.pos_current_u].timeIntervall_h,
@@ -7201,7 +7247,8 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 				model.weather[model.functions.pos_current_u].size_col,
 				model.weather[model.functions.pos_current_u].maxY - 
 				model.weatherFunctions.checkPoint[i].latPos[model.functions.pos_current_u] * 
-				model.weather[model.functions.pos_current_u].size_row);
+				model.weather[model.functions.pos_current_u].size_row,
+				speedSettingNr, i, model.weatherFunctions.nCheckPoints);
 
 		baseGroundSpeed = eval_baseGroundSpeed(calmWaterSpeed, model.weatherFunctions.vesselBearing[i],
 			currentDirection, currentSpeed);
@@ -7681,6 +7728,14 @@ void loadWeatherFiles() {
 			max_lat = val["maxY"];
 			nRows_inBlock = val["nBlockRows"]; // pnYSize;
 			nCols_inBlock = val["nBlockCols"]; // pnXSize;
+			json UTC = val["UTCtimes"];
+			pos = 0;
+			model.weather[ii].secondsUTC = (long long*)malloc(model.weather[ii].nTimeIntervals * sizeof(long long));
+			for (auto it = UTC.begin(); it != UTC.end(); ++it) {
+				model.weather[ii].secondsUTC[pos] = it.value();
+				pos++;
+
+			}
 		}
 		else {
 			errlog("ERROR! Failed to read metaData from redis for weather variable %s\n",
