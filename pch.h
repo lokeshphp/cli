@@ -44,9 +44,15 @@ struct strSafety
 {
 	double base;
 	double hurricane;
-	double lowPressure;
-	double waves;
-	double stability;
+	double bowSlam;
+	double greenWater;
+	double dynamicStability;
+	double feasibleSafety;
+	double iceCoverCost_fix;
+	double iceCoverCost_thickness;
+	//double lowPressure;
+	//double waves;
+	//double stability;
 };
 
 struct strParams
@@ -129,6 +135,10 @@ struct strParams
 
 	double maxDeviationPrefered_km;
 
+	double shipDraft;
+	double shipLength;
+	double freeBoard2;
+
 };
 
 struct strVariables
@@ -174,8 +184,13 @@ struct strArcInfo
 	double fuelLSMGO;
 	double safetyBase;
 	double safetyHurricane;
-	double safetyStability;
-	double safetyPressure;
+	double safetyBowSlam;
+	double safetyGreenWater;
+	double safetyDynStability;
+	int feasibleSafety;
+	double iceCoverCost;
+	//double safetyStability;
+	//double safetyPressure;
 	double channelCost;
 	double totCost;
 };
@@ -268,12 +283,36 @@ struct strFuelConsumptionFkn {
 	double c3_rpm;
 };
 
+struct strFunkData {
+	int nHeightIndex;
+	double heightIndexSize;
+	int nPeriodIndex;
+	double periodIndexSize;
+	int nWSpeedIndex;
+	double wSpeedIndexSize;
+	int nWDirIndex;
+	double wDirIndexSize;
+	double* tableValue;
+};
+
+struct strValuesNow {
+	double fuel;
+	double distance;
+
+	double bowSlam;
+	double greenWater;
+	double dynamicStability;
+	double worstStormValue;
+	int feasibleSafety;
+	double iceCoverCost;
+};
+
 struct strFunc2 {
 	//double* rpmSetting_gerSpeed;
 	//double* rpmSetting_gerFuelConsumption;
 
 	double iceCoverMaxFree;
-	double iceCoverCost_fix;
+	//double iceCoverCost_fix;
 
 
 	//int nWindDir;
@@ -326,6 +365,12 @@ struct strFunc2 {
 	int pos_wavePeriod;
 	int pos_waveDirection;
 	int pos_iceThickness;
+
+	strFunkData bowSlamming; // height + nHeight * period
+	strFunkData greenWater; // height
+	strFunkData dynStability; // wSpeed + nWSpeed * wDir
+
+	strValuesNow valuesNow;
 };
 
 struct strDijkstra {

@@ -1,10 +1,5 @@
 {
-  "ExpandedNodes": [
-    ""
-  ],
-  "SelectedNode": "\\CMakeLists.txt",
-  "PreviewInSolutionExplorer": false,
-  "ActiveTargetSystem": "WSL: Ubuntu-20.04",
+  "ActiveTargetSystem": "Local Machine",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
       "configure": "x64-debug"
@@ -18,5 +13,10 @@
     "WSL: Ubuntu-20.04": {
       "configure": "linux-release"
     }
-  }
+  },
+  "ExpandedNodes": [
+    ""
+  ],
+  "SelectedNode": "\\CMakeLists.txt",
+  "PreviewInSolutionExplorer": false
 }

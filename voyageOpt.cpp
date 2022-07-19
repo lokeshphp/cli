@@ -754,7 +754,8 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 		"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\tnodNr1\tnodNr2\n");
 
 	double time = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0;
-	double fuelLSMGO = 0, fuelVLSFO = 0, hurricane = 0, distanceTp, distNu, distTmp, stability = 0;
+	double fuelLSMGO = 0, fuelVLSFO = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
+	double bowSlamming = 0, greenWater = 0, dynStability = 0, iceCoverage = 0, feasibleSafety = 0;
 	int ii, nTp, nAdded, ii2;
 	spherical::Point pointLast, pointFinal;
 
@@ -806,8 +807,13 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 							fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 							safety += model.arc[arcNr].safetyBase / nTp;
 							hurricane += model.arc[arcNr].safetyHurricane / nTp;
-							stability += model.arc[arcNr].safetyStability / nTp;
-							channelCost += model.arc[arcNr].channelCost / nTp;
+							bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+							greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+							dynStability += model.arc[arcNr].safetyDynStability / nTp;
+							iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+							feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+							//stability += model.arc[arcNr].safetyStability / nTp;
+//							channelCost += model.arc[arcNr].channelCost / nTp;
 							totCost += model.arc[arcNr].totCost / nTp;
 							fprintf(filpekG, "{ \"type\": \"Feature\", \"properties\": {\n");
 							fprintf(filpekG, "\"arcPos\": %d, \"distance\": %.3lf, \"time\": %.3lf,\n", nArcs++, model.arc[arcNr].distance / nTp,
@@ -940,7 +946,12 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 								fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 								safety += model.arc[arcNr].safetyBase / nTp;
 								hurricane += model.arc[arcNr].safetyHurricane / nTp;
-								stability += model.arc[arcNr].safetyStability / nTp;
+								bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+								greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+								dynStability += model.arc[arcNr].safetyDynStability / nTp;
+								iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+								feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+								//stability += model.arc[arcNr].safetyStability / nTp;
 								channelCost += model.arc[arcNr].channelCost / nTp;
 								totCost += model.arc[arcNr].totCost / nTp;
 								fprintf(filpekG, "{ \"type\": \"Feature\", \"properties\": {\n");
@@ -1081,7 +1092,12 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 					fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 					safety += model.arc[arcNr].safetyBase / nTp;
 					hurricane += model.arc[arcNr].safetyHurricane / nTp;
-					stability += model.arc[arcNr].safetyStability / nTp;
+					bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+					greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+					dynStability += model.arc[arcNr].safetyDynStability / nTp;
+					iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+					feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+					//stability += model.arc[arcNr].safetyStability / nTp;
 					channelCost += model.arc[arcNr].channelCost / nTp;
 					totCost += model.arc[arcNr].totCost / nTp;
 					fprintf(filpekG, "{ \"type\": \"Feature\", \"properties\": {\n");
@@ -1186,11 +1202,26 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 			fuelLSMGO * model.params.weightFuel.lsmgo* model.params.priceFuel.lsmgo);
 
 		fprintf(filPek3, "\t\t\"safety\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf, \n\t\t\t\"sub\":{\n", safety, model.params.weightSafety.base, safety * model.params.weightSafety.base);
-		fprintf(filPek3, "\t\t\t\"hurricane\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", hurricane, model.params.weightSafety.hurricane, hurricane * model.params.weightSafety.hurricane);
-		fprintf(filPek3, "\t\t\t\"lowPressure\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", 0.0, model.params.weightSafety.lowPressure, 0.0);
-		fprintf(filPek3, "\t\t\t\"waves\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", 0.0, model.params.weightSafety.waves, 0.0);
-		fprintf(filPek3, "\t\t\t\"stability\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf}\n", stability, model.params.weightSafety.stability,
-			stability * model.params.weightSafety.stability);
+		fprintf(filPek3, "\t\t\t\"hurricane\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", 
+			hurricane, model.params.weightSafety.hurricane, hurricane * model.params.weightSafety.hurricane);
+		fprintf(filPek3, "\t\t\t\"bowSlamming\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n",
+			bowSlamming, model.params.weightSafety.bowSlam,
+			bowSlamming* model.params.weightSafety.bowSlam);
+		fprintf(filPek3, "\t\t\t\"greenWater\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n",
+			greenWater, model.params.weightSafety.greenWater,
+			greenWater* model.params.weightSafety.greenWater);
+		fprintf(filPek3, "\t\t\t\"dynamicStability\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n",
+			dynStability, model.params.weightSafety.dynamicStability,
+			dynStability* model.params.weightSafety.dynamicStability);
+		fprintf(filPek3, "\t\t\t\"iceCoverage\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n",
+			iceCoverage, 1,
+			iceCoverage);
+		fprintf(filPek3, "\t\t\t\"feasibleSafety\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n",
+			feasibleSafety, model.params.weightSafety.feasibleSafety,
+			feasibleSafety* model.params.weightSafety.feasibleSafety);
+		//fprintf(filPek3, "\t\t\t\"waves\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", 0.0, model.params.weightSafety.waves, 0.0);
+		//fprintf(filPek3, "\t\t\t\"stability\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf}\n", stability, model.params.weightSafety.stability,
+		//	stability * model.params.weightSafety.stability);
 		fprintf(filPek3, "\t\t\t}\n\t\t},\n");
 		fprintf(filPek3, "\t\t\"channel\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf}\n", channelCost, 1.0, channelCost);
 		fprintf(filPek3, "\t},\n");
@@ -1284,7 +1315,8 @@ int writeSolutionToJson(string filename, int resAlt)
 		"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\tnodNr1\tnodNr2\n");
 
 	double time = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0;
-	double fuelLSMGO = 0, fuelVLSFO = 0, hurricane = 0, distanceTp, distNu, distTmp, stability = 0;
+	double fuelLSMGO = 0, fuelVLSFO = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
+	double bowSlamming = 0, greenWater = 0, dynStability = 0, iceCoverage = 0, feasibleSafety = 0;
 	int ii, nTp, nAdded, ii2;
 	spherical::Point pointLast, pointFinal;
 
@@ -1338,7 +1370,12 @@ int writeSolutionToJson(string filename, int resAlt)
 							fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 							safety += model.arc[arcNr].safetyBase / nTp;
 							hurricane += model.arc[arcNr].safetyHurricane / nTp;
-							stability += model.arc[arcNr].safetyStability / nTp;
+							bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+							greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+							dynStability += model.arc[arcNr].safetyDynStability / nTp;
+							iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+							feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+							//stability += model.arc[arcNr].safetyStability / nTp;
 							channelCost += model.arc[arcNr].channelCost / nTp;
 							totCost += model.arc[arcNr].totCost / nTp;
 
@@ -1411,7 +1448,12 @@ int writeSolutionToJson(string filename, int resAlt)
 								fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 								safety += model.arc[arcNr].safetyBase / nTp;
 								hurricane += model.arc[arcNr].safetyHurricane / nTp;
-								stability += model.arc[arcNr].safetyStability / nTp;
+								bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+								greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+								dynStability += model.arc[arcNr].safetyDynStability / nTp;
+								iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+								feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+								//stability += model.arc[arcNr].safetyStability / nTp;
 								channelCost += model.arc[arcNr].channelCost / nTp;
 								totCost += model.arc[arcNr].totCost / nTp;
 
@@ -1507,7 +1549,12 @@ int writeSolutionToJson(string filename, int resAlt)
 					fuelVLSFO += model.arc[arcNr].fuelVLSFO / nTp;
 					safety += model.arc[arcNr].safetyBase / nTp;
 					hurricane += model.arc[arcNr].safetyHurricane / nTp;
-					stability += model.arc[arcNr].safetyStability / nTp;
+					bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
+					greenWater += model.arc[arcNr].safetyGreenWater / nTp;
+					dynStability += model.arc[arcNr].safetyDynStability / nTp;
+					iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
+					feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+					//stability += model.arc[arcNr].safetyStability / nTp;
 					channelCost += model.arc[arcNr].channelCost / nTp;
 					totCost += model.arc[arcNr].totCost / nTp;
 
@@ -1566,9 +1613,12 @@ int writeSolutionToJson(string filename, int resAlt)
 		model.params.weightTime, model.params.priceTime, 
 		model.params.weightFuel.vlsfo, model.params.priceFuel.vlsfo,
 		model.params.weightFuel.lsmgo, model.params.priceFuel.lsmgo);
-	printf("hurricane\t%.2lf\nflow pressure\t%.2lf\nstability\t%.2lf\nwaves\t\t%.2lf\n",
-		model.params.weightSafety.hurricane, model.params.weightSafety.lowPressure, 
-		model.params.weightSafety.stability, model.params.weightSafety.waves);
+	printf("hurricane\t%.2lf\nbowSlamming\t%.2lf\ngreenWater\t%.2lf\ndynamicStability\t\t%.2lf\n",
+		model.params.weightSafety.hurricane, model.params.weightSafety.bowSlam,
+		model.params.weightSafety.greenWater, model.params.weightSafety.dynamicStability);
+	printf("feasibleSafety\t%.2lf\niceCoverCost_fix\t%.2lf\niceCoverCost_thickness\t%.2lf\n",
+		model.params.weightSafety.feasibleSafety, model.params.weightSafety.iceCoverCost_fix,
+		model.params.weightSafety.iceCoverCost_thickness);
 	printf("results\ndist\t%.2lf\ntime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\nfuel\t%.2lf\tVLSFO\t%.2lf\tLSMGO\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\nsafety\t%.2lf\tobj\t%.2lf\nchannelCost\t%.2lf\ntotObjValue\t%.2lf\n",
 		distance, time, model.params.priceTime * time, model.params.weightTime* model.params.priceTime* time,
 		fuelVLSFO + fuelVLSFO, fuelVLSFO, fuelLSMGO, fuelVLSFO * model.params.priceFuel.vlsfo+ fuelLSMGO * model.params.priceFuel.lsmgo,
@@ -2837,10 +2887,17 @@ int loadParams(strParams* params)
 	params->weightTime = 0;
 	params->weightSafety.base = 0;
 	params->weightSafety.hurricane = 0;
-	params->weightSafety.stability = 0;
-	params->weightSafety.lowPressure = 0;
-	params->weightSafety.waves = 0;
-	params->weightSafety.stability = 0;
+	//params->weightSafety.stability = 0;
+	//params->weightSafety.lowPressure = 0;
+	//params->weightSafety.waves = 0;
+	//params->weightSafety.stability = 0;
+	params->weightSafety.bowSlam = 0;
+	params->weightSafety.greenWater = 0;
+	params->weightSafety.dynamicStability = 0;
+	params->weightSafety.feasibleSafety = 100000;
+	params->weightSafety.iceCoverCost_fix = 10000;
+	params->weightSafety.iceCoverCost_thickness = 0;
+
 
 	sprintf(namn, "%s/obj_weights.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
@@ -2884,20 +2941,35 @@ int loadParams(strParams* params)
 			if (dataIt2["useWeight"] == 1)
 				params->weightSafety.hurricane = dataIt2["weight"];
 		}
-		if (!data3["lowPressure"].is_null()) {
-			dataIt2 = data3["lowPressure"];
+		if (!data3["bowSlamming"].is_null()) {
+			dataIt2 = data3["bowSlamming"];
 			if (dataIt2["useWeight"] == 1)
-				params->weightSafety.lowPressure = dataIt2["weight"];
+				params->weightSafety.bowSlam = dataIt2["weight"];
 		}
-		if (!data3["waves"].is_null()) {
-			dataIt2 = data3["waves"];
+		if (!data3["greenWater"].is_null()) {
+			dataIt2 = data3["greenWater"];
 			if (dataIt2["useWeight"] == 1)
-				params->weightSafety.waves = dataIt2["weight"];
+				params->weightSafety.greenWater = dataIt2["weight"];
 		}
-		if (!data3["stability"].is_null()) {
-			dataIt2 = data3["stability"];
+		if (!data3["dynamicStability"].is_null()) {
+			dataIt2 = data3["dynamicStability"];
 			if (dataIt2["useWeight"] == 1)
-				params->weightSafety.stability = dataIt2["weight"];
+				params->weightSafety.dynamicStability = dataIt2["weight"];
+		}
+		if (!data3["feasibleSafety"].is_null()) {
+			dataIt2 = data3["feasibleSafety"];
+			if (dataIt2["useWeight"] == 1)
+				params->weightSafety.feasibleSafety = dataIt2["weight"];
+		}
+		if (!data3["iceCoverCost_fix"].is_null()) {
+			dataIt2 = data3["iceCoverCost_fix"];
+			if (dataIt2["useWeight"] == 1)
+				params->weightSafety.iceCoverCost_fix = dataIt2["weight"];
+		}
+		if (!data3["iceCoverCost_thickness"].is_null()) {
+			dataIt2 = data3["iceCoverCost_thickness"];
+			if (dataIt2["useWeight"] == 1)
+				params->weightSafety.iceCoverCost_thickness = dataIt2["weight"];
 		}
 	}
 	fil.close();
@@ -3335,6 +3407,13 @@ int loadParams_new(strParams* params)
 	params->startHour = 0;
 	params->maxDeviationPrefered_km = 500;
 
+	params->shipDraft = 10.03;
+	params->shipLength = 177;
+	params->freeBoard2 = 4.39 * 4.39;
+	errlog("ERROR! Load shipDraft, now %.3lf\n", params->shipDraft);
+	errlog("ERROR! Load shipLength, now %.3lf\n", params->shipLength);
+	errlog("ERROR! Load freeBoard, now %.3lf\n", sqrt(params->freeBoard2));
+
 
 	std::ifstream fil;
 	char* namn;
@@ -3511,10 +3590,16 @@ int loadParams_new(strParams* params)
 	// strSafety* weightSafety;
 	params->weightSafety.base = 1000;
 	params->weightSafety.hurricane = 0;
-	params->weightSafety.stability = 0;
-	params->weightSafety.lowPressure = 0;
-	params->weightSafety.waves = 0;
-	params->weightSafety.stability = 0;
+	//params->weightSafety.stability = 0;
+	//params->weightSafety.lowPressure = 0;
+	//params->weightSafety.waves = 0;
+	//params->weightSafety.stability = 0;
+	params->weightSafety.bowSlam = 0;
+	params->weightSafety.greenWater = 0;
+	params->weightSafety.dynamicStability = 0;
+	params->weightSafety.feasibleSafety = 100000;
+	params->weightSafety.iceCoverCost_fix = 10000;
+	params->weightSafety.iceCoverCost_thickness = 0;
 
 	params->priceFuel.vlsfo = 500;
 	params->priceFuel.lsmgo = 800;
@@ -3563,17 +3648,36 @@ int loadParams_new(strParams* params)
 				dataIt2 = data3["hurricane"];
 				params->weightSafety.hurricane = (double)(dataIt2["weight"]) / 100;
 			}
-			if (!data3["lowPressure"].is_null()) {
-				dataIt2 = data3["lowPressure"];
-				params->weightSafety.lowPressure = (double)(dataIt2["weight"]) / 100;
+
+			if (!data3["bowSlamming"].is_null()) {
+				dataIt2 = data3["bowSlamming"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.bowSlam = dataIt2["weight"];
 			}
-			if (!data3["waves"].is_null()) {
-				dataIt2 = data3["waves"];
-				params->weightSafety.waves = (double)(dataIt2["weight"]) / 100;
+			if (!data3["greenWater"].is_null()) {
+				dataIt2 = data3["greenWater"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.greenWater = dataIt2["weight"];
 			}
-			if (!data3["stability"].is_null()) {
-				dataIt2 = data3["stability"];
-				params->weightSafety.stability = (double)(dataIt2["weight"]) / 100;
+			if (!data3["dynamicStability"].is_null()) {
+				dataIt2 = data3["dynamicStability"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.dynamicStability = dataIt2["weight"];
+			}
+			if (!data3["feasibleSafety"].is_null()) {
+				dataIt2 = data3["feasibleSafety"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.feasibleSafety = dataIt2["weight"];
+			}
+			if (!data3["iceCoverCost_fix"].is_null()) {
+				dataIt2 = data3["iceCoverCost_fix"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.iceCoverCost_fix = dataIt2["weight"];
+			}
+			if (!data3["iceCoverCost_thickness"].is_null()) {
+				dataIt2 = data3["iceCoverCost_thickness"];
+				if (dataIt2["useWeight"] == 1)
+					params->weightSafety.iceCoverCost_thickness = dataIt2["weight"];
 			}
 		}
 	}
@@ -3706,7 +3810,7 @@ int loadFunctions()
 	fil >> data;
 
 	model.functions.iceCoverMaxFree = 0;
-	model.functions.iceCoverCost_fix = 100000;
+	//model.functions.iceCoverCost_fix = 100000;
 	model.functions.calmWaterSpeed.c0 = 5;
 	model.functions.calmWaterSpeed.c1_rpm = 0.1;
 	model.functions.calmWaterSpeed.c2_rpm = 0.0001;
@@ -3717,8 +3821,8 @@ int loadFunctions()
 
 	if (!data["iceCoverMaxFree"].is_null())
 		model.functions.iceCoverMaxFree = data["iceCoverMaxFree"];
-	if (!data["iceCoverCost_fix"].is_null())
-		model.functions.iceCoverCost_fix = data["iceCoverCost_fix"];
+	//if (!data["iceCoverCost_fix"].is_null())
+	//	model.functions.iceCoverCost_fix = data["iceCoverCost_fix"];
 	if (!data["nWindDir"].is_null())
 		model.functions.table_niWindDir = data["nWindDir"];
 	else
@@ -7033,12 +7137,172 @@ double eval_fuelConsumption(int speedNr) {
 	//return model.functions.rpmSetting_gerFuelConsumption[speedNr];
 }
 
-double eval_safety(double iceCover) {
+double eval_bowSlamming(double waveHeight, double wavePeriod) {
+	double p, d, v_cr, waveHeight2, sigma2_0, Tp, wp, kvot;
+	double gamma, sigma2_2;
+	double PI_2 = 2 * 3.141592654;
 
-	if (iceCover > model.functions.iceCoverMaxFree)
-		return model.functions.iceCoverCost_fix;
+	d = model.params.shipDraft;
+	v_cr = 0.093 * sqrt(9.8 * model.params.shipLength);
+	waveHeight2 = waveHeight * waveHeight;
+	sigma2_0 = 1 / 16 * waveHeight2;
+	Tp = 1.296 * wavePeriod;
+	wp = PI_2 / Tp;
+	kvot = Tp / sqrt(waveHeight);
+	if(kvot <= 3.6)
+		gamma = 5;
+	else {
+		if (kvot < 5)
+			gamma = exp(5.75 - 1.15 * kvot);
+		else
+			gamma = 1;
+	}
+
+	sigma2_2 = sigma2_0 * wp * (11 + gamma) / (5 + gamma);
+
+	p = exp(-v_cr * v_cr * d * d / (2 * sigma2_2 * 2 * sigma2_0));
+
+	return p;
+}
+
+double eval_greenWater(double waveHeight) {
+	double sigma2_0, p;
+
+	sigma2_0 = 1.0 / 16 * waveHeight * waveHeight;
+	p = exp(-model.params.freeBoard2 / (2 * sigma2_0));
+	return p;
+}
+
+double eval_dynamicStability() {
+	double p = 0;
+	//R_AA = 0.5 * r_A * A_XV * (windSpeed2 * C_X[windDir] -
+	//	speed2_overGround * C_X[0]);
+	//P = R_AA / A_XV;
+	return p;
+}
+
+int getHeightIndex(double height, strFunkData funcData) {
+	int index;
+
+	if (height < 0)
+		index = 0;
+	else {
+		index = (int)(height / funcData.heightIndexSize);
+		if (index >= funcData.nHeightIndex) {
+			index = -1; // funcData.nHeightIndex - 1;
+		}
+	}
+	return index;
+}
+
+int getPeriodIndex(double period, strFunkData funcData) {
+	int index;
+
+	if (period < 0)
+		index = 0;
+	else {
+		index = (int)(period / funcData.periodIndexSize);
+		if (index >= funcData.nPeriodIndex) {
+			index = -1; // funcData.nPeriodIndex - 1;
+		}
+	}
+	return index;
+}
+
+int getWindSpeedIndex(double wSpeed, strFunkData funcData) {
+	int index;
+
+	if (wSpeed < 0)
+		index = 0;
+	else {
+		index = (int)(wSpeed / funcData.wSpeedIndexSize);
+		if (index >= funcData.wSpeedIndexSize) {
+			index = -1;// funcData.nPeriodIndex - 1;
+		}
+	}
+	return index;
+}
+
+int getWindDirectionIndex(double windDir, strFunkData funcData) {
+	int index;
+
+	if (windDir < 0)
+		index = 0;
+	else {
+		index = (int)(windDir / funcData.wDirIndexSize);
+		if (index >= funcData.wDirIndexSize) {
+			index = -1;// funcData.nPeriodIndex - 1;
+		}
+	}
+	return index;
+}
+
+double getFromTable_bowSlamming(double waveHeight, double wavePeriod) {
+	int heightIndex, periodIndex;
+
+	heightIndex = getHeightIndex(waveHeight, model.functions.bowSlamming);
+	periodIndex = getPeriodIndex(wavePeriod, model.functions.bowSlamming);
+	if (heightIndex < 0 || periodIndex < 0)
+		return 9999.9;
 	else
-		return 0.0;
+		return model.functions.bowSlamming.tableValue[heightIndex +
+			model.functions.bowSlamming.nHeightIndex * periodIndex];
+}
+
+double getFromTable_greenWater(double waveHeight) {
+	int heightIndex;
+
+	heightIndex = getHeightIndex(waveHeight, model.functions.greenWater);
+	if (heightIndex < 0)
+		return 9999.9;
+	else
+		return model.functions.greenWater.tableValue[heightIndex];
+}
+
+double getFromTable_dynamicStability(double relWindSpeed, double relWindDirection) {
+	int wSpeedIndex, wDirIndex;
+
+	wSpeedIndex = getWindSpeedIndex(relWindSpeed, model.functions.dynStability);
+	wDirIndex = getWindDirectionIndex(relWindDirection, model.functions.dynStability);
+	if (wSpeedIndex < 0 || wDirIndex < 0)
+		return 9999.9;
+	else
+		return model.functions.dynStability.tableValue[wSpeedIndex +
+			model.functions.dynStability.nWSpeedIndex * wDirIndex];
+}
+
+void eval_safety(double windspeed, double windDirection, double waveHeight, 
+	double wavePeriod, double iceCover) {
+	int feasibleSafety = 1;
+	double bowSlam, greenWater, dynStab, iceCost;
+
+	//bowSlam = eval_bowSlamming();
+	bowSlam = getFromTable_bowSlamming(waveHeight, wavePeriod);
+	if (model.functions.valuesNow.bowSlam < bowSlam)
+		model.functions.valuesNow.bowSlam = bowSlam;
+	if (bowSlam > 0.01)
+		model.functions.valuesNow.feasibleSafety = 0;
+	//greenWater = eval_greenWater();
+	greenWater = getFromTable_greenWater(waveHeight);
+	if (model.functions.valuesNow.greenWater < greenWater)
+		model.functions.valuesNow.greenWater = greenWater;
+	if (greenWater > 0.07)
+		model.functions.valuesNow.feasibleSafety = 0;
+	//dynStab = eval_dynamicStability();
+	dynStab = getFromTable_dynamicStability(windspeed, windDirection);
+	if (model.functions.valuesNow.dynamicStability < dynStab)
+		model.functions.valuesNow.dynamicStability = dynStab;
+	if (dynStab >= 1)
+		model.functions.valuesNow.feasibleSafety = 0;
+
+	if (iceCover > model.functions.iceCoverMaxFree) {
+		iceCost = model.params.weightSafety.iceCoverCost_fix + model.params.weightSafety.iceCoverCost_thickness * (
+				iceCover - model.functions.iceCoverMaxFree);
+		if (model.functions.valuesNow.iceCoverCost < iceCost)
+			model.functions.valuesNow.iceCoverCost = iceCost;
+		model.functions.valuesNow.feasibleSafety = 0;
+	}
+
 }
 
 double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed) {
@@ -7165,8 +7429,9 @@ double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, d
 
 }
 
-double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, double* fuel, double* safety, double* distance, double* worstStormValue, double* worstStabilityValue)
-{
+double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos){
+	//, double* fuel, double* safety, double* distance, double* worstStormValue, double* worstStabilityValue)
+
 	double tidTot = t, distNu, fuelTot = 0, safetyTot = 0;
 	double uWind, vWind, uCurrent, vCurrent, uVessel, vVessel; //  , uSpeed, vSpeed;
 	double dist = 0;
@@ -7203,8 +7468,12 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 
 
 	model.tmpTid4[0] = std::chrono::high_resolution_clock::now();
-	*worstStormValue = 0;
-	*worstStabilityValue = 0;
+	model.functions.valuesNow.worstStormValue = 0;
+	//model.functions.valuesNow.worstStabilityValue = 0;
+	model.functions.valuesNow.bowSlam = 0;
+	model.functions.valuesNow.greenWater = 0;
+	model.functions.valuesNow.dynamicStability = 0; // a / b
+	model.functions.valuesNow.feasibleSafety = 1;
 	for (i = 0; i < model.weatherFunctions.nCheckPoints; i++) {
 		distNu = model.weatherFunctions.checkPoint[i].distToNextPkt;
 		dist += distNu;
@@ -7217,8 +7486,8 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 
 		//printf("test tt\n");
 		stormVarde = getStormValue(t, model.weatherFunctions.point[i]);
-		if (stormVarde > *worstStormValue)
-			*worstStormValue = stormVarde;
+		if (stormVarde > model.functions.valuesNow.worstStormValue)
+			model.functions.valuesNow.worstStormValue = stormVarde;
 
 		uCurrent = getVariableValue(model.functions.pos_current_u, i, tidTot);
 		vCurrent = getVariableValue(model.functions.pos_current_v, i, tidTot);
@@ -7263,7 +7532,7 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 			rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 				windDirection, windSpeed, &rel_windDir);
 
-			*worstStabilityValue += distNu * rel_windSpeed / 10000.0;
+			//model.functions.valuesNow.worstStabilityValue += distNu * rel_windSpeed / 10000.0;
 		}
 		else {
 			windSpeed = 0;
@@ -7301,12 +7570,13 @@ double calcArcTimeCost(int t, int speedSettingNr, int determineWeatherPos, doubl
 		if (iceCover > 1000)
 			iceCover = 0;
 
-		safetyArc = eval_safety(iceCover);
-		safetyTot += safetyArc;
+		eval_safety(rel_windSpeed, rel_windDir, waveHeight, wavePeriod, iceCover);
+		//safetyTot += safetyArc;
 	}
-	*distance = dist;
-	*fuel = fuelTot;
-	*safety = safetyTot;
+	model.functions.valuesNow.distance = dist;
+	model.functions.valuesNow.fuel = fuelTot;
+	//model.functions.valuesNow.safety = safetyTot;
+
 	//	errlog("speedSetting %d tidStart %d tidSlut %.2lf cost %.2lf safety %.2lf\n",
 	//		speedSettingNr, t, tidTot, costTot, safetyTot);
 
@@ -7320,9 +7590,10 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 {
 	// i = thisLevel, i1 = pointPos, i+1 = nextLevel, i2 = outNodePos, i3 = tPos
 	int i4, tidInt, nArcsNu = 0, nodNr1, nodNr2, posNy, arcNr, prefPath = 0;
-	double tid, safety, fuel, distance, totCost, channelCost;
-	double fuelVLSFO, fuelLSMGO, fuelBase, safetyBase, worstStormValue = 0;
-	double worstStabilityValue = 0;
+	double tid; // , safety, fuel, distance
+	double totCost, channelCost, safety;
+	double fuelVLSFO, fuelLSMGO, fuelBase, safetyBase; // , worstStormValue = 0;
+	// double worstStabilityValue = 0;
 
 	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
 	if (thisLevel >= 0 && nextLevel >= 0) {
@@ -7373,14 +7644,14 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 			nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][tPos];
 			//printf("test aa\n");
 			tid = calcArcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
-				i4, *setupCheckPoints, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
+				i4, *setupCheckPoints); // , & fuel, & safety, & distance, & worstStormValue, & worstStabilityValue);
 			//printf("test bb\n");
 			tidInt = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos] + (int)tid;
 		}
 		else {
 			nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][tPos];
 			tid = calcArcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
-				i4, *setupCheckPoints, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
+				i4, *setupCheckPoints); // , & fuel, & safety, & distance, & worstStormValue, & worstStabilityValue);
 			tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)tid;
 		}
 		//printf("test dd\n");
@@ -7400,15 +7671,26 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 			model.tmpTid5[1] = std::chrono::high_resolution_clock::now();
 			model.duration4 += model.tmpTid5[1] - model.tmpTid5[0];
 			//pos = model.network.physicalLev[i - 1].nOutArcs[i1];
-			fuelVLSFO = fuel * (1 - fuelQualityKvot);
-			fuelLSMGO = fuel * fuelQualityKvot;
+			fuelVLSFO = model.functions.valuesNow.fuel * (1 - fuelQualityKvot);
+			fuelLSMGO = model.functions.valuesNow.fuel * fuelQualityKvot;
 			fuelBase = fuelVLSFO * model.params.weightFuel.vlsfo * model.params.priceFuel.vlsfo + fuelLSMGO * model.params.weightFuel.lsmgo * model.params.priceFuel.lsmgo;
 
-			safety = worstStormValue * model.params.weightSafety.hurricane + worstStabilityValue * model.params.weightSafety.stability;
+			safety = model.functions.valuesNow.worstStormValue *
+				model.params.weightSafety.hurricane +
+				model.functions.valuesNow.bowSlam *
+				model.params.weightSafety.bowSlam +
+				model.functions.valuesNow.greenWater *
+				model.params.weightSafety.greenWater +
+				model.functions.valuesNow.dynamicStability *
+				model.params.weightSafety.dynamicStability;
+			//model.functions.valuesNow.worstStabilityValue * model.params.weightSafety.stability;
 			safetyBase = safety;
 
 			totCost += model.params.weightTime * model.params.priceTime * tid +
-				model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safety;
+				model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safety +
+				model.functions.valuesNow.feasibleSafety *
+				model.params.weightSafety.feasibleSafety +
+				model.functions.valuesNow.iceCoverCost;
 			if (totCost < 0) {
 				printf("\nchannelCost %.2lf wTime %.2lf pTime %.2lf tid %.2lf wFuel %.2lf fBase %.2lf wSafety %.2lf safety %.2lf totCost %.2lf\n",
 					channelCost, model.params.weightTime, model.params.priceTime, tid,
@@ -7440,9 +7722,14 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 				model.arc[posNy].fuelBase = fuelBase;
 				model.arc[posNy].fuelVLSFO = fuelVLSFO;
 				model.arc[posNy].fuelLSMGO = fuelLSMGO;
-				model.arc[posNy].distance = distance;
-				model.arc[posNy].safetyHurricane = worstStormValue;
-				model.arc[posNy].safetyStability = worstStabilityValue;
+				model.arc[posNy].distance = model.functions.valuesNow.distance;
+				model.arc[posNy].safetyHurricane = model.functions.valuesNow.worstStormValue;
+				model.arc[posNy].safetyBowSlam = model.functions.valuesNow.bowSlam;
+				model.arc[posNy].safetyGreenWater = model.functions.valuesNow.greenWater;
+				model.arc[posNy].safetyDynStability = model.functions.valuesNow.dynamicStability;
+				model.arc[posNy].feasibleSafety = model.functions.valuesNow.feasibleSafety;
+				model.arc[posNy].iceCoverCost = model.functions.valuesNow.iceCoverCost;
+				//model.arc[posNy].safetyStability = worstStabilityValue;
 				model.arc[posNy].safetyBase = safety;
 				model.arc[posNy].channelCost = channelCost;
 				model.arc[posNy].totCost = totCost;
@@ -7469,12 +7756,17 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 				model.arc[arcNr].toTime = tidInt;
 				model.arc[arcNr].speedSetting = i4;
 				model.arc[arcNr].time = tid;
-				model.arc[arcNr].distance = distance;
+				model.arc[arcNr].distance = model.functions.valuesNow.distance;
 				model.arc[arcNr].fuelBase = fuelBase;
 				model.arc[arcNr].fuelVLSFO = fuelVLSFO;
 				model.arc[arcNr].fuelLSMGO = fuelLSMGO;
-				model.arc[arcNr].safetyHurricane = worstStormValue;
-				model.arc[arcNr].safetyStability = worstStabilityValue;
+				model.arc[arcNr].safetyHurricane = model.functions.valuesNow.worstStormValue;
+				model.arc[arcNr].safetyBowSlam = model.functions.valuesNow.bowSlam;
+				model.arc[arcNr].safetyGreenWater = model.functions.valuesNow.greenWater;
+				model.arc[arcNr].safetyDynStability = model.functions.valuesNow.dynamicStability;
+				model.arc[arcNr].feasibleSafety = model.functions.valuesNow.feasibleSafety;
+				model.arc[arcNr].iceCoverCost = model.functions.valuesNow.iceCoverCost;
+				//model.arc[arcNr].safetyStability = worstStabilityValue;
 				model.arc[arcNr].safetyBase = safety;
 				model.arc[arcNr].channelCost = channelCost;
 				model.arc[arcNr].totCost = totCost;
@@ -7502,9 +7794,9 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 {
 	// i = thisLevel, i1 = pointPos, i+1 = nextLevel, i2 = outNodePos, i3 = tPos
 	int i4, tidInt, nArcsNu = 0, nodNr1, nodNr2, posNy, arcNr, prefPath = 0;
-	double tid, safety, fuel, distance, totCost;
-	double fuelVLSFO, fuelLSMGO, fuelBase, safetyBase;
-	double worstStormValue, worstStabilityValue;
+	double tid; // , safety, fuel, distance, totCost;
+	double fuelVLSFO, fuelLSMGO, fuelBase, safetyBase, totCost;
+	double worstStormValue; // , worstStabilityValue;
 
 	double fuelQualityKvot = get_fuelQualityKvot(thisLevel, pos1, nextLevel, pos2); //, fuelRaster);
 
@@ -7543,13 +7835,13 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 	if (thisLevel >= 0) {
 		nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][tPos];
 		tid = calcArcTimeCost(model.network.physicalLev[thisLevel].timeInterval[pos1][tPos],
-			i4, 1, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
+			i4, 1); // , & fuel, & safety, & distance, & worstStormValue, & worstStabilityValue);
 		tidInt = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos] + (int)tid;
 	}
 	else {
 		nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][tPos];
 		tid = calcArcTimeCost(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
-			i4, 1, &fuel, &safety, &distance, &worstStormValue, &worstStabilityValue);
+			i4, 1); // , & fuel, & safety, & distance, & worstStormValue, & worstStabilityValue);
 		tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)tid;
 	}
 
@@ -7560,15 +7852,24 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 	else
 		totCost = 0;
 
-	fuelVLSFO = fuel * (1 - fuelQualityKvot);
-	fuelLSMGO = fuel * fuelQualityKvot;
+	fuelVLSFO = model.functions.valuesNow.fuel * (1 - fuelQualityKvot);
+	fuelLSMGO = model.functions.valuesNow.fuel * fuelQualityKvot;
 	fuelBase = fuelVLSFO * model.params.weightFuel.vlsfo * model.params.priceFuel.vlsfo + fuelLSMGO * model.params.weightFuel.lsmgo * model.params.priceFuel.lsmgo;
 
-	safety = worstStormValue * model.params.weightSafety.hurricane + worstStabilityValue * model.params.weightSafety.stability;
-	safetyBase = safety;
+	safetyBase = model.functions.valuesNow.worstStormValue *
+		model.params.weightSafety.hurricane +
+		model.functions.valuesNow.bowSlam *
+		model.params.weightSafety.bowSlam +
+		model.functions.valuesNow.greenWater *
+		model.params.weightSafety.greenWater +
+		model.functions.valuesNow.dynamicStability *
+		model.params.weightSafety.dynamicStability;
 
 	totCost += model.params.weightTime * model.params.priceTime * tid +
-		model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safetyBase;
+		model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safetyBase +
+		model.functions.valuesNow.feasibleSafety *
+		model.params.weightSafety.feasibleSafety +
+		model.functions.valuesNow.iceCoverCost;
 	nodNr2 = addTimeTo_timeInterval(thisLevel, nextLevel, pos2, tidInt);
 	//pos = model.network.physicalLev[i - 1].nOutArcs[i1];
 	posNy = adderaArc(nodNr1, nodNr2, totCost);
@@ -7594,14 +7895,18 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 		model.arc[arcNr].toTime = tidInt;
 		model.arc[arcNr].speedSetting = i4;
 		model.arc[arcNr].time = tid;
-		model.arc[arcNr].distance = distance;
+		model.arc[arcNr].distance = model.functions.valuesNow.distance;
 		model.arc[arcNr].fuelBase = fuelBase;
 		model.arc[arcNr].fuelVLSFO = fuelVLSFO;
 		model.arc[arcNr].fuelLSMGO = fuelLSMGO;
-		model.arc[arcNr].safetyHurricane = worstStormValue;
-		model.arc[arcNr].safetyStability = worstStabilityValue;
+		model.arc[arcNr].safetyHurricane = model.functions.valuesNow.worstStormValue;
+		model.arc[arcNr].safetyBowSlam = model.functions.valuesNow.bowSlam;
+		model.arc[arcNr].safetyGreenWater = model.functions.valuesNow.greenWater;
+		model.arc[arcNr].safetyDynStability = model.functions.valuesNow.dynamicStability;
+		model.arc[arcNr].feasibleSafety = model.functions.valuesNow.feasibleSafety;
+		model.arc[arcNr].iceCoverCost = model.functions.valuesNow.iceCoverCost;
+		//model.arc[arcNr].safetyStability = worstStabilityValue;
 		model.arc[arcNr].safetyBase = safetyBase;
-		model.arc[arcNr].totCost = totCost;
 		model.arc[arcNr].totCost = totCost;
 		model.arc[arcNr].nodNr1 = nodNr1;
 		model.arc[arcNr].nodNr2 = nodNr2;
@@ -7992,7 +8297,6 @@ void loadWeatherFiles() {
 	}
 	printf("all weathedata loaded\n");
 	//exit(0);
-	i = i;
 
 }
 
@@ -8256,7 +8560,12 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 		model.arc[arcNr].fuelVLSFO = 0;
 		model.arc[arcNr].fuelLSMGO = 0;
 		model.arc[arcNr].safetyHurricane = 0;
-		model.arc[arcNr].safetyStability = 0;
+		model.arc[arcNr].safetyBowSlam = 0;
+		model.arc[arcNr].safetyGreenWater = 0;
+		model.arc[arcNr].safetyDynStability = 0;
+		model.arc[arcNr].feasibleSafety = 0;
+		model.arc[arcNr].iceCoverCost = 0;
+		//model.arc[arcNr].safetyStability = 0;
 		model.arc[arcNr].safetyBase = safety;
 		model.arc[arcNr].totCost = totCost;
 		model.arc[arcNr].nodNr1 = nodNr1;
