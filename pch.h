@@ -30,7 +30,7 @@ struct dataStr
 
 struct strFuel
 {
-	double base;
+	//double base;
 	double vlsfo;
 	double lsmgo;
 };
@@ -91,10 +91,10 @@ struct strParams
 	int maxDiffTimeFastSlow; // max time difference between fastest and slowest route
 	
 	int max_changeDirection;
-	double lengthIntervall; // length of a time intervall in hours
-	double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
+	//double lengthIntervall; // length of a time intervall in hours
+	//double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
 	
-	std::string variableFileName;
+	//std::string variableFileName;
 
 	double weightTime;
 	double priceTime;

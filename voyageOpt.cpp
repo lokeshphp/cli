@@ -1184,7 +1184,7 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 	fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
 		distance, time, fuel, safety, channelCost, totCost);
 	fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
-		model.params.weightTime, model.params.weightFuel.base,
+		model.params.weightTime, 1.0,
 		model.params.weightSafety.base);
 	//printf("\nobj_weights\ntime\tfuel\tsafety\n%.2lf\t%.2lf\t%.2lf\n",
 	//	model.params.weightTime, model.params.weightFuel.base,
@@ -1195,7 +1195,7 @@ int writeSolutionPathToGeoJson(char* filename, int resAlt)
 		fprintf(filPek3, "\t\"objective\":{\"totCost\":%.2lf,\n", totCost);
 		fprintf(filPek3, "\t\t\"dist\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", distance, 0.0, 0.0);
 		fprintf(filPek3, "\t\t\"time\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", time, model.params.weightTime, time * model.params.weightTime * model.params.priceTime);
-		fprintf(filPek3, "\t\t\"fuel\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf, \n\t\t\t\"sub\":{\n", fuel, model.params.weightFuel.base, fuel * model.params.weightFuel.base);
+		fprintf(filPek3, "\t\t\"fuel\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf, \n\t\t\t\"sub\":{\n", fuel, 1.0, fuel);
 		fprintf(filPek3, "\t\t\t\"VLSFO\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf},\n", fuelVLSFO, model.params.weightFuel.vlsfo,
 			fuelVLSFO * model.params.weightFuel.vlsfo* model.params.priceFuel.vlsfo);
 		fprintf(filPek3, "\t\t\t\"LSMGO\":{\"value\":%.2lf, \"weight\": %.2lf, \"objAdd\": %.2lf}\n\t\t\t}\n\t\t},", fuelLSMGO, model.params.weightFuel.lsmgo,
@@ -1603,7 +1603,7 @@ int writeSolutionToJson(string filename, int resAlt)
 	fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
 		distance, time, fuel, safety, channelCost, totCost);
 	fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
-		model.params.weightTime, model.params.weightFuel.base,
+		model.params.weightTime, 1.0,
 		model.params.weightSafety.base);
 
 	//printf("\nobj_weights\ntime\tfuel\tsafety\n%.2lf\t%.2lf\t%.2lf\n",
@@ -2335,88 +2335,6 @@ int loadpreferredPath()
 }
 */
 
-int loadCorridorPath()
-{
-	model.corridorPath.nLines = 0;
-
-	/*
-	DBFHandle	hDBF;
-	SHPHandle	hSHP;
-	int iRecord, j, iPart;
-
-
-	char* namn2;
-	namn2 = (char*)malloc(256 * sizeof(char));
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.corridorPath.c_str());
-	//	hSHP = SHPOpen("path0.shp", "rb");
-	hSHP = SHPOpen(namn2, "rb");
-	if (hSHP == NULL)
-	{
-		printf("SHPOpen(%s,\"r\") failed.\n", model.params.corridorPath.c_str());
-		errlog("ERROR! Could not open %s.shp. I quit!\n", model.params.corridorPath.c_str());
-		exit(2);
-	}
-	hDBF = DBFOpen(namn2, "rb");
-	if (hDBF == NULL)
-	{
-		printf("DBFOpen(%s,\"r\") failed.\n", model.params.corridorPath.c_str());
-		errlog("ERROR! Could not open %s.dbf. I quit!\n", model.params.corridorPath.c_str());
-		exit(2);
-	}
-
-	if (DBFGetFieldCount(hDBF) == 0)
-	{
-		printf("There are no fields in this table!\n");
-		exit(3);
-	}
-
-	int nRecords = DBFGetRecordCount(hDBF);
-	int nVertices;
-	double xVal;
-
-	model.corridorPath.point = (spherical::Point**)malloc(nRecords * sizeof(spherical::Point*));
-	model.corridorPath.nPoints = (int*)malloc(nRecords * sizeof(int));
-	for (iRecord = 0; iRecord < nRecords; iRecord++)
-	{
-		SHPObject* psShape;
-
-		psShape = SHPReadObject(hSHP, iRecord);
-
-		nVertices = psShape->nVertices;
-		model.corridorPath.point[iRecord] = (spherical::Point*)malloc(nVertices * sizeof(spherical::Point));
-		if (psShape == NULL)
-		{
-			errlog("ERROR! Unable to read shape %d, terminating object reading.\n",
-				iRecord);
-			break;
-		}
-
-		//			errlog("%d %s\n", i, SHPTypeName(psShape->nSHPType));
-
-		for (j = 0; j < nVertices; j++)
-		{
-			const char* pszPartType = "";
-
-			if (j == 0 && psShape->nParts > 0)
-				pszPartType = SHPPartTypeName(psShape->panPartType[0]);
-
-			xVal = psShape->padfX[j];
-			if (xVal > 180)
-				xVal -= 360;
-			model.corridorPath.point[model.corridorPath.nLines][j] = spherical::Point(psShape->padfY[j], xVal);
-		}
-		model.corridorPath.nPoints[iRecord] = nVertices;
-		(model.corridorPath.nLines)++;
-		SHPDestroyObject(psShape);
-
-	}
-	DBFClose(hDBF);
-	SHPClose(hSHP);
-*/
-
-	return 0;
-}
-
 int loadChannels()
 {
 	model.network.nChannels = 0;
@@ -2635,7 +2553,7 @@ int loadParams(strParams* params)
 
 	model.weather = NULL;
 	params->preferredPath = "";
-	params->corridorPath = "";
+	//params->corridorPath = "";
 	params->preferredPath_followExactOK = 1;
 	params->channelsName = "";
 	params->readSolPathFile = "";
@@ -2648,9 +2566,9 @@ int loadParams(strParams* params)
 	params->save_weatherNodes = 0;
 	params->nShip_speedSettings = 0; // 15, 20, 25
 	params->max_changeDirection = 1;
-	params->lengthIntervall = 1;
-	params->dist_checkOKroute = 1;
-	params->variableFileName = "variablesInfo.json";
+	//params->lengthIntervall = 1;
+	//params->dist_checkOKroute = 1;
+	//params->variableFileName = "variablesInfo.json";
 	model.params.useStandardWeather = 0;
 	params->physicalMap_noDataValue = 9999;
 	params->speedSettings_addOnlyCheapestArcs = 1;
@@ -2728,12 +2646,12 @@ int loadParams(strParams* params)
 		params->epsilon = data["epsilon"];
 	if (!data["save_weatherNodes"].is_null())
 		params->save_weatherNodes = data["save_weatherNodes"];
-	if (!data["lengthIntervall"].is_null())
-		params->lengthIntervall = data["lengthIntervall"];
-	if (!data["dist_checkOKroute"].is_null())
-		params->dist_checkOKroute = data["dist_checkOKroute"];
-	if (!data["variableFileName"].is_null())
-		params->variableFileName = data["variableFileName"];
+	//if (!data["lengthIntervall"].is_null())
+	//	params->lengthIntervall = data["lengthIntervall"];
+	//if (!data["dist_checkOKroute"].is_null())
+	//	params->dist_checkOKroute = data["dist_checkOKroute"];
+	//if (!data["variableFileName"].is_null())
+	//	params->variableFileName = data["variableFileName"];
 	if (!data["useStandardWeather"].is_null())
 		params->useStandardWeather = data["useStandardWeather"];
 
@@ -2881,7 +2799,7 @@ int loadParams(strParams* params)
 
 	fil.close();
 
-	params->weightFuel.base = 1;
+	//params->weightFuel.base = 1;
 	params->weightFuel.lsmgo = 0;
 	params->weightFuel.vlsfo = 0;
 	params->weightTime = 0;
@@ -2913,11 +2831,11 @@ int loadParams(strParams* params)
 	}
 	if (!data["weight_fuel"].is_null()) {
 		json data3 = data["weight_fuel"];
-		if (!data3["base"].is_null()) {
-			dataIt2 = data3["base"];
-			if (dataIt2["useWeight"] == 1)
-				params->weightFuel.base = dataIt2["weight"];
-		}
+		//if (!data3["base"].is_null()) {
+		//	dataIt2 = data3["base"];
+		//	if (dataIt2["useWeight"] == 1)
+		//		params->weightFuel.base = dataIt2["weight"];
+		//}
 		if (!data3["VLSFO"].is_null()) {
 			dataIt2 = data3["VLSFO"];
 			if (dataIt2["useWeight"] == 1)
@@ -3001,22 +2919,6 @@ int loadParams(strParams* params)
 			exit(0);
 		}
 	}
-	if (!data["corridorPath"].is_null()) {
-		params->corridorPath = data["corridorPath"];
-		size_t i = params->corridorPath.rfind('.', params->corridorPath.length());
-		// check that the extension is .geojson
-		if (i != std::string::npos) {
-			if (params->corridorPath.substr(i + 1, i + 3) != "geojson") {
-				errlog("ERROR! The corridor path must be given as a geojson (.geojson). I quit.\n");
-				exit(0);
-			}
-			//params->corridorPath = params->corridorPath.substr(0, params->corridorPath.length() - 4);
-		}
-		else {
-			errlog("ERROR! The corridor path must be given as a geojson (.geojson). I quit.\n");
-			exit(0);
-		}
-	}
 	if (!data["preferredPath_followExactOK"].is_null())
 		params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
 	if (!data["editCorridor"].is_null())
@@ -3050,7 +2952,7 @@ int loadParams(strParams* params)
 	fil2.close();
 
 	errlog("objective weights:\n\ttime: %.2lf\n\tfuel: %.2lf\n\tsafety: %.2lf\n",
-		params->weightTime, params->weightFuel.base, params->weightSafety.base);
+		params->weightTime, 1.0, params->weightSafety.base);
 	return 0;
 }
 
@@ -3110,12 +3012,12 @@ int loadParams_theRestOld(strParams* params)
 		params->epsilon = data["epsilon"];
 	if (!data["save_weatherNodes"].is_null())
 		params->save_weatherNodes = data["save_weatherNodes"];
-	if (!data["lengthIntervall"].is_null())
-		params->lengthIntervall = data["lengthIntervall"];
-	if (!data["dist_checkOKroute"].is_null())
-		params->dist_checkOKroute = data["dist_checkOKroute"];
-	if (!data["variableFileName"].is_null())
-		params->variableFileName = data["variableFileName"];
+	//if (!data["lengthIntervall"].is_null())
+	//	params->lengthIntervall = data["lengthIntervall"];
+	//if (!data["dist_checkOKroute"].is_null())
+	//	params->dist_checkOKroute = data["dist_checkOKroute"];
+	//if (!data["variableFileName"].is_null())
+	//	params->variableFileName = data["variableFileName"];
 	if (!data["useStandardWeather"].is_null())
 		params->useStandardWeather = data["useStandardWeather"];
 
@@ -3270,69 +3172,36 @@ int loadParams_theRestOld(strParams* params)
 
 	if (!data["solutionFileName"].is_null())
 		params->solutionFileName = data["solutionFileName"];
-	if (!data["preferredPath"].is_null()) {
-		params->preferredPath = data["preferredPath"];
-		size_t i = params->preferredPath.rfind('.', params->preferredPath.length());
-		// check that the extension is .geojson
-		if (i != std::string::npos) {
-			testString = params->preferredPath.substr(i + 1, i + 3);
-			if (params->preferredPath.substr(i + 1, i + 3) != "geojson") {
-				errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
-				exit(0);
-			}
-			// params->preferredPath = params->preferredPath.substr(0, params->preferredPath.length() - 4);
-		}
-		else {
-			errlog("ERROR! The prefered path must be given as a geojson (.geojson). I quit.\n");
-			exit(0);
-		}
-	}
-	if (!data["corridorPath"].is_null()) {
-		params->corridorPath = data["corridorPath"];
-		size_t i = params->corridorPath.rfind('.', params->corridorPath.length());
-		// check that the extension is .geojson
-		if (i != std::string::npos) {
-			if (params->corridorPath.substr(i + 1, i + 3) != "geojson") {
-				errlog("ERROR! The corridor path must be given as a geojson (.geojson). I quit.\n");
-				exit(0);
-			}
-			//params->corridorPath = params->corridorPath.substr(0, params->corridorPath.length() - 4);
-		}
-		else { 
-			errlog("ERROR! The corridor path must be given as a geojson (.geojson). I quit.\n");
-			exit(0);
-		}
-	}
 	//if (!data["preferredPath_followExactOK"].is_null())
 	//	params->preferredPath_followExactOK = data["preferredPath_followExactOK"];
-	if (!data["editCorridor"].is_null())
-		params->runAlt = data["editCorridor"];
-	if (!data["startDelay_h"].is_null()) {
-		params->startDelay_h = data["startDelay_h"];
-	}
-	if (!data["from"].is_null())
-		params->fromHarbour = data["from"];
-	if (!data["to"].is_null())
-		params->toHarbour = data["to"];
-	if (!data["type"].is_null())
-		params->type = data["type"];
+	//if (!data["editCorridor"].is_null())
+	//	params->runAlt = data["editCorridor"];
+	//if (!data["startDelay_h"].is_null()) {
+	//	params->startDelay_h = data["startDelay_h"];
+	//}
+	//if (!data["from"].is_null())
+	//	params->fromHarbour = data["from"];
+	//if (!data["to"].is_null())
+	//	params->toHarbour = data["to"];
+	//if (!data["type"].is_null())
+	//	params->type = data["type"];
 
-	if (!data["channelsName"].is_null()) {
-		params->channelsName = data["channelsName"];
-		size_t i = params->channelsName.rfind('.', params->preferredPath.length());
-		// check that the extension is .geojson
-		if (i != std::string::npos) {
-			if (params->channelsName.substr(i + 1, i + 3) != "geojson") {
-				errlog("ERROR! The channel paths must be given in a geojson (.geojson). I quit.\n");
-				exit(0);
-			}
-			//params->channelsName = params->channelsName.substr(0, params->channelsName.length() - 4);
-		}
-		else {
-			errlog("ERROR! The channel paths must be given as a geojson (.geojson). I quit.\n");
-			exit(0);
-		}
-	}
+	//if (!data["channelsName"].is_null()) {
+	//	params->channelsName = data["channelsName"];
+	//	size_t i = params->channelsName.rfind('.', params->preferredPath.length());
+	//	// check that the extension is .geojson
+	//	if (i != std::string::npos) {
+	//		if (params->channelsName.substr(i + 1, i + 3) != "geojson") {
+	//			errlog("ERROR! The channel paths must be given in a geojson (.geojson). I quit.\n");
+	//			exit(0);
+	//		}
+	//		//params->channelsName = params->channelsName.substr(0, params->channelsName.length() - 4);
+	//	}
+	//	else {
+	//		errlog("ERROR! The channel paths must be given as a geojson (.geojson). I quit.\n");
+	//		exit(0);
+	//	}
+	//}
 	fil2.close();
 
 	double ortoDist = model.params.shipSpeed_average * 1000 / model.params.ortoDist_nPointsPerHour;
@@ -3348,7 +3217,7 @@ int loadParams_theRestOld(strParams* params)
 
 
 	errlog("objective weights:\n\ttime: %.2lf\n\tfuel: %.2lf\n\tsafety: %.2lf\n",
-		params->weightTime, params->weightFuel.base, params->weightSafety.base);
+		params->weightTime, 1.0, params->weightSafety.base);
 	return 0;
 }
 
@@ -3381,9 +3250,9 @@ int loadParams_new(strParams* params)
 	params->epsilon = 0.000001;
 	params->save_weatherNodes = 0;
 	params->max_changeDirection = 1;
-	params->lengthIntervall = 1;
-	params->dist_checkOKroute = 1;
-	params->variableFileName = "variablesInfo.json";
+	//params->lengthIntervall = 1;
+	//params->dist_checkOKroute = 1;
+	//params->variableFileName = "variablesInfo.json";
 	model.params.useStandardWeather = 0;
 	params->physicalMap_noDataValue = 9999;
 	params->speedSettings_addOnlyCheapestArcs = 1;
@@ -3583,7 +3452,7 @@ int loadParams_new(strParams* params)
 		model.preferredPath.maxX += 360;
 	}
 
-	params->weightFuel.base = 1;
+	//params->weightFuel.base = 1;
 	params->weightFuel.lsmgo = 0;
 	params->weightFuel.vlsfo = 0;
 	params->weightTime = 1;
@@ -3624,11 +3493,11 @@ int loadParams_new(strParams* params)
 		}
 		if (!dataObj["weight_fuel"].is_null()) {
 			json data3 = dataObj["weight_fuel"];
-			if (!data3["base"].is_null()) {
-				dataIt2 = data3["base"];
-				if (dataIt2["useWeight"] == 1)
-					params->weightFuel.base = (double)(dataIt2["weight"]) / 100;
-			}
+			//if (!data3["base"].is_null()) {
+			//	dataIt2 = data3["base"];
+			//	if (dataIt2["useWeight"] == 1)
+			//		params->weightFuel.base = (double)(dataIt2["weight"]) / 100;
+			//}
 			if (!data3["VLSFO"].is_null()) {
 				dataIt2 = data3["VLSFO"];
 				params->weightFuel.vlsfo = (double)(dataIt2["weight"]) / 100;
@@ -4040,15 +3909,15 @@ int loadVariables(int alt = 0)
 	int i1, i0;
 	std::string typeName, namn;
 
-	if (alt == 0)
-		namn = model.params.indataPath + "/" + model.params.variableFileName;
-	else
-		namn = model.params.variableFileName;
+	//if (alt == 0)
+		namn = model.params.indataPath + "/weather_parameters.json";// +model.params.variableFileName;
+	//else
+	//	namn = model.params.variableFileName;
 
 	std::ifstream fil(namn);
 
 	if (!fil.is_open()) {
-		errlog("ERROR! Could not open the file %s with information about the weather parameters. I quit.\n", model.params.variableFileName.c_str());
+		errlog("ERROR! Could not open the file %s//weather_parameters.json with information about the weather parameters. I quit.\n", model.params.indataPath.c_str());
 		exit(0);
 	}
 	fil >> data;
@@ -4372,7 +4241,8 @@ int redisSetKeys(std::string inputPath) {
 
 	//printf("test1\n");
 
-	model.params.variableFileName = inputPath;
+	//model.params.variableFileName = inputPath;
+	model.params.indataPath = inputPath;
 	loadVariables(1);
 	//printf("test1b\n");
 	Raster test;
@@ -6151,60 +6021,6 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 			else
 				model.params.preferredPathOrtoPos[i] = -1;
 
-			if (model.corridorPath.nLines > 0) {
-				auto bearing2 = model.network.physicalLev[i].point[0].bearingTo(model.network.physicalLev[i].point[nPkterOrto - 1]);
-				for (i1 = 0; i1 < model.corridorPath.nLines; i1++) {
-					for (i2 = 0; i2 < model.corridorPath.nPoints[i1] - 1; i2++) {
-						if (i == 29)
-							i = i;
-						distNu = model.corridorPath.point[i1][i2].distanceTo(model.network.physicalLev[i].point[0]);
-						distNu1 = model.corridorPath.point[i1][i2].distanceTo(model.network.physicalLev[i].point[nPkterOrto - 1]);
-						distNu2 = model.corridorPath.point[i1][i2 + 1].distanceTo(model.network.physicalLev[i].point[0]);
-						distNu3 = model.corridorPath.point[i1][i2 + 1].distanceTo(model.network.physicalLev[i].point[nPkterOrto - 1]);
-						if (distNu < 1 || distNu1 < 1 || distNu2 < 1 || distNu3 < 1)
-							continue; // point so close to boarder
-						auto bearing1 = model.corridorPath.point[i1][i2].bearingTo(model.corridorPath.point[i1][i2 + 1]);
-						pointNu = spherical::Point::intersection(model.corridorPath.point[i1][i2], bearing1,
-							model.network.physicalLev[i].point[0], bearing2);
-						fprintf(filtmp, "i %d i1 %d i2 %d fromTo corr points %.3lf %.3lf %.3lf %.3lf fromTo ortoPoints %.3lf %.3lf %.3lf %.3lf crossingPoint coords %.3lf %.3lf bearingCorridor %.2lf bearingOrto %.2lf pointValid %d\n", i, i1, i2,
-							model.corridorPath.point[i1][i2].latitude().degrees(), model.corridorPath.point[i1][i2].longitude().degrees(),
-							model.corridorPath.point[i1][i2 + 1].latitude().degrees(), model.corridorPath.point[i1][i2 + 1].longitude().degrees(),
-							model.network.physicalLev[i].point[0].latitude().degrees(), model.network.physicalLev[i].point[0].longitude().degrees(),
-							model.network.physicalLev[i].point[nPkterOrto - 1].latitude().degrees(), model.network.physicalLev[i].point[nPkterOrto - 1].longitude().degrees(),
-							pointNu.latitude().degrees(), pointNu.longitude().degrees(), bearing1, bearing2, pointNu.isValid());
-						if (pointNu.isValid()) {
-							distCorridorSegm = model.corridorPath.point[i1][i2].distanceTo(model.corridorPath.point[i1][i2 + 1]);
-							distIntersectCorridor = model.corridorPath.point[i1][i2].distanceTo(pointNu);
-							if (distIntersectCorridor > distCorridorSegm * 1.00001)
-								continue; // skarningspunkten ar utanfor korridorssegmentet
-							distIntersect = model.network.physicalLev[i].point[0].distanceTo(pointNu);
-							distPrefPath = model.network.physicalLev[i].point[0].distanceTo(model.network.physicalLev[i].point[(int)(nPkterOrto / 2)]);
-							fprintf(filtmp, "inside distIntersect0 %.3lf distPrefPath %.3lf\n", distIntersect, distPrefPath);
-							if (distIntersect < distPrefPath) {
-								for (i3 = 0; i3 < nPkterOrto / 2; i3++) {
-									distNu = model.network.physicalLev[i].point[0].distanceTo(model.network.physicalLev[i].point[i3]);
-									if (distNu < distIntersect)
-										model.network.physicalLev[i].allowedPoint[i3] = 0;
-									else
-										break;
-								}
-							}
-							else {
-								for (i3 = nPkterOrto - 1; i3 > nPkterOrto / 2; i3--) {
-									distNu = model.network.physicalLev[i].point[0].distanceTo(model.network.physicalLev[i].point[i3]);
-									if (distNu > distIntersect)
-										model.network.physicalLev[i].allowedPoint[i3] = 0;
-									else
-										break;
-								}
-							}
-
-
-						}
-					}
-				}
-			}
-
 			//writePointsToShape((char*)"shapeTest", model.network.physicalLev[i].point, model.network.physicalLev[i].nPoints);
 		}
 	}
@@ -7120,7 +6936,7 @@ double eval_calmWaterSpeed(int speedNr) {
 	double varde;
 
 	varde = model.functions.calmWaterSpeed.c0
-		+ model.functions.calmWaterSpeed.c1_rpm * model.functions.rpm[speedNr]
+		+ model.functions.calmWaterSpeed.   c1_rpm * model.functions.rpm[speedNr]
 		+ model.functions.calmWaterSpeed.c2_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];
 	return varde;
 }
@@ -7687,14 +7503,14 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 			safetyBase = safety;
 
 			totCost += model.params.weightTime * model.params.priceTime * tid +
-				model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safety +
+				fuelBase + model.params.weightSafety.base * safety +
 				model.functions.valuesNow.feasibleSafety *
 				model.params.weightSafety.feasibleSafety +
 				model.functions.valuesNow.iceCoverCost;
 			if (totCost < 0) {
 				printf("\nchannelCost %.2lf wTime %.2lf pTime %.2lf tid %.2lf wFuel %.2lf fBase %.2lf wSafety %.2lf safety %.2lf totCost %.2lf\n",
 					channelCost, model.params.weightTime, model.params.priceTime, tid,
-					model.params.weightFuel.base, fuelBase, model.params.weightSafety.base, safety, totCost);
+					1.0, fuelBase, model.params.weightSafety.base, safety, totCost);
 				printf("thisLevel %d pos1 %d nextLevel %d pos2 %d tPos %d i4 %d\n",
 					thisLevel, pos1, nextLevel, pos2, tPos, i4);
 				printf("thisLevel %d\n", thisLevel);
@@ -7866,7 +7682,7 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 		model.params.weightSafety.dynamicStability;
 
 	totCost += model.params.weightTime * model.params.priceTime * tid +
-		model.params.weightFuel.base * fuelBase + model.params.weightSafety.base * safetyBase +
+		fuelBase + model.params.weightSafety.base * safetyBase +
 		model.functions.valuesNow.feasibleSafety *
 		model.params.weightSafety.feasibleSafety +
 		model.functions.valuesNow.iceCoverCost;
@@ -8667,9 +8483,6 @@ int voyageOpt_old(string inputPath)
 
 	loadChannels();
 	loadpreferredPathGeojson();
-	if (model.params.corridorPath != "")
-		loadCorridorPath();
-	else
 		model.corridorPath.nLines = 0;
 
 	printf("Creating the physical network.\n");
@@ -8860,9 +8673,9 @@ int voyageOpt(string inputPath, string resultName)
 
 	loadChannels();
 	//loadpreferredPathGeojson();
-	if (model.params.corridorPath != "")
-		loadCorridorPath();
-	else
+	//if (model.params.corridorPath != "")
+	//	loadCorridorPath();
+	//else
 		model.corridorPath.nLines = 0;
 
 	printf("Creating the physical network.\n");
@@ -9095,41 +8908,5 @@ int check_isChannelNodePosAllowed(int nr, int pos) {
 		return 0; // too far distance to channel
 
 	// om det finns corridor, path fran narmsta pkt pa pref till pos i channel far ej brytas av corridor
-	if (model.corridorPath.nLines > 0) {
-		auto bearing2 = pN.bearingTo(pC);
-		for (i1 = 0; i1 < model.corridorPath.nLines; i1++) {
-			for (i2 = 0; i2 < model.corridorPath.nPoints[i1] - 1; i2++) {
-				if (i == 29)
-					i = i;
-				distNu1 = model.corridorPath.point[i1][i2].distanceTo(pC);
-				distNu3 = model.corridorPath.point[i1][i2 + 1].distanceTo(pC);
-				if (distNu1 < 1 || distNu3 < 1)
-					continue; // point so close to boarder
-				auto bearing1 = model.corridorPath.point[i1][i2].bearingTo(model.corridorPath.point[i1][i2 + 1]);
-				pointNu = spherical::Point::intersection(model.corridorPath.point[i1][i2], bearing1,
-					pN, bearing2);
-				//fprintf(filtmp, "i %d i1 %d i2 %d fromTo corr points %.3lf %.3lf %.3lf %.3lf fromTo pN-pC %.3lf %.3lf %.3lf %.3lf crossingPoint coords %.3lf %.3lf bearingCorridor %.2lf bearingOrto %.2lf pointValid %d\n", i, i1, i2,
-				//	model.corridorPath.point[i1][i2].latitude().degrees(), model.corridorPath.point[i1][i2].longitude().degrees(),
-				//	model.corridorPath.point[i1][i2 + 1].latitude().degrees(), model.corridorPath.point[i1][i2 + 1].longitude().degrees(),
-				//	pN.latitude().degrees(), pN.longitude().degrees(),
-				//	pC.latitude().degrees(), pC.longitude().degrees(),
-				//	pointNu.latitude().degrees(), pointNu.longitude().degrees(), bearing1, bearing2, pointNu.isValid());
-				if (pointNu.isValid()) {
-					distCorridorSegm = model.corridorPath.point[i1][i2].distanceTo(model.corridorPath.point[i1][i2 + 1]);
-					distIntersectCorridor = model.corridorPath.point[i1][i2].distanceTo(pointNu);
-					if (distIntersectCorridor > distCorridorSegm * 1.00001)
-						continue; // skarningspunkten ar utanfor korridorssegmentet
-					distIntersect = pN.distanceTo(pointNu);
-					distPrefPath = pN.distanceTo(pC);
-					//fprintf(filtmp, "inside distCorridorSegm %.2lf distIntersectCorridor %.2lf distIntersect1 %.3lf distPrefPath %.3lf\n", 
-					//	distCorridorSegm, distIntersectCorridor, distIntersect, distPrefPath);
-					if (distIntersect < distPrefPath) {
-						//fprintf(filtmp, "\nOBS corridor cuts path\n");
-						return 0; // skar en corridor pa vag fran prefPath till Channel
-					}
-				}
-			}
-		}
-	}
 	return 1;
 }
