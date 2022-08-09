@@ -45,13 +45,19 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 76,
+				"line" : 82,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 114,
+				"line" : 120,
+				"parent" : 0
+			},
+			{
+				"command" : 3,
+				"file" : 0,
+				"line" : 122,
 				"parent" : 0
 			}
 		]
@@ -62,7 +68,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g  "
+					"fragment" : "-g -g -O0  "
 				},
 				{
 					"fragment" : "-std=gnu++17"
@@ -83,11 +89,15 @@
 			[
 				{
 					"backtrace" : 4,
-					"path" : "/usr/local/include/hiredis"
+					"path" : "/home/pafli/usr/include/hiredis"
 				},
 				{
 					"backtrace" : 5,
 					"path" : "/usr/include/gdal"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/mnt/c/OSGeo4W64/include"
 				}
 			],
 			"language" : "CXX",
@@ -105,7 +115,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-g",
+				"fragment" : "-g -g -O0",
 				"role" : "flags"
 			},
 			{

@@ -39,9 +39,13 @@ struct strWeather
 	char* weatherFileTypeName;
 	//int nElement;
 	int nTimeIntervals;
+	int nTimeIntervals_forecast;
 	long long* secondsUTC;
 	int useStandardWeather;
-	int timeIntervall_h;
+	double timeIntervall_h;
+	int nTimeIntervals_maxValue;
+	int* timeIntervalIndex;
+
 	int nFiles;
 	int nBlock_x;
 	int nBlock_y;
@@ -63,6 +67,7 @@ struct strWeather
 	double maxX;
 	double maxY;
 
+	int errorCode;
 	//Raster::strWeatherRaster raster;
 };
 
@@ -128,14 +133,16 @@ public:
 		GDALAllRegister();
 	}
 
-	void open(const char* tiffname) {
+	int open(const char* tiffname) {
 		filename = tiffname;
 
 		// set pointer to Geotiff dataset as class member.  
 		rasterDataset = (GDALDataset*)GDALOpen(filename, GA_ReadOnly);
 		if (rasterDataset == NULL) {
+			printf("ERROR! Raster %s cannot be open. Fix it and run again\n", tiffname);
 			errlog("ERROR! Raster %s cannot be open. Fix it and run again\n", tiffname);
-			exit(0);
+			return -1;
+			//exit(0);
 		}
 
 		// set the dimensions of the Geotiff 
@@ -150,6 +157,7 @@ public:
 		size_row = -geotransform[5];
 		size_col = geotransform[1];
 		//printf("opend raster min/max lon %.2lf %.2lf\n", min_lon, max_lon);
+		return 1;
 	}
 
 	/*
@@ -1131,9 +1139,39 @@ public:
 		return valueCell;
 	}
 
-	void GetRasterValues_realAllBands(strWeather* weatherData) {
+
+	long long GetMetaData_nSecondsUTC_last(long long* nSecondsUTC_first) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse;
+		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
+		int z, bas_pnXSize, bas_pnYSize, bas_nXBlocks, bas_nYBlocks, bas_nbytes;
+		long long nXBlocks;
+		long long nYBlocks;
+		int n_xBlocks, x0b;
+		int nbytes, nBands, xPosNu2, x2;
+		double* pabyData, useMinX, useMaxX;
+		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock;
+		long long nSecondsUTC, y0, y1, x0, x1, startX0, startY0, basX, basY;
+		double min_lonUse, max_lonUse, basXdbl, basYdbl;
+		GDALRasterBand* poBand;
+		GDALDataType bandType;
+		FILE* filpek = NULL;
+
+		nSecondsUTC = -1;
+		nBands = rasterDataset->GetRasterCount();
+		if (nBands >= 1) {
+			poBand = rasterDataset->GetRasterBand(1);
+			nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
+			poBand = rasterDataset->GetRasterBand(nBands);
+			nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
+
+		}
+		return nSecondsUTC;
+	}
+
+	void GetRasterValues_realAllBands(strWeather* weatherData, int zPosBas) {
+
+		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, zNu;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
 		int z, bas_pnXSize, bas_pnYSize, bas_nXBlocks, bas_nYBlocks, bas_nbytes;
 		long long nXBlocks;
@@ -1160,16 +1198,24 @@ public:
 
 
 		nBands = rasterDataset->GetRasterCount();
+		printf("nBands %d\n", nBands);
+		if (nBands > 1 && zPosBas > 0) {
+			errlog("ERROR! nBands %d but should only be 1 band for historical data. I only read the first one\n", nBands);
+			nBands = 1;
+		}
 		for (z = 1; z <= nBands; z++) {
+			zNu = zPosBas + z - 1;
+			//printf("zNu %d\n", zNu);
 			poBand = rasterDataset->GetRasterBand(z);
 			poBand->GetBlockSize(&pnXSize, &pnYSize);
 			nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
+			//printf("band %d nSecondsUTC %I64d\n", z, nSecondsUTC);
 			nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
 			nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 			if (z == 1) {
 
-				printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
-					GDALGetDataTypeName(poBand->GetRasterDataType()));
+				//printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
+				//	GDALGetDataTypeName(poBand->GetRasterDataType()));
 
 				n_xBlocks = (double)NCOLS / pnXSize;
 				if (n_xBlocks * pnXSize < NCOLS)
@@ -1227,10 +1273,23 @@ public:
 					errlog("ERROR! Different nbytes of bands in weather raster, %d and %d\n", bas_nbytes, nbytes);
 				}
 			}
-			weatherData->secondsUTC[z-1] = nSecondsUTC;
+			//printf("min_lonUse %.3lf\n", min_lonUse);
+			if (weatherData->secondsUTC[zNu] != -1) {
+				if (weatherData->secondsUTC[zNu] != nSecondsUTC && nBands > 1) {
+					errlog("ERROR! Different time stamp for different files for weather %s pos %d (%I64d vs %I64d). I use the first one but will send an error message\n",
+						weatherData->weatherFileTypeName, zNu, weatherData->secondsUTC[z - 1], nSecondsUTC);
+					nSecondsUTC = weatherData->secondsUTC[zNu];
+					weatherData->errorCode = 1;
+				}
+			}
+			weatherData->secondsUTC[zNu] = nSecondsUTC;
 
+			//printf("weatherData->minX %.3lf\n", weatherData->minX);
+			//printf("weatherData->size_col %.3lf\n", weatherData->size_col);
 			basXdbl = (min_lonUse - weatherData->minX) / weatherData->size_col;
+			//printf("basXdbl %.3lf\n", basXdbl);
 			basX = (long long)basXdbl;
+			//printf("basXdbl %.3lf basX %d\n", basXdbl, basX);
 			if (basX - 0.99999 > basXdbl)
 				basX--;
 			if (basX < 0) {
@@ -1241,7 +1300,7 @@ public:
 				startX0 = 0;
 			}
 			basYdbl = (weatherData->maxY - max_lat) / weatherData->size_row;
-			basY = (long long)basYdbl;
+			basY = (long long)basYdbl; 
 			if (basY - 0.99999 > basYdbl)
 				basY--;
 			if (basY < 0) {
@@ -1249,9 +1308,9 @@ public:
 				basY = 0;
 			}
 			else
-				startY0 = 0;
+				startY0 = 0; 
 
-			
+			//printf("zz zNu %d\n", zNu);
 			for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 			{
 				//yPosNu = (iYBlock - yMin) * pnYSize;
@@ -1278,19 +1337,19 @@ public:
 					}
 					poBand->ReadBlock(xUse, iYBlock, pabyData);
 
-					if (nBands >= 117) {
-						if(filpek==NULL)
-							filpek = fopen("filTmp.txt", "w");
-						for (int i = 0; i < pnYSize; i++) {
-							for (int i1 = 0; i1 < pnXSize; i1++) {
-								fprintf(filpek, " %d %d %d %.4f\n", z, i, i1, pabyData[i1 + i * pnXSize]);
-							}
-						}
-						if (z >= 2) {
-							fclose(filpek);
-							exit(0);
-						}
-					}
+					//if (nBands >= 117) {
+					//	if(filpek==NULL)
+					//		filpek = fopen("filTmp.txt", "w");
+					//	for (int i = 0; i < pnYSize; i++) {
+					//		for (int i1 = 0; i1 < pnXSize; i1++) {
+					//			fprintf(filpek, " %d %d %d %.4f\n", z, i, i1, pabyData[i1 + i * pnXSize]);
+					//		}
+					//	}
+					//	if (z >= 2) {
+					//		fclose(filpek);
+					//		exit(0);
+					//	}
+					//}
 					//xPosNu = (iXBlock - xMin) * pnXSize;
 					xPosNu = iXBlock * pnXSize;
 
@@ -1323,14 +1382,18 @@ public:
 					}
 					for (iY = y0; iY < y1; iY++) {
 						for (iX = x0; iX < x1; iX++) {
-							if (iY < nYValid && iX < nXValid)
-								weatherData->valueCell[z-1][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+							if (iY < nYValid && iX < nXValid) {
+								if (pabyData[iX + iY * pnXSize] < 9998)
+									weatherData->valueCell[zNu][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+							}
 							else
-								weatherData->valueCell[z-1][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = 0;
+								weatherData->valueCell[zNu][iX + xPosNu + weatherData->nCols * (iY + yPosNu)] = 0;
 						}
 
 						for (iX = x0b; iX < x2; iX++) {
-							weatherData->valueCell[z - 1][iX + xPosNu2 + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+							if (pabyData[iX + iY * pnXSize] < 9998) {
+								weatherData->valueCell[zNu][iX + xPosNu2 + weatherData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
+							}
 						}
 					}
 				}

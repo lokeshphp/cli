@@ -25,6 +25,7 @@ using std::chrono::system_clock;
 string weatherDataPath; 
 
 string resultPath;
+string LOGFILE;
 
 int test_OpenTheSameRasterMultipleTimesAndRead(string dataName, int nAnropData)
 {
@@ -228,8 +229,9 @@ int main(int argc, char* argv[])
 	cout << "Hello CMake. Test 2" << endl;
 	cout << "nArgc " << argc << endl;
 
-	for (int i = 0; i < argc; i++)
-		cout << argv[i] << endl;
+	LOGFILE = "logfile.txt";
+	//for (int i = 0; i < argc; i++)
+	//	cout << argv[i] << endl;
 
 	if (argc == 4) {
 		printf("three arguments read, should only be two\n");
@@ -274,11 +276,11 @@ int main(int argc, char* argv[])
 				printf("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
 				exitKontrollerat(__LINE__, 0);
 			}
-			printf("input file '%s'\n", inputPath.c_str());
-			printf("result file '%s'\n", dataName.c_str());
+			//printf("input file '%s'\n", inputPath.c_str());
+			//printf("result file '%s'\n", dataName.c_str());
 
 			resultPath = splitFilename(dataName);
-			printf("result path '%s'\n", resultPath.c_str());
+			//printf("result path '%s'\n", resultPath.c_str());
 			//dataName = resultPath;// +"/result.json";
 			filpek = fopen(dataName.c_str(), "w");
 			if (filpek == NULL) {
@@ -291,7 +293,7 @@ int main(int argc, char* argv[])
 			fprintf(filpek, "{\nerror\n}\n");
 			fclose(filpek);
 
-			printf("pass 1\n");
+			//printf("pass 1\n");
 			float number;
 			stringstream stream;
 			stream.precision(3);
@@ -300,7 +302,7 @@ int main(int argc, char* argv[])
 			float* testArray0;
 			testArray0 = (float*)malloc(900 * 451 * sizeof(float));
 
-			printf("pass 1b\n");
+			//printf("pass 1b\n");
 			int pos = 0;
 			for (int i = 0; i < 900; i++) {
 				for (int i1 = 0; i1 < 451; i1++) {
@@ -317,11 +319,11 @@ int main(int argc, char* argv[])
 			//freopen("output.txt", "w", stdout);
 			//cout << str;
 
-			printf("pass 1c\n");
+			//printf("pass 1c\n");
 			float* testArray;
 			testArray = (float*)malloc(900 * 451 * sizeof(float));
 			putStringIntoArrayFloat(str, testArray);
-			printf("pass 1d\n");
+			//printf("pass 1d\n");
 
 			//vector <float> testVec;
 			//istringstream ss(str);
@@ -348,7 +350,6 @@ int main(int argc, char* argv[])
 
 			//exit(0);
 
-
 			printf("Calling voyageOpt with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
 			auto tid0 = std::chrono::high_resolution_clock::now();
 			if(inputPath != "-")
@@ -362,6 +363,7 @@ int main(int argc, char* argv[])
 		else {
 			if (argc == 2) {
 				int i = 1;
+				LOGFILE = "logfile_setRedisKeys.txt";
 				inputPath = "-";
 				userGivenOK = setUserParam(argv[i], &inputPath, &dataName);
 				if (userGivenOK == 0) {
@@ -393,16 +395,8 @@ int main(int argc, char* argv[])
 				errlog("redis key generation took %.3lf\n", fp_ms);
 			}
 			else {
+				LOGFILE = "logfile_error.txt";
 				printf("%d arguments read, should be two\n", argc);
-				inputPath = "testIndata";
-				resultPath = "testResults";
-				filpek = fopen("test.txt", "w");
-				fprintf(filpek, "testing\n");
-				fclose(filpek);
-				printf("testFinal\n");
-				printf("Calling voyageOpt with arguments %s and %s\n", inputPath.c_str(), resultPath.c_str());
-				voyageOpt_old(inputPath);
-				printf("All done. give 'weatherDataPath dataName' or 'weatherDataPath dataName nAnropData' if you want to test more\n");
 			}
 		}
 	}

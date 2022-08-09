@@ -18,7 +18,8 @@ struct dataStr
 
 #endif // FILHANTERING_CPP
 
-extern string resultPath; 
+extern string resultPath;
+extern string LOGFILE;
 
 #include "pch.h"
 
@@ -839,7 +840,7 @@ int char_to_intSpec(char *object)
 int reset_errlog()
 {
 	FILE *log;
-	string namn = resultPath + "/logfile.txt";
+	string namn = resultPath + "/" + LOGFILE;// "/logfile.txt";
 	log = fopen(namn.c_str(), "w");
 	fclose(log);
 	return 0;
@@ -852,7 +853,7 @@ int errlog0(const char* format, ...)
 
 	FILE* log;
 
-	log = fopen("logfile.txt", "a+");
+	log = fopen(LOGFILE.c_str(), "a+");
 
 	if (log == NULL)
 		return -1;
@@ -871,7 +872,7 @@ int errlog (const char *format, ...)
   string namn;
 
   FILE *log;
-  namn = resultPath + "/logfile.txt";
+  namn = resultPath + "/" + LOGFILE; // "/logfile.txt";
   //printf("Skriver till %s\n", namn.c_str());
   log = fopen (namn.c_str(), "a+");
 

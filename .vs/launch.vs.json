@@ -9,8 +9,8 @@
       "project": "CMakeLists.txt",
       "projectTarget": "voyageOpt2.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": ["--input=data/input_v3.json --output=data/res_basTur2.json"],
-      "currentDir": "${workspaceRoot}/../../runDir/"
+      "args": ["--input=data/input_stormEW.json --output=data/res_storm.json"],
+      "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
     },
     {
       "type": "default",
@@ -19,8 +19,8 @@
       "project": "CMakeLists.txt",
       "projectTarget": "voyageOpt2.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": [ "--input=data/weather_parameters.json" ],
-      "currentDir": "${workspaceRoot}/../../runDir/"
+      "args": [ "--input=data" ],
+      "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
     }
   ]
 }

@@ -1,4 +1,9 @@
 {
+  "ExpandedNodes": [
+    ""
+  ],
+  "SelectedNode": "\\redisDef.h",
+  "PreviewInSolutionExplorer": false,
   "ActiveTargetSystem": "Local Machine",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
@@ -13,10 +18,5 @@
     "WSL: Ubuntu-20.04": {
       "configure": "linux-release"
     }
-  },
-  "ExpandedNodes": [
-    ""
-  ],
-  "SelectedNode": "\\voyageOpt.cpp",
-  "PreviewInSolutionExplorer": false
+  }
 }

@@ -1115,7 +1115,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "[/usr/lib/libgdal.so][/usr/include/gdal][v3.4.3()]"
+			"value" : "[/usr/lib/libgdal.so][/mnt/c/OSGeo4W64/include][v3.0.4()]"
 		},
 		{
 			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig",
@@ -1139,7 +1139,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "[/usr/lib/x86_64-linux-gnu/libz.so][/usr/include][v1.2.11()]"
+			"value" : "[/usr/lib/x86_64-linux-gnu/libz.so][/mnt/c/OSGeo4W64/include][v1.2.8()]"
 		},
 		{
 			"name" : "GDAL_CONFIG",
@@ -1163,7 +1163,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "/usr/include/gdal"
+			"value" : "/mnt/c/OSGeo4W64/include"
 		},
 		{
 			"name" : "GDAL_LIBRARY",
@@ -1187,7 +1187,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-D_FILE_OFFSET_BITS=64;-I/usr/local/include/hiredis"
+			"value" : "-D_FILE_OFFSET_BITS=64;-I/home/pafli/usr/include/hiredis"
 		},
 		{
 			"name" : "HIREDIS_CFLAGS_I",
@@ -1247,7 +1247,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/include/hiredis"
+			"value" : "/home/pafli/usr/include"
 		},
 		{
 			"name" : "HIREDIS_INCLUDE_DIRS",
@@ -1259,7 +1259,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/include/hiredis"
+			"value" : "/home/pafli/usr/include/hiredis"
 		},
 		{
 			"name" : "HIREDIS_LDFLAGS",
@@ -1271,7 +1271,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-L/usr/local/lib;-lhiredis"
+			"value" : "-L/home/pafli/usr/lib;-lhiredis"
 		},
 		{
 			"name" : "HIREDIS_LDFLAGS_OTHER",
@@ -1307,7 +1307,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/lib"
+			"value" : "/home/pafli/usr/lib"
 		},
 		{
 			"name" : "HIREDIS_LIBRARIES",
@@ -1331,7 +1331,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/lib"
+			"value" : "/home/pafli/usr/lib"
 		},
 		{
 			"name" : "HIREDIS_LIBS",
@@ -1403,7 +1403,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local"
+			"value" : "/home/pafli/usr"
 		},
 		{
 			"name" : "HIREDIS_STATIC_CFLAGS",
@@ -1415,7 +1415,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-D_FILE_OFFSET_BITS=64;-I/usr/local/include/hiredis"
+			"value" : "-D_FILE_OFFSET_BITS=64;-I/home/pafli/usr/include/hiredis"
 		},
 		{
 			"name" : "HIREDIS_STATIC_CFLAGS_I",
@@ -1451,7 +1451,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/include/hiredis"
+			"value" : "/home/pafli/usr/include/hiredis"
 		},
 		{
 			"name" : "HIREDIS_STATIC_LDFLAGS",
@@ -1463,7 +1463,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-L/usr/local/lib;-lhiredis"
+			"value" : "-L/home/pafli/usr/lib;-lhiredis"
 		},
 		{
 			"name" : "HIREDIS_STATIC_LDFLAGS_OTHER",
@@ -1511,7 +1511,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/lib"
+			"value" : "/home/pafli/usr/lib"
 		},
 		{
 			"name" : "HIREDIS_STATIC_LIBS",
@@ -1647,7 +1647,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-D_FILE_OFFSET_BITS=64;-I/usr/local/include;-I/usr/local/include/hiredis"
+			"value" : "-D_FILE_OFFSET_BITS=64;-I/home/pafli/usr/include/hiredis;-I/usr/local/include"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_CFLAGS_I",
@@ -1719,7 +1719,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/include;/usr/local/include/hiredis"
+			"value" : "/home/pafli/usr/include/hiredis;/usr/local/include"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_LDFLAGS",
@@ -1731,7 +1731,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-L/usr/local/lib;-lredis++;-lhiredis"
+			"value" : "-L/home/pafli/usr/lib;-L/usr/local/lib;-lredis++;-lhiredis"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_LDFLAGS_OTHER",
@@ -1791,7 +1791,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/lib"
+			"value" : "/home/pafli/usr/lib;/usr/local/lib"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_LIBS",
@@ -1875,7 +1875,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-D_FILE_OFFSET_BITS=64;-I/usr/local/include;-I/usr/local/include/hiredis"
+			"value" : "-D_FILE_OFFSET_BITS=64;-I/home/pafli/usr/include/hiredis;-I/usr/local/include"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_STATIC_CFLAGS_I",
@@ -1911,7 +1911,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/include;/usr/local/include/hiredis"
+			"value" : "/home/pafli/usr/include/hiredis;/usr/local/include"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_STATIC_LDFLAGS",
@@ -1923,7 +1923,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "-L/usr/local/lib;-lredis++;-lhiredis"
+			"value" : "-L/home/pafli/usr/lib;-L/usr/local/lib;-lredis++;-lhiredis"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_STATIC_LDFLAGS_OTHER",
@@ -1971,7 +1971,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/usr/local/lib"
+			"value" : "/home/pafli/usr/lib;/usr/local/lib"
 		},
 		{
 			"name" : "REDIS_PLUS_PLUS_STATIC_LIBS",
@@ -2095,7 +2095,7 @@
 				}
 			],
 			"type" : "PATH",
-			"value" : "/usr/include"
+			"value" : "/mnt/c/OSGeo4W64/include"
 		},
 		{
 			"name" : "ZLIB_LIBRARY_DEBUG",
@@ -2191,7 +2191,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/local/lib/libhiredis.so"
+			"value" : "/home/pafli/usr/lib/libhiredis.so"
 		},
 		{
 			"name" : "pkgcfg_lib_REDIS_PLUS_PLUS_hiredis",
@@ -2207,7 +2207,7 @@
 				}
 			],
 			"type" : "FILEPATH",
-			"value" : "/usr/local/lib/libhiredis.so"
+			"value" : "/home/pafli/usr/lib/libhiredis.so"
 		},
 		{
 			"name" : "pkgcfg_lib_REDIS_PLUS_PLUS_redis++",

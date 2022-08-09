@@ -17,7 +17,13 @@ MESSAGE("WIN32: " ${WIN32})
 MESSAGE("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION ": ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})
 MESSAGE("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM ": ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM})
 
+MESSAGE("buildType: " ${CMAKE_BUILD_TYPE})
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0")
+
 if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION) 
+
 	#include_directories(C:/OSGeo4W64/apps/gdal-dev/include)  
 	# include_directories(C:/OSGeo4W64/apps/gdal-dev/lib)
 	# include_directories(C:\Users\User\zlib_tmp\zlib-1.2.12\build\Release)  
@@ -40,25 +46,25 @@ else()
 
 	if(WIN32) 
 		set(CMAKE_BUILD_TYPE  "RelWithDebInfo")
-		set(HIREDIS_HEADER ${voyageOpt_SOURCE_DIR}/../../redis/hiredis-master)
-		#set(HIREDIS_HEADER "F:\\TNM\\redis\\hiredis-master")	
+		#set(HIREDIS_HEADER ${voyageOpt_SOURCE_DIR}/../../redis/hiredis-master)
+		set(HIREDIS_HEADER "F:\\TNM\\redis\\hiredis-master")	
 		#find_path(HIREDIS_HEADER hiredis)
 		target_include_directories(voyageOpt2 PUBLIC ${HIREDIS_HEADER})
 
-		set(HIREDIS_LIB ${voyageOpt_SOURCE_DIR}/../../redis/hiredis-master/out/build/x64-Release/hiredis.lib)
-		#set(HIREDIS_LIB "F:\\TNM\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib")
+		#set(HIREDIS_LIB ${voyageOpt_SOURCE_DIR}/../../redis/hiredis-master/out/build/x64-Release/hiredis.lib)
+		set(HIREDIS_LIB "F:\\TNM\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib")
 		#find_library(HIREDIS_LIB hiredis)
 		target_link_libraries(voyageOpt2 ${HIREDIS_LIB})
 
 		# <------------ add redis-plus-plus dependency -------------->
 		# NOTE: this should be *sw* NOT *redis++*
-		set (REDIS_PLUS_PLUS_HEADER ${voyageOpt_SOURCE_DIR}/../../redis/redis-plus-plus-master/src/sw/redis++)
-		#set (REDIS_PLUS_PLUS_HEADER "F:\\TNM\\redis\\redis-plus-plus-master\\src\\sw\\redis++")
+		#set (REDIS_PLUS_PLUS_HEADER ${voyageOpt_SOURCE_DIR}/../../redis/redis-plus-plus-master/src/sw/redis++)
+		set (REDIS_PLUS_PLUS_HEADER "F:\\TNM\\redis\\redis-plus-plus-master\\src\\sw\\redis++")
 		#find_path(REDIS_PLUS_PLUS_HEADER sw)
 		target_include_directories(voyageOpt2 PUBLIC ${REDIS_PLUS_PLUS_HEADER})
 
-		set(REDIS_PLUS_PLUS_LIB ${voyageOpt_SOURCE_DIR}/../../redis/redis-plus-plus-master/out/build/x64-Release/redis++.lib)
-		#set(REDIS_PLUS_PLUS_LIB "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib")
+		#set(REDIS_PLUS_PLUS_LIB ${voyageOpt_SOURCE_DIR}/../../redis/redis-plus-plus-master/out/build/x64-Release/redis++.lib)
+		set(REDIS_PLUS_PLUS_LIB "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib")
 		#find_library(REDIS_PLUS_PLUS_LIB redis++) 
 		target_link_libraries(voyageOpt2 ${REDIS_PLUS_PLUS_LIB})	
 	endif()

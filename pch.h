@@ -55,8 +55,23 @@ struct strSafety
 	//double stability;
 };
 
+struct strPenalties
+{
+	double storm_costInsideInner;
+	double storm_costInsideOuter_kvot;
+};
+
+struct strTimeZones
+{
+	char* name;
+	int nHoursDiff;
+	int nMinutesDiff;
+};
+
 struct strParams
 {
+	int nTimeZones;
+	strTimeZones* timeZone;
 	std::string indataPath;
 	std::string indataPathName;
 	std::string resultPath;
@@ -91,6 +106,7 @@ struct strParams
 	int maxDiffTimeFastSlow; // max time difference between fastest and slowest route
 	
 	int max_changeDirection;
+	int longestRouteDays_history;
 	//double lengthIntervall; // length of a time intervall in hours
 	//double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
 	
@@ -101,6 +117,7 @@ struct strParams
 	strPriceFuel priceFuel;
 	strFuel weightFuel;
 	strSafety weightSafety;
+	strPenalties penalties;
 
 	int useStandardWeather; // -1 for standard 0, 1 for standard last, 0 for changing forecast
 
@@ -114,31 +131,38 @@ struct strParams
 	std::string toHarbour;
 	std::string type;
 
-	double storm_windUBD; // storm level 64 kt
-	double storm_1dist_ahead; // first ring ahead, 200 nautiska miles
-	double storm_2dist_ahead; // second ring ahead, 500 nautiska miles
-	double storm_1costInside_ahead; // 1e10
-	double storm_1cost_ahead; // 100
-	double storm_2cost_ahead; // 1
+	
+	//double storm_windUBD; // storm level 64 kt
+	//double storm_1dist_ahead; // first ring ahead, 200 nautiska miles
+	//double storm_2dist_ahead; // second ring ahead, 500 nautiska miles
+	//double storm_1costInside_ahead; // 1e10
+	//double storm_1cost_ahead; // 100
+	//double storm_2cost_ahead; // 1
 
-	double storm_1dist_behind; // first ring ahead, 200 nautiska miles
-	double storm_2dist_behind; // second ring, 120 nautiska miles
-	double storm_1costInside_behind; // 1e10
-	double storm_1cost_behind; // 100
-	double storm_2cost_behind; // 1
+	//double storm_1dist_behind; // first ring ahead, 200 nautiska miles
+	//double storm_2dist_behind; // second ring, 120 nautiska miles
+	//double storm_1costInside_behind; // 1e10
+	//double storm_1cost_behind; // 100
+	//double storm_2cost_behind; // 1
 	int startYear; // = 2018;
 	int startMonth_nr; // = 9; // sep
 	int startDay_nr; //  = 1;
-	time_t UCT_tid;
+	time_t UTC_secondsStart;
 	int startHour; // 0
 	int startMinute; // 0
 
-	double maxDeviationPrefered_km;
+	double maxDeviationPreferred_km;
 
 	double shipDraft;
 	double shipLength;
 	double freeBoard2;
 
+	double minSpeedDiffWeatherFactor;
+	double maxSpeedDiffWeatherFactor;
+	double minSpeedDiffCurrent;
+	double maxSpeedDiffCurrent;
+
+	int errorCode;
 };
 
 struct strVariables
@@ -219,6 +243,7 @@ struct strNodeSeq
 	int* usedPoint;
 	int* allowedPoint;
 	double* distanceFromStart;
+	double distTot;
 	double extraCostChannel;
 	double extraTimeChannel;
 	spherical::Point* preferredPathPoint;
@@ -284,15 +309,44 @@ struct strFuelConsumptionFkn {
 };
 
 struct strFunkData {
-	int nHeightIndex;
-	double heightIndexSize;
-	int nPeriodIndex;
-	double periodIndexSize;
-	int nWSpeedIndex;
-	double wSpeedIndexSize;
-	int nWDirIndex;
-	double wDirIndexSize;
+
+	int nCalmWaterSpeedIndex;
+	double calmWaterSpeedIndexSize;
+	double calmWaterSpeed_min;
+	double calmWaterSpeed_max;
+
+	int nWaveHeightIndex;
+	double waveHeightIndexSize;
+	double waveHeight_min;
+	double waveHeight_max;
+	int nWavePeriodIndex;
+	double wavePeriodIndexSize;
+	double wavePeriod_min;
+	double wavePeriod_max;
+	int nWaveDirIndex;
+	double waveDirIndexSize;
+	double waveDir_min;
+	double waveDir_max;
+
+	int nWindSpeedIndex;
+	double windSpeedIndexSize;
+	double windSpeed_min;
+	double windSpeed_max;
+	int nWindDirIndex;
+	double windDirIndexSize;
+	double windDir_min;
+	double windDir_max;
+
+	int nShipSpeedIndex;
+	double shipSpeedIndexSize;
+	double shipSpeed_min;
+	double shipSpeed_max;
+
+
 	double* tableValue;
+	double* tableValueWind;
+	double* tableValueWave;
+
 };
 
 struct strValuesNow {
@@ -305,57 +359,67 @@ struct strValuesNow {
 	double worstStormValue;
 	int feasibleSafety;
 	double iceCoverCost;
+
+	double current;
+	double windSpeed;
+	double relWindDir;
+	double waveHeight;
+	double wavePeriod;
+	double relWaveDir;
+	double forecastType;
+	
+	double iceCover_max;
+	double bowSlamming_max;
+	double greenWater_max;
+	double dynamicStability_max;
+
 };
 
 struct strFunc2 {
 	//double* rpmSetting_gerSpeed;
 	//double* rpmSetting_gerFuelConsumption;
 
-	double iceCoverMaxFree;
-	//double iceCoverCost_fix;
-
-
 	//int nWindDir;
 	//int nWaveDir;
-	int table_niWaveDir;
-	int table_niWave;
-	int table_niWavePeriod;
-	int table_niWindDir;
-	int table_niWindSpeed;
-	double* table_speedDiff;
+	//int table_niWaveDir;
+	//int table_niWave;
+	//int table_niWavePeriod;
+	//int table_niWindDir;
+	//int table_niWindSpeed;
+	//double* table_speedDiff;
 
 	double* rpm;
 	strCalmWaterFkn calmWaterSpeed;
 	strFuelConsumptionFkn fuelConsumption;
 
-	double windSpeed_max;
-	double* windSpeed_minVal_array;
-	double* windSpeed_maxVal_array;
+	//double windSpeed_max;
+	//double* windSpeed_minVal_array;
+	//double* windSpeed_maxVal_array;
 
-	double waveHeight_max;
-	double* waveHeight_minVal_array;
-	double* waveHeight_maxVal_array;
+	//double waveHeight_max;
+	//double* waveHeight_minVal_array;
+	//double* waveHeight_maxVal_array;
 
-	double wavePeriod_max;
-	double* wavePeriod_minVal_array;
-	double* wavePeriod_maxVal_array;
+	//double wavePeriod_max;
+	//double* wavePeriod_minVal_array;
+	//double* wavePeriod_maxVal_array;
 
-	double windMagnitude_discreteSize_kts;
-	double rel_windSpeed_kvotIndex; // 2
-	double max_windSpeed;
-	int nWindSpeedSkalad; // omskalad med kvotIndex
-	int* rel_windSpeedSkalad_ger_index;
+	//double windMagnitude_discreteSize_kts;
+	//double rel_windSpeed_kvotIndex; // 2
+	//double max_windSpeed;
+	//int nWindSpeedSkalad; // omskalad med kvotIndex
+	//int* rel_windSpeedSkalad_ger_index;
 
-	double waveHeight_discreteSize_m;
-	double rel_waveHeight_kvotIndex; // 2
-	double max_waveHeight;
-	int nWaveHeightSkalad; // omskalad med kvotIndex
-	int* rel_waveHeightSkalad_ger_index;
+	//double waveHeight_discreteSize_m;
+	//double rel_waveHeight_kvotIndex; // 2
+	//double max_waveHeight;
+	//int nWaveHeightSkalad; // omskalad med kvotIndex
+	//int* rel_waveHeightSkalad_ger_index;
 
-	double rel_wavePeriod_kvotIndex; // 2
-	double max_wavePeriod;
-	int max_wavePeriodSkalad; // omskalad med kvotIndex
-	int* rel_wavePeriod_ger_index;
+	//double rel_wavePeriod_kvotIndex; // 2
+	//double max_wavePeriod;
+	//int max_wavePeriodSkalad; // omskalad med kvotIndex
+	//int* rel_wavePeriod_ger_index;
 
 	int pos_wind_u;
 	int pos_wind_v;
@@ -366,6 +430,13 @@ struct strFunc2 {
 	int pos_waveDirection;
 	int pos_iceThickness;
 
+	// weather factors
+	strFunkData weatherFactors;
+	//double weatherFactorsTable_shipSpeed;
+
+	// safety
+	double iceCoverMaxFree;
+	//double iceCoverCost_fix;
 	strFunkData bowSlamming; // height + nHeight * period
 	strFunkData greenWater; // height
 	strFunkData dynStability; // wSpeed + nWSpeed * wDir
@@ -421,16 +492,36 @@ struct strStormFeature
 	double lon;
 	spherical::Point midPoint;
 	double bearing;
-	int nQuadrants;
-	strStormQuadr* quadrant;
+	double distanceToNextPoint;
+	double outerCircleSize;
+	double innerCircleForwardSize;
+	double innerCircleBackwardsSize;
+	long long UTCseconds;
+
+	double tidFromStart_h;
+	double hoursToNextPoint;
+	//int nQuadrants;
+	//strStormQuadr* quadrant;
 };
 
 struct strStorm
 {
 	char* fileName;
+	int nAllocFeatures;
 	int nFeatures;
-	int tidsIntervall;
+	double timeIntervall_h;
+	//int tidsIntervall;
 	strStormFeature* feature;
+	int nTimeIntervals_maxValue;
+	int* timeIntervalIndex;
+
+	//std::string stormID;
+	int stormNr;
+
+	double box_minLat;
+	double box_maxLat;
+	double box_minLon;
+	double box_maxLon;
 };
 
 //struct strRasterData {
@@ -438,8 +529,13 @@ struct strStorm
 //	//float** physicalMap;
 //};
 
+struct strStatus {
+	int weatherHistoryOpenFile_fail;
+};
+
 struct strModel
 {
+	strStatus status;
 	strBoundBox boundingBox;
 	// strRasterData rasterData;
 	strParams params;
@@ -532,13 +628,33 @@ int voyageOpt_old(string inputPath);
 int voyageOpt(string inputName, string resultName);
 int exitKontrollerat(int codeLine, int callType = 1);
 int writeSolutionToJson(string filename, int resAlt);
-string splitFilename(string namn);
+string splitFilename(string namn, int alt = 0);
 int fixReadableDate(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 
 int redisSetKeys(std::string inputPath);
 void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filtmp);
+
+double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
+double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
+double eval_fuelConsumption(int speedNr);
+double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
+void eval_safety(double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
+int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
+int calcWeatherPosAlongChannel(int cNr);
+double eval_calmWaterSpeed(int speedNr);
+double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
+double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
+
+int get_relWindDirIndex(double rel_windDir, strFunkData funkData, int alt = 0);
+int get_relWaveDirIndex(double rel_waveDir, strFunkData funkData, int alt = 0);
+int get_relWindSpeedIndex(double rel_windSpeed, strFunkData funkData, int alt = 0);
+int get_calmWaterSpeedIndex(double speed, strFunkData funkData, int alt = 0);
+int get_relWaveHeightIndex(double waveHeight, strFunkData funkData, int alt = 0);
+int get_relWavePeriodIndex(double wavePeriod, strFunkData funkData, int alt = 0);
+int get_shipSpeedIndex(double speed, strFunkData funkData, int alt = 0);
+
 
 #endif //PCH_H
 

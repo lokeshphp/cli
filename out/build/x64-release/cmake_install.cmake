@@ -1,8 +1,8 @@
-# Install script for directory: D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization
+# Install script for directory: F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-  set(CMAKE_INSTALL_PREFIX "D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/install/x64-release")
+  set(CMAKE_INSTALL_PREFIX "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/install/x64-release")
 endif()
 string(REGEX REPLACE "/$" "" CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
@@ -40,5 +40,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-release/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-release/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

@@ -38,19 +38,19 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 51,
+				"line" : 57,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 63,
+				"line" : 69,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 120,
+				"line" : 126,
 				"parent" : 0
 			},
 			{
@@ -68,31 +68,31 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 46,
+				"line" : 52,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 58,
+				"line" : 64,
 				"parent" : 0
 			},
 			{
 				"command" : 4,
 				"file" : 0,
-				"line" : 114,
+				"line" : 120,
 				"parent" : 0
 			},
 			{
 				"command" : 4,
 				"file" : 0,
-				"line" : 116,
+				"line" : 122,
 				"parent" : 0
 			},
 			{
 				"command" : 5,
 				"file" : 0,
-				"line" : 37,
+				"line" : 43,
 				"parent" : 0
 			}
 		]
@@ -124,11 +124,11 @@
 			[
 				{
 					"backtrace" : 7,
-					"path" : "D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/../../redis/hiredis-master"
+					"path" : "F:/TNM/redis/hiredis-master"
 				},
 				{
 					"backtrace" : 8,
-					"path" : "D:/projects/tnm/TrueNorthRouteOptimization/TrueNorthRouteOptimization/../../redis/redis-plus-plus-master/src/sw/redis++"
+					"path" : "F:/TNM/redis/redis-plus-plus-master/src/sw/redis++"
 				},
 				{
 					"backtrace" : 9,
@@ -171,12 +171,12 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "..\\..\\..\\..\\..\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib",
+				"fragment" : "F:\\TNM\\redis\\hiredis-master\\out\\build\\x64-Release\\hiredis.lib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "..\\..\\..\\..\\..\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
+				"fragment" : "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
 				"role" : "libraries"
 			},
 			{
@@ -191,7 +191,7 @@
 			},
 			{
 				"backtrace" : 3,
-				"fragment" : "..\\..\\..\\..\\..\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
+				"fragment" : "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib",
 				"role" : "libraries"
 			},
 			{
