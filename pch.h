@@ -28,16 +28,18 @@ struct dataStr
 	char data[CHAR_ALLOC];
 };
 
+struct strFuelType
+{
+	double price;
+	double emissionFactor;
+};
 struct strFuel
 {
 	//double base;
-	double vlsfo;
-	double lsmgo;
-};
-
-struct strPriceFuel {
-	double vlsfo;
-	double lsmgo;
+	strFuelType aux_noEca;
+	strFuelType aux_eca;
+	strFuelType main_noEca;
+	strFuelType main_eca;
 };
 
 struct strSafety
@@ -100,6 +102,7 @@ struct strParams
 	double epsilon;
 	int save_weatherNodes;
 	int nShip_speedSettings;
+	int speedSetting95MCR;
 	//double *ship_speedSettings;
 	char **ship_speedSettingID;
 	// int *ship_speedSettingNr;
@@ -114,8 +117,9 @@ struct strParams
 
 	double weightTime;
 	double priceTime;
-	strPriceFuel priceFuel;
-	strFuel weightFuel;
+	strFuel fuel;
+	double weightFuel;
+	double weightEmission;
 	strSafety weightSafety;
 	strPenalties penalties;
 
@@ -150,6 +154,10 @@ struct strParams
 	time_t UTC_secondsStart;
 	int startHour; // 0
 	int startMinute; // 0
+	int startHoursSinceMidnight;
+	double eta_h;
+	double eta_cost_early;
+	double eta_cost_late;
 
 	double maxDeviationPreferred_km;
 
@@ -176,6 +184,8 @@ struct strPath
 {
 	int nPoints;
 	spherical::Point* point;
+	double* point_y;
+	double* point_x;
 	double minX;
 	double maxX;
 };
@@ -204,8 +214,10 @@ struct strArcInfo
 	double distance;
 	double time;
 	double fuelBase;
-	double fuelVLSFO;
-	double fuelLSMGO;
+	double fuel_aux;
+	double fuel_auxEca;
+	double fuel_noEca;
+	double fuel_eca;
 	double safetyBase;
 	double safetyHurricane;
 	double safetyBowSlam;
@@ -219,11 +231,46 @@ struct strArcInfo
 	double totCost;
 };
 
+struct strChannel {
+	double extraCostChannel;
+	double timeThroughChannel; // if -1 then optimized
+	double waitingTime;
+	double distance_km;
+	double totalConsumption;
+	double arrivalTime_h;
+	int intArrivalTime_h;
+	int intWaitingTime;
+
+	int earliestStartLevel;
+	int latestEndLevel;
+	double* point_y;
+	double* point_x;
+
+	int nPoints;
+	spherical::Point* point;
+	//int* allowedPoint;
+	int* nOutNodes;
+	int** outNode;
+	int** outLevel;
+	int* nArcsToPoint;
+	int* nAllocTimeIntervals;
+	int* nTimeIntervals;
+	int** timeInterval;
+	int** nodNr_from_pt;
+	double* distanceFromStart;
+
+	//double extraTimeChannel;
+
+};
+
 struct strNodeSeq
 {
 	int nPoints;
 	spherical::Point *point;
+	double* point_x;
+	double* point_y;
 	int *nOutNodes;
+	int* nInNodes;
 	int** outNode;
 	int** outLevel;
 
@@ -242,10 +289,8 @@ struct strNodeSeq
 
 	int* usedPoint;
 	int* allowedPoint;
-	double* distanceFromStart;
+	double distanceFromStartPosMid;
 	double distTot;
-	double extraCostChannel;
-	double extraTimeChannel;
 	spherical::Point* preferredPathPoint;
 	int npreferredPathPoints;
 };
@@ -257,9 +302,13 @@ struct strNetwork
 	//int useLongitudeKvadrant[4];
 	int nMaxNodesInPath;
 	int nChannels;
-	strNodeSeq* channel;
-	int nUsedChannels;
-	int* usedChannel;
+	strChannel* channel;
+	//int nUsedChannels;
+	//int* usedChannel;
+
+	int nAllocCoords;
+	double* xCoord;
+	double* yCoord;
 };
 
 struct strPhysicalMap
@@ -278,6 +327,7 @@ struct strCheckPkt
 	double distToNextPkt;
 	int *latPos;
 	int *lonPos;
+	int* pos_latLon;
 	//int *fileNr;
 };
 
@@ -286,7 +336,11 @@ struct strFunc
 	int nCheckPoints;
 	int nAllocPoints;
 	strCheckPkt *checkPoint;
-	spherical::Point *point;
+	double checkPoints_totDist;
+	// int modifiedPoints;
+	//spherical::Point *point;
+	double* point_lat;
+	double* point_lon;
 	double *vesselBearing;
 
 	int nFunctions;
@@ -308,49 +362,87 @@ struct strFuelConsumptionFkn {
 	double c3_rpm;
 };
 
-struct strFunkData {
+struct strTableParam {
+	double minValue;
+	double maxValue;
+	double intervalSize;
+	double inv_intervalSize;
+	int nIndex;
+};
 
+struct strTableTyp {
+	//std::string tableID;
+	//std::string fileName;
+	char* tableID;
+	char* fileName;
+	strTableParam shipSpeedCalmWater;
+	strTableParam windSpeed;
+	strTableParam windDirection;
+	strTableParam waveHeight;
+	strTableParam wavePeriod;
+	strTableParam waveDirection;
+	strTableParam shipSpeedOverGround;
+};
+
+
+struct strFunkData {
+	strTableParam shipSpeedCalmWater;
+	strTableParam windSpeed;
+	strTableParam windDirection;
+	strTableParam waveHeight;
+	strTableParam wavePeriod;
+	strTableParam waveDirection;
+	strTableParam shipSpeedOverGround;
+	float* tableValue;
+	//double* tableValueWind;
+	//double* tableValueWave;
+
+	/*
 	int nCalmWaterSpeedIndex;
 	double calmWaterSpeedIndexSize;
+	double inv_calmWaterSpeedIndexSize;
 	double calmWaterSpeed_min;
 	double calmWaterSpeed_max;
 
 	int nWaveHeightIndex;
 	double waveHeightIndexSize;
+	double inv_waveHeightIndexSize;
 	double waveHeight_min;
 	double waveHeight_max;
 	int nWavePeriodIndex;
 	double wavePeriodIndexSize;
+	double inv_wavePeriodIndexSize;
 	double wavePeriod_min;
 	double wavePeriod_max;
 	int nWaveDirIndex;
 	double waveDirIndexSize;
+	double inv_waveDirIndexSize;
 	double waveDir_min;
 	double waveDir_max;
 
 	int nWindSpeedIndex;
 	double windSpeedIndexSize;
+	double inv_windSpeedIndexSize;
 	double windSpeed_min;
 	double windSpeed_max;
 	int nWindDirIndex;
 	double windDirIndexSize;
+	double inv_windDirIndexSize;
 	double windDir_min;
 	double windDir_max;
 
 	int nShipSpeedIndex;
 	double shipSpeedIndexSize;
+	double inv_shipSpeedIndexSize;
 	double shipSpeed_min;
 	double shipSpeed_max;
-
-
-	double* tableValue;
-	double* tableValueWind;
-	double* tableValueWave;
+	*/
 
 };
 
 struct strValuesNow {
-	double fuel;
+	double fuel_main;
+	double fuel_aux;
 	double distance;
 
 	double bowSlam;
@@ -373,11 +465,33 @@ struct strValuesNow {
 	double greenWater_max;
 	double dynamicStability_max;
 
+	double accumDistance;
+
 };
 
+struct strTables {
+	int nBasAlloc;
+	int nAllocTableTyp[3];
+	int nTableTyp[3];
+	strTableTyp* tableTyp[3]; // 0 wind, 1 wave, 2 stability
+};
+
+
 struct strFunc2 {
-	//double* rpmSetting_gerSpeed;
-	//double* rpmSetting_gerFuelConsumption;
+	double* rpmSetting_gerCalmWaterSpeed;
+	double* rpmSetting_gerFuelConsumption_main;
+	double* rpmSetting_gerFuelConsumption_aux;
+	double* varValue;
+	double* varValueAverage;
+
+	std::string windTableID;
+	std::string waveTableID;
+	std::string stabilityTableID;
+	int windTableNr;
+	int  waveTableNr;
+	int stabilityTableNr;
+	// std::string bowSlammingTableID;
+	// std::string greenWaterTableID;
 
 	//int nWindDir;
 	//int nWaveDir;
@@ -389,8 +503,8 @@ struct strFunc2 {
 	//double* table_speedDiff;
 
 	double* rpm;
-	strCalmWaterFkn calmWaterSpeed;
-	strFuelConsumptionFkn fuelConsumption;
+	//strCalmWaterFkn calmWaterSpeed;
+	//strFuelConsumptionFkn fuelConsumption;
 
 	//double windSpeed_max;
 	//double* windSpeed_minVal_array;
@@ -431,14 +545,14 @@ struct strFunc2 {
 	int pos_iceThickness;
 
 	// weather factors
-	strFunkData weatherFactors;
-	//double weatherFactorsTable_shipSpeed;
+	strFunkData windFactor;
+	strFunkData waveFactor;
 
 	// safety
 	double iceCoverMaxFree;
 	//double iceCoverCost_fix;
-	strFunkData bowSlamming; // height + nHeight * period
-	strFunkData greenWater; // height
+	//strFunkData bowSlamming; // height + nHeight * period
+	//strFunkData greenWater; // height
 	strFunkData dynStability; // wSpeed + nWSpeed * wDir
 
 	strValuesNow valuesNow;
@@ -510,6 +624,7 @@ struct strStorm
 	int nAllocFeatures;
 	int nFeatures;
 	double timeIntervall_h;
+	double inv_timeIntervall_h;
 	//int tidsIntervall;
 	strStormFeature* feature;
 	int nTimeIntervals_maxValue;
@@ -535,6 +650,11 @@ struct strStatus {
 
 struct strModel
 {
+	double weather_timeIntervall_h;
+	double weather_inv_timeIntervall_h;
+	int weather_nTimeIntervals_maxValue;
+
+	strTables tables;
 	strStatus status;
 	strBoundBox boundingBox;
 	// strRasterData rasterData;
@@ -542,6 +662,7 @@ struct strModel
 	// int nVariables;
 	//strVariables *variable;
 	int nWeatherFiles;
+	double inv_nWeatherFiles;
 	strWeather *weather;
 	int nStorms;
 	strStorm* storms;
@@ -576,14 +697,16 @@ struct strModel
 	int *BVtempNodOrder;
 
 #ifdef WIN32
+	std::chrono::steady_clock::time_point timeStart;
 	std::chrono::steady_clock::time_point tmpTid[2];
-	std::chrono::steady_clock::time_point tmpTid2[2];
+	std::chrono::steady_clock::time_point tmpTid2[10];
 	std::chrono::steady_clock::time_point tmpTid3[2];
 	std::chrono::steady_clock::time_point tmpTid4[2];
 	std::chrono::steady_clock::time_point tmpTid5[2];
 #else
+	std::chrono::system_clock::time_point timeStart;
 	std::chrono::system_clock::time_point tmpTid[2];
-	std::chrono::system_clock::time_point tmpTid2[2];
+	std::chrono::system_clock::time_point tmpTid2[10];
 	std::chrono::system_clock::time_point tmpTid3[2];
 	std::chrono::system_clock::time_point tmpTid4[2];
 	std::chrono::system_clock::time_point tmpTid5[2];
@@ -593,6 +716,25 @@ struct strModel
 	int* nCallsWeatherBand;
 
 	std::chrono::duration<double, std::milli> durationCheckAddBagar;
+	std::chrono::duration<double, std::milli> durationSetupCheckPoints;
+	std::chrono::duration<double, std::milli> durationSetArcValues;
+	std::chrono::duration<double, std::milli> durationAdderaArc;
+	std::chrono::duration<double, std::milli> durationGenCalc;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeCost;
+
+	std::chrono::duration<double, std::milli> durationCalcArcTimeCalmWater;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeStorm;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeCurrent;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeBaseGroundSpeed;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeWind;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeWave;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeFuel;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeIceSafety;
+
+	std::chrono::duration<double, std::milli> durationStormDestPoint;
+	std::chrono::duration<double, std::milli> durationStormBearingTo;
+	std::chrono::duration<double, std::milli> durationCalcArcTimeRelWindSpeed;
+
 	std::chrono::duration<double, std::milli> duration1;
 	std::chrono::duration<double, std::milli> duration2;
 	std::chrono::duration<double, std::milli> duration3;
@@ -604,6 +746,7 @@ int errlog(const char* format, ...);
 int errlog0(const char* format, ...);
 int reset_errlog();
 char *str_alloc_cpy(const char *data);
+char* str_alloc_cpyString(string data);
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
 int SattUppDijkstraNatverk3(strModel *model);
@@ -617,8 +760,8 @@ double char_to_doubleConst(const char* object);
 int char_to_int(char* object);
 int get_data_objects_till_EOL_semkol(char objects[][CHAR_ALLOC], dataStr* data, FILE* FilPek);
 int check_isChannelNodePosAllowed(int nr, int pos);
-int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2);
-double getStormValue(int t, spherical::Point point);
+int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp = 0);
+double getStormValue(int t, double lat, double lon);
 double getVariableValue(int varNr, int checkPointNr, double tidpkt);
 
 int test2(int a);
@@ -638,7 +781,8 @@ void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filtmp);
 
 double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
-double eval_fuelConsumption(int speedNr);
+double eval_fuelConsumption_main(int speedNr);
+double eval_fuelConsumption_aux(int speedNr);
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 void eval_safety(double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
@@ -647,13 +791,16 @@ double eval_calmWaterSpeed(int speedNr);
 double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
 double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
 
-int get_relWindDirIndex(double rel_windDir, strFunkData funkData, int alt = 0);
-int get_relWaveDirIndex(double rel_waveDir, strFunkData funkData, int alt = 0);
-int get_relWindSpeedIndex(double rel_windSpeed, strFunkData funkData, int alt = 0);
-int get_calmWaterSpeedIndex(double speed, strFunkData funkData, int alt = 0);
-int get_relWaveHeightIndex(double waveHeight, strFunkData funkData, int alt = 0);
-int get_relWavePeriodIndex(double wavePeriod, strFunkData funkData, int alt = 0);
-int get_shipSpeedIndex(double speed, strFunkData funkData, int alt = 0);
+int get_tableIndex(double value, strTableParam param, int alt = 0);
+int get_tableIndexDirection(double value, strTableParam param, int alt = 0);
+int eval_coordWithinBoundingBox(double lon, double lat);
+int check_isCoordFeasiblePhysicalMap(double y, double x);
+void setupBoundingBoxFromMapCoords(Raster map);
+void getAllVariableValues(int checkPointNr, double tidpkt);
+int delayTimeToStartTimeDay(int t, int arrivalTime);
+double eval_relWindSpeedExact(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
+double eval_baseGroundSpeedExact(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
+
 
 
 #endif //PCH_H

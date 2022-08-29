@@ -42,7 +42,8 @@ struct strWeather
 	int nTimeIntervals_forecast;
 	long long* secondsUTC;
 	int useStandardWeather;
-	double timeIntervall_h;
+	//double timeIntervall_h;
+	//double inv_timeIntervall_h;
 	int nTimeIntervals_maxValue;
 	int* timeIntervalIndex;
 
@@ -98,6 +99,8 @@ public:
 		double maxLatitude;// yMaxUse;
 		//double xMaxUse;
 		//double yMaxUse;
+		int nBlock_x;
+		int nBlock_y;
 	};
 
 	struct strWeatherRaster {
@@ -248,6 +251,9 @@ public:
 	double Get_minLongitude() {
 		return min_lon;
 	}
+	double Get_minLatitude() {
+		return min_lat;
+	}
 	double Get_maxLongitude() {
 		return max_lon;
 	}
@@ -274,6 +280,59 @@ public:
 		dimensions[2] = NLEVELS;
 		return dimensions;
 	}
+
+	unsigned short* GetRasterBand_intArr2(int z, strPhysRaster* rasterData) {
+		unsigned short* valueCell;
+
+		GDALDataType bandType = GDALGetRasterDataType(
+			rasterDataset->GetRasterBand(z));
+		int nbytes = GDALGetDataTypeSize(bandType); // pfg ty nasta rad fungerade ej
+		long long nAlloc = (long long)NCOLS * (long long)NROWS;
+		long long pos;
+		valueCell = (unsigned short*)malloc(nAlloc * sizeof(unsigned short));
+	
+		rasterData->size_col = size_col;
+		rasterData->size_row = size_row;
+		rasterData->nRows = NROWS;
+		rasterData->nCols = NCOLS;
+		rasterData->nBlock_x = 10;
+		rasterData->nBlock_y = 10;
+		rasterData->minLatitude = min_lat;
+		rasterData->maxLatitude = max_lat;
+		rasterData->minLongitude = min_lon;
+		rasterData->maxLongitude = max_lon;
+
+
+		GByte* rowBuff = (GByte*)CPLMalloc(nbytes * NCOLS);
+
+		for (long long row = 0; row < NROWS; row++) {     // iterate through rows
+  // read the scanline into the dynamically allocated row-buffer       
+			CPLErr e = rasterDataset->GetRasterBand(z)->RasterIO(
+				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
+			if (!(e == 0)) {
+				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				exit(1);
+			}
+			//valueCell[NCOLS * 20412 + NCOLS - 1] = 0;
+			//valueCell[NCOLS * 20412 + 44512] = 0;
+			//printf("row %d of %d lastPos %d rowBuff %d\n", row, NROWS, NCOLS * (row + 1),
+			//	rowBuff[NCOLS-1]);
+
+			for (long long col = 0; col < NCOLS; col++) { // iterate through columns
+				//if (row == 20412) {
+				//	printf("buff %d ", rowBuff[col]);
+				//	printf("col %d valueCell %d\n", col, valueCell[col + NCOLS * row]);
+				//}
+				pos = col + (long long) NCOLS * row;
+				valueCell[pos] = (unsigned short)rowBuff[col];
+			}
+		}
+		//printf("done\n");
+		CPLFree(rowBuff);
+
+		return valueCell;
+	}
+
 
 	float** GetRasterBand(int z) {
 
@@ -563,7 +622,7 @@ public:
 		long long nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 		int n_xBlocks;
 
-		printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
+		errlog("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
 			GDALGetDataTypeName(poBand->GetRasterDataType()));
 
 		//boundingBox.yMin = -39.0553;
@@ -609,10 +668,14 @@ public:
 
 		GByte* pabyData = (GByte*)CPLMalloc(pnXSize * pnYSize);
 
+		//printf("alloc pabyData size %d x %d = %d\n", pnXSize, pnYSize, pnXSize * pnYSize);
 		rasterData->nCols = (xMax - xMin + 1) * pnXSize;
 		rasterData->nRows = (yMax - yMin + 1) * pnYSize;
 		rasterData->size_col = size_col;
 		rasterData->size_row = size_row;
+		rasterData->nBlock_x = nXBlocks; // pnXSize;
+		rasterData->nBlock_y = nYBlocks; // pnYSize;
+
 		valueCell = (unsigned short*)calloc((long long)rasterData->nCols * (long long)rasterData->nRows, sizeof(unsigned short));
 
 		//filpek = fopen("testRasterData.txt", "w");
@@ -631,7 +694,11 @@ public:
 					else
 						xUse = iXBlock;
 				}
+				//xUse = 0;
+				//iYBlock = 0;
+				//printf("read block %d %I64d\n", xUse, iYBlock);
 				poBand->ReadBlock(xUse, iYBlock, pabyData);
+				//printf(".. done iXBlock %I64d xMin %d pnXSize %d\n", iXBlock, xMin, pnXSize);
 
 				xPosNu = (iXBlock - xMin) * pnXSize;
 
@@ -1023,7 +1090,7 @@ public:
 			nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 			if (z == 1) {
 
-				printf("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
+				errlog("nCols/nRows2 %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
 					GDALGetDataTypeName(poBand->GetRasterDataType()));
 
 				n_xBlocks = (double)NCOLS / pnXSize;

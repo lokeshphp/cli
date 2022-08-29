@@ -56,7 +56,6 @@ void append_char(int c, dataStr *data)
 
 int get_next_data_ej_rad(FILE *FilPek, dataStr *data)
 {
-	FILE *FilError;
 	int c;
 	data->length = 0;
 	c = read_char(FilPek);
@@ -87,7 +86,6 @@ int get_next_data_ej_rad(FILE *FilPek, dataStr *data)
 
 int get_next_data_ej_rad3(FILE *FilPek, dataStr *data)
 {
-	FILE *FilError;
 	int c, returnVal = 0;
 	data->length = 0;
 	c = read_char(FilPek);
@@ -241,7 +239,6 @@ int get_next_data_ej_rad_semkol(FILE *FilPek, dataStr *data, int *RadSlut)
 
 int get_next_data_ej_rad2(FILE *FilPek, dataStr *data)
 {
-	FILE *FilError;
 	int c;
 	int Fnuttar;
 	data->length = 0;
@@ -548,14 +545,28 @@ int get_data_objects_till_EOL_orMaxAlloc(char objects[][CHAR_ALLOC], dataStr *da
 
 }
 
-char *str_alloc_cpy(const char *data)
+char* str_alloc_cpy(const char* data)
 {
-	char *dataAdd;
-	dataAdd = (char*)malloc((strlen(data) + 1)*sizeof(char));
-	if (dataAdd == NULL){
+	char* dataAdd;
+	dataAdd = (char*)malloc((strlen(data) + 1) * sizeof(char));
+	if (dataAdd == NULL) {
 		fprintf(stdout, "out of memory at line %d\n", __LINE__);
 	}
 	strcpy(dataAdd, data);
+	return dataAdd;
+}
+
+char *str_alloc_cpyString(string data)
+{
+	int i;
+	char *dataAdd;
+	dataAdd = (char*)malloc((data.size() + 1)*sizeof(char));
+	if (dataAdd == NULL){
+		fprintf(stdout, "out of memory at line %d\n", __LINE__);
+	}
+	for (i = 0; i < data.size(); i++)
+		dataAdd[i] = data[i];
+	dataAdd[i] = '\0';
 	return dataAdd;
 }
 
@@ -696,7 +707,6 @@ double char_to_doubleConst(const char *object)
 long long char_to_longlong(char *object)
 {
 	double varde, faktor;
-	FILE *FilError;
 	long long varde2;
 	int i, komma, negativ, startPos, potens10 = 0, valPotens;
 	int negativPotens;
@@ -755,7 +765,6 @@ long long char_to_longlong(char *object)
 }
 long long char_to_longlong2(char *object)
 {
-	FILE *FilError;
 	long long varde;
 	int i, negativ, startPos;
 	varde = 0;
@@ -783,7 +792,6 @@ long long char_to_longlong2(char *object)
 
 int char_to_int(char *object)
 {
-	FILE *FilError;
 	int varde;
 	int i, negativ, startPos;
 	varde = 0;
@@ -811,7 +819,6 @@ int char_to_int(char *object)
 
 int char_to_intSpec(char *object)
 {
-	FILE *FilError;
 	int varde, Faktor;
 	int i, i1;
 	varde = 0;

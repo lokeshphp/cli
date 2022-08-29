@@ -226,12 +226,13 @@ int main(int argc, char* argv[])
 
 	testing(2);
 
-	cout << "Hello CMake. Test 2" << endl;
-	cout << "nArgc " << argc << endl;
+	//cout << "Hello CMake. Test 2" << endl;
+	//cout << "nArgc " << argc << endl;
 
 	LOGFILE = "logfile.txt";
 	//for (int i = 0; i < argc; i++)
 	//	cout << argv[i] << endl;
+
 
 	if (argc == 4) {
 		printf("three arguments read, should only be two\n");
@@ -262,10 +263,6 @@ int main(int argc, char* argv[])
 					exitKontrollerat(__LINE__, 0);
 				}
 			}
-			//inputPath = "indataLokesh";
-			//resultPath = "resultLokesh";
-			//inputPath = argv[1];
-			//resultPath = argv[2];
 			if (inputPath == "-") {
 				errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 				printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
@@ -276,12 +273,7 @@ int main(int argc, char* argv[])
 				printf("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
 				exitKontrollerat(__LINE__, 0);
 			}
-			//printf("input file '%s'\n", inputPath.c_str());
-			//printf("result file '%s'\n", dataName.c_str());
-
 			resultPath = splitFilename(dataName);
-			//printf("result path '%s'\n", resultPath.c_str());
-			//dataName = resultPath;// +"/result.json";
 			filpek = fopen(dataName.c_str(), "w");
 			if (filpek == NULL) {
 				errlog0("ERROR! Could not open file %s. Does the directory not exist or am I not allowed to write to that directory? I quit.\n",
@@ -294,61 +286,8 @@ int main(int argc, char* argv[])
 			fclose(filpek);
 
 			//printf("pass 1\n");
-			float number;
-			stringstream stream;
-			stream.precision(3);
-			stream << fixed;
-			//testStruct testArray0;
-			float* testArray0;
-			testArray0 = (float*)malloc(900 * 451 * sizeof(float));
-
-			//printf("pass 1b\n");
-			int pos = 0;
-			for (int i = 0; i < 900; i++) {
-				for (int i1 = 0; i1 < 451; i1++) {
-					for (int i2 = 0; i2 < 1; i2++) {
-						number = i / 100.2 + i1 / 50.34 + i2 / 38.2;
-						stream << number << " ";
-						//testArray0.varden[pos++] = number;
-						testArray0[pos++] = number;
-					}
-				}
-				stream << endl;
-			}
-			string str = stream.str();
 			//freopen("output.txt", "w", stdout);
 			//cout << str;
-
-			//printf("pass 1c\n");
-			float* testArray;
-			testArray = (float*)malloc(900 * 451 * sizeof(float));
-			putStringIntoArrayFloat(str, testArray);
-			//printf("pass 1d\n");
-
-			//vector <float> testVec;
-			//istringstream ss(str);
-			//copy(
-			//	istream_iterator <float>(ss),
-			//	istream_iterator <float>(),
-			//	back_inserter(testVec)
-			//);
-
-			/*
-			cout << endl << endl;
-			int pos = 0;
-			for (int i = 0; i < 900; i++) {
-				for (int i1 = 0; i1 < 451; i1++) {
-					for (int i2 = 0; i2 < 1; i2++) {
-						cout << testVec[pos] << " ";
-						pos++;
-					}
-				}
-				cout << endl;
-			}
-			*/
-
-
-			//exit(0);
 
 			printf("Calling voyageOpt with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
 			auto tid0 = std::chrono::high_resolution_clock::now();
