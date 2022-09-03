@@ -274,11 +274,6 @@ double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, dou
 	double deglen = 110.25;
 	double x = lat1 - lat0;
 	double y = (lon1 - lon0) * lookUpCos(lat0 * M_PI / 180);
-	//double val = deglen* sqrt(x * x + y * y);
-	//spherical::Point p1 = spherical::Point(lat0, lon0);
-	//spherical::Point p2 = spherical::Point(lat1, lon1);
-	//double val2 = p1.distanceTo(p2) / 1000.0;
-	//double val3 = lookUpCos(lat0 * M_PI / 180.0);
 	//printf("lat0 %.4lf lon0 %.4lf lat1 %.4lf lon1 %.4lf lookUpCost %.4lf val %.4lf val2 %.4lf\n", lat0, lon0, lat1, lon1,
 	//	val3, val, val2);
 	return deglen * sqrt(x * x + y * y);
@@ -470,7 +465,7 @@ int writeAllNodesToGeojson(char* pszFilename)
 
 int writeAllArcsToGeojson(char* pszFilename)
 {
-	int forsta = 1, nod2, nextLevel, cNr;
+	int forsta = 1, nod2, nextLevel, cNr, prefPath;
 	double distance;
 	FILE* filpekG;
 	char* namn;
@@ -488,6 +483,17 @@ int writeAllArcsToGeojson(char* pszFilename)
 			for (int i2 = 0; i2 < model.network.physicalLev[i].nOutNodes[i1]; i2++) {
 				nod2 = model.network.physicalLev[i].outNode[i1][i2];
 				nextLevel = model.network.physicalLev[i].outLevel[i1][i2];
+
+				if (nextLevel > 0) {
+					if (i1 == model.params.preferredPathOrtoPos[i] &&
+						nod2 == model.params.preferredPathOrtoPos[nextLevel] && i == nextLevel - 1)
+						prefPath = 1;
+					else
+						prefPath = 0;
+				}
+				else
+					prefPath = 0;
+
 
 				if (forsta != 1)
 					fprintf(filpekG, ", ");
@@ -508,24 +514,41 @@ int writeAllArcsToGeojson(char* pszFilename)
 					distance = model.network.physicalLev[i].point[i1].distanceTo(model.network.physicalLev[nextLevel].point[nod2]);
 					fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"level1\":%d, \"nodPos1\":%d, \"arcPos\":%d, \"level2\":%d, \"nodPos2\":%d, \"distance\":%.3lf},\n",
 						i, i1, i2, nextLevel, nod2, distance);
-					fprintf(filpekG, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[ [%.4lf,%.4lf], [%.4lf,%.4lf] ]]}}\n",
-						model.network.physicalLev[i].point_x[i1],
-						model.network.physicalLev[i].point_y[i1],
-						model.network.physicalLev[nextLevel].point_x[nod2],
-						model.network.physicalLev[nextLevel].point_y[nod2]);
+					if (prefPath == 0)
+						fprintf(filpekG, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[ [%.4lf,%.4lf], [%.4lf,%.4lf] ]]}}\n",
+							model.network.physicalLev[i].point_x[i1],
+							model.network.physicalLev[i].point_y[i1],
+							model.network.physicalLev[nextLevel].point_x[nod2],
+							model.network.physicalLev[nextLevel].point_y[nod2]);
+					else {
+						// follow the preferred path
+						fprintf(filpekG, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[");
+						fprintf(filpekG, "[%.4lf,%.3lf]", model.network.physicalLev[i].point[i1].longitude().degrees(),
+							model.network.physicalLev[i].point[i1].latitude().degrees());
+						for (int i3 = 0; i3 < model.network.physicalLev[i].npreferredPathPoints; i3++) {
+							fprintf(filpekG, ", [%.4lf,%.3lf]", model.network.physicalLev[i].preferredPathPoint[i3].longitude().degrees(),
+								model.network.physicalLev[i].preferredPathPoint[i3].latitude().degrees());
+						}
+						fprintf(filpekG, "]]}}\n");
+					}
 				}
 			}
 		}
 		for (int i1 = 0; i1 < model.network.nChannels; i1++) { //  .nUsedChannels; i1++) {
 			cNr = i1; // model.network.usedChannel[i1];
-			for (int i2b = 0; i2b < model.network.channel[cNr].nOutNodes[0]; i2b++) {
-				nextLevel = model.network.channel[cNr].outLevel[0][i2b];
+			for (int i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
+				nextLevel = model.network.channel[cNr].outLevel[i2b];
 				if (nextLevel != i)
 					continue;
-				nod2 = model.network.channel[cNr].outNode[0][i2b];
+				nod2 = model.network.channel[cNr].outNode[i2b];
+				
+				//if (model.network.channel[cNr].outPolyPoint[i2b] == -1)
+					distance = model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].distanceTo(
+						model.network.physicalLev[nextLevel].point[nod2]);
+				//else
+				//	distance = model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].distanceTo(
+				//		model.network.channel[cNr].polygonUse_point[1][model.network.channel[cNr].outPolyPoint[i2b]]);
 
-				distance = model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].distanceTo(
-					model.network.physicalLev[nextLevel].point[nod2]);
 				if (forsta != 1)
 					fprintf(filpekG, ", ");
 				else
@@ -1573,7 +1596,7 @@ double identifyForecastType(double tidTot) {
 	return forecastType;
 }
 
-void evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact) {
+double evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact) {
 	int i, cNr;
 	double windSpeed_x, windSpeed_y, waveDir_y, waveDir_x, dist, tidTot, distNu;
 	double stormVarde, uCurrent, vCurrent, deltaTid;
@@ -1582,15 +1605,19 @@ void evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact) {
 	double fuelConsumption_main, fuelConsumption_aux, fuelUsage_main, fuelUsage_aux, windDirection, windSpeed2, windSpeed, waveHeight, wavePeriod;
 	double rel_waveDir, iceCover, waveDirection, speedDiffWind, speedDiffWave;
 	double fixTime = -1;
-	if (model.arc[arcNr].toLevel < 0 && model.arc[arcNr].fromLevel < 0) {
-		cNr = -model.arc[arcNr].toLevel - 1;
-		if (model.network.channel[cNr].intArrivalTime_h >= 0) {
-			printf("corridor %d intArrivalTime_h %d\n", cNr, model.network.channel[cNr].intArrivalTime_h);
-			timeExact = delayTimeToStartTimeDay(timeExact, model.network.channel[cNr].intArrivalTime_h);
+
+	if (arcNr >= 0) {
+		if (model.arc[arcNr].toLevel < 0 && model.arc[arcNr].fromLevel < 0) {
+			cNr = -model.arc[arcNr].toLevel - 1;
+			if (model.network.channel[cNr].intArrivalTime_h >= 0) {
+				printf("corridor %d intArrivalTime_h %d\n", cNr, model.network.channel[cNr].intArrivalTime_h);
+				timeExact = delayTimeToStartTimeDay(timeExact, model.network.channel[cNr].intArrivalTime_h);
+			}
 			timeExact += model.network.channel[cNr].intWaitingTime;
+			fixTime = model.network.channel[cNr].timeThroughChannel;
 		}
-		fixTime = model.network.channel[cNr].timeThroughChannel;
 	}
+
 
 	model.functions.valuesNow.current = 0;
 	model.functions.valuesNow.windSpeed = 0;
@@ -1623,11 +1650,19 @@ void evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact) {
 			//	model.arc[arcNr].toPointNr, cNr,
 			//	model.network.channel[cNr].distance_km, model.arc[arcNr].distance, fixTime);
 		}
-		else
-			calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting);
+		else {
+			if (arcNr >= 0)
+				calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting);
+			else
+				calmWaterSpeed = model.params.preferredSpeed_calmWater;
+		}
 		if (printGlobal == 1) {
-			printf("arcNr %d speedSet %d calmWaterSpeed %.3lf nCheckPoints %d\n", arcNr, model.arc[arcNr].speedSetting, calmWaterSpeed,
-				model.weatherFunctions.nCheckPoints);
+			if(arcNr >= 0)
+				printf("arcNr %d speedSet %d calmWaterSpeed %.3lf nCheckPoints %d\n", arcNr, model.arc[arcNr].speedSetting, calmWaterSpeed,
+					model.weatherFunctions.nCheckPoints);
+			else
+				printf("arcNr %d speedSet %d calmWaterSpeed %.3lf nCheckPoints %d\n", arcNr, -1, calmWaterSpeed,
+					model.weatherFunctions.nCheckPoints);
 		}
 
 		for (i = 0; i < model.weatherFunctions.nCheckPoints; i++) {
@@ -1794,6 +1829,7 @@ void evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact) {
 		if (model.functions.valuesNow.relWaveDir < 0)
 			model.functions.valuesNow.relWaveDir = -model.functions.valuesNow.relWaveDir;
 	}
+	return tidTot;
 }
 
 
@@ -1813,49 +1849,53 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 
 	int prefPath = 0;
 	if (lev1 >= 0 && lev2 >= 0) {
-		if (pointNr1 == model.params.preferredPathOrtoPos[lev1] && pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1)
+		if (pointNr1 == model.params.preferredPathOrtoPos[lev1] && pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1) {
 			prefPath = 1;
+		}
+
 	}
 
 	//printGlobal = 0;
-	if (lev1 >= 0) {
-		p1 = model.network.physicalLev[lev1].point[pointNr1];
-		if (lev2 >= 0) {
-			if(lev2 < model.network.nPhysicalLevels)
-				p2 = model.network.physicalLev[lev2].point[pointNr2];
-			else
-				p2 = p1;
-			if (startSlutArc == 0) {
-				if (prefPath == 1)
-					calcWeatherPosAlongpreferredPathArc(p1, lev1);
+	if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001) {
+		if (lev1 >= 0) {
+			p1 = model.network.physicalLev[lev1].point[pointNr1];
+			if (lev2 >= 0) {
+				if (lev2 < model.network.nPhysicalLevels)
+					p2 = model.network.physicalLev[lev2].point[pointNr2];
 				else
+					p2 = p1;
+				if (startSlutArc == 0) {
+					if (prefPath == 1)
+						calcWeatherPosAlongpreferredPathArc(p1, lev1);
+					else
+						calcWeatherPosAlongArc(p1, p2);
+				}
+			}
+			else {
+				p2 = model.network.channel[-lev2 - 1].point[0];
+				if (startSlutArc == 0)
 					calcWeatherPosAlongArc(p1, p2);
 			}
 		}
 		else {
-			p2 = model.network.channel[-lev2 - 1].point[0];
-			if (startSlutArc == 0)
-				calcWeatherPosAlongArc(p1, p2);
-		}
-	}
-	else {
-		if (lev2 >= 0) {
-			p1 = model.network.channel[-lev1 - 1].point[model.network.channel[-lev1 - 1].nPoints - 1];
-			if (lev2 < model.network.nPhysicalLevels)
-				p2 = model.network.physicalLev[lev2].point[pointNr2];
-			else
-				p2 = p1;
-			if (startSlutArc == 0)
-				calcWeatherPosAlongArc(p1, p2);
-		}
-		else {
-			p1 = model.network.channel[-lev1 - 1].point[0];
-			p2 = model.network.physicalLev[-lev1 - 1].point[model.network.channel[-lev1 - 1].nPoints - 1];
-			//printGlobal = 1;
-			if (startSlutArc == 0)
-				calcWeatherPosAlongChannel(-lev1 - 1);
-			//model.network.channel[-thisLevel - 1].point[pointPos],
-			//	model.network.channel[-nextLevel-1].point[outNodePos]);
+			if (lev2 >= 0) {
+				p1 = model.network.channel[-lev1 - 1].point[model.network.channel[-lev1 - 1].nPoints - 1];
+				if (lev2 < model.network.nPhysicalLevels)
+					p2 = model.network.physicalLev[lev2].point[pointNr2];
+				else
+					p2 = p1;
+				if (startSlutArc == 0)
+					calcWeatherPosAlongArc(p1, p2);
+			}
+			else {
+				p1 = model.network.channel[-lev1 - 1].point[0];
+				p2 = model.network.physicalLev[-lev1 - 1].point[model.network.channel[-lev1 - 1].nPoints - 1];
+				//printGlobal = 1;
+				if (startSlutArc == 0)
+					calcWeatherPosAlongChannel(-lev1 - 1);
+				//model.network.channel[-thisLevel - 1].point[pointPos],
+				//	model.network.channel[-nextLevel-1].point[outNodePos]);
+			}
 		}
 	}
 
@@ -1889,7 +1929,11 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 	mktime(&tmBas);
 	fixReadableDate(tmBas, startTime);
 
-	evalWeatherDataAlongArc(arcNr, startSlutArc, *timeExact);
+	double timeCheck;
+	if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001)
+		timeCheck = evalWeatherDataAlongArc(arcNr, startSlutArc, *timeExact) - (*timeExact);
+	else
+		timeCheck = 0;
 
 	(*timeExact) += model.arc[arcNr].time;
 
@@ -1903,8 +1947,8 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 	fprintf(filpekG, "    \"level to\":%d,\n", model.arc[arcNr].toLevel);
 	fprintf(filpekG, "    \"toTime\":%d,\n", model.arc[arcNr].toTime);
 	if (startSlutArc == 0) {
-		fprintf(filpekG, "    \"hours\":%lf, \"distance_km\":%lf,\n",
-			model.arc[arcNr].time, model.arc[arcNr].distance);
+		fprintf(filpekG, "    \"hours\":%lf, \"checkHours\":%lf, \"distance_km\":%lf,\n",
+			model.arc[arcNr].time, timeCheck, model.arc[arcNr].distance);
 		model.functions.valuesNow.accumDistance += model.arc[arcNr].distance;
 		fprintf(filpekG, "    \"accumDistance_km\":%lf,\n", model.functions.valuesNow.accumDistance);
 		fprintf(filpekG, "    \"Position_lat_lon\":\"%.3lf, %.3lf\", \"bearing\":%.0lf,\n",
@@ -1953,7 +1997,7 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 	fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", x, y);
 }
 
-int writeSolutionToJson(string filename, int resAlt)
+int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 {
 	int nAllocPkter, i, iPos, nPkter, nArcs, ii3;
 	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
@@ -1981,27 +2025,27 @@ int writeSolutionToJson(string filename, int resAlt)
 
 	//printf("here 2\n");
 	FILE* filPek, * filPek2;
-	std::string solName;
+	//std::string solName;
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
 	//sprintf(namn, "%s.csv", filename);
-	sprintf(namn, "%s/resSolution%d.csv", model.params.resultPath.c_str(), resAlt);
+	sprintf(namn, "%s/resSol_%s.csv", model.params.resultPath.c_str(), namnSol);
 	filPek = fopen(namn, "w");
-	sprintf(namn, "%s/solPath%d.txt", model.params.resultPath.c_str(), resAlt);
+	sprintf(namn, "%s/solPath_%s.txt", model.params.resultPath.c_str(), namnSol);
 	std::string linePath = "";
 	filPek2 = fopen(namn, "w");
 	if (resAlt == 0) {
 		filpekG = fopen(filename.c_str(), "w"); // "result_json.json", "w");
 		if (filpekG == NULL)
 		{
-			printf("Faile to open file %s for writing.\n", filename.c_str());
-			errlog("Faile to open file %s for writing.\n", filename.c_str());
+			printf("Faile to open file %s for writing.\n", namn);
+			errlog("Faile to open file %s for writing.\n", namn);
 			exitKontrollerat(__LINE__);
 		}
 		//fprintf(filpekG, "{\n\"solutions\":[\n");
 		initGeoJsonFil(filpekG, "result_path");
 		//fprintf(filpekG, "\"solutionID\":\"base\",\n");
-		solName = "base";
+		//solName = "base";
 		linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
 
 		//fprintf(filpekG, "{ \"type\": \"Feature\",\n");
@@ -2012,8 +2056,9 @@ int writeSolutionToJson(string filename, int resAlt)
 		//fprintf(filPek3, "\t\"solutionShape\": \"/%s\",\n", filename.c_str());
 	}
 	else {
+		//filpekG = fopen(filename.c_str(), "a+"); // "result_json.json", "w");
 		filpekG = fopen(filename.c_str(), "a+"); // "result_json.json", "w");
-		solName = "solAlt_" + to_string(resAlt);
+		//solName = "solAlt_" + to_string(resAlt);
 		linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
 		fprintf(filpekG, ",\n");
 	}
@@ -2064,8 +2109,18 @@ int writeSolutionToJson(string filename, int resAlt)
 		//	printGlobal = 1;
 		//else
 		//	printGlobal = 0;
-		addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, solName);
-
+		if (iPos < model.nBVArcs - 1) {
+			if(resAlt == 0)
+				addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, "base");
+			else
+				addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, namnSol);
+		}
+		else {
+			if (resAlt == 0)
+				addPositionDataToReport(filpekG, posIreport++, arcNr, 1, &timeExact, "base");
+			else
+				addPositionDataToReport(filpekG, posIreport++, arcNr, 1, &timeExact, namnSol);
+		}
 
 		if (iPos == 31)
 			iPos = iPos;
@@ -2355,8 +2410,12 @@ int writeSolutionToJson(string filename, int resAlt)
 	mktime(&tmBas);
 	fixReadableDate(tmBas, endTime);
 
-	fprintf(filpekG, "\"solutionID\": \"%s\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n", 
-		solName.c_str(), startTime, endTime);
+	if(resAlt == 0)
+		fprintf(filpekG, "\"solutionID\": \"base\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n", 
+			startTime, endTime);
+	else
+		fprintf(filpekG, "\"solutionID\": \"%s\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n",
+			namnSol, startTime, endTime);
 	fprintf(filpekG, ", \"fuelConsumption_ton\": %.3lf, \"fuel in eca\": %.3lf, \"fuel non eca\": %.3lf",
 		fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca, fuel_eca + fuel_auxEca, fuel_noEca + fuel_aux);
 	if (time > 0)
@@ -3395,7 +3454,229 @@ int loadChannels_old()
 	return 0;
 }
 
-int getBastPhysLevelToConnectToChannel(double x, double y, int startPos) {
+int identifyClosestPointInPhysicalLevel(int level, double x, double y) {
+	int i, minPos = -1, basPos, battre;
+	double minDist = 1e10, dist;
+
+	basPos = model.params.preferredPathOrtoPos[level];
+	minDist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[level].point_y[basPos], model.network.physicalLev[level].point_x[basPos]);
+	minPos = basPos;
+
+	for (i = 0; i < model.network.physicalLev[level].nPoints / 2; i++) {
+		battre = 0;
+		if (basPos - i >= 0) {
+			dist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[level].point_y[basPos - i], model.network.physicalLev[level].point_x[basPos - i]);
+			if (dist < minDist) {
+				minDist = dist;
+				minPos = basPos - i;
+			}
+			battre = 1;
+		}
+		if (basPos + i < model.network.physicalLev[level].nPoints ) {
+			dist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[level].point_y[basPos + i], model.network.physicalLev[level].point_x[basPos + i]);
+			if (dist < minDist) {
+				minDist = dist;
+				minPos = basPos + i;
+			}
+			battre = 1;
+		}
+		if (battre == 0)
+			break;
+	}
+	return minPos;
+}
+
+int getBastPhysLevelToConnectToChannel(double x, double y, int alt, int cNr) {
+	int i, posMid, firstPos = -1, lastPos = -1, bast = -1, bast2 = -1;
+	int bastLevel, returnLevel, startPoint, bastPoint;
+	double dist, distFromStartPrev, deltaDist, bastDist = 1e10, bastDist2 = 1e10;
+
+	if (alt == 0)
+		identify_startOnChannel(cNr);
+
+	// startSlut, 0 start, 1 end
+
+	dist = 0;
+	distFromStartPrev = 0;
+
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		posMid = (int)model.network.physicalLev[i].nPoints / 2;
+		deltaDist = model.network.physicalLev[i].distanceFromStartPosMid - distFromStartPrev;
+		printf("in getBastPhysLevelToConnectToChannel cNr %d alt %d xy %.3lf %.3lf i %d dist %.3lf deltaDist %.3lf maxDev %.3lf\n",
+			cNr, alt, x, y, i, dist, deltaDist, model.params.maxDeviationPreferred_km);
+		if (dist < model.params.maxDeviationPreferred_km + deltaDist) {
+			dist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[i].point_y[posMid], model.network.physicalLev[i].point_x[posMid]);
+			if (dist <= model.params.maxDeviationPreferred_km) {
+				if (firstPos == -1)
+					firstPos = i;
+				//if (startPos == 0)
+				//	break;
+				//traffEnd = 1;
+				lastPos = i;
+				if (dist < bastDist) {
+					bastDist2 = bastDist;
+					bast2 = bast;
+					bastDist = dist;
+					bast = i;
+				}
+				else {
+					if (dist < bastDist2) {
+						bastDist2 = dist;
+						bast2 = i;
+					}
+				}
+			}
+			//else {
+				//if (traffEnd == 1) {
+				//	lastPos = i - 1;
+				//	break;
+				//}
+			//}
+			distFromStartPrev = model.network.physicalLev[i].distanceFromStartPosMid;
+		}
+	}
+	if (bast == -1 || bast2 == -1) {
+		if(alt == 0)
+			model.network.channel[cNr].bastStartLevel = -1;
+		else
+			model.network.channel[cNr].bastEndLevel = -1;
+		errlog("ERROR! Could not find a connection to corridor %d alt %d. bast %d bast2 %d\n", alt, cNr, bast, bast2);
+		return -1;
+	}
+	if (alt == 0) { // start of channel
+		if (bast2 > bast || bast2 == -1) {
+			printf("inGetBastPhysLevelToConnectToChannel bast %d bast2 %d bastDist %.2lf bastDist2 %.2lf distFromStartPosMid %.2lf %.2lf\n",
+				bast, bast2, bastDist, bastDist2, model.network.physicalLev[bast].distanceFromStartPosMid,
+				model.network.physicalLev[bast2].distanceFromStartPosMid);
+			bastLevel = bast;
+			//if (bast == 0 && bast2 > 0) {
+			//	if (bastDist2 > model.network.physicalLev[bast2].distanceFromStartPosMid - model.network.physicalLev[bast].distanceFromStartPosMid) {
+			//		identify_startOnChannel(cNr);
+			//	}
+			//}
+		}
+		else
+			bastLevel = bast2;
+		model.network.channel[cNr].bastStartLevel = bastLevel;
+		returnLevel = firstPos;
+	}
+	else { // end of channel
+		if (bast2 > bast)
+			bastLevel = bast2;
+		else
+			bastLevel = bast;
+		model.network.channel[cNr].bastEndLevel = bastLevel;
+		returnLevel = lastPos;
+	}
+	printf("corridor %d alt %d. bast %d bast2 %d bastLevel %d returnLevel %d\n", cNr, alt, bast, bast2, bastLevel, returnLevel);
+
+	//bastPoint = identifyClosestPointInPhysicalLevel(bastLevel, x, y);
+	//startPoint = bastPoint - model.params.max_changeDirection;
+	//if (startPoint < 0)
+	//	startPoint = 0;
+	//for (i = startPoint; i < bastPoint + model.params.max_changeDirection && i < model.network.physicalLev[bastLevel].nPoints; i++)
+	//	model.network.physicalLev[bastLevel].nodeConnectedFromChannel[i] = 1;
+	//printf("corridor %d alt %d. bastPoint %d startPoint %d nUpDown %d\n", cNr, alt, bastPoint, startPoint, model.params.max_changeDirection);
+
+	return returnLevel;
+
+	//printf("dist %.3lf distFromStartPrev %.3lf startPos %d traffEnd %d i %d nPhysLev %d\n", dist, distFromStartPrev,
+	//	startPos, traffEnd, i, model.network.nPhysicalLevels);
+	//if (startPos == 0) {
+	//	if (i >= model.network.nPhysicalLevels)
+	//		return -1; // no physicalLev close enough to the coordinate
+	//}
+	//else {
+	//	if (i >= model.network.nPhysicalLevels) {
+	//		if (traffEnd == 0)
+	//			return -1;
+	//		return model.network.nPhysicalLevels - 1;
+	//	}
+	//}
+	//if (model.network.channel[cNr].allowedPoint[pos] == 0)
+	//	continue; // last node in channel not okay
+
+	//return i;
+
+
+}
+
+/*
+double getDistToBoundingBoxChannelPolygon(strBoundBox bbox, double lat, double lon) {
+	double dist1, dist2, dist3, dist4;
+	double minX, minY, minDist, minDist2, minX2, minY2;
+
+	//printf("bbox %.3lf %.3lf %.3lf %.3lf\n", bbox.xMin, bbox.yMin, bbox.xMax, bbox.yMax);
+	if (lat >= bbox.yMin && lat <= bbox.yMax && lon >= bbox.xMin && lon <= bbox.xMax)
+		return 0.0;
+
+	dist1 = estimateLargeCircleDistance_km(lat, lon, bbox.yMin, bbox.xMin);
+	dist2 = estimateLargeCircleDistance_km(lat, lon, bbox.yMin, bbox.xMax);
+	if (dist1 <= dist2) {
+		minDist = dist1;
+		minX = bbox.xMin;
+		minY = bbox.yMin;
+		minDist2 = dist2;
+		minX2 = bbox.xMax;
+		minY2 = bbox.yMin;
+	}
+	else {
+		minDist = dist2;
+		minX = bbox.xMax;
+		minY = bbox.yMin;
+		minDist2 = dist1;
+		minX2 = bbox.xMin;
+		minY2 = bbox.yMin;
+	}
+	dist3 = estimateLargeCircleDistance_km(lat, lon, bbox.yMax, bbox.xMax);
+	if (dist3 < minDist) {
+		minDist2 = minDist;
+		minX2 = minX;
+		minY2 = minY;
+		minDist = dist3;
+		minX = bbox.xMax;
+		minY = bbox.yMax;
+	}
+	else {
+		if (dist3 < minDist2) {
+			minDist2 = dist3;
+			minX2 = bbox.xMax;
+			minY2 = bbox.yMax;
+		}
+	}
+	dist4 = estimateLargeCircleDistance_km(lat, lon, bbox.yMax, bbox.xMin);
+	if (dist4 < minDist) {
+		minDist2 = minDist;
+		minX2 = minX;
+		minY2 = minY;
+		minDist = dist4;
+		minX = bbox.xMin;
+		minY = bbox.yMax;
+	}
+	else {
+		if (dist4 < minDist2) {
+			minDist2 = dist4;
+			minX2 = bbox.xMin;
+			minY2 = bbox.yMax;
+		}
+	}
+
+	if (lat < minY && lat < minY2 || lat > minY && lat > minY2) {
+		if (lon < minX && lon < minX2 || lon > minX && lon > minX2)
+			return minDist;
+		else {
+			dist1 = estimateLargeCircleDistance_km(lat, lon, minY, lon);
+			return dist1;
+		}
+	}
+	else {
+		dist1 = estimateLargeCircleDistance_km(lat, lon, lat, minX);
+		return dist1;
+	}
+
+}
+
+int getBastPhysLevelToConnectToChannelPolygon(int cNr, int startPos, int corridorPos) {
 	int i, posMid, traffEnd;
 	double dist, distFromStartPrev, deltaDist;
 
@@ -3412,9 +3693,12 @@ int getBastPhysLevelToConnectToChannel(double x, double y, int startPos) {
 		posMid = (int)model.network.physicalLev[i].nPoints / 2;
 		deltaDist = model.network.physicalLev[i].distanceFromStartPosMid - distFromStartPrev;
 		if (dist < model.params.maxDeviationPreferred_km + deltaDist) {
-			dist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[i].point_y[posMid], model.network.physicalLev[i].point_x[posMid]);
+			dist = getDistToBoundingBoxChannelPolygon(model.network.channel[cNr].polygon_boundingBox[corridorPos],
+				model.network.physicalLev[i].point_y[posMid], model.network.physicalLev[i].point_x[posMid]);
+			//printf("corridor %d corridorPos %d i %d dist %.2lf maxDev %.2lf\n", cNr, corridorPos, i, dist,
+			//	model.params.maxDeviationPreferred_km);
 			if (dist <= model.params.maxDeviationPreferred_km) {
-				if (startPos == 0)
+				if (corridorPos == 0)
 					break;
 				traffEnd = 1;
 			}
@@ -3446,8 +3730,239 @@ int getBastPhysLevelToConnectToChannel(double x, double y, int startPos) {
 
 
 }
+*/
 
-int getCheckGeometry(json data, int cNr) {
+int identify_startOnChannel(int cNr) {
+	int i, minPos, posUse, ok;
+	double minDist = 1e10, dist, x, y, distBastPrev, distPrev = -1, distBastNext = -1;
+	double dist2, cosC1, cosC2, minPrev, minNext, dist1, distFromPoint, bearing, cosBefore, cosAfter;
+	double distOld, deltaDist, timeOld, timeNew;
+	spherical::Point p1;
+
+	// if startpunkt within corridor and dist < x to corridor => cut the corridors length, start at a position after startpunkt
+	x = model.network.physicalLev[0].point_x[0];
+	y = model.network.physicalLev[0].point_y[0];
+
+	ok = checkCoordInBoundingBox(y, x, model.network.channel[cNr].boundingBox);
+	if (ok == 0)
+		return 0;
+
+	for (i = 0; i < model.network.channel[cNr].nPoints; i++) {
+		dist = estimateLargeCircleDistance_km(y, x, model.network.channel[cNr].point_y[i], model.network.channel[cNr].point_x[i]);
+		if (minDist > dist) {
+			minDist = dist;
+			distBastPrev = distPrev;
+			minPos = i;
+		}
+		distPrev = dist;
+		if (minPos == i - 1)
+			distBastNext = dist;
+	}
+	printf("ident_startOnChannel minDist %.2lf minPos %d distBastPrev %.2lf distBastNext %.2lf nPoints %d\n",
+		minDist, minPos, distBastPrev, distBastNext, model.network.channel[cNr].nPoints);
+
+
+	if (minPos > 0) {
+		dist1 = estimateLargeCircleDistance_km(model.network.channel[cNr].point_y[minPos - 1], model.network.channel[cNr].point_x[minPos - 1],
+			model.network.channel[cNr].point_y[minPos], model.network.channel[cNr].point_x[minPos]);
+		dist2 = estimateLargeCircleDistance_km(model.network.channel[cNr].point_y[minPos + 1], model.network.channel[cNr].point_x[minPos + 1],
+			model.network.channel[cNr].point_y[minPos], model.network.channel[cNr].point_x[minPos]);
+		cosC1 = (distBastPrev * distBastPrev + dist1 * dist1 - minDist * minDist) / (2 * distBastPrev * dist1);
+		minPrev = distBastPrev * sin(acos(cosC1));
+
+		cosBefore = (-distBastPrev * distBastPrev + dist1 * dist1 + minDist * minDist) / (2 * minDist * dist1);
+		printf("minDist %.2lf dist1 %.2lf distBastPrev %.2lf cosBefore %.2lf cosC1 %.2lf\n",
+			minDist, dist1, distBastPrev, cosBefore, cosC1);
+	}
+	else {
+		minPrev = 1e10;
+	}
+	if (minPos < model.network.channel[cNr].nPoints - 1) {
+		dist2 = estimateLargeCircleDistance_km(model.network.channel[cNr].point_y[minPos + 1], model.network.channel[cNr].point_x[minPos + 1],
+			model.network.channel[cNr].point_y[minPos], model.network.channel[cNr].point_x[minPos]);
+		cosC2 = (distBastNext * distBastNext + dist2 * dist2 - minDist * minDist) / (2 * distBastNext * dist2);
+		minNext = distBastNext * sin(acos(cosC2));
+
+		cosAfter = (-distBastNext * distBastNext + dist2 * dist2 + minDist * minDist) / (2 * minDist * dist2);
+		printf("minDist %.2lf dist2 %.2lf distBastNext %.2lf cosAfter %.2lf cosC2 %.2lf\n",
+			minDist, dist2, distBastNext, cosAfter, cosC2);
+	}
+	else {
+		minNext = 1e10;
+	}
+
+	printf("minPrev %.2lf minNext %.2lf\n", minPrev, minNext);
+
+	if (minPrev >= 9e9 && minNext >= 9e9)
+		return 0;
+
+	if (cosBefore >= cosAfter) {
+		if (minPrev > model.params.maxDistStartToCorridorConnect)
+			return 0; // too far away from the channel
+		distFromPoint = distBastPrev * cosC1;
+		posUse = minPos - 1;
+	}
+	else {
+		if (minNext > model.params.maxDistStartToCorridorConnect)
+			return 0; // too far away from the channel
+		distFromPoint = dist2 - distBastNext * cosC2;
+		posUse = minPos;
+	}
+	bearing = model.network.channel[cNr].point[posUse].bearingTo(model.network.channel[cNr].point[posUse + 1]);
+	p1 = model.network.channel[cNr].point[posUse].destinationPoint(distFromPoint * 1000, bearing);
+
+	distOld = model.network.channel[cNr].distance_km;
+	deltaDist = p1.distanceTo(model.network.channel[cNr].point[posUse + 1]) - model.network.channel[cNr].distanceFromStart[posUse + 1];
+	timeOld = model.network.channel[cNr].timeThroughChannel;
+	if (timeOld < -0.1)
+		timeNew = timeOld;
+	else
+		timeNew = timeOld * (distOld + deltaDist) / distOld;
+
+	errlog("update data for corridor. Before it started at %.3lf %.3lf. It is shortened and now starts at %.3lf %.3lf.\n"
+		"The time through the corridor is changed from %.2lf to %.2lf since the new distance of the corridor is %.2lf compared to %.2lf before, same for pilot cost\n",
+		model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0],
+		p1.longitude().degrees(), p1.latitude().degrees(), timeOld, timeNew, distOld + deltaDist, distOld);
+
+	model.network.channel[cNr].distance_km = distOld + deltaDist;
+	model.network.channel[cNr].timeThroughChannel = timeNew;
+	model.network.channel[cNr].extraCostChannel = model.network.channel[cNr].extraCostChannel * (distOld + deltaDist) / distOld;
+	model.network.channel[cNr].waitingTime = 0;
+	model.network.channel[cNr].intWaitingTime = 0;
+	model.network.channel[cNr].arrivalTime_h = -1;
+	model.network.channel[cNr].intArrivalTime_h = -1;
+
+	model.network.channel[cNr].point[0] = p1;
+	model.network.channel[cNr].point_x[0] = p1.longitude().degrees();
+	model.network.channel[cNr].point_y[0] = p1.latitude().degrees();
+
+	printf("new Point lon/lat %.3lf %.3lf instead of pos %d %.3lf %.3lf\n", model.network.channel[cNr].point_x[0],
+		model.network.channel[cNr].point_y[0], posUse, model.network.channel[cNr].point_x[posUse],
+		model.network.channel[cNr].point_y[posUse]);
+
+	for (i = posUse + 1; i < model.network.channel[cNr].nPoints; i++) {
+		model.network.channel[cNr].point[i - posUse] = model.network.channel[cNr].point[i];
+		model.network.channel[cNr].point_x[i - posUse] = model.network.channel[cNr].point_x[i];
+		model.network.channel[cNr].point_y[i - posUse] = model.network.channel[cNr].point_y[i];
+		if (i == posUse + 1)
+			model.network.channel[cNr].distanceFromStart[i - posUse] =
+			model.network.channel[cNr].point[0].distanceTo(model.network.channel[cNr].point[1]) / 1000.0;
+		else
+			model.network.channel[cNr].distanceFromStart[i - posUse] = model.network.channel[cNr].distanceFromStart[i - posUse - 1] +
+				model.network.channel[cNr].distanceFromStart[i] - model.network.channel[cNr].distanceFromStart[i - 1];
+	}
+	model.network.channel[cNr].nPoints -= posUse;
+
+
+	return 1;
+}
+
+int checkChannels() {
+	int cNr, nCoords, pos0, pos1, i1, pos;
+
+
+	for (int i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		// model.network.physicalLev[i].nodeConnectedFromChannel = (int*)calloc(model.network.physicalLev[i].nPoints, sizeof(int));
+		if (i == 0) {
+			model.network.physicalLev[i].distanceFromStartPosMid = 0;
+			pos = (int)model.network.physicalLev[i].nPoints / 2;
+		}
+		else
+			pos = pos1;
+		pos1 = (int)model.network.physicalLev[i + 1].nPoints / 2;
+		model.network.physicalLev[i + 1].distanceFromStartPosMid = model.network.physicalLev[i].distanceFromStartPosMid +
+			model.network.physicalLev[i].point[pos].distanceTo(model.network.physicalLev[i + 1].point[pos1]) / 1000.0;
+	}
+
+
+	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
+		for (i1 = 0; i1 < 2; i1++) {
+			//if (model.network.channel[cNr].nPolygonPoints[i1] == 0)
+			//	model.network.channel[cNr].nPolygonUsePoints[i1] = 0;
+			//else
+			//	model.network.channel[cNr].nPolygonUsePoints[i1] = setUpUsablePointsInPolygonChannel(cNr, i1);
+			model.network.channel[cNr].outNode = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
+			model.network.channel[cNr].outLevel = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
+		}
+		nCoords = model.network.channel[cNr].nPoints;
+		//if (model.network.channel[cNr].nPolygonUsePoints[0] == 0) { 
+		if (eval_coordWithinBoundingBox(model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0]) == 0) {
+			errlog("ERROR! Corridor %d, startpoint %.3lf %.3lf not within bounding box of preferred path (%.3lf %.3lf %.3lf %.3lf)\n", cNr,
+				model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0],
+				model.boundingBox.xMin, model.boundingBox.yMin,
+				model.boundingBox.xMax, model.boundingBox.yMax);
+			continue;
+		}
+		// check if start and end point of the channel is in preferred path's allowed area, no => skip
+		pos0 = getBastPhysLevelToConnectToChannel(model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0], 0, cNr);
+		if (pos0 < 0) {
+			errlog("ERROR! Corridor %d, startpoint %.3lf %.3lf does not give a position in the physical network\n", cNr,
+				model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0]);
+			continue;
+		}
+
+		// validate start and end node as valid in feasible network
+		//if (check_isCoordFeasiblePhysicalMap(model.network.channel[cNr].point_y[0],
+		//	model.network.channel[cNr].point_x[0]) == 0) {
+		//	errlog("ERROR! channel starts at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
+		//		model.network.channel[cNr].point_y[0], model.network.channel[cNr].point_x[0]);
+		//	continue;
+		//}
+		//}
+		//else {
+		//	pos0 = getBastPhysLevelToConnectToChannelPolygon(cNr, 0, 0);
+		//}
+		//if (model.network.channel[cNr].nPolygonUsePoints[1] == 0) {
+		if (eval_coordWithinBoundingBox(model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1]) == 0) {
+			errlog("ERROR! Corridor %d, endpoint %.3lf %.3lf not within bounding box of preferred path (%.3lf %.3lf %.3lf %.3lf)\n", cNr,
+				model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1],
+				model.boundingBox.xMin, model.boundingBox.yMin,
+				model.boundingBox.xMax, model.boundingBox.yMax);
+			continue;
+		}
+		// check if start and end point of the channel is in preferred path's allowed area, no => skip
+		pos1 = getBastPhysLevelToConnectToChannel(model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1], 1, cNr); // pos0 + 1);
+		if (pos1 < 0) {
+			errlog("ERROR! Corridor %d, endpoint %.3lf %.3lf does not give a position in the physical network\n", cNr,
+				model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1]);
+			continue;
+		}
+		// validate start and end node as valid in feasible network
+		//if (check_isCoordFeasiblePhysicalMap(model.network.channel[cNr].point_y[nCoords - 1],
+		//	model.network.channel[cNr].point_x[nCoords - 1]) == 0) {
+		//	errlog("ERROR! channel ends at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
+		//		model.network.channel[cNr].point_y[nCoords - 1], model.network.channel[cNr].point_x[nCoords - 1]);
+		//	continue;
+		//}
+		//}
+		//else {
+		//	pos1 = getBastPhysLevelToConnectToChannelPolygon(cNr, pos0, 1);
+		//}
+
+		if (pos0 - 2 < 0)
+			model.network.channel[cNr].earliestStartLevel = 0;
+		else
+			model.network.channel[cNr].earliestStartLevel = pos0 - 2;
+		if (pos1 + 2 >= model.network.nPhysicalLevels)
+			model.network.channel[cNr].latestEndLevel = model.network.nPhysicalLevels - 1;
+		else
+			model.network.channel[cNr].latestEndLevel = pos1 + 2;
+
+		if (model.network.channel[cNr].bastStartLevel >= 0) {
+			for (i1 = model.network.channel[cNr].bastStartLevel; i1 < model.network.channel[cNr].bastEndLevel; i1++) {
+				model.network.physicalLev[i1].requirePrefPathFeasible = 1;
+			}
+		}
+
+		printf("corridor %d bound start/end %d %d bast start/end %d %d (sets requirePrefPathFeasible to 1 between these)\n", cNr,
+			model.network.channel[cNr].earliestStartLevel, model.network.channel[cNr].latestEndLevel,
+			model.network.channel[cNr].bastStartLevel, model.network.channel[cNr].bastEndLevel);
+	}
+
+	return 0;
+}
+
+int getCheckGeometry(json data, int cNr, int doGeomtryCheck = 1) {
 	json dataIt, dataIt2;
 	int nCoords = 0, i2, pos0, pos1, i;
 	errlog("ERROR! OBS! Change channel xCoords to same as prefered path in getCheckGeometry\n");
@@ -3479,40 +3994,46 @@ int getCheckGeometry(json data, int cNr) {
 			}
 			nCoords++;
 		}
+
 	}
 
-	//printf("corridor from %.3lf %.3lf to %.3lf %.3lf\n", model.network.xCoord[0], model.network.yCoord[0],
-	//	model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1]);
-	// check if start and end point of the channel is in preferred path rectangle, no => skip
-	if (eval_coordWithinBoundingBox(model.network.xCoord[0], model.network.yCoord[0]) == 0)
-		return 0;
-	if (eval_coordWithinBoundingBox(model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1]) == 0)
-		return 0;
+	if (doGeomtryCheck == 1) {
+		//printf("corridor from %.3lf %.3lf to %.3lf %.3lf\n", model.network.xCoord[0], model.network.yCoord[0],
+		//	model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1]);
+		// check if start and end point of the channel is in preferred path rectangle, no => skip
+		if (eval_coordWithinBoundingBox(model.network.xCoord[0], model.network.yCoord[0]) == 0)
+			return 0;
+		if (eval_coordWithinBoundingBox(model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1]) == 0)
+			return 0;
 
-	// check if start and end point of the channel is in preferred path's allowed area, no => skip
-	pos0 = getBastPhysLevelToConnectToChannel(model.network.xCoord[0], model.network.yCoord[0], 0);
-	if (pos0 < 0)
-		return 0;
-	pos1 = getBastPhysLevelToConnectToChannel(model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1], pos0 + 1);
-	if (pos1 < 0)
-		return 0;
+		// check if start and end point of the channel is in preferred path's allowed area, no => skip
+		pos0 = getBastPhysLevelToConnectToChannel(model.network.xCoord[0], model.network.yCoord[0], 0, cNr);
+		if (pos0 < 0)
+			return 0;
+		pos1 = getBastPhysLevelToConnectToChannel(model.network.xCoord[nCoords - 1], model.network.yCoord[nCoords - 1], 1, cNr);
+		if (pos1 < 0)
+			return 0;
 
-	// validate start and end node as valid in feasible network
-	if (check_isCoordFeasiblePhysicalMap(model.network.yCoord[0],
-		model.network.xCoord[0]) == 0) {
-		errlog("ERROR! channel starts at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
-			model.network.yCoord[0], model.network.xCoord[0]);
-		return 0;
+		// validate start and end node as valid in feasible network
+		if (check_isCoordFeasiblePhysicalMap(model.network.yCoord[0],
+			model.network.xCoord[0]) == 0) {
+			errlog("ERROR! channel starts at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
+				model.network.yCoord[0], model.network.xCoord[0]);
+			return 0;
+		}
+		if (check_isCoordFeasiblePhysicalMap(model.network.yCoord[nCoords - 1],
+			model.network.xCoord[nCoords - 1]) == 0) {
+			errlog("ERROR! channel ends at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
+				model.network.yCoord[nCoords - 1], model.network.xCoord[nCoords - 1]);
+			return 0;
+		}
 	}
-	if (check_isCoordFeasiblePhysicalMap(model.network.yCoord[nCoords - 1],
-		model.network.xCoord[nCoords - 1]) == 0) {
-		errlog("ERROR! channel ends at a position lat/lon %.3lf %.3lf that is not allowed in the feasible map so we can never use it\n",
-			model.network.yCoord[nCoords - 1], model.network.xCoord[nCoords - 1]);
-		return 0;
+	else {
+		pos0 = 0;
+		pos1 = model.network.nPhysicalLevels - 1;
 	}
 
-
-	errlog("ERRRO! Add use of the below params when using channels everywhere\n");
+	// errlog("ERRRO! Add use of the below params when using channels everywhere\n");
 	if (pos0 - 2 < 0)
 		model.network.channel[cNr].earliestStartLevel = 0;
 	else
@@ -3528,10 +4049,13 @@ int getCheckGeometry(json data, int cNr) {
 	model.network.channel[cNr].point_y = (double*)malloc(nCoords * sizeof(double));
 	model.network.channel[cNr].point_x = (double*)malloc(nCoords * sizeof(double));
 	model.network.channel[cNr].distanceFromStart = (double*)malloc(nCoords * sizeof(double));
+	initBoundingBox(&(model.network.channel[cNr].boundingBox));
 	for (i = 0; i < nCoords; i++) {
 		model.network.channel[cNr].point[i] = spherical::Point(model.network.yCoord[i], model.network.xCoord[i]);
 		model.network.channel[cNr].point_y[i] = model.network.yCoord[i];
 		model.network.channel[cNr].point_x[i] = model.network.xCoord[i];
+		updateBoundingBoxWithCoord(&(model.network.channel[cNr].boundingBox), model.network.channel[cNr].point_y[i],
+			model.network.channel[cNr].point_x[i]);
 		//model.network.channel[cNr].allowedPoint[i] = 1;
 		if (i == 0)
 			model.network.channel[cNr].distanceFromStart[i] = 0;
@@ -3547,6 +4071,206 @@ int getCheckGeometry(json data, int cNr) {
 
 	return 1;
 }
+
+int checkCoordInBoundingBox(double y, double x, strBoundBox bbox) {
+	if (y >= bbox.yMin && y <= bbox.yMax && x >= bbox.xMin && x <= bbox.xMax)
+		return 1;
+	else
+		return 0;
+}
+
+void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x) {
+	if (y < bbox->yMin)
+		bbox->yMin = y;
+	if (x < bbox->xMin)
+		bbox->xMin = x;
+	if (y > bbox->yMax)
+		bbox->yMax = y;
+	if (x > bbox->xMax)
+		bbox->xMax = x;
+}
+
+void initBoundingBox(strBoundBox* bbox) {
+	bbox->yMin = 9999;
+	bbox->xMin = 9999;
+	bbox->yMax = -9999;
+	bbox->xMax = -9999;
+}
+
+
+/*
+int setUpUsablePointsInPolygonChannel(int cNr, int pos) {
+	int i2, firstAllowed, nAlloc, startPos;
+	double dist = 0, x1Bas, y1Bas, distSinceLastTot;
+	int nFPoints = 0, nPkterNu, i1, forsta, isFeasible;
+	double distSinceLast, distUse, punktDist, x1, y1, x2, y2, bearing, x2Bas, y2Bas;
+	spherical::Point p1, p2, p3;
+
+	if (model.network.channel[cNr].nPolygonPoints > 0) {
+		model.network.channel[cNr].polygon_boundingBox[pos].xMax = -9999;
+		model.network.channel[cNr].polygon_boundingBox[pos].yMax = -9999;
+		model.network.channel[cNr].polygon_boundingBox[pos].xMin = 9999;
+		model.network.channel[cNr].polygon_boundingBox[pos].yMin = 9999;
+
+		nFPoints = 0;
+		punktDist = model.params.shipSpeed_average * 1000 / model.params.ortoDist_nPointsPerHour; // / 2;
+
+		nAlloc = 2 * model.network.channel[cNr].nPolygonPoints[pos] + model.network.channel[cNr].polygon_dist[pos] * 1000 / punktDist;
+		model.network.channel[cNr].polygonUse_point[pos] = (spherical::Point*)malloc(nAlloc * sizeof(spherical::Point));
+		model.network.channel[cNr].polygonUse_x[pos] = (double*)malloc(nAlloc * sizeof(double));
+		model.network.channel[cNr].polygonUse_y[pos] = (double*)malloc(nAlloc * sizeof(double));
+		//printf("nAlloc %d\n", nAlloc);
+
+		startPos = 0;
+		for (i2 = 0; i2 < model.network.channel[cNr].nPolygonPoints[pos]; i2++) {
+			y1 = model.network.channel[cNr].polygon_y[pos][i2];
+			x1 = model.network.channel[cNr].polygon_x[pos][i2];
+			if (check_nodeIsWithinPhysicalMapRaster(y1, x1) == 0) {
+				errlog("ERROR! cNr %d pos %d coord %d %.3lf %.3lf not in physical map. I skip this one\n", cNr, pos,
+					i2, x1, y1);
+				continue;
+			}
+			p1 = spherical::Point(y1, x1);
+			break;
+		}
+		startPos = i2 + 1;
+
+		y1Bas = y1;
+		x1Bas = x1;
+		firstAllowed = 0;
+		forsta = 1;
+		distSinceLastTot = 0;
+		for (i2 = startPos; i2 < model.network.channel[cNr].nPolygonPoints[pos]; i2++) {
+			y2 = model.network.channel[cNr].polygon_y[pos][i2];
+			x2 = model.network.channel[cNr].polygon_x[pos][i2];
+			p2 = spherical::Point(y2, x2);
+			bearing = p1.bearingTo(p2);
+			//printf("i2 %d coords from %.3lf %.3lf to %.3lf %.3lf punktDist %.3lf bearing %.3lf\n", i2,
+			//	x1, y1, x2, y2, punktDist, bearing);
+			if (check_nodeIsWithinPhysicalMapRaster(y2, x2) == 1) {
+				distSinceLast = p1.distanceTo(p2);// estimateLargeCircleDistance_km(lastX, lastY,
+					//model.network.yCoord[nCoords], model.network.xCoord[nCoords]);
+				if (distSinceLast + distSinceLastTot < 5.0 && i2 < model.network.channel[cNr].nPolygonPoints[pos] - 1) {
+					distSinceLastTot += distSinceLast;
+					continue;
+				}
+				else
+					distSinceLastTot = 0;
+				nPkterNu = roundUp(distSinceLast / punktDist);
+				distUse = distSinceLast / nPkterNu;
+				//printf("i2 %d coords from %.3lf %.3lf to %.3lf %.3lf nPkterNu %d distUse %.3lf distSinceLast %.3lf bearing %.3lf\n", i2,
+				//	x1, y1, x2, y2, nPkterNu, distUse, distSinceLast, bearing);
+				for (i1 = 1; i1 <= nPkterNu; i1++) {
+					if (forsta == 1) {
+						isFeasible = makeSure_feasibleCoordFranLinje(&y1, &x1, &y2, &x2, 0);
+						//printf("forsta isFeasible %d xy %.3lf %.3lf\n", isFeasible, x1, y1);
+						if (isFeasible == 1) {
+							model.network.channel[cNr].polygonUse_x[pos][nFPoints] = x1;
+							model.network.channel[cNr].polygonUse_y[pos][nFPoints] = y1;
+							model.network.channel[cNr].polygonUse_point[pos][nFPoints] = spherical::Point(y1, x1);
+							updateBoundingBoxCorridorPolygon(&(model.network.channel[cNr].polygon_boundingBox[pos]), y1, x1);
+							//printf("forsta isFeasible %d xy %.3lf %.3lf\n", isFeasible, 
+							//	model.network.channel[cNr].polygonUse_x[pos][nFPoints], model.network.channel[cNr].polygonUse_y[pos][nFPoints]);
+							nFPoints++;
+							forsta = 0;
+							if (i2 == 1 && i1 == 1) {
+								if (abs((x1 - x1Bas) * (x1 - x1Bas) + (y1 - y1Bas) * (y1 - y1Bas)) < 0.0001)
+									firstAllowed = 1;
+							}
+						}
+						x1 = x1Bas;
+						y1 = y1Bas;
+					}
+
+					if (i2 == model.network.channel[cNr].nPolygonPoints[pos] - 1 && i1 == nPkterNu && firstAllowed == 1)
+						continue; // do not include the last point as the first point is allowed and the same
+					if (i1 < nPkterNu) {
+						p3 = p1.destinationPoint(distUse * i1, bearing);
+						y2Bas = p3.latitude().degrees();
+						x2Bas = p3.longitude().degrees();
+					}
+					else {
+						y2Bas = model.network.channel[cNr].polygon_y[pos][i2];
+						x2Bas = model.network.channel[cNr].polygon_x[pos][i2];
+					}
+					x2 = x2Bas;
+					y2 = y2Bas;
+					isFeasible = makeSure_feasibleCoordFranLinje(&y1, &x1, &y2, &x2, 1);
+					//printf("i1 %d isFeasible %d xy %.3lf %.3lf\n", i1, isFeasible, x2, y2);
+					if (isFeasible == 1) {
+						model.network.channel[cNr].polygonUse_x[pos][nFPoints] = x2;
+						model.network.channel[cNr].polygonUse_y[pos][nFPoints] = y2;
+						model.network.channel[cNr].polygonUse_point[pos][nFPoints] = spherical::Point(y2, x2);
+						updateBoundingBoxCorridorPolygon(&(model.network.channel[cNr].polygon_boundingBox[pos]), y2, x2);
+						nFPoints++;
+						forsta = 0;
+					}
+					x1 = x2Bas;
+					y1 = y2Bas;
+
+				}
+			}
+			else
+				errlog("ERROR! cNr %d pos %d coord %d %.3lf %.3lf not in physical map. I skip this one\n", cNr, pos, i2,
+					x2, y2);
+			p1 = p2;
+			x1 = x2Bas;
+			y1 = y2Bas;
+			x1Bas = x1;
+			y1Bas = y1;
+		}
+	}
+	//printf("saved points %d\n", nFPoints);
+	for (i2 = 0; i2 < nFPoints; i2++)
+		errlog("cNr %d, pos %d i2 %d xy %.3lf %.3lf\n", cNr, pos, i2, model.network.channel[cNr].polygonUse_x[pos][i2], model.network.channel[cNr].polygonUse_y[pos][i2]);
+
+	//printf("bounding box for corridor %d pos %d %.3lf %.3lf %.3lf %.3lf\n", cNr, pos,
+	//	model.network.channel[cNr].polygon_boundingBox[pos].xMin,
+	//	model.network.channel[cNr].polygon_boundingBox[pos].yMin,
+	//	model.network.channel[cNr].polygon_boundingBox[pos].xMax,
+	//	model.network.channel[cNr].polygon_boundingBox[pos].yMax);
+
+
+	return nFPoints;
+
+}
+*/
+
+/*
+int loadPolygonToChannel(json dataCoord, int cNr, int pos) {
+	json dataIt, dataIt2;
+	int nCoords = 0, i2, nAlloc;
+	double dist = 0;
+	errlog("ERROR! OBS! Change channel xCoords to same as prefered path in loadPolygonToChannel\n");
+
+	// read the coordinates
+	nAlloc = dataCoord.size();
+	model.network.channel[cNr].polygon_x[pos] = (double*)malloc(nAlloc * sizeof(double));
+	model.network.channel[cNr].polygon_y[pos] = (double*)malloc(nAlloc * sizeof(double));
+	for (auto it = dataCoord.begin(); it != dataCoord.end(); ++it) {
+		dataIt = it.value();
+		i2 = 0;
+		for (auto it2 = dataIt.begin(); it2 != dataIt.end(); ++it2) {
+			if (i2 == 0) {
+				model.network.channel[cNr].polygon_x[pos][nCoords] = it2.value();
+			}
+			else if (i2 == 1)
+				model.network.channel[cNr].polygon_y[pos][nCoords] = it2.value();
+			i2++;
+		}
+		//printf("%d coords %.3lf %.3lf\n", nCoords, model.network.channel[cNr].polygon_x[pos][nCoords], model.network.channel[cNr].polygon_y[pos][nCoords]);
+		if(nCoords > 0)
+			dist += estimateLargeCircleDistance_km(model.network.channel[cNr].polygon_y[pos][nCoords - 1], model.network.channel[cNr].polygon_x[pos][nCoords - 1],
+				model.network.channel[cNr].polygon_y[pos][nCoords], model.network.channel[cNr].polygon_x[pos][nCoords]);
+		//printf("nCoords %d distNu %.3lf\n", nCoords, dist);
+		nCoords++;
+	}
+	model.network.channel[cNr].polygon_dist[pos] = dist;
+	printf("polygon for corridor cNr %d pos %d nCoords %d polygon dist %.3lf\n", cNr, pos, nCoords, dist);
+
+	return nCoords;
+}
+*/
 
 double timeToHoursSinceMidnight(std::string namn) {
 	int valNu, typ = 0, hour = 0, minut = 0;
@@ -3567,8 +4291,8 @@ double timeToHoursSinceMidnight(std::string namn) {
 	return tid;
 }
 
-int loadChannels()
-{
+/*
+int loadChannels(){ // not used
 	double dist;
 	int useChannel, pos, pos1;
 	model.network.nChannels = 0;
@@ -3702,7 +4426,7 @@ int loadChannels()
 		}
 
 		dist = 0;
-		for(int i = 0; i < model.network.channel[pos].nPoints - 1; i++)
+		for (int i = 0; i < model.network.channel[pos].nPoints - 1; i++)
 			dist += model.network.channel[pos].point[i].distanceTo(model.network.channel[pos].point[i + 1]);
 		dist /= 1000.0;
 		if (abs(dist - model.network.channel[pos].distance_km) > 0.01)
@@ -3720,6 +4444,168 @@ int loadChannels()
 		model.network.channel[pos].outLevel = (int**)malloc(sizeof(int*));
 		model.network.channel[pos].outNode[0] = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
 		model.network.channel[pos].outLevel[0] = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
+
+		model.network.channel[pos].nodNr_from_pt = (int**)malloc(2 * sizeof(int*));
+		model.network.channel[pos].nTimeIntervals = (int*)malloc(2 * sizeof(int));
+		model.network.channel[pos].nAllocTimeIntervals = (int*)malloc(2 * sizeof(int));
+		model.network.channel[pos].timeInterval = (int**)malloc(2 * sizeof(int*));
+
+		for (int i3 = 0; i3 < 2; i3++) { // start och endnod i channel
+			model.network.channel[pos].nTimeIntervals[i3] = 0;
+			model.network.channel[pos].nAllocTimeIntervals[i3] = 100;
+			model.network.channel[pos].timeInterval[i3] = (int*)malloc(
+				model.network.channel[pos].nAllocTimeIntervals[i3] * sizeof(int));
+			model.network.channel[pos].nodNr_from_pt[i3] = (int*)malloc(
+				model.network.channel[pos].nAllocTimeIntervals[i3] * sizeof(int));
+		}
+
+
+		pos++;
+		(model.network.nChannels)++;
+	}
+
+
+	return 0;
+}
+*/
+
+int loadChannelsFromInfile(json data)
+{ // not used
+	double dist;
+	int useChannel, pos, pos1;
+	model.network.nChannels = 0;
+	model.network.nMaxNodesInPath = 2;
+
+	if (data["features"].is_null()) {
+		errlog("ERROR! No features in corridors in input file. I use no corridors\n");
+		return 0;
+	}
+
+
+
+	int nAllocChannels = 10;
+	model.network.channel = (strChannel*)malloc(nAllocChannels * sizeof(strChannel));
+
+	model.network.nAllocCoords = 500;
+	model.network.xCoord = (double*)malloc(model.network.nAllocCoords * sizeof(double));
+	model.network.yCoord = (double*)malloc(model.network.nAllocCoords * sizeof(double));
+
+	std::ifstream fil;
+	char* namn;
+	std::string nameTable;
+	namn = (char*)malloc(256 * sizeof(char));
+	errlog("Loading corridors\n");
+
+	json data2 = data["features"];
+	pos = 0;
+	for (auto it = data2.begin(); it != data2.end(); ++it) {
+		json dataTable = it.value();
+
+		if (model.network.nChannels >= nAllocChannels) {
+			nAllocChannels += 10;
+			model.network.channel = (strChannel*)realloc(model.network.channel, nAllocChannels * sizeof(strChannel));
+		}
+
+		if (!dataTable["geometry"].is_null()) {
+			useChannel = getCheckGeometry(dataTable["geometry"], pos, 0);
+			if (useChannel == 0) {
+				errlog("ERROR! I skip a corridor since it is not within right geometry area\n");
+				continue;
+			}
+		}
+		else {
+			errlog("ERROR! Skips a feature in corridors_predefined.json since it has no tag 'geometry'\n");
+			continue;
+		}
+		if (!dataTable["properties"].is_null()) {
+			json dataT = dataTable["properties"];
+			//if (!dataT["polygon_start"].is_null())
+			//	model.network.channel[pos].nPolygonPoints[0] = loadPolygonToChannel(dataT["polygon_start"], pos, 0);
+			//else {
+			//	model.network.channel[pos].nPolygonPoints[0] = 0;
+			//}
+			//if (!dataT["polygon_end"].is_null())
+			//	model.network.channel[pos].nPolygonPoints[1] = loadPolygonToChannel(dataT["polygon_end"], pos, 1);
+			//else {
+			//	model.network.channel[pos].nPolygonPoints[1] = 0;
+			//}
+			if (!dataT["pilot_cost"].is_null())
+				model.network.channel[pos].extraCostChannel = dataT["pilot_cost"];
+			else {
+				errlog("OBS! No 'pilot_cost' given for a corridor. I set it to 0\n");
+				model.network.channel[pos].extraCostChannel = 0.0;
+			}
+			if (!dataT["corridor_time_h"].is_null())
+				model.network.channel[pos].timeThroughChannel = dataT["corridor_time_h"];
+			else {
+				errlog("OBS! No 'corridor_time_h' given for a corridor. I set it to -1, speed to be determined by the optimizer\n");
+				model.network.channel[pos].timeThroughChannel = -1.0;
+			}
+			if (!dataT["waiting_time_h"].is_null())
+				model.network.channel[pos].waitingTime = dataT["waiting_time_h"];
+			else {
+				errlog("OBS! No 'waiting_time_h' given for a corridor. I set it to 0\n");
+				model.network.channel[pos].waitingTime = 0.0;
+			}
+			if (!dataT["distance_km"].is_null())
+				model.network.channel[pos].distance_km = dataT["distance_km"];
+			else {
+				errlog("OBS! No 'distance_km' given for a corridor. I set it to -1, to be calculated by the optimizer\n");
+				model.network.channel[pos].distance_km = -1.0;
+			}
+			if (!dataT["total_consumption"].is_null())
+				model.network.channel[pos].totalConsumption = dataT["total_consumption"];
+			else {
+				errlog("OBS! No 'total_consumption' given for a corridor. I set it to -1, to be calculated by the optimizer\n");
+				model.network.channel[pos].totalConsumption = -1.0;
+			}
+			if (!dataT["transit_arrival_time"].is_null()) {
+				if (dataT["transit arrival_time"] == "-1:00")
+					model.network.channel[pos].arrivalTime_h = -1;
+				else
+					model.network.channel[pos].arrivalTime_h = timeToHoursSinceMidnight(dataT["transit_arrival_time"]);
+			}
+			else {
+				errlog("OBS! No 'transit_arrival_time' given for a corridor. I set it to -1, no required arrival time\n");
+				model.network.channel[pos].arrivalTime_h = -1.0;
+			}
+			if (model.network.channel[pos].arrivalTime_h > -0.01) {
+				model.network.channel[pos].intArrivalTime_h = (int)model.network.channel[pos].arrivalTime_h;
+				if (model.network.channel[pos].intArrivalTime_h < model.network.channel[pos].arrivalTime_h - 0.5)
+					(model.network.channel[pos].intArrivalTime_h)++;
+			}
+			else
+				model.network.channel[pos].intArrivalTime_h = -1;
+			model.network.channel[pos].intWaitingTime = (int)model.network.channel[pos].waitingTime;
+			if (model.network.channel[pos].intWaitingTime < model.network.channel[pos].waitingTime - 0.5)
+				(model.network.channel[pos].intWaitingTime)++;
+		}
+		else {
+			errlog("ERROR! Skips a feature in corridors_predefined.json since it has no tag 'properties'\n");
+			continue;
+		}
+
+		dist = 0;
+		for(int i = 0; i < model.network.channel[pos].nPoints - 1; i++)
+			dist += model.network.channel[pos].point[i].distanceTo(model.network.channel[pos].point[i + 1]);
+		dist /= 1000.0;
+		if (abs(dist - model.network.channel[pos].distance_km) > 0.01)
+			errlog("ERROR! Distance of used channel %d is wrong, given %.3lf but is %.3lf. I use the later one xy %.3lf %.3lf to %.3lf %.3lf.\n",
+				pos, model.network.channel[pos].distance_km, dist,
+				model.network.channel[pos].point_x[0], model.network.channel[pos].point_y[0],
+				model.network.channel[pos].point_x[model.network.channel[pos].nPoints - 1],
+				model.network.channel[pos].point_y[model.network.channel[pos].nPoints - 1]);
+		model.network.channel[pos].distance_km = dist;
+
+
+		//model.network.channel[pos].nOutNodes = (int*)calloc(1, sizeof(int));
+		//model.network.channel[pos].nArcsToPoint = (int*)calloc(1, sizeof(int));
+		//model.network.channel[pos].outNode = (int**)malloc(sizeof(int*));
+		//model.network.channel[pos].outPolyPoint = (int**)malloc(sizeof(int*));
+		model.network.channel[pos].outLevel = (int*)malloc(sizeof(int));
+		//model.network.channel[pos].outPolyPoint = (int*)malloc(sizeof(int));
+		//model.network.channel[pos].outNode = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
+		//model.network.channel[pos].outLevel = (int*)malloc(model.params.nPkterOrto * 2 * sizeof(int));
 
 		model.network.channel[pos].nodNr_from_pt = (int**)malloc(2 * sizeof(int*));
 		model.network.channel[pos].nTimeIntervals = (int*)malloc(2 * sizeof(int));
@@ -4174,6 +5060,10 @@ int loadParams_new(strParams* params)
 
 	if (!data["maxDeviationPreferred_km"].is_null())
 		params->maxDeviationPreferred_km = data["maxDeviationPreferred_km"];
+	if (!data["maxDistStartToCorridorConnect_km"].is_null())
+		params->maxDistStartToCorridorConnect = data["maxDistStartToCorridorConnect_km"];
+	else
+		params->maxDistStartToCorridorConnect = 10.0;
 
 	double ortoDist = model.params.shipSpeed_average * 1000 / model.params.ortoDist_nPointsPerHour;
 	int nPkterOrtoOld = model.params.nPkterOrto;
@@ -4302,7 +5192,9 @@ int loadParams_new(strParams* params)
 		}
 		closestI = 0;
 		diffI = 100;
+		double averSpeed = 0;
 		for (i = 0; i < params->nShip_speedSettings; i++) {
+			averSpeed += model.functions.rpmSetting_gerCalmWaterSpeed[i];
 			diffNu = abs(model.functions.rpm[i] - 95);
 			if (diffNu < diffI) {
 				diffI = diffNu;
@@ -4310,6 +5202,9 @@ int loadParams_new(strParams* params)
 			}
 		}
 		params->speedSetting95MCR = closestI;
+		params->preferredSpeed_calmWater = averSpeed / params->nShip_speedSettings;
+		errlog("ERROR! Setting preferred speed to average of all speed settings right now: %.2lf km/h\n",
+			params->preferredSpeed_calmWater);
 
 
 		if (!dataShip["tableID_wind"].is_null()) {
@@ -4647,6 +5542,15 @@ int loadParams_new(strParams* params)
 		model.nStorms = 0;
 	}
 
+	if (!data["corridors"].is_null()) {
+		loadChannelsFromInfile(data["corridors"]);
+	}
+	else {
+		errlog("OBS! No corridors given in input data\n");
+		model.network.nChannels = 0;
+		model.network.nMaxNodesInPath = 2;
+	}
+
 	//params->weightFuel.base = 1;
 	params->weightFuel = 1;
 	params->weightEmission = 1;
@@ -4764,25 +5668,25 @@ int loadParams_new(strParams* params)
 
 		if (!dataObj["weight_time"].is_null()) {
 			dataIt = dataObj["weight_time"];
-			params->weightTime = (double)(dataIt["weight"]) / 100;
+			params->weightTime = (double)(dataIt["weight"]); // / 100;
 		}
 		if (!dataObj["weight_fuel"].is_null()) {
 			dataIt = dataObj["weight_fuel"];
-			params->weightFuel = (double)(dataIt["weight"]) / 100;
+			params->weightFuel = (double)(dataIt["weight"]); // / 100;
 		}
 		if (!dataObj["weight_emission"].is_null()) {
 			dataIt = dataObj["weight_emission"];
-			params->weightEmission = (double)(dataIt["weight"]) / 100;
+			params->weightEmission = (double)(dataIt["weight"]); // / 100;
 		}
 		if (!dataObj["weight_safety"].is_null()) {
 			json data3 = dataObj["weight_safety"];
 			if (!data3["base"].is_null()) {
 				dataIt2 = data3["base"];
-				params->weightSafety.base = (double)(dataIt2["weight"]) / 100;
+				params->weightSafety.base = (double)(dataIt2["weight"]); // / 100;
 			}
 			if (!data3["hurricane"].is_null()) {
 				dataIt2 = data3["hurricane"];
-				params->weightSafety.hurricane = (double)(dataIt2["weight"]) / 100;
+				params->weightSafety.hurricane = (double)(dataIt2["weight"]); // / 100;
 			}
 
 			if (!data3["bowSlamming"].is_null()) {
@@ -8336,8 +9240,14 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, dou
 		if (slutLevel < 0) {
 			x1 = model.network.physicalLev[startLevel].point_x[pos1];
 			y1 = model.network.physicalLev[startLevel].point_y[pos1];
-			x2 = model.network.channel[-slutLevel-1].point_x[pos2];
-			y2 = model.network.channel[-slutLevel-1].point_y[pos2];
+			//if (posPoly >= 0) {
+			//	x2 = model.network.channel[-slutLevel - 1].polygonUse_x[pos2][posPoly];
+			//	y2 = model.network.channel[-slutLevel - 1].polygonUse_y[pos2][posPoly];
+			//}
+			//else {
+				x2 = model.network.channel[-slutLevel - 1].point_x[pos2];
+				y2 = model.network.channel[-slutLevel - 1].point_y[pos2];
+			//}
 			level1 = startLevel - 1;
 			level2 = startLevel;
 		}
@@ -8419,9 +9329,29 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, dou
 	return isOk;
 }
 
+int identify_onlyPrefPathAllowedOnPhysicalLevel() {
+	int i, i1, pos, nInArcsTot;
+
+	for (i = model.network.nPhysicalLevels - 1; i >= 1; i--) {
+		nInArcsTot = 0;
+		for (pos = 0; pos < model.network.physicalLev[i].nPoints; pos++)
+			nInArcsTot += model.network.physicalLev[i].nInNodes[pos];
+		printf("level %d nInArcsPhysical %d\n", i, nInArcsTot);
+		//pos = model.params.preferredPathOrtoPos[i];
+		//if (pos == -1)
+		//	continue; // pref path not always allowed so I can skip this step
+		//if (model.network.physicalLev[i].nInNodes[pos] == 1) {
+		//	// only pref path allowed to this node
+		//}
+	}
+	printf("all done with identifying\n");
+
+	return 0;
+}
+
 int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double noDataVal)
 {
-	int checkNextLevel, i2, arcOK, arcPos, i;
+	int checkNextLevel, i2, arcOK, arcPos, i3;
 	double distance;
 
 	checkNextLevel = 0;
@@ -8437,10 +9367,15 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 				continue; // cannot turn too much...
 			if (thisLevel == 33 && pointPos == 30 && i2 == 33)
 				i2 = i2;
-			if (pointPos != model.params.preferredPathOrtoPos[thisLevel] || i2 != model.params.preferredPathOrtoPos[nextLevel] || nextLevel != thisLevel + 1)
+			arcOK = 1;
+			if (pointPos != model.params.preferredPathOrtoPos[thisLevel] || i2 != model.params.preferredPathOrtoPos[nextLevel] || nextLevel != thisLevel + 1){
 				arcOK = check_isPhysicalArcOK(thisLevel, nextLevel, pointPos, i2, noDataVal);
-			else
-				arcOK = 1;
+			}
+			else {
+				if (model.network.physicalLev[thisLevel].requirePrefPathFeasible == 1)
+					arcOK = check_isPhysicalArcOK(thisLevel, nextLevel, pointPos, i2, noDataVal);
+				printf("prefPath physical lev %d arcOK %d reqFeasible %d\n", thisLevel, arcOK, model.network.physicalLev[thisLevel].requirePrefPathFeasible);
+			}
 			if (arcOK == 1) {
 				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
 				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = i2;
@@ -8471,14 +9406,36 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 				continue; // wrong area so cannot connect to this channel
 			//if (model.network.channel[i2].allowedPoint[0] == 0)
 			//	continue; // first node in channel not okay
-			arcOK = check_isPhysicalArcOK(thisLevel, -i2 - 1, pointPos, 0, noDataVal);
-			if (arcOK == 1) {
-				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
-				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
-				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
-				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 
-			}
+			//if(model.network.channel[i2].nPolygonUsePoints[0] == 0){
+				arcOK = check_isPhysicalArcOK(thisLevel, -i2 - 1, pointPos, 0, noDataVal);
+				if (arcOK == 1) {
+					arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+					model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
+					model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
+					(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+				}
+				else {
+					if (model.params.preferredPathOrtoPos[thisLevel] == pointPos && model.network.channel[i2].bastStartLevel == thisLevel) {
+						// add an arc from pref path to channel since the pref path needs to be able to use the channel if it passes it
+						arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+						model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
+						model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
+						(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+					}
+				}
+			//}
+			//else {
+			//	for(i3 = 0; i3 < model.network.channel[i2].nPolygonUsePoints[0]; i3++){
+			//		arcOK = check_isPhysicalArcOK(thisLevel, -i2 - 1, pointPos, 0, noDataVal, i3);
+			//		if (arcOK == 1) {
+			//			arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+			//			model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = i3;
+			//			model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
+			//			(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+			//		}
+			//	}
+			//}
 		}
 	}
 
@@ -8504,10 +9461,10 @@ int try_addPhysicalArcsFromChannel_old(int cNr, double noDataVal)
 			//	continue; // last node in channel not okay
 			arcOK = check_isPhysicalArcOK(-cNr - 1, i, pos, i1, model.params.physicalMap_noDataValue);
 			if (arcOK == 1) {
-				arcPos = model.network.channel[cNr].nOutNodes[0];
-				model.network.channel[cNr].outNode[0][arcPos] = i1;
-				model.network.channel[cNr].outLevel[0][arcPos] = i;
-				(model.network.channel[cNr].nOutNodes[0])++;
+				arcPos = model.network.channel[cNr].nOutNodes;
+				model.network.channel[cNr].outNode[arcPos] = i1;
+				model.network.channel[cNr].outLevel[arcPos] = i;
+				(model.network.channel[cNr].nOutNodes)++;
 				(model.network.physicalLev[i].nInNodes[i1])++;
 			}
 		}
@@ -8517,7 +9474,7 @@ int try_addPhysicalArcsFromChannel_old(int cNr, double noDataVal)
 
 int try_addPhysicalArcsFromChannel(int toLevel, double noDataVal)
 {
-	int i1, arcOK, pos, cNr, arcPos;
+	int i1, arcOK, pos, cNr, arcPos, i3;
 
 	for (cNr = 0; cNr < model.network.nChannels; cNr++){
 		if (model.network.channel[cNr].earliestStartLevel > toLevel)
@@ -8530,14 +9487,42 @@ int try_addPhysicalArcsFromChannel(int toLevel, double noDataVal)
 			pos = model.network.channel[cNr].nPoints - 1;
 			//if (model.network.channel[cNr].allowedPoint[pos] == 0)
 			//	continue; // last node in channel not okay
-			arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1, model.params.physicalMap_noDataValue);
-			if (arcOK == 1) {
-				arcPos = model.network.channel[cNr].nOutNodes[0];
-				model.network.channel[cNr].outNode[0][arcPos] = i1;
-				model.network.channel[cNr].outLevel[0][arcPos] = toLevel;
-				(model.network.channel[cNr].nOutNodes[0])++;
-				(model.network.physicalLev[toLevel].nInNodes[i1])++;
-			}
+
+			//if (model.network.channel[i2].nPolygonUsePoints[0] == 0) {
+				arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1, model.params.physicalMap_noDataValue);
+				if (arcOK == 1) {
+					arcPos = model.network.channel[cNr].nOutNodes;
+					model.network.channel[cNr].outNode[arcPos] = i1;
+					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
+					model.network.channel[cNr].outLevel[arcPos] = toLevel;
+					(model.network.channel[cNr].nOutNodes)++;
+					(model.network.physicalLev[toLevel].nInNodes[i1])++;
+				}
+				else {
+					if (model.params.preferredPathOrtoPos[toLevel] == i1 && model.network.channel[cNr].bastEndLevel == toLevel) {
+						// add an arc from channel to pref path since the pref path needs to be able to use the channel if it passes it
+						arcPos = model.network.channel[cNr].nOutNodes;
+						model.network.channel[cNr].outNode[arcPos] = i1;
+						//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
+						model.network.channel[cNr].outLevel[arcPos] = toLevel;
+						(model.network.channel[cNr].nOutNodes)++;
+						(model.network.physicalLev[toLevel].nInNodes[i1])++;
+					}
+				}
+			//}
+			//else {
+			//	for (i3 = 0; i3 < model.network.channel[cNr].nPolygonUsePoints[0]; i3++) {
+			//		arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1, model.params.physicalMap_noDataValue, i3);
+			//		if (arcOK == 1) {
+			//			arcPos = model.network.channel[cNr].nOutNodes;
+			//			model.network.channel[cNr].outNode[arcPos] = i1;
+			//			model.network.channel[cNr].outPolyPoint[arcPos] = i3;
+			//			model.network.channel[cNr].outLevel[arcPos] = toLevel;
+			//			(model.network.channel[cNr].nOutNodes)++;
+			//			(model.network.physicalLev[toLevel].nInNodes[i1])++;
+			//		}
+			//	}
+			//}
 		}
 	}
 	return 0;
@@ -8612,23 +9597,20 @@ int addArcsToNetwork()
 		}
 	}
 
-	//model.rasterData.physicalMap = model.physicalMapRaster.GetRasterBand(model.params.physicalMapRasterPos + 1);
-	//model.physicalMapA.valueCell = model.physicalMapA.raster.GetRasterBand(1);
-	//model.physicalMapB.valueCell = model.physicalMapB.raster.GetRasterBand(1);
-
-	//double noDataVal = model.physicalMapRaster.GetNoDataValue();
 	printf("nCorridors %d\n", model.network.nChannels);
 	double noDataVal = model.params.physicalMap_noDataValue;
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
 		//printf("level %d\n", i);
 		//if (i >= 14)
 		//	printf("test\n");
+		// add arcs from the channels, but NOT from preferred path
 		try_addPhysicalArcsFromChannel(i, noDataVal);
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
-			if (model.network.physicalLev[i].nInNodes[i1] == 0)
+			if (model.network.physicalLev[i].nInNodes[i1] == 0 && model.params.preferredPathOrtoPos[i] != i1) {// && model.network.physicalLev[i].nodeConnectedFromChannel[i1] == 0)
 				continue; // no physical arcs to this node so no use to look for arcs out from it...
+			}
 			for (i2 = i + 1; i2 < model.network.nPhysicalLevels; i2++) {
 				if (i == 5 && i1 == 28&&i2==62)
 					i1 = i1;
@@ -8636,10 +9618,15 @@ int addArcsToNetwork()
 				if (checkNextLevel == 0)
 					break;
 			}
-			// check if arcs can be added to a channel
+			// check if arcs can be added to a channel, men INTE fran preferred path
 			checkNextLevel = try_addPhysicalArcsLevel(i, i1, -1, noDataVal);
 		}
 	}
+
+	// identify the levels where only the preferred path is allowed ***** and where the corridor cannot be utilized
+	// then extend the corridor if the pref path is not allowed till other arcs attach
+	identify_onlyPrefPathAllowedOnPhysicalLevel();
+
 
 	//for (i = 0; i < model.network.nChannels; i++){//  .nUsedChannels; i++) {
 	//	cNr = i; // model.network.usedChannel[i];
@@ -8687,7 +9674,8 @@ int movePointToFeasible(int level, int pos) {
 				continue;
 			getRowColDblFromPhysicalMap(model.physicalMapA, model.network.physicalLev[level].point_y[pos - 1],
 				model.network.physicalLev[level].point_x[pos - 1], &row2Dbl, &col2Dbl);
-		}else{
+		}
+		else {
 			if (pos + 1 >= model.network.physicalLev[level].nPoints)
 				continue;
 			getRowColDblFromPhysicalMap(model.physicalMapA, model.network.physicalLev[level].point_y[pos + 1],
@@ -8774,7 +9762,7 @@ int movePointToFeasible(int level, int pos) {
 		}
 		if (nCellsOK >= 2) {
 			dist = sqrt((colDbl - col1Dbl) * (colDbl - col1Dbl) + (rowDbl - row1Dbl) * (rowDbl - row1Dbl));
-			if(dist < bastDist) {
+			if (dist < bastDist) {
 				bastDist = dist;
 				bastCol = colDbl;
 				bastRow = rowDbl;
@@ -8784,7 +9772,112 @@ int movePointToFeasible(int level, int pos) {
 	if (bastDist < 99999) {
 		getLatLonFromPhysicalMap(model.physicalMapA, &lat, &lon, bastRow, bastCol);
 		model.network.physicalLev[level].point[pos] = spherical::Point(lat, lon);
+		model.network.physicalLev[level].point_x[pos] = lon;
+		model.network.physicalLev[level].point_y[pos] = lat;
 
+		return 1;
+	}
+	else
+		return 0;
+}
+
+int moveCoordToFeasibleAlongLine(double* y1, double* x1, double y2, double x2) {
+	int row, col, isFeasible = 0, i, nCellsOK, colUse;
+	double rowDbl, colDbl, col2Dbl, row2Dbl, row1Dbl, col1Dbl;
+	double delta_row, delta_col, kvot, a0, ac, ar, a1, dist, bastDist;
+	double bastCol, bastRow, lat, lon;
+
+	lat = *y1;
+	lon = *x1;
+
+	bastDist = 1e10;
+	getRowColDblFromPhysicalMap(model.physicalMapA, lat, lon, &row1Dbl, &col1Dbl);
+	getRowColDblFromPhysicalMap(model.physicalMapA, y2, x2, &row2Dbl, &col2Dbl);
+
+	delta_row = row2Dbl - row1Dbl;
+	if (delta_row > model.physicalMapA.nRows / 2) {
+		delta_row = model.physicalMapA.nRows - delta_row;
+	}
+	else {
+		if (delta_row < -model.physicalMapA.nRows / 2) {
+			delta_row = -model.physicalMapA.nRows - delta_row;
+		}
+	}
+	delta_col = col2Dbl - col1Dbl;
+	if (delta_col > model.physicalMapA.nCols / 2) {
+		delta_col = delta_col - model.physicalMapA.nCols;
+	}
+	else {
+		if (delta_col < -model.physicalMapA.nCols / 2) {
+			delta_col = model.physicalMapA.nCols + delta_col;
+		}
+	}
+
+	kvot = 0;
+	row = (int)row1Dbl;
+	colDbl = col1Dbl;
+	col = (int)colDbl;
+
+	a0 = 0;
+	nCellsOK = 0;
+	for (i = 0; i < 10000; i++) {
+		if (col >= model.physicalMapA.nCols)
+			colUse = col - model.physicalMapA.nCols;
+		else {
+			if (col < 0)
+				colUse = col + model.physicalMapA.nCols;
+			else
+				colUse = col;
+		}
+		if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 1)
+			nCellsOK++;
+		else
+			nCellsOK = 0;
+		if (nCellsOK >= 2)
+			break;
+
+		if (delta_col > 0)
+			ac = (col + 1 - col1Dbl) / delta_col;
+		else {
+			if (delta_col == 0)
+				ac = 999999;
+			else {
+				ac = (col - 1 - col1Dbl) / delta_col;
+			}
+		}
+		if (delta_row > 0)
+			ar = (row + 1 - row1Dbl) / delta_row;
+		else {
+			if (delta_row == 0)
+				ar = 999999;
+			else
+				ar = (row - row1Dbl) / delta_row;
+		}
+		if (ac < ar)
+			a1 = ac;
+		else
+			a1 = ar;
+		if (a1 > 1)
+			a1 = 1;
+
+		if (a1 >= 0.9999)
+			break;
+
+		colDbl = col1Dbl + a1 * delta_col;
+		rowDbl = row1Dbl + a1 * delta_row;
+
+		col = (int)(colDbl + 0.0001 * delta_col);
+		if (colDbl < 0)
+			colDbl = colDbl;
+		row = (int)(rowDbl + 0.0001 * delta_row);
+		if (rowDbl < 0)
+			rowDbl = rowDbl;
+	}
+
+	if (a1 < 0.9999){
+		getLatLonFromPhysicalMap(model.physicalMapA, &lat, &lon, rowDbl, colDbl);
+		*y1 = lat;
+		*x1 = lon;
 		return 1;
 	}
 	else
@@ -8795,7 +9888,7 @@ int makeSure_feasibleNodes(int level, int mittPos) {
 	int i, isFeasible;
 
 	for (i = 0; i < model.network.physicalLev[level].nPoints; i++) {
-		if (i == 35)
+		if (i == 9)
 			i = i;
 		if (check_nodeIsWithinPhysicalMapRaster(model.network.physicalLev[level].point_y[i],
 			model.network.physicalLev[level].point_x[i]) == 0) {
@@ -8813,6 +9906,45 @@ int makeSure_feasibleNodes(int level, int mittPos) {
 
 
 	return 0;
+}
+
+int makeSure_feasibleCoordFranLinje(double* y1, double* x1, double* y2, double* x2, int pos) {
+	int isFeasible;
+	double xUse, yUse, xOther, yOther;
+
+	if (pos == 0) {
+		xUse = *x1;
+		yUse = *y1;
+		xOther = *x2;
+		yOther = *y2;
+	}
+	else {
+		xUse = *x2;
+		yUse = *y2;
+		xOther = *x1;
+		yOther = *y1;
+	}
+	isFeasible = check_nodeIsWithinPhysicalMapRaster(yUse, xUse);
+	if (isFeasible == 0)
+		return -1; // coordinate outside physical map, do not use it
+
+	if (check_feasibleNodeRasterA(yUse, xUse) == 0) {
+		// node not feasible, move it
+		isFeasible = moveCoordToFeasibleAlongLine(&yUse, &xUse, yOther, xOther);
+		if (isFeasible == 0)
+			return -1;
+	}
+
+	if (pos == 0) {
+		*x1 = xUse;
+		*y1 = yUse;
+	}
+	else {
+		*x2 = xUse;
+		*y2 = yUse;
+	}
+
+	return 1;
 }
 
 int check_isCoordFeasiblePhysicalMap(double y, double x) {
@@ -8929,6 +10061,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 		if (i > 0)
 			distTot += intervallPoint[i - 1].distanceTo(intervallPoint[i]) / 1000.0;
 		model.network.physicalLev[i].distTot = distTot;
+		model.network.physicalLev[i].requirePrefPathFeasible = 0;
 
 		if (i == nIntervallPoints - 2)
 			i = i;
@@ -8966,9 +10099,16 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 			//auto b2 = intervallPoint[i - 1].finalBearingTo(intervallPoint[i]); // 157.9°
 			// modify the bearing
 			// bNy = (b1 + b2) / 2 + 90; // + M_PI / 2;
-			bNy = estimateBearingFromToCoords(intervallPoint[i - 1].latitude().degrees(), 
-				intervallPoint[i - 1]. longitude().degrees(),
-				intervallPoint[i].latitude().degrees(), intervallPoint[i].longitude().degrees()) + 90;
+
+			//bNy = estimateBearingFromToCoords(intervallPoint[i - 1].latitude().degrees(), 
+			//	intervallPoint[i - 1]. longitude().degrees(),
+			//	intervallPoint[i].latitude().degrees(), intervallPoint[i].longitude().degrees()) + 90;
+			// new try 220830
+			bNy = estimateBearingFromToCoords(intervallPoint[i - 1].latitude().degrees(),
+				intervallPoint[i - 1].longitude().degrees(),
+				intervallPoint[i+1].latitude().degrees(), intervallPoint[i+1].longitude().degrees()) + 90;
+
+
 			if (bNy >= 360)
 				bNy -= 360;
 			//\example
@@ -9007,7 +10147,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 
 	//printf("-- Time4 %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 
-	loadChannels();
+	// loadChannels();
+	checkChannels();
 	addArcsToNetwork();
 
 	int saveBasicNetworkData = 1;
@@ -9638,7 +10779,12 @@ int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level)
 	model.tmpTid3[0] = std::chrono::high_resolution_clock::now();
 	totDist = 0;
 	pMid = p1;
+	if(printGlobal == 1)
+		printf("level %d nprefPoints %d p1 %.3lf %.3lf\n", level, 
+			model.network.physicalLev[level].npreferredPathPoints, p1.longitude().degrees(), p1.latitude().degrees());
 	for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
+		if (printGlobal == 1)
+			printf("i %d innan totDist %.3lf\n", i, totDist);
 		totDist += pMid.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
 		if (i < model.network.physicalLev[level].npreferredPathPoints - 1)
 			pMid = model.network.physicalLev[level].preferredPathPoint[i];
@@ -11484,7 +12630,8 @@ void 					anropNonsenseFunction(int arcNr) {
 }
 
 
-int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int* setupCheckPoints, int max_t, int* min_t_nu, int* max_t_nu, double fuelQualityKvot)
+//int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int* setupCheckPoints, int max_t, int* min_t_nu, int* max_t_nu, double fuelQualityKvot)
+int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot)
 {
 	// i = thisLevel, i1 = pointPos, i+1 = nextLevel, i2 = outNodePos, i3 = tPos
 	int i4, tidInt, nArcsNu = 0, nodNr1, nodNr2, posNy, arcNr, prefPath = 0;
@@ -11523,17 +12670,25 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 					}
 				}
 				else {
-					calcWeatherPosAlongArc(model.network.physicalLev[thisLevel].point[pos1],
-						model.network.channel[-nextLevel - 1].point[0], model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
+					//if (posPoly1 < 0)
+						calcWeatherPosAlongArc(model.network.physicalLev[thisLevel].point[pos1],
+							model.network.channel[-nextLevel - 1].point[0], model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
+					//else
+					//	calcWeatherPosAlongArc(model.network.physicalLev[thisLevel].point[pos1],
+					//		model.network.channel[-nextLevel - 1].polygonUse_point[pos1][posPoly2], model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
 				}
 			}
 			else {
 				if (nextLevel >= 0) {
-					calcWeatherPosAlongArc(model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1],
-						model.network.physicalLev[nextLevel].point[pos2], model.network.channel[-thisLevel-1].timeInterval[pos1][tPos]);
+					//if(posPoly1 < 0)
+						calcWeatherPosAlongArc(model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1],
+							model.network.physicalLev[nextLevel].point[pos2], model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos]);
+					//else
+					//	calcWeatherPosAlongArc(model.network.channel[-thisLevel - 1].polygonUse_point[pos1][posPoly1],
+					//		model.network.physicalLev[nextLevel].point[pos2], model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos]);
 				}
 				else {
-					calcWeatherPosAlongChannel(-thisLevel - 1);
+					calcWeatherPosAlongChannel(-thisLevel - 1); // , posPoly1, posPoly2);
 					//model.network.channel[-thisLevel - 1].point[pointPos],
 					//	model.network.channel[-nextLevel-1].point[outNodePos]);
 				}
@@ -11610,8 +12765,9 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 		if (tidInt < 0)
 			printf("tid %.3lf tidInt %d\n", tid, tidInt);
 
-		if (tidInt <= max_t || prefPath == 1) {
-			model.tmpTid2[2] = std::chrono::high_resolution_clock::now();
+		// if (tidInt <= max_t || prefPath == 1) {
+		if (tidInt <= max_t && tidInt >= min_t) {
+				model.tmpTid2[2] = std::chrono::high_resolution_clock::now();
 			if (thisLevel < 0 && nextLevel < 0) {
 				//tid += model.network.channel[-thisLevel - 1].extraTimeChannel;
 				channelCost = model.network.channel[-thisLevel - 1].extraCostChannel;
@@ -11715,7 +12871,7 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 				if (nextLevel >= 0)
 					(model.network.physicalLev[nextLevel].nArcsToPoint[pos2])++;
 				else
-					(model.network.channel[-nextLevel - 1].nArcsToPoint[pos2])++;
+					(model.network.channel[-nextLevel - 1].nArcsToPoint)++;
 				if (thisLevel >= 0)
 					model.arc[arcNr].fromTime = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
 				else
@@ -11749,10 +12905,10 @@ int checkAddBagar_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos,
 					arcNr = arcNr;
 				nArcsNu++;
 			}
-			if (tidInt < *min_t_nu)
-				*min_t_nu = tidInt;
-			if (tidInt > *max_t_nu)
-				*max_t_nu = tidInt;
+			//if (tidInt < *min_t_nu)
+			//	*min_t_nu = tidInt;
+			//if (tidInt > *max_t_nu)
+			//	*max_t_nu = tidInt;
 			model.tmpTid2[3] = std::chrono::high_resolution_clock::now();
 			model.durationSetArcValues += model.tmpTid2[3] - model.tmpTid2[2];
 		}
@@ -11873,7 +13029,7 @@ int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int s
 		if (nextLevel >= 0)
 			(model.network.physicalLev[nextLevel].nArcsToPoint[pos2])++;
 		else
-			(model.network.channel[-nextLevel - 1].nArcsToPoint[pos2])++;
+			(model.network.channel[-nextLevel - 1].nArcsToPoint)++;
 		if (thisLevel >= 0)
 			model.arc[arcNr].fromTime = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
 		else
@@ -12522,11 +13678,68 @@ void loadWeatherFiles() {
 
 }
 
+int gen_midTimeArrive() {
+	int i, pointNr1;
+	double timeExact = 0, calmWaterSpeed, kvotFix;
+
+	errlog("ERROR! Calculating estimate time for the trip by following preferred path at preferred speed. ADD: handle corridor extra time\n");
+	calmWaterSpeed = model.params.preferredSpeed_calmWater;
+	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		pointNr1 = model.params.preferredPathOrtoPos[i];
+		if (pointNr1 < 0)
+			pointNr1 = (int)(model.network.physicalLev[i].nPoints / 2);
+		//printf("lev %d pointPos %d lon/lat %.3lf %.3lf\n", i , pointNr1, 
+		//	model.network.physicalLev[i].point[pointNr1].longitude().degrees(),
+		//	model.network.physicalLev[i].point[pointNr1].latitude().degrees());
+		calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[i].point[pointNr1], i);
+		timeExact = evalWeatherDataAlongArc(-i - 1, 0, timeExact);
+		model.network.physicalLev[i].midTimeArrive = timeExact;
+	}
+	model.network.physicalLev[i].midTimeArrive = timeExact;
+
+
+	struct tm tmBas;
+	time_t rawtime;
+	time(&rawtime);
+	char* endTime;
+	endTime = (char*)malloc(256 * sizeof(char));
+	tmBas = *localtime(&rawtime);
+	tmBas.tm_year = model.params.startYear - 1900;
+	tmBas.tm_mon = model.params.startMonth_nr - 1; // sep
+	tmBas.tm_mday = model.params.startDay_nr;
+	tmBas.tm_hour = model.params.startHour; // 0;
+	tmBas.tm_min = 0;
+	tmBas.tm_sec = 0;
+	endTime = (char*)malloc(256 * sizeof(char));
+	tmBas.tm_hour += timeExact;
+	mktime(&tmBas);
+	fixReadableDate(tmBas, endTime);
+	errlog("preferred path and speed gives ending time %.2lf: end date/time %s\n",
+		timeExact, endTime);
+	if (model.params.eta_h > 0) {
+		kvotFix = model.params.eta_h / timeExact;
+		for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+			model.network.physicalLev[i].midTimeArrive *= kvotFix;
+		}
+		model.network.physicalLev[i].midTimeArrive *= kvotFix;
+		tmBas.tm_hour += model.network.physicalLev[i].midTimeArrive - timeExact;
+		mktime(&tmBas);
+		fixReadableDate(tmBas, endTime);
+		errlog("using eta gives ending time %.2lf: end date/time %s\n",
+			model.network.physicalLev[i].midTimeArrive, endTime);
+	}
+	free(endTime);
+
+
+
+	return 0;
+}
+
 int createTimeArcs()
 {
 	int i, i1, nAlloc, i2, i3, setupCheckPoints;
-	int tidInt, min_t_nu, nArcsTot, max_t, n_added_t, nArcsNu;
-	int i2b, nodNr1, nodNr2, posNy, arcNr, max_t_nu, nextLevel;
+	int tidInt, nArcsTot, min_t, max_t, n_added_t, nArcsNu;
+	int i2b, nodNr1, nodNr2, posNy, arcNr, nextLevel;
 	int cNr, tidInt0;
 	double fuel, safety, tid, totCost, fuelQualityKvot;
 
@@ -12635,7 +13848,7 @@ int createTimeArcs()
 	gen_infoWeatherAroundStorms();
 	//printf("After gen_infoWeatherAroundStorms\n");
 
-	
+	gen_midTimeArrive();
 
 #ifdef WIN32
 	std::chrono::steady_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3d, tt;
@@ -12656,13 +13869,15 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 	//printf("ad\n");
 	errlog("\n");
 
-	min_t_nu = 0;
+	// min_t_nu = 0;
 	nArcsTot = 0;
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
 		//printf("lev %d", i);
-		max_t = min_t_nu + model.params.maxDiffTimeFastSlow;
-		min_t_nu = 99999;
-		max_t_nu = 0;
+		// max_t = min_t_nu + model.params.maxDiffTimeFastSlow;
+		max_t = (int)model.network.physicalLev[i].midTimeArrive + model.params.maxDiffTimeFastSlow;
+		min_t = (int)model.network.physicalLev[i].midTimeArrive - model.params.maxDiffTimeFastSlow;
+		//min_t_nu = 99999;
+		//max_t_nu = 0;
 		n_added_t = 0;
 		nArcsNu = 0;
 		model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
@@ -12704,7 +13919,8 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 					//	printf("i %d i1 %d i2b %d i3 %d nextLevel %d\n", i, i1, i2b, i3, nextLevel);
 					//	printGlobal = 1;
 					//}
-					nArcsNu += checkAddBagar_AB(i, i1, nextLevel, i2, i3, &setupCheckPoints, max_t, &min_t_nu, &max_t_nu, fuelQualityKvot);
+					// nArcsNu += checkAddBagar_AB(i, i1, nextLevel, i2, i3, &setupCheckPoints, max_t, &min_t_nu, &max_t_nu, fuelQualityKvot);
+					nArcsNu += checkAddBagar_AB(i, i1, nextLevel, i2, i3, &setupCheckPoints, min_t, max_t, fuelQualityKvot);
 					//printf("test1bc\n");
 					model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
 				}
@@ -12716,7 +13932,8 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 					for (i3 = 0; i3 < model.network.channel[-nextLevel - 1].nTimeIntervals[0]; i3++) {
 						model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
 						model.duration1 += model.tmpTid2[1] - model.tmpTid2[0];
-						nArcsNu += checkAddBagar_AB(nextLevel, 0, nextLevel, 1, i3, &setupCheckPoints, 99999, &min_t_nu, &max_t_nu, fuelQualityKvot);
+						// nArcsNu += checkAddBagar_AB(nextLevel, 0, nextLevel, 1, i3, &setupCheckPoints, 99999, &min_t_nu, &max_t_nu, fuelQualityKvot);
+						nArcsNu += checkAddBagar_AB(nextLevel, 0, nextLevel, 1, i3, &setupCheckPoints, 0, 99999, fuelQualityKvot);
 						model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
 					}
 				}
@@ -12734,15 +13951,17 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 		//	freeMemory();
 		for (i1 = 0; i1 < model.network.nChannels; i1++){ //  .nUsedChannels; i1++) {
 			cNr = i1; // model.network.usedChannel[i1];
-			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes[0]; i2b++) {
-				nextLevel = model.network.channel[cNr].outLevel[0][i2b];
+			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
+				nextLevel = model.network.channel[cNr].outLevel[i2b];
 				if (nextLevel != i + 1)
 					continue;
 				setupCheckPoints = 1;
-				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[0][i2b]);
+				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
 				for (i3 = 0; i3 < model.network.channel[cNr].nTimeIntervals[1]; i3++) {
+					//nArcsNu += checkAddBagar_AB(-cNr - 1, 1, nextLevel,
+					//	model.network.channel[cNr].outNode[0][i2b], i3, &setupCheckPoints, max_t, &min_t_nu, &max_t_nu, fuelQualityKvot);
 					nArcsNu += checkAddBagar_AB(-cNr - 1, 1, nextLevel,
-						model.network.channel[cNr].outNode[0][i2b], i3, &setupCheckPoints, max_t, &min_t_nu, &max_t_nu, fuelQualityKvot);
+						model.network.channel[cNr].outNode[i2b], i3, &setupCheckPoints, min_t, max_t, fuelQualityKvot); // , model.network.channel[cNr].outPolyPoint[i2b]);
 				}
 			}
 		}
@@ -12927,36 +14146,97 @@ int saveDijkstraData()
 	return 0;
 }
 
+int genExtraOpts() {
+	int nExtraOpt = 0;
+	int nAlloc = 5;
+
+	model.params.extraOptWeights = (strExtraWeights*)malloc(nAlloc * sizeof(strExtraWeights));
+
+	printf("weightEmission %.2lf\nweightTime %.2lf\nweightFuel %.2lf\nweightSafetyBase %.2lf\neta_h %.2lf\n",
+		model.params.weightEmission, model.params.weightTime, model.params.weightFuel,
+		model.params.weightSafety.base, model.params.eta_h);
+
+	// least$Cost
+	if (model.params.weightEmission > 0.15 || abs(model.params.weightTime - 1) > 0.01 ||
+		abs(model.params.weightFuel - 1) > 0.01 || abs(model.params.weightSafety.base - 0.1) > 0.1) {
+		printf("add extra opt least$Cost\n");
+		model.params.extraOptWeights[nExtraOpt].weightEmission = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightTime = 1;
+		model.params.extraOptWeights[nExtraOpt].weightFuel = 1;
+		model.params.extraOptWeights[nExtraOpt].weightSafetyBase = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightDistance = 0.0;
+		model.params.extraOptWeights[nExtraOpt].eta_cost_early = model.params.eta_cost_early;
+		model.params.extraOptWeights[nExtraOpt].identifierOpt = str_alloc_cpy("least$Cost");
+		nExtraOpt++;
+	}
+
+	// lowestEmission
+	if (abs(model.params.weightEmission - 1) > 0.01 || abs(model.params.weightTime - 0.1) > 0.01 ||
+		abs(model.params.weightFuel - 0.1) > 0.01 || abs(model.params.weightSafety.base - 0.1) > 0.1) {
+		printf("add extra opt lowestEmission\n");
+		model.params.extraOptWeights[nExtraOpt].weightEmission = 1;
+		model.params.extraOptWeights[nExtraOpt].weightTime = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightFuel = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightSafetyBase = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightDistance = 0.0;
+		model.params.extraOptWeights[nExtraOpt].eta_cost_early = model.params.eta_cost_early;
+		model.params.extraOptWeights[nExtraOpt].identifierOpt = str_alloc_cpy("lowestEmission");
+		nExtraOpt++;
+	}
+
+	// shortTime
+	if (model.params.weightEmission > 0.15 || abs(model.params.weightTime - 1) > 0.01 ||
+		abs(model.params.weightFuel - 0.1) > 0.01 || abs(model.params.weightSafety.base - 0.1) > 0.1) {
+		printf("add extra opt shortestTime\n");
+		model.params.extraOptWeights[nExtraOpt].weightEmission = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightTime = 1;
+		model.params.extraOptWeights[nExtraOpt].weightFuel = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightSafetyBase = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightDistance = 0.0;
+		model.params.extraOptWeights[nExtraOpt].eta_cost_early = model.params.eta_cost_early;
+		model.params.extraOptWeights[nExtraOpt].identifierOpt = str_alloc_cpy("shortestTime");
+		nExtraOpt++;
+	}
+
+	// shortestPath
+	if (model.params.weightEmission > 0.01 || abs(model.params.weightTime - 0.01) > 0.01 ||
+		abs(model.params.weightFuel - 0.01) > 0.01 || abs(model.params.weightSafety.base - 0.01) > 0.1) {
+		printf("add extra opt shortestPath\n");
+		model.params.extraOptWeights[nExtraOpt].weightEmission = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightTime = 1;
+		model.params.extraOptWeights[nExtraOpt].weightFuel = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightSafetyBase = 0.01;
+		model.params.extraOptWeights[nExtraOpt].weightDistance = 1;
+		model.params.extraOptWeights[nExtraOpt].eta_cost_early = model.params.eta_cost_early;
+		model.params.extraOptWeights[nExtraOpt].identifierOpt = str_alloc_cpy("shortestPath");
+		nExtraOpt++;
+	}
+
+	// eta with same weights but without too early cost
+	if (model.params.eta_h > 0) {
+		printf("add extra opt eta without too early cost\n");
+		model.params.extraOptWeights[nExtraOpt].weightEmission = model.params.weightEmission;
+		model.params.extraOptWeights[nExtraOpt].weightTime = model.params.weightTime;
+		model.params.extraOptWeights[nExtraOpt].weightFuel = model.params.weightFuel;
+		model.params.extraOptWeights[nExtraOpt].weightSafetyBase = model.params.weightSafety.base;
+		model.params.extraOptWeights[nExtraOpt].weightDistance = 0;
+		model.params.extraOptWeights[nExtraOpt].eta_cost_early = 0;
+		model.params.extraOptWeights[nExtraOpt].identifierOpt = str_alloc_cpy("eta_onlyLateCost");
+		nExtraOpt++;
+	}
+
+	return nExtraOpt;
+}
+
 
 int modify_utNodCost(int alt) {
 	int i, i1, arcNr;
 	double cost, weightTime, weightFuel, weightSafety, weightDistance;
 
-	weightTime = 0;
-	weightFuel = 0;
-	weightSafety = 0;
-	weightDistance = 0;
-	if (alt == 1) {
-		weightTime = 100;
-	}
-	if (alt == 2) {
-		weightDistance = 100;
-	}
-	if (alt == 3) {
-		weightSafety = 100;
-	}
-	if (alt == 4) {
-		weightTime = 50;
-		weightFuel = 50;
-	}
-	if (alt == 5) {
-		weightTime = 33;
-		weightFuel = 33;
-		weightSafety = 33;
-	}
-	if (alt == 6) {
-		weightFuel = 100;
-	}
+	weightTime = model.params.extraOptWeights[alt-1].weightTime;
+	weightFuel = model.params.extraOptWeights[alt - 1].weightFuel;
+	weightSafety = model.params.extraOptWeights[alt - 1].weightSafetyBase;
+	weightDistance = model.params.extraOptWeights[alt - 1].weightDistance;
 
 
 	double maxCost = 0;
@@ -12969,7 +14249,7 @@ int modify_utNodCost(int alt) {
 
 			if (model.arc[arcNr].toLevel == model.network.nPhysicalLevels && model.params.eta_h > 0.01) {
 				if (model.arc[arcNr].toTime < model.params.eta_h)
-					cost += (model.params.eta_h - model.arc[arcNr].toTime) * model.params.eta_cost_early;
+					cost += (model.params.eta_h - model.arc[arcNr].toTime) * model.params.extraOptWeights[alt - 1].eta_cost_early;
 				else
 					cost += (model.arc[arcNr].toTime - model.params.eta_h) * model.params.eta_cost_late;
 			}
@@ -13403,7 +14683,7 @@ int voyageOpt(string inputPath, string resultName)
 	nod2 = model.nNoder - 1;
 	bool Reached;
 
-	int nExtraOpt = 2;
+	int nExtraOpt = genExtraOpts();
 	string resAltName;
 
 	for (int ii = 0; ii < 1 + nExtraOpt; ii++) {
@@ -13433,7 +14713,11 @@ int voyageOpt(string inputPath, string resultName)
 			//writeSolutionPathToGeoJson(namn, 0);
 
 			printf("Saving solution path1..");
-			writeSolutionToJson(resultName, ii);
+			if (ii == 0)
+				writeSolutionToJson(resultName, ii, "base");
+			else
+				writeSolutionToJson(resultName, ii, model.params.extraOptWeights[ii - 1].identifierOpt);
+
 			printf(".done\n");
 			//if (ii == 0)
 			//	writeSolutionToJson(resultName, 0);

@@ -70,8 +70,21 @@ struct strTimeZones
 	int nMinutesDiff;
 };
 
+struct strExtraWeights {
+	double weightEmission;
+	double weightTime;
+	double weightFuel;
+	double weightSafetyBase;
+	double weightDistance;
+	double eta_cost_early;
+	char* identifierOpt;
+};
+
 struct strParams
 {
+	double preferredSpeed_calmWater;
+	double maxDistStartToCorridorConnect;
+
 	int nTimeZones;
 	strTimeZones* timeZone;
 	std::string indataPath;
@@ -171,6 +184,8 @@ struct strParams
 	double maxSpeedDiffCurrent;
 
 	int errorCode;
+
+	strExtraWeights* extraOptWeights;
 };
 
 struct strVariables
@@ -243,23 +258,35 @@ struct strChannel {
 
 	int earliestStartLevel;
 	int latestEndLevel;
+	int bastStartLevel;
+	int bastEndLevel;
 	double* point_y;
 	double* point_x;
+	strBoundBox boundingBox;
 
 	int nPoints;
 	spherical::Point* point;
 	//int* allowedPoint;
-	int* nOutNodes;
-	int** outNode;
-	int** outLevel;
-	int* nArcsToPoint;
+	int nOutNodes;
+	int* outNode;
+	//int* outPolyPoint;
+	int* outLevel;
+	int nArcsToPoint;
 	int* nAllocTimeIntervals;
 	int* nTimeIntervals;
 	int** timeInterval;
 	int** nodNr_from_pt;
 	double* distanceFromStart;
 
-	//double extraTimeChannel;
+	//double* polygon_x[2];
+	//double* polygon_y[2];
+	//strBoundBox polygon_boundingBox[2];
+	//double polygon_dist[2];
+	//int nPolygonPoints[2];
+	//spherical::Point* polygonUse_point[2];
+	//double* polygonUse_x[2];
+	//double* polygonUse_y[2];
+	//int nPolygonUsePoints[2];
 
 };
 
@@ -277,6 +304,8 @@ struct strNodeSeq
 	double* minDistPrevNode;
 	int* minDistPrevNode_level;
 	int* minDistPrevNode_pos;
+	//int* nodeConnectedFromChannel;
+	int requirePrefPathFeasible;
 
 	//int *nAllocOutArcs;
 	//int *nOutArcs;
@@ -293,6 +322,7 @@ struct strNodeSeq
 	double distTot;
 	spherical::Point* preferredPathPoint;
 	int npreferredPathPoints;
+	double midTimeArrive;
 };
 
 struct strNetwork
@@ -770,7 +800,7 @@ int testing(int a);
 int voyageOpt_old(string inputPath);
 int voyageOpt(string inputName, string resultName);
 int exitKontrollerat(int codeLine, int callType = 1);
-int writeSolutionToJson(string filename, int resAlt);
+int writeSolutionToJson(std::string filename, int resAlt, char* namnSol);
 string splitFilename(string namn, int alt = 0);
 int fixReadableDate(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
@@ -800,6 +830,14 @@ void getAllVariableValues(int checkPointNr, double tidpkt);
 int delayTimeToStartTimeDay(int t, int arrivalTime);
 double eval_relWindSpeedExact(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 double eval_baseGroundSpeedExact(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
+int makeSure_feasibleCoordFranLinje(double* y1, double* x1, double* y2, double* x2, int pos);
+int roundUp(double varde);
+int check_nodeIsWithinPhysicalMapRaster(double lat1, double lon1);
+int setUpUsablePointsInPolygonChannel(int cNr, int pos);
+int identify_startOnChannel(int cNr);
+int checkCoordInBoundingBox(double y, double x, strBoundBox bbox);
+void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x);
+void initBoundingBox(strBoundBox* bbox);
 
 
 
