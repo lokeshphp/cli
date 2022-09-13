@@ -95,7 +95,7 @@ SmartQ::SmartQ(long long *pMinArcLen, long long *pMaxArcLen,
   ulong logMax;
 
   maxArcLen = *pMaxArcLen;
-  errlog("I New SmartQ maxArcLen %I64d\n", maxArcLen);
+  //errlog("I New SmartQ maxArcLen %I64d\n", maxArcLen);
   minArcLen = *pMinArcLen;
   logDelta = logD;
 
@@ -566,70 +566,64 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 
    do
    {
-	   nAvsokning++;
-     if (F->IsEmpty()) {
-       currentNode = RemoveMin();
-       if (currentNode == NULL) {
-//		   fprintf(filcheck, "fran IsEmpty %d\n",
-//			   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
-		   assert(F->IsEmpty());
-	 break;
-       }
+		nAvsokning++;
+		if (F->IsEmpty()) {
+			currentNode = RemoveMin();
+			if (currentNode == NULL) {
+				//		   fprintf(filcheck, "fran IsEmpty %d\n",
+				//			   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
+				assert(F->IsEmpty());
+				break;
+			}
 
-       if (source != sink){
-//#ifdef SINGLE_PAIR
-       // check if done
-	     if (currentNode == sink) {
-			 reached = true;
-			break;
+			if (source != sink){
+				// check if done
+				if (currentNode == sink) {
+					reached = true;
+					break;
+				}
+			}
 		}
-	   }
-//#endif
-     }
-     else {
-       currentNode = (Node *) F->Pop();
-//	   fprintf(filcheck, "fran Pop %d\n",
-//		   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
+		else {
+			currentNode = (Node *) F->Pop();
+			//	   fprintf(filcheck, "fran Pop %d\n",
+			//		   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
 
-       if (source != sink){
-//#ifdef SINGLE_PAIR
-       // check if done
-       if (currentNode == sink) {
-			reached = true;
-			break;
-       }
-       // do not need to search past sink distance
-       if ((sink != NULL) && (sink->tStamp == source->tStamp) &&
-	   (currentNode->dist >= sink->dist))
-	 continue;
-	   }
-//#endif
-     }
+			if (source != sink){
+				// check if done
+				if (currentNode == sink) {
+					reached = true;
+					break;
+				}
+				// do not need to search past sink distance
+				if ((sink != NULL) && (sink->tStamp == source->tStamp) &&
+					(currentNode->dist >= sink->dist))
+					continue;
+			}
+		}
      
-//          fprintf(FilPek, ">>>scanning n %d (verkl %d) dist %lld (mu %lld)\n",
-//			  model->Dijkstra->sp->nodeId(currentNode)+model->Dijkstra->node_min-1,
-//			  model->Noder[model->Dijkstra->sp->nodeId(currentNode)+model->Dijkstra->node_min-1]->NodID, 
-//			  currentNode->dist, mu);
+		//          fprintf(FilPek, ">>>scanning n %d (verkl %d) dist %lld (mu %lld)\n",
+		//			  model->Dijkstra->sp->nodeId(currentNode)+model->Dijkstra->node_min-1,
+		//			  model->Noder[model->Dijkstra->sp->nodeId(currentNode)+model->Dijkstra->node_min-1]->NodID, 
+		//			  currentNode->dist, mu);
 
-//	 if (currentNode->dist > maxCost && maxCost >= 0)
-//		 break;
+		//	 if (currentNode->dist > maxCost && maxCost >= 0)
+		//		 break;
 	 
-	 sp->cScans++;
-     currentNode->where = IN_SCANNED;
-     // scan node
-     lastArc = (currentNode + 1)->first - 1;
-     for ( arc = currentNode->first; arc <= lastArc; arc++ )
-      {
-	 newNode = arc->head;                      // where our arc ends up
-     if (source != sink){
-//#ifdef SINGLE_PAIR
-	 if (newNode->tStamp != tmStamp)
-	   sp->initNode(newNode, tmStamp);
-if(maxVarde < currentNode->dist+arc->len)
-	maxVarde = currentNode->dist+arc->len;
-	 }
-//#endif
-	 /*
+		sp->cScans++;
+		currentNode->where = IN_SCANNED;
+		// scan node
+		lastArc = (currentNode + 1)->first - 1;
+		for ( arc = currentNode->first; arc <= lastArc; arc++ )
+		{
+			newNode = arc->head;                      // where our arc ends up
+			if (source != sink){
+				if (newNode->tStamp != tmStamp)
+					sp->initNode(newNode, tmStamp);
+				if(maxVarde < currentNode->dist+arc->len)
+					maxVarde = currentNode->dist+arc->len;
+			}
+			/*
 	 if( currentNode->dist + arc->len < newNode->dist )
 		 fprintf(FilPek, "+++till nod %d nodcost %d arclen %d (tot %d), caliber %d\n",
 			  model->Dijkstra->sp->nodeId(newNode)+model->Dijkstra->node_min-1,
@@ -641,92 +635,93 @@ if(maxVarde < currentNode->dist+arc->len)
 			  (int)newNode->dist, (int)arc->len, (int)(newNode->dist),
 			  (int)CALIBER(newNode));
 			  */
-	 if ( currentNode->dist + arc->len < newNode->dist )
-	 {
-//		 fprintf(filcheck, "nodnr %d newnod %d franNodcost %d, dist %d, tillnodCost %d\n",
-//			 (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1),
-//			 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
-//			 (int)currentNode->dist, (int)arc->len, (int)newNode->dist);
+			if ( currentNode->dist + arc->len < newNode->dist )
+			{
+				//		 fprintf(filcheck, "nodnr %d newnod %d franNodcost %d, dist %d, tillnodCost %d\n",
+				//			 (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1),
+				//			 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
+				//			 (int)currentNode->dist, (int)arc->len, (int)newNode->dist);
 
-	   assert(newNode->where != IN_F);
-	   if(newNode->where == IN_SCANNED){
-//		   fclose(FilPek);
-//		   FilPek = fopen("CheckDijkstra.txt", "a+");
-			NodNr = model.Dijkstra.sp->nodeId(newNode)+model.Dijkstra.node_min-1;			
-//			fprintf(stdout, "ERROR: nod %d, verkl %d adr %ld kommer fran\n",
-//				NodNr, model->Noder[NodNr]->NodID, (long)newNode);
-			errlog("ERROR: nod %d\n",
-				NodNr);
-			NodNr = model.Dijkstra.sp->nodeId(currentNode)+model.Dijkstra.node_min-1;			
-//			fprintf(stdout, "bagadr %ld fran nod %d, verkl %d adr %ld\n",
-//				(long)(arc), NodNr, model->Noder[NodNr]->NodID, (long)currentNode);
-			fprintf(stdout, "fran nod %d\n",
-				NodNr);
-			fprintf(stdout, "franNodcost %d, dist %d (tot %d), tillnodCost %d\n",
-				(int)currentNode->dist, (int)arc->len, (int)(currentNode->dist + arc->len),
-				(int)newNode->dist);
-	   }
-	   assert(newNode->where != IN_SCANNED);
-	   bckOld = BUCKET(newNode);       // NULL if node not in a bucket
-	   newNode->dist = currentNode->dist + arc->len; // we're shorter
-if(maxVarde < newNode->dist)
-	maxVarde = newNode->dist;
-	   newNode->parent = currentNode;                // update sp tree
+				assert(newNode->where != IN_F);
+				if(newNode->where == IN_SCANNED){
+					//		   fclose(FilPek);
+					//		   FilPek = fopen("CheckDijkstra.txt", "a+");
+					NodNr = model.Dijkstra.sp->nodeId(newNode)+model.Dijkstra.node_min-1;			
+					//			fprintf(stdout, "ERROR: nod %d, verkl %d adr %ld kommer fran\n",
+					//				NodNr, model->Noder[NodNr]->NodID, (long)newNode);
+					errlog("ERROR: nod %d\n", NodNr);
+					NodNr = model.Dijkstra.sp->nodeId(currentNode)+model.Dijkstra.node_min-1;			
+					//			fprintf(stdout, "bagadr %ld fran nod %d, verkl %d adr %ld\n",
+					//				(long)(arc), NodNr, model->Noder[NodNr]->NodID, (long)currentNode);
+					fprintf(stdout, "fran nod %d", NodNr);
+					NodNr = model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1;
+					fprintf(stdout, " to nod %d\n", NodNr);
+
+					fprintf(stdout, "franNodcost %I64d, dist %I64d (tot %I64d), tillnodCost %I64d\n",
+						currentNode->dist, arc->len, (currentNode->dist + arc->len),
+						newNode->dist);
+				}
+				assert(newNode->where != IN_SCANNED);
+				bckOld = BUCKET(newNode);       // NULL if node not in a bucket
+				newNode->dist = currentNode->dist + arc->len; // we're shorter
+				if(maxVarde < newNode->dist)
+					maxVarde = newNode->dist;
+				newNode->parent = currentNode;                // update sp tree
 
 #ifndef MLB
-	   if (newNode->dist <= mu + CALIBER(newNode)) {
-	     // the node must go to F
-//		   fprintf(filcheck, "newNode %d till F caliber %d\n",
-//			   (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
-//			   (newNode)->sBckInfo.caliber);
-		   if (InBucket(newNode)) {
-	       Delete(newNode, bckOld);
-	     }
-        if (source != sink){
+			   if (newNode->dist <= mu + CALIBER(newNode)) {
+					// the node must go to F
+					//		   fprintf(filcheck, "newNode %d till F caliber %d\n",
+					//			   (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
+					//			   (newNode)->sBckInfo.caliber);
+					if (InBucket(newNode)) {
+						Delete(newNode, bckOld);
+					}
+					if (source != sink){
 //#ifdef SINGLE_PAIR
-	     if (newNode == sink) {
-	       reached = true;
-	       break;
-	     }
-	     // do not need to search past sink distance
-	     if ((sink != NULL) && (sink->tStamp == source->tStamp) &&
-		 (newNode->dist >= sink->dist))
-	       continue;
-		}
+						if (newNode == sink) {
+							reached = true;
+							break;
+						}
+						// do not need to search past sink distance
+						if ((sink != NULL) && (sink->tStamp == source->tStamp) &&
+							(newNode->dist >= sink->dist))
+							continue;
+					}
 //#endif
-	     // note that newNode cannot be in F
-	     newNode->where = IN_F;
-	     F->Push(newNode);
-	   }
-	   else {
+					// note that newNode cannot be in F
+					newNode->where = IN_F;
+					F->Push(newNode);
+				}
+				else {
 #endif
-	     // relocate the node in B if needed
-	     bckNew = DistToBucket(&(newNode->dist),
-				   DistToLevel(&(newNode->dist)));
-if(maxVarde < newNode->dist)
-	maxVarde = newNode->dist;
-	     if ( bckOld != bckNew ) {           // we need to move the node
-//			 if (bckOld != NULL)
-//				 fprintf(filcheck, "relocate newNode %d from %d %d till %d %d\n",
-//					 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
-//					  bckOld->pLevel->digShift, bckOld->pLevel->digMask, 
-//					  bckNew->pLevel->digShift, bckNew->pLevel->digMask);
-//			 else
-//				 fprintf(filcheck, "relocate newNode %d from  - - till %d %d\n",
-//				 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
-//				 bckNew->pLevel->digShift, bckNew->pLevel->digMask);
+					// relocate the node in B if needed
+					bckNew = DistToBucket(&(newNode->dist),
+					DistToLevel(&(newNode->dist)));
+					if(maxVarde < newNode->dist)
+						maxVarde = newNode->dist;
+					if ( bckOld != bckNew ) {           // we need to move the node
+			//			 if (bckOld != NULL)
+			//				 fprintf(filcheck, "relocate newNode %d from %d %d till %d %d\n",
+			//					 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
+			//					  bckOld->pLevel->digShift, bckOld->pLevel->digMask, 
+			//					  bckNew->pLevel->digShift, bckNew->pLevel->digMask);
+			//			 else
+			//				 fprintf(filcheck, "relocate newNode %d from  - - till %d %d\n",
+			//				 (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
+			//				 bckNew->pLevel->digShift, bckNew->pLevel->digMask);
 
-	       if ( InBucket(newNode) ) {        // a move, not an insert
-		 Delete(newNode, bckOld);
-	       }
-	       Insert(newNode, bckNew);
-	       sp->cUpdates++;
-	     }
+						if ( InBucket(newNode) ) {        // a move, not an insert
+							Delete(newNode, bckOld);
+						}
+						Insert(newNode, bckNew);
+						sp->cUpdates++;
+					}
 #ifndef MLB
-	   }
+				}
 #endif
-	 }
-      }
+			}
+		}
    } while (1);
 
      if (source != sink){

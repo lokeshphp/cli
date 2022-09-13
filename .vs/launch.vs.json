@@ -5,22 +5,22 @@
     {
       "type": "default",
       "authenticationType": "none",
-      "name": "voyageOpt2 with 2 args",
+      "name": "OptiNav with 2 args",
       "project": "CMakeLists.txt",
-      "projectTarget": "voyageOpt2.exe",
+      "projectTarget": "OptiNav.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": ["--input=data/input_greece4.json --output=data/res_greece4.json"],
-      "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
+      "args": [ "--input=testRun/shipping/data/input_stormEW.json --output=testRun/shipping/data/res_stormEW4.json" ],
+      "currentDir": "${workspaceRoot}/../../../weatherTest/"
     },
     {
       "type": "default",
       "authenticationType": "none",
-      "name": "voyageOpt2 with 1 arg",
+      "name": "OptiNav with 1 arg",
       "project": "CMakeLists.txt",
-      "projectTarget": "voyageOpt2.exe",
+      "projectTarget": "OptiNav.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": [ "--input=data" ],
-      "currentDir": "${workspaceRoot}/../../../weatherTest/testRun/shipping/"
+      "args": [ "--input=testRun/shipping/data" ],
+      "currentDir": "${workspaceRoot}/../../../weatherTest/"
     }
   ]
 }

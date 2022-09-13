@@ -4,7 +4,7 @@
   ],
   "SelectedNode": "\\CMakeLists.txt",
   "PreviewInSolutionExplorer": false,
-  "ActiveTargetSystem": "Local Machine",
+  "ActiveTargetSystem": "WSL: Ubuntu-20.04",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
       "configure": "x64-debug"

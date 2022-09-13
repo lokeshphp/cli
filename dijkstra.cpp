@@ -38,15 +38,17 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	n = model->nNoder;
 	m = model->nArcs; //  model->nArcsOK;
 
-	double maxCost = 0;
+	double maxCost = 0, minCost = 1e10;
 	for (i = 0; i < m; i++) {
 		if (model->arc[i].totCost > maxCost)
 			maxCost = model->arc[i].totCost;
+		if (model->arc[i].totCost < minCost)
+			minCost = model->arc[i].totCost;
 	}
 	if (maxCost > 0)
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-	errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf\n",
-		maxCost, model->Dijkstra.FAKTOR_NATVERK);
+	errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
+		maxCost, model->Dijkstra.FAKTOR_NATVERK, minCost);
 	errlog("nNodes %d, nArcs %d\n", n, m);
 
 	/* allocating memory for  'nodes', 'arcs'  and internal arrays */
@@ -89,6 +91,8 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	//pek = fopen("checkDijkst.txt", "w");
 
 	//	model->OmvandlDijkstraToNodeNr = (int*)calloc(model->nNoder, sizeof(int));
+	maxCost = 0;
+	minCost = 1e30;
 	for (i = 0; i < model->nNoder; i++) {
 		//		model->OmvandlDijkstraToNodeNr[i] = 1;
 		//fprintf(pek, "i %d nUtNoder %d nBagarNatv %d node_min %d node_max %d\n", i, model->Noder[i].nUtNoder, nBagarNatv, node_min, node_max);
@@ -116,6 +120,9 @@ int SattUppDijkstraNatverk3(strModel *model) {
 
 					length = 10000000000000000;
 				}
+				//if (i== 10145 &&head == 11863)
+				//	errlog("error: arc from nod %d to %d cost %I64d\n", i, head, length);
+
 				arc_first[tail + 1] ++; /* no of arcs outgoing from tail
 										is stored in arc_first[tail+1] */
 
@@ -123,6 +130,12 @@ int SattUppDijkstraNatverk3(strModel *model) {
 				arc_tail[nBagarNatv] = tail;
 				arc_current->head = nodes + head;
 				arc_current->len = length;
+
+				if (length > maxCost)
+					maxCost = length;
+				if (length < minCost)
+					minCost = length;
+
 
 				/* searching minimumu and maximum node */
 				if (head < node_min) node_min = head;
@@ -136,6 +149,8 @@ int SattUppDijkstraNatverk3(strModel *model) {
 			}
 		}
 	}
+	errlog("MaxCost efter skalning %.2lf, minCost is %.2lf\n",
+		maxCost, minCost);
 	//fclose(pek);
 
 	//pek = fopen("checkDijkst5.txt", "w");
@@ -248,7 +263,7 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	model->Dijkstra.nNoder = node_max - node_min + 1;
 	model->Dijkstra.node_min = node_min;
 	model->Dijkstra.nodes = nodes + node_min;
-	errlog("I SattUppDijkstraNatverk3 %I64d\n", (long long)model->Dijkstra.nodes);
+	//errlog("I SattUppDijkstraNatverk3 %I64d\n", (long long)model->Dijkstra.nodes);
 
 	model->Dijkstra.arcs = arcs;
 

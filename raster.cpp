@@ -10,6 +10,8 @@
 #include "stdlib.h"
 #include "gdal.h"
 
+extern int printGlobal;
+
 int errlog(const char* format, ...);
 
 using namespace std;
@@ -142,8 +144,8 @@ public:
 		// set pointer to Geotiff dataset as class member.  
 		rasterDataset = (GDALDataset*)GDALOpen(filename, GA_ReadOnly);
 		if (rasterDataset == NULL) {
-			printf("ERROR! Raster %s cannot be open. Fix it and run again\n", tiffname);
-			errlog("ERROR! Raster %s cannot be open. Fix it and run again\n", tiffname);
+			printf("ERROR! Raster %s cannot be open.\n", tiffname);
+			errlog("ERROR! Raster %s cannot be open.\n", tiffname);
 			return -1;
 			//exit(0);
 		}
@@ -604,6 +606,7 @@ public:
 	unsigned short* GetRasterBand_intArr(int z, strPhysRaster* rasterData, strBoundBox boundingBox) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse;
+		int nNotValid = 0;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
 		unsigned short* valueCell;
 		GDALRasterBand* poBand = rasterDataset->GetRasterBand(z);
@@ -622,8 +625,8 @@ public:
 		long long nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
 		int n_xBlocks;
 
-		errlog("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
-			GDALGetDataTypeName(poBand->GetRasterDataType()));
+		//errlog("nCols/nRows %d %d nBlocks xy %d %d type %s\n", NCOLS, NROWS, nXBlocks, nYBlocks,
+		//	GDALGetDataTypeName(poBand->GetRasterDataType()));
 
 		//boundingBox.yMin = -39.0553;
 		//boundingBox.yMax = -38.553;
@@ -681,8 +684,10 @@ public:
 		//filpek = fopen("testRasterData.txt", "w");
 
 		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock, first_y;
+		int lastVal = 0;
 		for (iYBlock = yMin; iYBlock <= yMax; iYBlock++)
 		{
+			nNotValid = 0;
 			yPosNu = (iYBlock - yMin) * pnYSize;
 			for (iXBlock = xMin; iXBlock <= xMax; iXBlock++)
 			{
@@ -696,23 +701,47 @@ public:
 				}
 				//xUse = 0;
 				//iYBlock = 0;
-				//printf("read block %d %I64d\n", xUse, iYBlock);
+				if(printGlobal == 1)
+					printf("read block %d %I64d\n", xUse, iYBlock);
 				poBand->ReadBlock(xUse, iYBlock, pabyData);
-				//printf(".. done iXBlock %I64d xMin %d pnXSize %d\n", iXBlock, xMin, pnXSize);
+				if(printGlobal == 1)
+					printf(".. done iXBlock %I64d xMin %d pnXSize %d globPos %d to %d coord %.3lf to %.3lf (%.3lf to %.3lf)\n", 
+						iXBlock, xMin, pnXSize, (iXBlock - xMin) * pnXSize, (iXBlock + 1 - xMin) * pnXSize - 1, 
+						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col,
+						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col,
+						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col-360,
+						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col-360);
 
-				xPosNu = (iXBlock - xMin) * pnXSize;
+				xPosNu = (iXBlock - xMin) * pnXSize - nNotValid;
 
 				// Compute the portion of the block that is valid
 				// for partial edge blocks.
-				poBand->GetActualBlockSize(iXBlock, iYBlock, &nXValid, &nYValid);
-				//printf("block xy %d %d nValid xy %d %d\n", iXBlock, iYBlock, nXValid, nYValid);
-				for (iY = 0; iY < pnYSize; iY++) {
+				poBand->GetActualBlockSize(xUse, iYBlock, &nXValid, &nYValid);
+				nNotValid += pnXSize - nXValid;
+				if (printGlobal == 1) {
+					printf("block xy %d %d nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
+				}
+				//for (iY = 0; iY < pnYSize; iY++) {
+				for (iY = 0; iY < nYValid; iY++) {
 					first_y = 0;
-					for (iX = 0; iX < pnXSize; iX++) {
-						if (iY < nYValid && iX < nXValid)
+					//for (iX = 0; iX < pnXSize; iX++) {
+					for (iX = 0; iX < nXValid; iX++) {
+						//if (iY < nYValid && iX < nXValid) {
 							valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = pabyData[iX + iY * pnXSize];
-						else
-							valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = 3;
+							if (printGlobal == 1) {
+								if (valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)] != lastVal) {
+									printf("val at %d %d %.3lf %.3lf (%.3lf) is %d iX %d xPosNu %d iXBlock %I64d xMin %d pnXSize %d sizeCol %.4lf\n", iX + xPosNu, iY + yPosNu,
+										rasterData->minLongitude + (double)(iX + xPosNu + 0.5) * rasterData->size_col,
+										rasterData->maxLatitude - (double)(iY + yPosNu + 0.5) * rasterData->size_row,
+										rasterData->minLongitude + (double)(iX + xPosNu + 0.5) * rasterData->size_col - 360.0,
+										valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)], iX, xPosNu,
+										iXBlock, xMin, pnXSize, rasterData->size_col);
+									lastVal = valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)];
+								}
+							}
+						//}
+						//else
+						//	valueCell[iX + xPosNu + rasterData->nCols * (iY + yPosNu)] = 3;
 						/*
 						if (pabyData[iX + iY * nXBlocks] == 100 || first_y == 1) {
 							pos_y = (int)(iX + xPosNu + rasterData->nCols * (iY + yPosNu)) / rasterData->nCols;
@@ -1041,6 +1070,7 @@ public:
 			varde = faktor * varde + (long long)(time[i] - '0');
 		}
 
+		printf("%s UTCsecs %I64d\n", time, varde);
 		return varde;
 	}
 

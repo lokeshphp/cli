@@ -289,15 +289,15 @@ int main(int argc, char* argv[])
 			//freopen("output.txt", "w", stdout);
 			//cout << str;
 
-			printf("Calling voyageOpt with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
+			printf("Calling OptiNav with input '%s' and output '%s'\n", inputPath.c_str(), dataName.c_str());
 			auto tid0 = std::chrono::high_resolution_clock::now();
 			if(inputPath != "-")
 				voyageOpt(inputPath, dataName);
 
 			auto tid1 = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
-			printf("voyageOpt took %.3lf\n", fp_ms);
-			errlog("voyageOpt took %.3lf\n", fp_ms);
+			printf("OptiNav took %.3lf\n", fp_ms);
+			errlog("OptiNav took %.3lf\n", fp_ms);
 		}
 		else {
 			if (argc == 2) {

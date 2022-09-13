@@ -83,7 +83,16 @@ struct strExtraWeights {
 struct strParams
 {
 	double preferredSpeed_calmWater;
+	double calmWaterSpeedMin;
+	double calmWaterSpeedMax;
+
+	double historicDataFactor_waveHeight;
+	double historicDataFactor_windSpeed;
+	double historicDataFactor_current;
+
 	double maxDistStartToCorridorConnect;
+	double* preferredPathUseChannelSpeed;
+	int* preferredPathUseChannelConsumption;
 
 	int nTimeZones;
 	strTimeZones* timeZone;
@@ -115,6 +124,12 @@ struct strParams
 	double epsilon;
 	int save_weatherNodes;
 	int nShip_speedSettings;
+	int nShip_speedSettingsBase;
+	double commercialSpeed;
+	double commercialFuel;
+	double commercialAllowedVariation;
+	double report_minBearingDiff;
+
 	int speedSetting95MCR;
 	//double *ship_speedSettings;
 	char **ship_speedSettingID;
@@ -339,6 +354,12 @@ struct strNetwork
 	int nAllocCoords;
 	double* xCoord;
 	double* yCoord;
+	int nCoords;
+	double* startKvot;
+	double* endKvot;
+	int* posSplitCoord;
+	int nMaxSplits;
+
 };
 
 struct strPhysicalMap
@@ -490,6 +511,13 @@ struct strValuesNow {
 	double relWaveDir;
 	double forecastType;
 	
+	double currentReal;
+	double currentDirReal;
+	double windReal;
+	double windDirReal;
+	double waveDirReal;
+
+
 	double iceCover_max;
 	double bowSlamming_max;
 	double greenWater_max;
@@ -511,6 +539,9 @@ struct strFunc2 {
 	double* rpmSetting_gerCalmWaterSpeed;
 	double* rpmSetting_gerFuelConsumption_main;
 	double* rpmSetting_gerFuelConsumption_aux;
+	double* rpmSetting_gerCalmWaterSpeedBase;
+	double* rpmSetting_gerFuelConsumption_mainBase;
+	double* rpmSetting_gerFuelConsumption_auxBase;
 	double* varValue;
 	double* varValueAverage;
 
@@ -533,6 +564,7 @@ struct strFunc2 {
 	//double* table_speedDiff;
 
 	double* rpm;
+	double* rpmBase;
 	//strCalmWaterFkn calmWaterSpeed;
 	//strFuelConsumptionFkn fuelConsumption;
 
@@ -811,13 +843,15 @@ void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filtmp);
 
 double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
-double eval_fuelConsumption_main(int speedNr);
-double eval_fuelConsumption_aux(int speedNr);
+//double eval_fuelConsumption_main(int speedNr);
+//double eval_fuelConsumption_aux(int speedNr);
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int arcNr = -1);
+
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 void eval_safety(double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
 int calcWeatherPosAlongChannel(int cNr);
-double eval_calmWaterSpeed(int speedNr);
+double eval_calmWaterSpeed(int speedNr, int arcNr = -1);
 double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
 double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
 
@@ -838,6 +872,8 @@ int identify_startOnChannel(int cNr);
 int checkCoordInBoundingBox(double y, double x, strBoundBox bbox);
 void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x);
 void initBoundingBox(strBoundBox* bbox);
+void setupUsableSpeedSettings(strParams* params);
+int check_translate_xCoord(double* xCoord);
 
 
 
