@@ -16885,7 +16885,9 @@ int voyageOpt(string inputPath, string resultName)
 	auto tid1c = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> fp_ms = tid1c - tid0;
 	errlog("sattUppDijkstra took %lf\n", fp_ms);
-	int nod1, nod2;
+	int nod1, nod2, nSolSaved = 0, endTidsp, i;
+	int* solSavedEndTP;
+	double* solSavedDist;
 	nod1 = 0;
 	nod2 = model.nNoder - 1;
 	bool Reached;
@@ -16896,8 +16898,11 @@ int voyageOpt(string inputPath, string resultName)
 	model.network.endKvot = (double*)malloc((model.network.nMaxSplits + 1) * sizeof(double));
 	model.network.posSplitCoord = (int*)malloc((model.network.nMaxSplits + 1) * sizeof(int));
 
+	solSavedDist = (double*)malloc((nExtraOpt + 1) * sizeof(double));
+	solSavedEndTP = (int*)malloc((nExtraOpt + 1) * sizeof(int));
 
 	string resAltName;
+
 
 	for (int ii = 0; ii < 1 + nExtraOpt; ii++) {
 		if (ii > 0) {
@@ -16916,6 +16921,26 @@ int voyageOpt(string inputPath, string resultName)
 			model.BVtempNodOrder = (int*)malloc(model.nNoder * sizeof(int));
 			//printf("har12\n");
 			dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
+			if (model.nBVArcs < 2) {
+				endTidsp = 0;
+				errlog("ERROR! Too few arcs %d in Dijkstra solution\n", model.nBVArcs);
+			}
+			else
+				endTidsp = model.arc[model.BVArc[model.nBVArcs - 2]].fromTime;
+			for (i = 0; i < nSolSaved; i++) {
+				if (abs(dist - solSavedDist[i]) < 0.000001 && endTidsp == solSavedEndTP[i])
+					break;
+			}
+			if (i < nSolSaved) {
+				errlog("Solution %s same as earlier solution so do not save this one\n", model.params.extraOptWeights[ii - 1].identifierOpt);
+				continue;
+			}
+			solSavedDist[nSolSaved] = dist;
+			solSavedEndTP[nSolSaved] = endTidsp;
+			nSolSaved++;
+
+			printf("dist %.4lf endTidsp %d nSolSaved %d\n", dist, endTidsp, nSolSaved);
+
 			//printf("har13\n");
 			if(ii == 0)
 				sprintf(namn, "%s/%s", resultPath.c_str(), model.params.solutionFileName.c_str());

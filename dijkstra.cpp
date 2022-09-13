@@ -457,6 +457,7 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 			}
 			if (i1 < model->Noder[nod1].nUtNoder) {
 				model->BVArc[i] = model->Noder[nod1].outArcNr[i1];
+				dist += model->arc[model->BVArc[i]].distance;
 			}
 			else {
 				errlog("ERROR! Could not find the arc that connects nodes %d and %d\n", nod1, nod2);
