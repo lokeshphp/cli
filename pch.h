@@ -129,6 +129,7 @@ struct strParams
 	double commercialFuel;
 	double commercialAllowedVariation;
 	double report_minBearingDiff;
+	double report_minBearingDiffWpt;
 
 	int speedSetting95MCR;
 	//double *ship_speedSettings;
@@ -244,6 +245,7 @@ struct strArcInfo
 	double distance;
 	double time;
 	double fuelBase;
+	double emission;
 	double fuel_aux;
 	double fuel_auxEca;
 	double fuel_noEca;
@@ -270,6 +272,7 @@ struct strChannel {
 	double arrivalTime_h;
 	int intArrivalTime_h;
 	int intWaitingTime;
+	char* ID;
 
 	int earliestStartLevel;
 	int latestEndLevel;
@@ -524,6 +527,10 @@ struct strValuesNow {
 	double dynamicStability_max;
 
 	double accumDistance;
+	double totDistance;
+	int Wpt;
+	double bearingOldWpt;
+	double calmWaterSpeed;
 
 };
 
@@ -694,6 +701,8 @@ struct strStorm
 
 	//std::string stormID;
 	int stormNr;
+	char* stormName;
+	double closestPointToRoute;
 
 	double box_minLat;
 	double box_maxLat;
@@ -823,7 +832,7 @@ int char_to_int(char* object);
 int get_data_objects_till_EOL_semkol(char objects[][CHAR_ALLOC], dataStr* data, FILE* FilPek);
 int check_isChannelNodePosAllowed(int nr, int pos);
 int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp = 0);
-double getStormValue(int t, double lat, double lon);
+double getStormValue(int t, double lat, double lon, int saveStormData = 0);
 double getVariableValue(int varNr, int checkPointNr, double tidpkt);
 
 int test2(int a);
@@ -868,14 +877,13 @@ int makeSure_feasibleCoordFranLinje(double* y1, double* x1, double* y2, double* 
 int roundUp(double varde);
 int check_nodeIsWithinPhysicalMapRaster(double lat1, double lon1);
 int setUpUsablePointsInPolygonChannel(int cNr, int pos);
-int identify_startOnChannel(int cNr);
+int identify_startEndOnChannel(int cNr, int startEnd);
 int checkCoordInBoundingBox(double y, double x, strBoundBox bbox);
 void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x);
 void initBoundingBox(strBoundBox* bbox);
 void setupUsableSpeedSettings(strParams* params);
 int check_translate_xCoord(double* xCoord);
-
-
+int fixReportDate(struct tm tmBas, char* namn);
 
 #endif //PCH_H
 

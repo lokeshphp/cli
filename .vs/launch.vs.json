@@ -9,7 +9,7 @@
       "project": "CMakeLists.txt",
       "projectTarget": "OptiNav.exe",
       "comment": "Learn how to configure remote Windows debugging. For more info, see https://docs.microsoft.com/cpp/build/cmake-remote-debugging",
-      "args": [ "--input=testRun/shipping/data/input_stormEW.json --output=testRun/shipping/data/res_stormEW4.json" ],
+      "args": [ "--input=testRun/shipping/data/input_params6e.json --output=testRun/shipping/data/res_params6e.json" ],
       "currentDir": "${workspaceRoot}/../../../weatherTest/"
     },
     {
