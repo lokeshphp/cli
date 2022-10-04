@@ -6,7 +6,6 @@
 			[
 				{
 					"build" : ".",
-					"jsonFile" : "directory-.-RelWithDebInfo-d0094a50bb2071803777.json",
 					"minimumCMakeVersion" : 
 					{
 						"string" : "3.8"
@@ -19,7 +18,7 @@
 					]
 				}
 			],
-			"name" : "RelWithDebInfo",
+			"name" : "Release",
 			"projects" : 
 			[
 				{
@@ -39,7 +38,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "OptiNav::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-OptiNav-RelWithDebInfo-5b9ea8c4055e6cb986ca.json",
+					"jsonFile" : "target-OptiNav-Release-e8edc3efe3b94124002b.json",
 					"name" : "OptiNav",
 					"projectIndex" : 0
 				}
@@ -49,12 +48,12 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization/out/build/x64-debug",
-		"source" : "F:/TNM/GitHub/TrueNorthRouteOptimization/TrueNorthRouteOptimization"
+		"build" : "/home/pafli/.vs/TrueNorthRouteOptimization/out/build/linux-release",
+		"source" : "/home/pafli/.vs/TrueNorthRouteOptimization"
 	},
 	"version" : 
 	{
 		"major" : 2,
-		"minor" : 3
+		"minor" : 0
 	}
 }

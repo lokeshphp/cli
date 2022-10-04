@@ -9,31 +9,34 @@
 #include <unordered_map>
 #include <sstream>
 
-//#include<fstream>
+#include <curl/curl.h>
+
 
  struct testStruct
  {
 	 float varden[90000];
  };
 
-using namespace std;
 
 using std::chrono::duration_cast;
 using std::chrono::milliseconds;
 using std::chrono::system_clock;
 
-string weatherDataPath; 
+std::string weatherDataPath;
 
-string resultPath;
-string LOGFILE;
+std::string resultPath;
+std::string LOGFILE;
+int SKRIV_UT_NOTHING = 1;
 
-int test_OpenTheSameRasterMultipleTimesAndRead(string dataName, int nAnropData)
+//using namespace std;
+
+int test_OpenTheSameRasterMultipleTimesAndRead(std::string dataName, int nAnropData)
 {
 	Raster* map;
 	int nRows, nCols, i, i1, i0, minV, maxV;
 	float*** raster;
 	FILE* filpek;
-	string namn;
+	std::string namn;
 	time_t tid0, tid1;
 
 	time(&tid0);
@@ -127,9 +130,9 @@ int exitKontrollerat(int codeLine, int callType) {
 	return 0;
 }
 
-int setUserParam(char* argv, string* inPath, string* outPath) {
+int setUserParam(char* argv, std::string* inPath, std::string* outPath) {
 	int i, likaPos = -1;
-	string givenData = argv;
+	std::string givenData = argv;
 
 	size_t findData;
 	findData = givenData.find("--input=");
@@ -146,7 +149,7 @@ int setUserParam(char* argv, string* inPath, string* outPath) {
 
 }
 
-void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filpek = NULL) {
+void putStringIntoArrayFloat(std::string strang, float* arrFloat, FILE* filpek = NULL) {
 	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
 	double scale = 10, varde = 0;
 
@@ -183,7 +186,7 @@ void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filpek = NULL
 	}
 }
 
-void putBinaryIntoArrayFloat(string strang, float* arrFloat) {
+void putBinaryIntoArrayFloat(std::string strang, float* arrFloat) {
 	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
 	double scale = 10, varde = 0;
 
@@ -218,13 +221,93 @@ void putBinaryIntoArrayFloat(string strang, float* arrFloat) {
 	}
 }
 
+size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
+	data->append((char*)ptr, size * nmemb);
+	return size * nmemb;
+}
+
+
+void getRequest() {
+/*
+	//curl_global_init(CURL_GLOBAL_DEFAULT);
+	auto curl = curl_easy_init();
+	CURLcode res;
+	if (curl) {
+		curl_easy_setopt(curl, CURLOPT_URL, "https://api.github.com/repos/whoshuu/cpr/contributors?anon=true&key=value");
+		curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L);
+		curl_easy_setopt(curl, CURLOPT_USERPWD, "user:pass");
+		curl_easy_setopt(curl, CURLOPT_USERAGENT, "curl/7.42.0");
+		curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
+		curl_easy_setopt(curl, CURLOPT_TCP_KEEPALIVE, 1L);
+
+		std::string response_string;
+		std::string header_string;
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeFunction);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_string);
+		curl_easy_setopt(curl, CURLOPT_HEADERDATA, &header_string);
+
+		char* url;
+		long response_code;
+		double elapsed;
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+		curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &elapsed);
+		curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &url);
+
+		res = curl_easy_perform(curl);
+		// Check for errors 
+		if (res != CURLE_OK)
+			fprintf(stderr, "curl_easy_perform() failed: %s\n",
+				curl_easy_strerror(res));
+		else {
+			printf("response: '%s'\n", response_string.c_str());
+			printf("header_string: '%s'\n", header_string.c_str());
+
+		}
+		curl_easy_cleanup(curl);
+		curl = NULL;
+	}
+*/
+}
+
+void postRequest(std::string errorMessage) {
+
+	
+	CURL* curl;
+	CURLcode res;
+	curl = curl_easy_init();
+	if (curl) {
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+		curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-dev.tnmservices.ai/api/weather/notify");
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+		struct curl_slist* headers = NULL;
+		headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImU5ODhjNjk3ZTI1NDA4ZWQzNTMzNjdhZmI4NmFkNzUzYmIyOWFlMWU3NzRmMzNiYWRiMDllZmYyOTdiNjE4ZjlmMDZhOTk3YmU3NWY2ZTM3In0.eyJhdWQiOiIxIiwianRpIjoiZTk4OGM2OTdlMjU0MDhlZDM1MzM2N2FmYjg2YWQ3NTNiYjI5YWUxZTc3NGYzM2JhZGIwOWVmZjI5N2I2MThmOWYwNmE5OTdiZTc1ZjZlMzciLCJpYXQiOjE2NDc1MjE4NDksIm5iZiI6MTY0NzUyMTg0OSwiZXhwIjoxNjc5MDU3ODQ5LCJzdWIiOiIyIiwic2NvcGVzIjpbXX0.UVbHJMid3B_5WyzD5VJ9AA1wllGtlr_aK4JRuQ66jRgSmn0fZGzB6D4Cm97sFUSltHp8cOPfQf0jOTC_sjFz0UoFGckSNrbw0GTwue3h9cduvdSZB7rUB7VgR_0XOL6hOiEgPzBOQU4okDwp52KZ5avZDE8x5PWF76qADJ2_835_9AMOq-myBQwFkysFiohJDZo5GS0MabVilJ58tls94KhX2er_8qj2_SpYGVWUVCCy_FYe8XnVrXOSO7j06LYvtpkR5Lspcp4Z9egDGb-NcqB80x9ilNc1CzzClt1DC1yMUUyTo1Z0162A6vxh5vM0Ly0pEX2r3UNfNDWo4-IDH-BB1aczK-43NTE2yafpPqHklj6FvzhdJAHX3Pht3SBFrHT2IG15yFeCj1fhJB9oHTwLnG4BYOmWwO6FohV5DSEolrFTOLWA1MoOrztN-xx4nmrmM6p53awVrRanNMbwnh6X7qPqS668Kd9ZQmR-EkyYHxEvib1YitOH7smnTFzI2P5Jfymf9K2fti3AyzzLGVa3HCKUHSaHU6yMaLk4ZECqRAcxOaYjQZFFJTqWSyY9weozmR1M-GdGFJ1shI9qqDl9utcCPoZ0-IxsJ8hKoVYT2KmqgAd-9vZLAXB2p_Q0twl1riqMyzg1J2W52HNNv8Mcu3WVZOWpLGjHuiy_O9o");
+		headers = curl_slist_append(headers, "Cookie: XSRF-TOKEN=eyJpdiI6IkRyMXNDcmhUcVhMZlFVamZNcysxNHc9PSIsInZhbHVlIjoibkFQcnhPV0RBby9pbVdpNllLdGZld2RJYTZXVjV4UWd6VmJuNERBMTc0T3NoUmhpdVNXcnJGcUZDUFBmQk5lSUFzcWo0QUplVVBsYytxYWRUcWxCbkRjWlF2UUdSbGZFeW1mbEF3ZjcxM3JrY0JqUWtIM2Z5UnI2d1FFWGhTWWIiLCJtYWMiOiJiNGU1NGFhNmYxNzY1ZjMyZjA4NjY0MTQ5Yzc3MzlmZDU4MTU2MTVlODNmZGI5Y2RjZjVkZTIwOWVmZTE0NjcwIiwidGFnIjoiIn0%3D; laravel_session=eyJpdiI6InppTmFLd1R3SE84bjB1d2hLcFg5eVE9PSIsInZhbHVlIjoiajdDNjU4dkpmY2RMVGdacHA0OXdUSGlZTjB4THRNbmFKQ3o5Z3hXL3ZUY1ZScHdwNGpsYXhOVU5sVG9KYUV6QVRNeXBhZTg3UXJXakYyd3I1c1RLUHdtVDNkOWd4MWx3ekpPMHpPOW1VM1J2QlhIcWhsVDNHSzZWclA4ZS9NbnQiLCJtYWMiOiIxNDVhZDNlYmY0YmM3MmNjYjZlNGIyYmFkN2EyMjMyNzVmMDRhNWE4NTg5ZDU2YTYwNWU0ZTkyZTdmOGE1MmMxIiwidGFnIjoiIn0%3D");
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_mime* mime;
+		curl_mimepart* part;
+		mime = curl_mime_init(curl);
+		part = curl_mime_addpart(mime);
+		curl_mime_name(part, "type");
+		curl_mime_data(part, "error", CURL_ZERO_TERMINATED);
+		part = curl_mime_addpart(mime);
+		curl_mime_name(part, "message");
+		curl_mime_data(part, errorMessage.c_str(), CURL_ZERO_TERMINATED);
+		curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+		res = curl_easy_perform(curl);
+		curl_mime_free(mime);
+	}
+	curl_easy_cleanup(curl);
+	
+}
+
 int main(int argc, char* argv[])
 {
-	string dataName, inputPath;
+	std::string dataName, inputPath;
 	int nAnropData, userGivenOK;
 	FILE* filpek;
 
-	testing(2);
+	// testing(2);
 
 	//cout << "Hello CMake. Test 2" << endl;
 	//cout << "nArgc " << argc << endl;
@@ -232,7 +315,6 @@ int main(int argc, char* argv[])
 	LOGFILE = "logfile.txt";
 	//for (int i = 0; i < argc; i++)
 	//	cout << argv[i] << endl;
-
 
 	if (argc == 4) {
 		printf("three arguments read, should only be two\n");
@@ -260,17 +342,22 @@ int main(int argc, char* argv[])
 				if (userGivenOK == 0) {
 					errlog0("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
 					printf("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
+					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!");
 					exitKontrollerat(__LINE__, 0);
 				}
 			}
 			if (inputPath == "-") {
 				errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 				printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+				postRequest("ERROR! Did not manage to identify an input name from " + std::string(argv[1]) + 
+					" or " + std::string(argv[2]) + ". I quit.");
 				exitKontrollerat(__LINE__, 0);
 			}
 			if (dataName == "-") {
 				errlog0("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
 				printf("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
+				postRequest("ERROR! Did not manage to identify a result name from " + std::string(argv[1]) +
+					" or " + std::string(argv[2]) + ". I quit.");
 				exitKontrollerat(__LINE__, 0);
 			}
 			resultPath = splitFilename(dataName);
@@ -280,6 +367,7 @@ int main(int argc, char* argv[])
 					dataName.c_str());
 				printf("ERROR! Could not open file %s for writing. Is it locked or does the directory not exist? I quit.\n",
 					dataName.c_str());
+				postRequest("ERROR! Could not open file " + dataName + " for writing.Is it locked or does the directory not exist ? I quit.");
 				exitKontrollerat(__LINE__, 0);
 			}
 			fprintf(filpek, "{\nerror\n}\n");
@@ -303,26 +391,34 @@ int main(int argc, char* argv[])
 			if (argc == 2) {
 				int i = 1;
 				LOGFILE = "logfile_setRedisKeys.txt";
+				SKRIV_UT_NOTHING = 0;
 				inputPath = "-";
 				userGivenOK = setUserParam(argv[i], &inputPath, &dataName);
 				if (userGivenOK == 0) {
 					errlog0("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
 					printf("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
+					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!");
 					exitKontrollerat(__LINE__, 0);
 				}
 				if (inputPath == "-") {
 					errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 					printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+					postRequest("ERROR2! Did not manage to identify an input name from " + std::string(argv[1]) +
+						" or " + std::string(argv[2]) + ". I quit.");
 					exitKontrollerat(__LINE__, 0);
 				}
 				printf("input file for redis key generation '%s'\n", inputPath.c_str());
 				auto tid0 = std::chrono::high_resolution_clock::now();
 				int returnVal = 1;
-				if (inputPath != "-")
+				if (inputPath != "-") {
+					returnVal = saveTablesToSQLite(inputPath);
 					returnVal = redisSetKeys(inputPath);
+				}
 				if (returnVal != 0) {
 					errlog("ERROR! Failed to set redis keys for weather\n");
 					printf("ERROR! Failed to set redis keys for weather\n");
+					postRequest("ERROR! Failed to set redis keys for weather");
+					exitKontrollerat(__LINE__, 0);
 				}
 				else
 					printf("Setting of all the keys done\n");
@@ -336,6 +432,8 @@ int main(int argc, char* argv[])
 			else {
 				LOGFILE = "logfile_error.txt";
 				printf("%d arguments read, should be two\n", argc);
+				postRequest("wrong number of arguments calling OptiNav");
+
 			}
 		}
 	}

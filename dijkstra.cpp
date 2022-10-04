@@ -120,6 +120,9 @@ int SattUppDijkstraNatverk3(strModel *model) {
 
 					length = 10000000000000000;
 				}
+				//printf("arcNr %d franTillNoder %d %d cost %I64d\n",
+				//	nBagarNatv, tail, head, length);
+				
 				//if (i== 10145 &&head == 11863)
 				//	errlog("error: arc from nod %d to %d cost %I64d\n", i, head, length);
 
@@ -436,14 +439,19 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 		model->Dijkstra.node_min + NodB0;
 
 	for (newNode = sink; newNode != source; newNode = newNode->parent) {
+		// NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
 		NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
+		//printf("uppnystning baklanges nNoder %d nodNu %d objCost %I64d\n", nNoder, NodNu - 1,
+		//	newNode->dist);
 		if (nNoder >= model->nNoder)
 			errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
 		model->BVtempNodOrder[nNoder] = NodNu - 1;
 		//	  PFerrlog(0,"(pos%d)n%d(p%d):c%I64d ", nNoder, NodNu-1, nNoder, newNode->dist);
 		nNoder++;
 
-	}
+	} 
+	// nNoder--;
+
 	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
 	model->BVtempNodOrder[nNoder] = NodNu - 1;
 	if (nNoder >= 0) {
@@ -457,7 +465,12 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 			}
 			if (i1 < model->Noder[nod1].nUtNoder) {
 				model->BVArc[i] = model->Noder[nod1].outArcNr[i1];
+				//printf("arcPos %d arcNr %d distArc %.2lf cost %I64d noder %d %d\n", i, model->BVArc[i],
+				//	model->arc[model->BVArc[i]].distance,
+				//	(long long)(model->Noder[nod1].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK),
+				//	nod1, nod2);
 				dist += model->arc[model->BVArc[i]].distance;
+				//printf("pos %d arcNr %d dist %.2lf\n", i, model->BVArc[i], dist);
 			}
 			else {
 				errlog("ERROR! Could not find the arc that connects nodes %d and %d\n", nod1, nod2);
@@ -470,6 +483,18 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 	else {
 		*Cost = 9999999;
 	}
+
+	//int pos = 0;
+	//for (newNode = source; ; newNode++) {
+	//	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min - 1;
+	//	printf("pos %d NodNu %d objCost %I64d\n", pos, NodNu,
+	//		newNode->dist);
+	//	if (nNoder >= model->nNoder)
+	//		errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
+	//	if (newNode == sink)
+	//		break;
+	//	pos++;
+	//}
 	return dist;
 }
 

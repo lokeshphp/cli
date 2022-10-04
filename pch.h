@@ -14,8 +14,10 @@
 #include "sp.h"
 #include <chrono>
 
-using namespace erkir;
+#include <string>
 
+using namespace erkir;
+//using namespace std;
 
 
 // TODO: add headers that you want to pre-compile here
@@ -532,6 +534,10 @@ struct strValuesNow {
 	double bearingOldWpt;
 	double calmWaterSpeed;
 
+	double maxDiffTime;
+	double minDiffTime;
+	int maxDiffTime_level;
+	int minDiffTime_level;
 };
 
 struct strTables {
@@ -719,8 +725,22 @@ struct strStatus {
 	int weatherHistoryOpenFile_fail;
 };
 
+struct strDBTableInfo {
+	double epochCount;
+	char* tableID;
+	char* textFileName;
+};
+
+struct strSQLiteTables {
+	int nAlloc;
+	int nTables;
+	strDBTableInfo* table;
+};
 struct strModel
 {
+	strSQLiteTables* sqliteTables;
+	double tmpEpochCount;
+
 	double weather_timeIntervall_h;
 	double weather_inv_timeIntervall_h;
 	int weather_nTimeIntervals_maxValue;
@@ -817,7 +837,7 @@ int errlog(const char* format, ...);
 int errlog0(const char* format, ...);
 int reset_errlog();
 char *str_alloc_cpy(const char *data);
-char* str_alloc_cpyString(string data);
+char* str_alloc_cpyString(std::string data);
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
 int SattUppDijkstraNatverk3(strModel *model);
@@ -838,17 +858,17 @@ double getVariableValue(int varNr, int checkPointNr, double tidpkt);
 int test2(int a);
 int testing(int a);
 
-int voyageOpt_old(string inputPath);
-int voyageOpt(string inputName, string resultName);
+int voyageOpt_old(std::string inputPath);
+int voyageOpt(std::string inputName, std::string resultName);
 int exitKontrollerat(int codeLine, int callType = 1);
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol);
-string splitFilename(string namn, int alt = 0);
+std::string splitFilename(std::string namn, int alt = 0);
 int fixReadableDate(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 
 int redisSetKeys(std::string inputPath);
-void putStringIntoArrayFloat(string strang, float* arrFloat, FILE* filtmp);
+void putStringIntoArrayFloat(std::string strang, float* arrFloat, FILE* filtmp);
 
 double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double currentDir, double currentSpeed);
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
@@ -884,6 +904,9 @@ void initBoundingBox(strBoundBox* bbox);
 void setupUsableSpeedSettings(strParams* params);
 int check_translate_xCoord(double* xCoord);
 int fixReportDate(struct tm tmBas, char* namn);
+void postRequest(std::string errorMessage);
+int updateSQLiteAllTablesInfo(int type, int tablePos, int modified);
+int saveTablesToSQLite(std::string inputPath);
 
 #endif //PCH_H
 

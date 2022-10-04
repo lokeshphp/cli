@@ -13,14 +13,22 @@ add_executable (OptiNav "weatherTest.cpp" "weatherTest.h" "voyageOpt.cpp" "test.
 
 # TODO: Add tests and install targets if needed.
 
-MESSAGE("WIN32: " ${WIN32})
+MESSAGE("WIN32: " ${WIN32}) 
 MESSAGE("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION ": ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})
 MESSAGE("CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM ": ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION_MAXIMUM})
 
+#set(CMAKE_BUILD_TYPE, "DEBUG")
 MESSAGE("buildType: " ${CMAKE_BUILD_TYPE})
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -O0")
+#set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
+#set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g -Od")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zo")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zo")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++fs")
+
+MESSAGE("CMAKE_C_FLAGS_DEBUG: " ${CMAKE_C_FLAGS_DEBUG})
+MESSAGE("CMAKE_CXX_FLAGS_DEBUG: " ${CMAKE_CXX_FLAGS_DEBUG}) 
 
 if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION) 
 
@@ -29,7 +37,7 @@ if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
 	# include_directories(C:\Users\User\zlib_tmp\zlib-1.2.12\build\Release)  
 	find_library(MY_LIB legacy_stdio_definitions.lib)
 	if(NOT MY_LIB)
-		message(FATAL_ERROR "legacy... not found")
+		message(FATAL_ERROR "legacy... not found") 
 	endif()
 	find_package(legacy_stdio_definitions.lib REQUIRED)
 	link_libraries(legacy_stdio_definitions.lib) 
@@ -67,6 +75,13 @@ else()
 		set(REDIS_PLUS_PLUS_LIB "F:\\TNM\\redis\\redis-plus-plus-master\\out\\build\\x64-Release\\redis++.lib")
 		#find_library(REDIS_PLUS_PLUS_LIB redis++) 
 		target_link_libraries(OptiNav ${REDIS_PLUS_PLUS_LIB})	
+
+		MESSAGE("WIN32:" ${WIN32})
+		#set(CURL_HEADER "F:\\TNM\\curl\\curl\\builds\\libcurl-vc-x64-debug-dll-ipv6-sspi-schannel\\include")	
+		#target_include_directories(OptiNav PUBLIC ${CURL_HEADER})
+		set(CURL_LIB "F:\\TNM\\curl\\curl\\builds\\libcurl-vc-x64-debug-dll-ipv6-sspi-schannel\\lib\\libcurl_debug.lib")
+		target_link_libraries(OptiNav ${CURL_LIB})
+
 	endif()
 	
 	if(NOT WIN32)
@@ -110,11 +125,32 @@ else()
 
 		# <------------ add redis-plus-plus dependency -------------->
 		# NOTE: this should be *sw* NOT *redis++*
-		find_path(REDIS_PLUS_PLUS_HEADER sw)
+		find_path(REDIS_PLUS_PLUS_HEADER sw) 
 		target_include_directories(OptiNav PUBLIC ${REDIS_PLUS_PLUS_HEADER})
 
 		find_library(REDIS_PLUS_PLUS_LIB redis++)
 		target_link_libraries(OptiNav ${REDIS_PLUS_PLUS_LIB})	
+
+		
+		pkg_check_modules(CURL curl)
+		MESSAGE("CURL_FOUND:" ${CURL_FOUND})
+		MESSAGE("CURL_VERSION:" ${CURL_VERSION})
+		MESSAGE("CURL_LIBRARIES:" ${CURL_LIBRARIES})
+		MESSAGE("CURL_INCLUDE_DIRS:" ${CURL_INCLUDE_DIRS})
+		MESSAGE("CURL_LIBRARY_DIRS:" ${CURL_LIBRARY_DIRS})	
+		INCLUDE_DIRECTORIES(${CURL_INCLUDE_DIRS})
+		LINK_DIRECTORIES(${CURL_LIBRARY_DIRS})
+
+		find_path(CURL_HEADER curl)
+		target_include_directories(OptiNav PUBLIC ${CURL_HEADER})
+
+		find_library(CURL_LIB curl)
+		target_link_libraries(OptiNav ${CURL_LIB})
+
+		# enable pkg_check_modules macro
+		 include(FindPkgConfig)
+		pkg_check_modules(SQLITE sqlite3)
+
 	endif()
 
 	include_directories("/usr/include/gdal") 
@@ -123,5 +159,5 @@ else()
 	find_package( ZLIB )
 	include_directories( ${ZLIB_INCLUDE_DIRS} )
 	#target_link_libraries(weatherTest ${ZLIB_LIBRARY} ${GDAL_LIBRARY} ${MY_LIB})  
-	target_link_libraries(OptiNav ${ZLIB_LIBRARY} ${GDAL_LIBRARY} ${REDIS_PLUS_PLUS_LIB})  
+	target_link_libraries(OptiNav ${ZLIB_LIBRARY} ${GDAL_LIBRARY} ${REDIS_PLUS_PLUS_LIB} ${SQLITE_LIBRARIES})  
 endif()

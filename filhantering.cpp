@@ -17,9 +17,12 @@ struct dataStr
 };
 
 #endif // FILHANTERING_CPP
+#include <string>
+//using namespace std;
 
-extern string resultPath;
-extern string LOGFILE;
+extern std::string resultPath;
+extern std::string LOGFILE;
+extern int SKRIV_UT_NOTHING;
 
 #include "pch.h"
 
@@ -556,7 +559,7 @@ char* str_alloc_cpy(const char* data)
 	return dataAdd;
 }
 
-char *str_alloc_cpyString(string data)
+char *str_alloc_cpyString(std::string data)
 {
 	int i;
 	char *dataAdd;
@@ -846,10 +849,13 @@ int char_to_intSpec(char *object)
 
 int reset_errlog()
 {
-	FILE *log;
-	string namn = resultPath + "/" + LOGFILE;// "/logfile.txt";
-	log = fopen(namn.c_str(), "w");
-	fclose(log);
+	if (SKRIV_UT_NOTHING == 0) {
+		FILE* log;
+		std::string namn = resultPath + "/" + LOGFILE;// "/logfile.txt";
+		log = fopen(namn.c_str(), "w");
+		fclose(log);
+	}
+
 	return 0;
 }
 
@@ -875,22 +881,23 @@ int errlog0(const char* format, ...)
 
 int errlog (const char *format, ...)
 {
-  va_list args;
-  string namn;
+	if (SKRIV_UT_NOTHING == 0) {
+		va_list args;
+		std::string namn;
 
-  FILE *log;
-  namn = resultPath + "/" + LOGFILE; // "/logfile.txt";
-  //printf("Skriver till %s\n", namn.c_str());
-  log = fopen (namn.c_str(), "a+");
+		FILE* log;
+		namn = resultPath + "/" + LOGFILE; // "/logfile.txt";
+		//printf("Skriver till %s\n", namn.c_str());
+		log = fopen(namn.c_str(), "a+");
 
-  if (log == NULL)
-    return -1;
+		if (log == NULL)
+			return -1;
 
-  va_start (args, format);
-  vfprintf (log, format, args);
-  va_end (args);
-  fclose (log);
-
+		va_start(args, format);
+		vfprintf(log, format, args);
+		va_end(args);
+		fclose(log);
+	}
   return 0;
 }
 

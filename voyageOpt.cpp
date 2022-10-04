@@ -16,7 +16,14 @@
 #include <sstream>
 #include <time.h>
 
-// #include <iomanip> // needed if you use get_time
+#include <sqlite3.h>
+//#include <sstream>
+//#include<iomanip>
+
+#ifdef WIN32
+#include <filesystem>
+double M_PI_2 = M_PI / 2;
+#endif
 
 using json = nlohmann::json;
 
@@ -25,8 +32,10 @@ using std::chrono::milliseconds;
 using std::chrono::system_clock;
 
 strModel model;
-extern string resultPath;
+extern std::string resultPath;
 extern long long MAXVARDE_NATVERK;
+extern int SKRIV_UT_NOTHING;
+
 int printGlobal = 0;
 int globalCount1 = 0;
 int globalCount2 = 0;
@@ -37,9 +46,6 @@ int globalCount12 = 0;
 int globalFirst = 1;
 
 
-#ifdef WIN32
-double M_PI_2 = M_PI / 2;
-#endif
 double M_PI2 = M_PI * 2;
 double LOOKUP_COS_STEP_INV;
 double cos_table[20001];
@@ -81,8 +87,8 @@ void 	initModelStatusValues() {
 	model.status.weatherHistoryOpenFile_fail = 0;
 }
 
-string splitFilename(string namn, int alt) {
-	string resultat;
+std::string splitFilename(std::string namn, int alt) {
+	std::string resultat;
 	size_t found;
 	found = namn.find_last_of("/\\");
 	if (alt == 0)
@@ -100,24 +106,24 @@ int callRaster()
 
 	// dump out array (band) dimensions of Geotiff data  
 	int* dims = raster.GetDimensions();
-	cout << dims[0] << " " << dims[1] << " " << dims[2] << endl;
+	std::cout << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
 
 	// output a value from 2D array  
 	//float** rasterBandData = raster.GetRasterBand(1);
 	float* rasterBandData;
 	rasterBandData = (float*)malloc(raster.Get_nRows() * raster.Get_nCols() * sizeof(float));
 	raster.GetRasterBand_ny(1, rasterBandData);
-	cout << "value at row 10, column 30: " << rasterBandData[30 + raster.Get_nCols() * 10] << endl;
+	std::cout << "value at row 10, column 30: " << rasterBandData[30 + raster.Get_nCols() * 10] << std::endl;
 
 	// call other methods, like get the name of the Geotiff
 	// passed-in, its length, and its projection string 
-	cout << raster.GetFileName() << endl;
-	cout << strlen(raster.GetFileName()) << endl;
-	cout << raster.GetProjection() << endl;
+	std::cout << raster.GetFileName() << std::endl;
+	std::cout << strlen(raster.GetFileName()) << std::endl;
+	std::cout << raster.GetProjection() << std::endl;
 
 	// dump out the Geotransform (6 element array of doubles) 
 	double* gt = raster.GetGeoTransform();
-	cout << gt[0] << " " << gt[1] << " " << gt[2] << " " << gt[3] << " " << gt[4] << " " << gt[5] << endl;
+	std::cout << gt[0] << " " << gt[1] << " " << gt[2] << " " << gt[3] << " " << gt[4] << " " << gt[5] << std::endl;
 
 	// dump out Geotiff band NoData value (often it is -9999.0)
 	//cout << "No data value: " << raster.GetNoDataValue() << endl;
@@ -1943,6 +1949,8 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 			//uVessel = sin(model.weatherFunctions.vesselBearing[i] * M_PI / 180);
 			//vVessel = cos(model.weatherFunctions.vesselBearing[i] * M_PI / 180);
 
+			//if (arcNr == 2578755)
+			//	arcNr = arcNr;
 			stormVarde = getStormValue((int)(tidTot), model.weatherFunctions.point_lat[i], model.weatherFunctions.point_lon[i], 1);// model.weatherFunctions.point[i]);
 			if (stormVarde > model.functions.valuesNow.worstStormValue) {
 				if (stormVarde > model.arc[arcNr].safetyHurricane)
@@ -2031,6 +2039,15 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 				// speedDiffWind = lookup_speedDiffWindTable(calmWaterSpeed, rel_windSpeed, rel_windDir);
 				speedDiffWind = lookup_speedDiffWindTable(baseGroundSpeed, rel_windSpeed, rel_windDir);
 				speedDiffWave = lookup_speedDiffWaveTable(calmWaterSpeed, waveHeight, wavePeriod, rel_waveDir);
+
+				if (model.arc[arcNr].fromLevel == 76)
+					printf("levels %d %d nodPos %d %d startKvot %.3lf wind\nshipSpeed_knots %lf\nwind_RWS_m_s %lf\nWind_RWiA_degrees %lf\nWind_WF_kts %lf\n"
+						"wave\nshipSpeed_knots %lf\nwaveHeight_m %lf\nwavePeriod_s %lf\nwave_RWaA_degrees %lf\nwave_WF_kts %lf\n",
+						model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, model.arc[arcNr].fromPointNr, model.arc[arcNr].toPointNr, startKvot,
+						baseGroundSpeed / model.params.knots_to_km, rel_windSpeed / 3.6, rel_windDir * 180 / M_PI,
+						speedDiffWind / model.params.knots_to_km,
+						calmWaterSpeed / model.params.knots_to_km, waveHeight, wavePeriod, rel_waveDir * 180 / M_PI,
+						speedDiffWave / model.params.knots_to_km);
 				speedDiffWindWave = speedDiffWind + speedDiffWave;
 				// speedOverGround = baseGroundSpeed * model.params.knots_to_km - speedDiffWindWave; // in km/h
 				speedOverGround = baseGroundSpeed - speedDiffWindWave; // in km/h
@@ -2470,7 +2487,7 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 	int lev1, lev2, pointNr1, pointNr2, timmar, minuter, sekunder;
 	int nChangeBearingBetween, nChange_lessXdegrees;
 	struct tm tmBas;
-	double x, y, bearing, speedOnGround, fuel_day, diff;
+	double x, y, bearing, speedOnGround, fuel_day, diff, diffTime;
 	spherical::Point p1, p2, p3;
 
 	if (posReport > 0)
@@ -2585,6 +2602,8 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 
 	double timeOld = *timeExact;
 	for (ii = 0; ii < nSplit; ii++) {
+		if (ii == 4)
+			ii = ii;
 		startKvot = model.network.startKvot[ii];
 		endKvot = model.network.endKvot[ii];
 		//printf("split %d startKvot %.3lf endKvot %.3lf\n", ii, startKvot, endKvot);
@@ -2621,9 +2640,20 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 
 		fprintf(filpekG, "    \"arcStart\":%d,\n", model.arc[arcNr].fromTime);
 		fprintf(filpekG, "    \"accumTimeStart_h\":%.2lf,\n", timeOld);
-		if (model.arc[arcNr].fromLevel >= 0 && ii == 0)
-			fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":%.2lf,\n",
-				timeOld - model.network.physicalLev[model.arc[arcNr].fromLevel].midTimeArrive);
+		if (model.arc[arcNr].fromLevel >= 0 && ii == 0) {
+			diffTime = timeOld - model.network.physicalLev[model.arc[arcNr].fromLevel].midTimeArrive;
+			fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":%.2lf,\n", diffTime);
+			if (diffTime > model.functions.valuesNow.maxDiffTime) {
+				model.functions.valuesNow.maxDiffTime = diffTime;
+				model.functions.valuesNow.maxDiffTime_level = model.arc[arcNr].fromLevel;
+			}
+			else {
+				if (diffTime < model.functions.valuesNow.minDiffTime) {
+					model.functions.valuesNow.minDiffTime = diffTime;
+					model.functions.valuesNow.minDiffTime_level = model.arc[arcNr].fromLevel;
+				}
+			}
+		}
 		else
 			fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":\"-\", \n");
 		fprintf(filpekG, "    \"level to\":%d,\n", model.arc[arcNr].toLevel);
@@ -2828,22 +2858,25 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 	y = (double*)malloc(nAlloc * sizeof(double));
 	nSpeedSettingUsed = (int*)calloc(model.params.nShip_speedSettings, sizeof(int));
 
-	FILE* filPek, * filPek2;
+	FILE* filPek = NULL, * filPek2 = NULL;
 	//std::string solName;
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
 	//sprintf(namn, "%s.csv", filename);
-	sprintf(namn, "%s/resSol_%s.csv", model.params.resultPath.c_str(), namnSol);
-	filPek = fopen(namn, "w");
-	sprintf(namn, "%s/solPath_%s.txt", model.params.resultPath.c_str(), namnSol);
+	if (SKRIV_UT_NOTHING == 0) {
+		sprintf(namn, "%s/resSol_%s.csv", model.params.resultPath.c_str(), namnSol);
+		filPek = fopen(namn, "w");
+		sprintf(namn, "%s/solPath_%s.txt", model.params.resultPath.c_str(), namnSol);
+		filPek2 = fopen(namn, "w");
+	}
 	std::string linePath = "";
-	filPek2 = fopen(namn, "w");
 	if (resAlt == 0) {
 		filpekG = fopen(filename.c_str(), "w"); // "result_json.json", "w");
 		if (filpekG == NULL)
 		{
 			printf("Faile to open file %s for writing.\n", namn);
 			errlog("Faile to open file %s for writing.\n", namn);
+			postRequest("Faile to open file " + std::string(namn) + " for writing.");
 			exitKontrollerat(__LINE__);
 		}
 		//fprintf(filpekG, "{\n\"solutions\":[\n");
@@ -2867,10 +2900,11 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 		fprintf(filpekG, ",\n");
 	}
 	
-	fprintf(filPek2, "level;nodPos;speedSetting;arcNr(for_information_only);nod1(info);nod2(info)\n");
-
-	fprintf(filPek, "arcPos\tspeedSetting\tdistance\ttime\tfuelBase\temission\tsafetyBase\tchannelCost\tweightCost\tfromLevel\tfromPointNr\tfromTimeInterval\t"
-		"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\tnodNr1\tnodNr2\n");
+	if (SKRIV_UT_NOTHING == 0) {
+		fprintf(filPek2, "level;nodPos;speedSetting;arcNr(for_information_only);nod1(info);nod2(info)\n");
+		fprintf(filPek, "arcPos\tspeedSetting\tdistance\ttime\tfuelBase\temission\tsafetyBase\tchannelCost\tweightCost\tfromLevel\tfromPointNr\tfromTimeInterval\t"
+			"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\tnodNr1\tnodNr2\n");
+	}
 
 	double time = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0, emission = 0;
 	double fuel_aux = 0, fuel_auxEca = 0, fuel_eca = 0, fuel_noEca = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
@@ -2888,6 +2922,10 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 	model.functions.valuesNow.bearingOldWpt = 1000;
 	model.functions.valuesNow.accumDistance = 0;
 	model.functions.valuesNow.totDistance = 0;
+
+	model.functions.valuesNow.maxDiffTime = -1e10;
+	model.functions.valuesNow.minDiffTime = 1e10;
+
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++) {
 		arcNr = model.BVArc[iPos];
 		model.functions.valuesNow.totDistance += model.arc[arcNr].distance;
@@ -2915,10 +2953,10 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 		if (nTp == 0)
 			nTp = 1;
 		distanceTp = 1000.0 * model.arc[arcNr].distance / nTp;
-		printf("arcNr %d distance %.3lf nTP %d distanceTP %.2lf fromLevPoint %d %d toLevPoint %d %d\n", 
-			arcNr, model.arc[arcNr].distance, nTp, distanceTp,
-			model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
-			model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr);
+		//printf("arcNr %d distance %.3lf nTP %d distanceTP %.2lf fromLevPoint %d %d toLevPoint %d %d\n", 
+		//	arcNr, model.arc[arcNr].distance, nTp, distanceTp,
+		//	model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
+		//	model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr);
 		nAdded = 0;
 
 		//if (iPos == 4)
@@ -3291,17 +3329,31 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 	}
 	fprintf(filpekG, "], ");
 
-	fprintf(filpekG, "\"totalDistance_km\": %.1lf, \"totalTime_h\": %.1lf}}\n", distance, time);
+	if (model.functions.valuesNow.maxDiffTime > 0) {
+		fprintf(filpekG, "\"maxLateMidTimeArrive_h\": %.1lf, \"level_maxLateMidTimeArrive\": %d,\n",
+			model.functions.valuesNow.maxDiffTime, model.functions.valuesNow.maxDiffTime_level);
+		errlog("maxLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.maxDiffTime,
+			model.functions.valuesNow.maxDiffTime_level, model.network.nPhysicalLevels);
+	}
+	if (model.functions.valuesNow.minDiffTime < 0) {
+		fprintf(filpekG, "\"maxEarlyMidTimeArrive_h\": %.1lf, \"level_maxEarlyMidTimeArrive\": %d,\n",
+			model.functions.valuesNow.minDiffTime, model.functions.valuesNow.minDiffTime_level);
+		errlog("minLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.minDiffTime,
+			model.functions.valuesNow.minDiffTime_level, model.network.nPhysicalLevels);
+	}
+	fprintf(filpekG, "\"totalDistance_kts\": %.1lf, \"totalTime_h\": %.1lf}}\n", distance / model.params.knots_to_km, time);
 
 	//fprintf(filpekG, "]\n}");
 	
 	fclose(filpekG);
 
-	fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
-		distance, time, fuel, emission, safety, channelCost, totCost);
-	fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
-		model.params.weightTime, 1.0,
-		model.params.weightSafety.base);
+	if (SKRIV_UT_NOTHING == 0) {
+		fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
+			distance, time, fuel, emission, safety, channelCost, totCost);
+		fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
+			model.params.weightTime, 1.0,
+			model.params.weightSafety.base);
+	}
 
 	//printf("\nobj_weights\ntime\tfuel\tsafety\n%.2lf\t%.2lf\t%.2lf\n",
 	//	model.params.weightTime, model.params.weightFuel.base,
@@ -3326,18 +3378,19 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 		safety, model.params.weightSafety.base * safety, 
 		channelCost); 
 
-	for (i = 0; i < model.params.nShip_speedSettings; i++) {
-		if (nSpeedSettingUsed[i] > 0) {
-			fprintf(filPek, "used rpm_setting %.2lf %d times\n", model.functions.rpm[i], nSpeedSettingUsed[i]);
-			printf("used rpm_setting %.2lf %d times\n", model.functions.rpm[i], nSpeedSettingUsed[i]);
+	if (SKRIV_UT_NOTHING == 0) {
+		for (i = 0; i < model.params.nShip_speedSettings; i++) {
+			if (nSpeedSettingUsed[i] > 0) {
+				fprintf(filPek, "used rpm_setting %.2lf %d times\n", model.functions.rpm[i], nSpeedSettingUsed[i]);
+				printf("used rpm_setting %.2lf %d times\n", model.functions.rpm[i], nSpeedSettingUsed[i]);
+			}
 		}
+		fprintf(filPek, "The speed settings are changed %d times during the trip\n", nSpeedChanges);
+		printf("The speed settings are changed %d times during the trip\n", nSpeedChanges);
+
+		fclose(filPek);
+		fclose(filPek2);
 	}
-	fprintf(filPek, "The speed settings are changed %d times during the trip\n", nSpeedChanges);
-	printf("The speed settings are changed %d times during the trip\n", nSpeedChanges);
-
-	fclose(filPek);
-	fclose(filPek2);
-
 	return 0;
 }
 
@@ -3601,17 +3654,17 @@ int getManadDagFranUTCSeconds(long long seconds, int* dag) {
 	return tmBas->tm_mon + 1;
 }
 
-string stringDateFromUTCSeconds(long long seconds) {
+std::string stringDateFromUTCSeconds(long long seconds) {
 	time_t sec = seconds;
 	struct tm* tmBas = gmtime(&sec);
 	mktime(tmBas);
 	char date_string[100];
 	strftime(date_string, 50, "%B %d, %Y %T", tmBas);
-	string resultat = date_string;
+	std::string resultat = date_string;
 	return resultat;
 }
 
-int writeSolutionToJson_dummy(string resultName)
+int writeSolutionToJson_dummy(std::string resultName)
 {
 	int i;
 	int nSpeedChanges = 0;
@@ -4454,6 +4507,65 @@ int identifyClosestPointInPhysicalLevel(int level, double x, double y) {
 	return minPos;
 }
 
+double getDiff_angles(double a1, double a2) {
+	double diff = a2 - a1;
+	if (diff < -M_PI)
+		diff += M_PI2;
+	if (diff > M_PI)
+		diff -= M_PI2;
+	return diff;
+}
+
+int getConnectDirectionStartEndCorridor_ok(int cNr, int alt) {
+	int nCoords, returnLevel, i;
+	double x, y, x1, y1, x2, y2, channelDir, distKrav = 10;
+	double connectDir, diffAngle, angleKrav = M_PI * 2 / 3.0;
+
+	if (alt == 0) {
+		x1 = model.network.channel[cNr].point_x[0];
+		y1 = model.network.channel[cNr].point_y[0];
+		x = model.network.physicalLev[0].point_x[0];
+		y = model.network.physicalLev[0].point_y[0];
+
+		for (i = 1; i < model.network.channel[cNr].nPoints - 1; i++) {
+			if (model.network.channel[cNr].distanceFromStart[i] > distKrav)
+				break;
+		}
+		x2 = model.network.channel[cNr].point_x[i];
+		y2 = model.network.channel[cNr].point_y[i];
+		channelDir = atan2(y2 - y1, x2 - x1);
+		connectDir = atan2(y1 - y, x1 - x);
+		diffAngle = getDiff_angles(channelDir, connectDir);
+		if (abs(diffAngle) > angleKrav)
+			returnLevel = -1;
+		else
+			returnLevel = 1;
+	}
+	else {
+		nCoords = model.network.channel[cNr].nPoints;
+		x2 = model.network.channel[cNr].point_x[nCoords - 1];
+		y2 = model.network.channel[cNr].point_y[nCoords - 1];
+		x = model.network.physicalLev[model.network.nPhysicalLevels - 1].point_x[0];
+		y = model.network.physicalLev[model.network.nPhysicalLevels - 1].point_y[0];
+
+		for (i = model.network.channel[cNr].nPoints - 2; i > 0; i--) {
+			if (model.network.channel[cNr].distanceFromStart[nCoords - 1] - model.network.channel[cNr].distanceFromStart[i] > distKrav)
+				break;
+		}
+		x1 = model.network.channel[cNr].point_x[i];
+		y1 = model.network.channel[cNr].point_y[i];
+		channelDir = atan2(y2 - y1, x2 - x1);
+		connectDir = atan2(y - y2, x - x2);
+		diffAngle = getDiff_angles(channelDir, connectDir);
+		if (abs(diffAngle) > angleKrav)
+			returnLevel = -1;
+		else
+			returnLevel = 1;
+	}
+
+	return returnLevel;
+}
+
 int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 	int i, posMid, firstPos = -1, lastPos = -1, bast = -1, bast2 = -1;
 	int bastLevel, returnLevel, startPoint, bastPoint, nCoords;
@@ -4482,9 +4594,9 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 		x1 = model.network.physicalLev[i].point_x[posMid];
 		check_translate_xCoord(&x1);
 		dist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[i].point_y[posMid], x1);
-		printf("in getBastPhysLevelToConnectToChannel cNr %d alt %d xy %.3lf %.3lf %.3lf %.3lf i %d dist %.3lf maxDev %.3lf\n",
-			cNr, alt, x, y, x1, model.network.physicalLev[i].point_y[posMid],
-			i, dist, model.params.maxDeviationPreferred_km);
+		//printf("in getBastPhysLevelToConnectToChannel cNr %d alt %d xy %.3lf %.3lf %.3lf %.3lf i %d dist %.3lf maxDev %.3lf\n",
+		//	cNr, alt, x, y, x1, model.network.physicalLev[i].point_y[posMid],
+		//	i, dist, model.params.maxDeviationPreferred_km);
 		if (dist <= model.params.maxDeviationPreferred_km) {
 			if (firstPos == -1)
 				firstPos = i;
@@ -4535,19 +4647,29 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 		}
 		else
 			bastLevel = bast2;
+		if (bastLevel == 0) {
+			if(getConnectDirectionStartEndCorridor_ok(cNr, alt) == -1)
+				bastLevel = -1;
+			// sets the bastLevel to -1 if the direction is completely wrong
+		}
 		model.network.channel[cNr].bastStartLevel = bastLevel;
 		returnLevel = firstPos;
 	}
 	else { // end of channel
-		printf("-------bast %d bast2 %d\n", bast, bast2);
+		//printf("-------bast %d bast2 %d\n", bast, bast2);
 		if (bast2 > bast)
 			bastLevel = bast2;
 		else
 			bastLevel = bast;
 		if (bastLevel > model.network.nPhysicalLevels - 1)
 			bastLevel = model.network.nPhysicalLevels - 1;
+		if (bastLevel == model.network.nPhysicalLevels - 1) {
+			if (getConnectDirectionStartEndCorridor_ok(cNr, alt) == -1)
+				bastLevel = -1;
+			// sets the bastLevel to -1 if the direction is completely wrong
+		}
 		model.network.channel[cNr].bastEndLevel = bastLevel;
-		printf("-------bastLevel %d\n", bastLevel);
+		//printf("-------bastLevel %d\n", bastLevel);
 		returnLevel = lastPos;
 	}
 	//printf("corridor %d alt %d. bast %d bast2 %d bastLevel %d returnLevel %d\n", cNr, alt, bast, bast2, bastLevel, returnLevel);
@@ -4723,7 +4845,7 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 
 	// if startpunkt within corridor and dist < x to corridor => cut the corridors length, start at a position after startpunkt
 	if (startEnd == 0) {
-		x = model.network.physicalLev[0].point_x[0];
+		x = model.network.physicalLev[0].point_x[0]; 
 		y = model.network.physicalLev[0].point_y[0];
 	}
 	else {
@@ -4748,8 +4870,8 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 		if (minPos == i - 1)
 			distBastNext = dist;
 	}
-	printf("ident_startEndOnChannel startEnd %d minDist %.2lf minPos %d distBastPrev %.2lf distBastNext %.2lf nPoints %d\n",
-		startEnd, minDist, minPos, distBastPrev, distBastNext, model.network.channel[cNr].nPoints);
+	//printf("ident_startEndOnChannel startEnd %d minDist %.2lf minPos %d distBastPrev %.2lf distBastNext %.2lf nPoints %d\n",
+	//	startEnd, minDist, minPos, distBastPrev, distBastNext, model.network.channel[cNr].nPoints);
 
 
 	if (minPos > 0) {
@@ -4799,14 +4921,20 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 		return 0;
 
 	if (cosBefore >= cosAfter) {
-		if (minPrev > model.params.maxDistStartToCorridorConnect)
+		if (minPrev > model.params.maxDistStartToCorridorConnect) {
+			errlog("OBS! Not shortening the corridor at startEnd %d, distPrev %.2lf km must be <= %.2lf\n",
+				startEnd, minPrev, model.params.maxDistStartToCorridorConnect);
 			return 0; // too far away from the channel
+		}
 		distFromPoint = distBastPrev * cosC1;
 		posUse = minPos - 1;
 	}
 	else {
-		if (minNext > model.params.maxDistStartToCorridorConnect)
+		if (minNext > model.params.maxDistStartToCorridorConnect) {
+			errlog("OBS! Not shortening the corridor at startEnd %d, distNext %.2lf km must be <= %.2lf\n",
+				startEnd, minNext, model.params.maxDistStartToCorridorConnect);
 			return 0; // too far away from the channel
+		}
 		distFromPoint = dist2 - distBastNext * cosC2;
 		posUse = minPos;
 	}
@@ -4852,9 +4980,9 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 		model.network.channel[cNr].point_x[0] = p1.longitude().degrees();
 		model.network.channel[cNr].point_y[0] = p1.latitude().degrees();
 
-		printf("new Point lon/lat %.3lf %.3lf instead of pos %d %.3lf %.3lf\n", model.network.channel[cNr].point_x[0],
-			model.network.channel[cNr].point_y[0], posUse, model.network.channel[cNr].point_x[posUse],
-			model.network.channel[cNr].point_y[posUse]);
+		//printf("new Point lon/lat %.3lf %.3lf instead of pos %d %.3lf %.3lf\n", model.network.channel[cNr].point_x[0],
+		//	model.network.channel[cNr].point_y[0], posUse, model.network.channel[cNr].point_x[posUse],
+		//	model.network.channel[cNr].point_y[posUse]);
 
 		for (i = posUse + 1; i < model.network.channel[cNr].nPoints; i++) {
 			model.network.channel[cNr].point[i - posUse] = model.network.channel[cNr].point[i];
@@ -4884,13 +5012,13 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 	}
 
 
-	printf("nPoints efter %d\n", model.network.channel[cNr].nPoints);
-	printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 1,
-		model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1],
-		model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 1]);
-	printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 2,
-		model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 2],
-		model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 2]);
+	//printf("nPoints efter %d\n", model.network.channel[cNr].nPoints);
+	//printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 1,
+	//	model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1],
+	//	model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 1]);
+	//printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 2,
+	//	model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 2],
+	//	model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 2]);
 
 
 	return 1;
@@ -5019,7 +5147,7 @@ int getCheckGeometry(json data, int cNr, int doGeomtryCheck = 1) {
 		errlog("ERROR! Corridor does not have tag type in its geometry. I skip it\n");
 		return 0;
 	}
-	string geoType = data["type"];
+	std::string geoType = data["type"];
 	if (geoType != "LineString" && geoType != "MultiLineString") {
 		errlog("ERROR! Geometry type of corridor path must be LineString or MultiLineString (but it is %s). I skip this one!\n", geoType.c_str());
 		printf("ERROR! Geometry type of corridor path must be LineString or MultiLineString (but it is %s). I skip this one!\n", geoType.c_str());
@@ -5912,6 +6040,7 @@ int loadParams_theRestOld(strParams* params)
 	catch(...){
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -6194,6 +6323,27 @@ int loadParams_theRestOld(strParams* params)
 	return 0;
 }
 
+std::string cleanString(std::string namn) {
+	std::string resultat;
+	std::string subNamn = ",";
+	size_t pos = std::string::npos;
+
+	resultat = namn;
+	// Search for the substring in string in a loop untill nothing is found
+	while ((pos = resultat.find(subNamn)) != std::string::npos)
+	{
+		// If found then erase it from string
+		resultat.erase(pos, subNamn.length());
+	}
+
+	for (int i = 0; i < resultat.length(); i++) {
+		if (resultat[i] == '-')
+			resultat[i] = '_';
+	}
+
+	return resultat;
+}
+
 int loadParams_new(strParams* params)
 {
 	int i, closestI;
@@ -6210,6 +6360,7 @@ int loadParams_new(strParams* params)
 	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
+		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav.I quit\n");
 		exitKontrollerat(__LINE__);
 	}
 	printf("opens %s\n", namn);
@@ -6225,6 +6376,7 @@ int loadParams_new(strParams* params)
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -6416,68 +6568,33 @@ int loadParams_new(strParams* params)
 
 
 		if (!dataShip["tableID_wind"].is_null()) {
-			model.functions.windTableID = dataShip["tableID_wind"];
-			//std::string tableName = dataShip["tableID_wind"];
-			//for (i = 0; i < model.tables.nTableTyp[0]; i++) {
-			//	if (tableName == model.tables.tableTyp[0][i].tableID)
-			//		break;
-			//}
-			//if (i < model.tables.nTableTyp[0]) {
-			//	model.functions.windTableNr = i;
-			//	errlog("windTableID %s nr %d\n", tableName.c_str(), i);
-			//}
-			//else {
-			//	errlog("ERROR! The given windTableID %s is not defined in table_parameters.json. I use the default one.\n", tableName.c_str());
-			//	model.functions.windTableNr = 0;
-			//}
+			model.functions.windTableID = cleanString(dataShip["tableID_wind"]);
 		}
 		else {
 			errlog("ERROR No windTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
+			postRequest("ERROR No windTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
 			exitKontrollerat(__LINE__);
 		}
 		if (!dataShip["tableID_wave"].is_null()) {
-			model.functions.waveTableID = dataShip["tableID_wave"];
-			//std::string tableName = dataShip["tableID_wave"];
-			//for (i = 0; i < model.tables.nTableTyp[1]; i++) {
-			//	if (tableName == model.tables.tableTyp[1][i].tableID)
-			//		break;
-			//}
-			//if (i < model.tables.nTableTyp[1]) {
-			//	model.functions.waveTableNr = i;
-			//	errlog("waveTableID %s nr %d\n", tableName.c_str(), i);
-			//}
-			//else {
-			//	errlog("The given waveTableID %s is not defined in table_parameters.json. I use the default one.\n", tableName.c_str());
-			//	model.functions.waveTableNr = 0;
-			//}
+			model.functions.waveTableID = cleanString(dataShip["tableID_wave"]);
 		}
 		else {
 			errlog("ERROR No waveTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
+			postRequest("ERROR No waveTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
 			exitKontrollerat(__LINE__);
 		}
 		if (!dataShip["tableID_stability"].is_null()) {
-			model.functions.stabilityTableID = dataShip["tableID_stability"];
-			//std::string tableName = dataShip["tableID_stability"];
-			//for (i = 0; i < model.tables.nTableTyp[2]; i++) {
-			//	if (tableName == model.tables.tableTyp[2][i].tableID)
-			//		break;
-			//}
-			//if (i < model.tables.nTableTyp[2]) {
-			//	model.functions.stabilityTableNr = i;
-			//	errlog("stabilityTableID %s nr %d\n", tableName.c_str(), i);
-			//}
-			//else {
-			//	errlog("The given stabilityTableID %s is not defined in table_parameters.json. I use the default one.\n", tableName.c_str());
-			//	model.functions.stabilityTableNr = 0;
-			//}
+			model.functions.stabilityTableID = cleanString(dataShip["tableID_stability"]);
 		}
 		else {
 			errlog("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
+			postRequest("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
 			exitKontrollerat(__LINE__);
 		}
 	}
 	else {
 		errlog("ERROR! no ship_specification in input file. It must exist. I quit.\n");
+		postRequest("ERROR! no ship_specification in input file. It must exist. I quit.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -6490,6 +6607,7 @@ int loadParams_new(strParams* params)
 
 	if (data["geoData"].is_null()) {
 		errlog("ERROR! No geoData tag in input.json. I quit\n");
+		postRequest("ERROR! No geoData tag in input data. I quit");
 		exitKontrollerat(__LINE__);
 	}
 	dataGeo = data["geoData"];
@@ -6507,7 +6625,7 @@ int loadParams_new(strParams* params)
 				continue; // no properties exists for this one, cannot be a preferred path
 			}
 			dataProp = dataFeature["properties"];
-			string namnNu = dataProp["type"];
+			std::string namnNu = dataProp["type"];
 			if (namnNu != "preferredPath") {
 				printf("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
 				errlog("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
@@ -6517,18 +6635,21 @@ int loadParams_new(strParams* params)
 			if (dataGeo3["type"].is_null()) {
 				errlog("ERROR! No type given for the geometry of prefered path. I quit!\n");
 				printf("ERROR! No type given for the geometry of prefered path. I quit!\n");
+				postRequest("ERROR! No type given for the geometry of prefered path. I quit!");
 				exitKontrollerat(__LINE__);
 			}
-			string geoType = dataGeo3["type"];
+			std::string geoType = dataGeo3["type"];
 			if(geoType != "LineString" && geoType != "MultiLineString"){
 				errlog("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is %s). I quit!\n", geoType.c_str());
 				printf("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is %s). I quit!\n", geoType.c_str());
+				postRequest("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is " + geoType + ").I quit!");
 				exitKontrollerat(__LINE__);
 			}
 
 			if (dataGeo3["coordinates"].is_null()) {
 				errlog("ERROR! No coordinates given for the prefered path. I quit!\n");
 				printf("ERROR! No coordinates given for the prefered path. I quit!\n");
+				postRequest("ERROR! No coordinates given for the prefered path. I quit!");
 				exitKontrollerat(__LINE__);
 			}
 			dataCoord = dataGeo3["coordinates"];
@@ -6664,6 +6785,7 @@ int loadParams_new(strParams* params)
 	if (model.preferredPath.nPoints == 0) {
 		printf("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
 		errlog("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
+		postRequest("ERROR! There must be points in the preferred path. I have nothing to do so I quit!");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -6743,7 +6865,7 @@ int loadParams_new(strParams* params)
 					continue; // no properties exists for this one, cannot be a preferred path
 				}
 				if (dataGeom["type"] != "Point") {
-					string namn = dataGeom["type"];
+					std::string namn = dataGeom["type"];
 					errlog("ERROR! Geomestry type has to be Point for storms but it is %s. I skip this one\n", namn.c_str());
 					continue; // no properties exists for this one, cannot be a preferred path
 
@@ -6821,7 +6943,7 @@ int loadParams_new(strParams* params)
 					errlog("ERROR! No FLDATELBL (dateTime) given for a feature in storms. I skip this one\n");
 					continue;
 				}
-				string tidpkt = dataProp["FLDATELBL"];
+				std::string tidpkt = dataProp["FLDATELBL"];
 				model.storms[i].feature[model.storms[i].nFeatures].UTCseconds = make_gmtime_fromStormDateTime(tidpkt);
 				//errlog("storm %d xy %.3lf %.3lf %s t_h %.2lf outerCircleSize %.2lf\n", i, model.storms[i].feature[model.storms[i].nFeatures].lon,
 				//	model.storms[i].feature[model.storms[i].nFeatures].lat, tidpkt.c_str(), 
@@ -7030,21 +7152,23 @@ void copyAddTableInfo(strTableParam paramFrom, strTableParam* paramTo) {
 	paramTo->minValue = paramFrom.minValue;
 	paramTo->intervalSize = paramFrom.intervalSize;
 	paramTo->inv_intervalSize = 1 / paramFrom.intervalSize;
-	paramTo->nIndex = (int)((paramTo->maxValue - paramTo->minValue) * paramTo->inv_intervalSize) + 1;
+	paramTo->nIndex = (int)((paramTo->maxValue + 0.0001 - paramTo->minValue) * paramTo->inv_intervalSize) + 1;
 }
 
 
-void loadWeatherFactorTableWave(int tableNr) {
+int loadWeatherFactorTableWave(int tableNr) {
 	FILE* filpek;
 	int nAlloc, i, pos, calmWaterSpeedI, waveI, wavePeriodI, waveDirI, antal;
 	double varde, wave, wavePeriod, waveDir, calmWaterSpeed;
 
+	auto tid0 = std::chrono::high_resolution_clock::now();
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wave factor table file %s\n", namn);
+		postRequest("ERROR! Could not open wave factor table file " + std::string(namn));
 		exitKontrollerat(__LINE__);
 	}
 
@@ -7054,6 +7178,8 @@ void loadWeatherFactorTableWave(int tableNr) {
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveDirection, &(model.functions.waveFactor.waveDirection));
 	nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex * 
 		model.functions.waveFactor.wavePeriod.nIndex * model.functions.waveFactor.waveDirection.nIndex;
+	if (model.functions.waveFactor.tableValue != NULL)
+		free(model.functions.waveFactor.tableValue);
 	model.functions.waveFactor.tableValue = (float*)malloc(nAlloc * sizeof(float));
 	for (i = 0; i < nAlloc; i++) {
 		model.functions.waveFactor.tableValue[i] = -9999;
@@ -7079,12 +7205,20 @@ void loadWeatherFactorTableWave(int tableNr) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				calmWaterSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.shipSpeedCalmWater.minValue);
+			postRequest("ERROR! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " + 
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.waveFactor.shipSpeedCalmWater.minValue) + 
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (calmWaterSpeedI >= model.functions.waveFactor.shipSpeedCalmWater.nIndex) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				calmWaterSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.shipSpeedCalmWater.maxValue);
+			postRequest("ERROR! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.waveFactor.shipSpeedCalmWater.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		waveI = get_tableIndex(wave, model.functions.waveFactor.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7092,12 +7226,20 @@ void loadWeatherFactorTableWave(int tableNr) {
 			errlog("ERROR! wave %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wave, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.waveHeight.minValue);
+			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.waveFactor.waveHeight.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (waveI >= model.functions.waveFactor.waveHeight.nIndex) {
 			errlog("ERROR! wave %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wave, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.waveHeight.maxValue);
+			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.waveFactor.waveHeight.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		waveDirI = get_tableIndexDirection(waveDir, model.functions.waveFactor.waveDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7105,12 +7247,20 @@ void loadWeatherFactorTableWave(int tableNr) {
 			errlog("ERROR! waveDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.waveDirection.minValue);
+			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.waveFactor.waveDirection.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (waveDirI >= model.functions.waveFactor.waveDirection.nIndex) {
 			errlog("ERROR! waveDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.waveDirection.maxValue);
+			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.waveFactor.waveDirection.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		wavePeriodI = get_tableIndex(wavePeriod, model.functions.waveFactor.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7118,12 +7268,20 @@ void loadWeatherFactorTableWave(int tableNr) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.wavePeriod.minValue);
+			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.waveFactor.wavePeriod.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (wavePeriodI >= model.functions.waveFactor.wavePeriod.nIndex) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[1][tableNr].fileName,
 				model.functions.waveFactor.wavePeriod.maxValue);
+			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
+				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.waveFactor.wavePeriod.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 
@@ -7138,25 +7296,402 @@ void loadWeatherFactorTableWave(int tableNr) {
 	fclose(filpek);
 	printf("check of knots_to_km %.3lf\n", model.params.knots_to_km);
 
+	auto tid1 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+	printf("loading %s took %.3lf\n", model.tables.tableTyp[1][tableNr].fileName, fp_ms);
+
 	for (i = 0; i < nAlloc; i++) {
 		if (model.functions.waveFactor.tableValue[i] < -9998) {
 			errlog("ERROR! No value given for wave factor table pos %d. I set it to 0.\n", i);
 			model.functions.waveFactor.tableValue[i] = 0;
 		}
 	}
+
+	return nAlloc;
 }
 
-void loadWeatherFactorTableWind(int tableNr) {
+static int callbackDB(void* NotUsed, int argc, char** argv, char** azColName) {
+	int i;
+	for (i = 0; i < argc; i++) {
+		printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	printf("\n");
+	return 0;
+}
+
+int saveWindTableToSQLite_old() {
+
+	sqlite3* db;
+	char* zErrMsg = 0;
+	int rc;
+
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/shipTables/windTable.db", model.params.indataPath.c_str());
+	rc = sqlite3_open(namn, &db);
+
+	if (rc) {
+		fprintf(stderr, "Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
+		return(0);
+	}
+	else {
+		fprintf(stderr, "Opened database successfully\n");
+	}
+
+	/* Create SQL statement */
+	std::string sql = "CREATE TABLE windTable("  \
+		"ID INT PRIMARY KEY     NOT NULL," \
+		"shipSpeed           REAL NOT NULL," \
+		"windSpeed REAL NOT NULL," \
+		"windDir REAL NOT NULL," \
+		"dSpeed REAL );";
+
+	/* Execute SQL statement */
+	rc = sqlite3_exec(db, sql.c_str(), callbackDB, 0, &zErrMsg);
+	if (rc) {
+		fprintf(stderr, "Failed to add table to database: %s\n", sqlite3_errmsg(db));
+		return(0);
+	}
+
+	std::stringstream stream;
+	double shipSpeed, windSpeed, windDir;
+	int pos = 0;
+	for (int i = 0; i < model.functions.windFactor.shipSpeedCalmWater.nIndex; i++) {
+		shipSpeed = model.functions.windFactor.shipSpeedCalmWater.minValue +
+			model.functions.windFactor.shipSpeedCalmWater.intervalSize * i;
+		for (int i1 = 0; i1 < model.functions.windFactor.windSpeed.nIndex; i1++) {
+			windSpeed = model.functions.windFactor.windSpeed.minValue +
+				model.functions.windFactor.windSpeed.intervalSize * i1;
+			for (int i2 = 0; i2 < model.functions.windFactor.windDirection.nIndex; i2++) {
+				windDir = model.functions.windFactor.windDirection.minValue +
+					model.functions.windFactor.windDirection.intervalSize * i2;
+				//stream << "INSERT INTO windTable VALUES (" << pos + 1 << ", " << std::fixed << std::setprecision(2) << shipSpeed <<
+				//	", " << std::fixed << std::setprecision(2) << windSpeed <<
+				//	", " << std::fixed << std::setprecision(2) << windDir <<
+				//	", " << std::fixed << std::setprecision(5) << model.functions.windFactor.tableValue[pos] << ");\n";
+				pos++;
+			}
+		}
+	}
+	rc = sqlite3_exec(db, stream.str().c_str(), callbackDB, 0, &zErrMsg);
+	if (rc) {
+		fprintf(stderr, "Failed to add rows to database: %s\n", sqlite3_errmsg(db));
+		return(0);
+	}
+
+
+
+	sqlite3_close(db);
+	return 0;
+}
+
+int sub_deleteFile(std::string namn)
+{
+	int res;
+	res = remove(namn.c_str());
+	if (res == -1) {
+		if (strcmp(strerror(errno), "Permission denied") == 0) {
+			res = -2;
+			errlog("Deleting file %s\n\tError message: '%s' return value %d\n", namn.c_str(), strerror(errno), res);
+		}
+	}
+	return res;
+}
+
+int saveFactorTableToSQLite(int type, int tablePos, int modified, int nAlloc) {
+
+	sqlite3* db;
+	char* zErrMsg = 0;
+	int rc;
+
+	char* namn;
+
+
+	auto tid0 = std::chrono::high_resolution_clock::now();
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/shipTables/%s_%d.db", model.params.indataPath.c_str(),
+		model.tables.tableTyp[type][tablePos].tableID, type);
+	//if (modified == 1) {
+		int res = sub_deleteFile(namn);
+		if (res == -2) {
+			errlog("ERROR! Could not delete the database %s. It must be open in another application. Close it and run the redis update again\n",
+				namn);
+			postRequest("ERROR! Could not delete the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
+			exitKontrollerat(__LINE__);
+		}
+	//}
+
+	rc = sqlite3_open(namn, &db);
+
+	if (rc) {
+		fprintf(stderr, "Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
+		return(0);
+	}
+	else {
+		fprintf(stderr, "Opened database successfully\n");
+	}
+
+	/* Create SQL statement */
+	std::string sql = "CREATE TABLE " + std::string(model.tables.tableTyp[type][tablePos].tableID) + "("  \
+		"ID INT PRIMARY KEY NOT NULL, " \
+		"value REAL );";
+
+	/* Execute SQL statement */
+	rc = sqlite3_exec(db, sql.c_str(), callbackDB, 0, &zErrMsg);
+	if (rc) {
+		fprintf(stderr, "Failed to add table to database: %s\n", sqlite3_errmsg(db));
+		//return(0);
+	}
+
+	sqlite3_stmt* query, *query2;
+	sql = "INSERT INTO " + std::string(model.tables.tableTyp[type][tablePos].tableID) +
+		" (ID, value) VALUES (?1, ?2)";
+	if (sqlite3_prepare_v2(db, sql.c_str(), -1, &query, NULL) != SQLITE_OK) {
+		printf("error executing insert query: %s\n", sqlite3_errmsg(db));
+		return 0;
+	}
+	rc = sqlite3_exec(db, "BEGIN", callbackDB, 0, &zErrMsg);
+	float* tableValue = NULL;
+	if (type == 0)
+		tableValue = model.functions.windFactor.tableValue;
+	else if (type == 1)
+		tableValue = model.functions.waveFactor.tableValue;
+	else if (type == 2)
+		tableValue = model.functions.dynStability.tableValue;
+
+	int pos = 0, retval;
+	for (int i = 0; i < nAlloc; i++) {
+		retval = sqlite3_bind_int(query, 1, pos);
+		retval = sqlite3_bind_double(query, 2, tableValue[pos]);
+		retval = sqlite3_step(query);
+		if(retval != SQLITE_DONE)
+			printf("error executing insert query: %s\n", sqlite3_errmsg(db));
+		sqlite3_reset(query);
+		pos++;
+	}
+	sqlite3_finalize(query);
+	rc = sqlite3_exec(db, "COMMIT", callbackDB, 0, &zErrMsg);
+	sqlite3_close(db);
+
+	auto tid1 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+	printf("write table %s took %.3lf\n", model.tables.tableTyp[type][tablePos].tableID, fp_ms);
+
+	updateSQLiteAllTablesInfo(type, tablePos, modified);
+
+	return 0;
+}
+
+template <typename TP>
+std::time_t to_time_t(TP tp)
+{
+	using namespace std::chrono;
+	auto sctp = time_point_cast<system_clock::duration>(tp - TP::clock::now()
+		+ system_clock::now());
+	return system_clock::to_time_t(sctp);
+}
+
+int findTableNr_inDatabase(int type, int tablePos) {
+	int i;
+
+	for (i = 0; i < model.sqliteTables[type].nTables; i++) {
+		if (strcmp(model.tables.tableTyp[type][tablePos].tableID, model.sqliteTables[type].table[i].tableID) == 0) {
+			break;
+		}
+	}
+	if (i < model.sqliteTables[type].nTables)
+		return i;
+	else
+		return -1;
+}
+
+int readSQLiteAllTablesInfo() {
+	int nTypes = 3;
+	model.sqliteTables = (strSQLiteTables*)malloc(nTypes * sizeof(strSQLiteTables));
+	for (int type = 0; type < nTypes; type++) {
+		model.sqliteTables[type].nTables = 0;
+		model.sqliteTables[type].nAlloc = 100;
+		model.sqliteTables[type].table = (strDBTableInfo*)malloc(
+			model.sqliteTables[type].nAlloc * sizeof(strDBTableInfo));
+	}
+
+	char* namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/shipTables/all_tables.db", model.params.indataPath.c_str());
+
+	sqlite3* db;
+	char* zErrMsg = 0;
+	sqlite3_stmt* query;
+
+	int rc = sqlite3_open(namn, &db);
+	if (rc) {
+		errlog("ERROR. Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
+		exitKontrollerat(__LINE__);
+	}
+	else {
+		errlog("Opened database successfully\n");
+	}
+
+	std::string sql = "CREATE TABLE all_tables("  \
+		"tableID TEXT NOT NULL, " \
+		"tableType INT, textFileName TEXT, epochCount REAL);";
+
+	/* Execute SQL statement */
+	rc = sqlite3_exec(db, sql.c_str(), callbackDB, 0, &zErrMsg);
+	if (rc) {
+		errlog("ERROR. Failed to add table all_tables to database: %s\n", sqlite3_errmsg(db));
+		//return(0);
+	}
+
+	sql = "SELECT * from all_tables;";
+	if (sqlite3_prepare_v2(db, sql.c_str(), -1, &query, NULL) != SQLITE_OK) {
+		printf("error executing query: %s\n", sqlite3_errmsg(db));
+		return 0;
+	}
+
+	int retval, pos;
+	int count = 0, type;
+	while (1) {
+		retval = sqlite3_step(query);
+
+		if (retval == SQLITE_ROW) {
+			type = (uint32_t)sqlite3_column_int(query, 1);
+			pos = model.sqliteTables[type].nTables;
+			if (pos >= model.sqliteTables[type].nAlloc) {
+				model.sqliteTables[type].nAlloc += 100;
+				model.sqliteTables[type].table = (strDBTableInfo*)realloc(model.sqliteTables[type].table,
+					model.sqliteTables[type].nAlloc * sizeof(strDBTableInfo));
+			}
+			model.sqliteTables[type].table[pos].tableID = str_alloc_cpy((char*)sqlite3_column_text(query, 0));
+			model.sqliteTables[type].table[pos].textFileName = str_alloc_cpy((char*)sqlite3_column_text(query, 2));
+			model.sqliteTables[type].table[pos].epochCount = (double)sqlite3_column_double(query, 3);
+			(model.sqliteTables[type].nTables)++;
+		}
+		else if (retval == SQLITE_DONE) {
+			/* all done */
+			printf("search: row processing done, %u rows processed\n", count);
+			break;
+		}
+		else {
+			/* error of some sort */
+			printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
+			sqlite3_finalize(query);
+			errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
+			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)));
+			exitKontrollerat(__LINE__);
+			return 0;
+		}
+		count++;
+	}
+	sqlite3_finalize(query);
+	sqlite3_close(db);
+
+
+	return 0;
+}
+
+int updateSQLiteAllTablesInfo(int type, int tablePos, int modified) {
+
+	char* namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/shipTables/all_tables.db", model.params.indataPath.c_str());
+
+	sqlite3* db;
+	char* zErrMsg = 0;
+	sqlite3_stmt* query;
+
+	int rc = sqlite3_open(namn, &db);
+	if (rc) {
+		errlog("ERROR. Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
+		exitKontrollerat(__LINE__);
+	}
+	else {
+		errlog("Opened database successfully\n");
+	}
+
+	std::string sql;
+	if(modified == 1)
+		sql = "UPDATE all_tables SET epochCount = " + std::to_string(model.tmpEpochCount) + " WHERE tableID = '" + 
+		std::string(model.tables.tableTyp[type][tablePos].tableID) + "' AND tableType = " +
+		std::to_string(type) + ";";
+	else
+		sql = "INSERT INTO all_tables VALUES ('" +
+		std::string(model.tables.tableTyp[type][tablePos].tableID) + "', " +
+		std::to_string(type) + ", '" +
+		std::string(model.tables.tableTyp[type][tablePos].fileName) + "', " +
+		std::to_string(model.tmpEpochCount) + ");";
+
+	if (sqlite3_exec(db, sql.c_str(), NULL, 0, &zErrMsg)) {
+		printf("error failed to modify the database table all_tables: %s\n", zErrMsg);
+		return 0;
+	}
+	sqlite3_close(db);
+
+
+	return 0;
+}
+
+int checkIfModifiedFile(int type, int tablePos) {
+
+	int tableNr = findTableNr_inDatabase(type, tablePos);
+
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[type][tablePos].fileName);
+
+#ifdef WIN32
+	try {
+		const auto fileTime = std::filesystem::last_write_time(namn);
+		//std::filesystem::file_time_type ftime = std::filesystem::last_write_time("..//data//shipTables//tmp.txt");
+		const auto ticks = fileTime.time_since_epoch().count() - 1.33e17;
+		model.tmpEpochCount = ticks;
+	}
+	catch (...) {
+		printf("ERROR! Last modified date of %s given in table_parameters.json could not be read. Does it exist\n", namn);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?"); 
+		exitKontrollerat(__LINE__);
+	}
+#else
+	struct stat result; 
+	if (stat(namn, &result) != 0)
+	{
+		printf("ERROR! Failed to get stats from file %s\n", namn);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?");
+		exitKontrollerat(__LINE__);
+	}
+	auto ticks = result.st_mtime;
+	model.tmpEpochCount = ticks;
+#endif // 
+
+
+	printf("model.tmpEpochCount %lf\n", model.tmpEpochCount);
+	if (tableNr == -1)
+		return 2; // this tables doesn't exist in the database, so add it
+
+	//printf("%I64d\n", ticks);
+	//time_t test = to_time_t(fileTime);
+	//printf("to_time_t: %I64d\n", test);
+
+	if (model.sqliteTables[type].table[tableNr].epochCount < model.tmpEpochCount - 10)
+		return 1;
+	else
+		return 0;
+}
+
+int loadWeatherFactorTableWind(int tableNr) {
 	FILE* filpek;
 	int nAlloc, i, pos, windI, windDirI, calmWaterSpeedI, antal;
 	double varde, wind, windDir, calmWaterSpeed;
 
+	auto tid0 = std::chrono::high_resolution_clock::now();
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName);
+
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wind factor table file %s\n", namn);
+		postRequest("ERROR! Could not open wind factor table file " + std::string(namn));
 		exitKontrollerat(__LINE__);
 	}
 
@@ -7169,6 +7704,8 @@ void loadWeatherFactorTableWind(int tableNr) {
 
 	nAlloc = model.functions.windFactor.shipSpeedCalmWater.nIndex * model.functions.windFactor.windSpeed.nIndex * 
 		model.functions.windFactor.windDirection.nIndex;
+	if (model.functions.windFactor.tableValue != NULL)
+		free(model.functions.windFactor.tableValue);
 	model.functions.windFactor.tableValue = (float*)malloc(nAlloc * sizeof(float));
 	for (i = 0; i < nAlloc; i++) {
 		model.functions.windFactor.tableValue[i] = -9999;
@@ -7197,12 +7734,20 @@ void loadWeatherFactorTableWind(int tableNr) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				calmWaterSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName, 
 				model.functions.windFactor.shipSpeedCalmWater.minValue);
+			postRequest("ERROR2! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.windFactor.shipSpeedCalmWater.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (calmWaterSpeedI >= model.functions.windFactor.shipSpeedCalmWater.nIndex) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				calmWaterSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName, 
 				model.functions.windFactor.shipSpeedCalmWater.maxValue);
+			postRequest("ERROR2! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.windFactor.shipSpeedCalmWater.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		windI = get_tableIndex(wind, model.functions.windFactor.windSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7210,12 +7755,20 @@ void loadWeatherFactorTableWind(int tableNr) {
 			errlog("ERROR! wind %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wind, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName,
 				model.functions.windFactor.windSpeed.minValue);
+			postRequest("ERROR2! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.windFactor.windSpeed.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (windI >= model.functions.windFactor.windSpeed.nIndex) {
 			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wind, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName,
 				model.functions.windFactor.windSpeed.maxValue);
+			postRequest("ERROR2! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.windFactor.windSpeed.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		windDirI = get_tableIndexDirection(windDir, model.functions.windFactor.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7223,12 +7776,20 @@ void loadWeatherFactorTableWind(int tableNr) {
 			errlog("ERROR! windDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName,
 				model.functions.windFactor.windDirection.minValue);
+			postRequest("ERROR2! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.windFactor.windDirection.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (windDirI >= model.functions.windFactor.windDirection.nIndex) {
 			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[0][tableNr].fileName,
 				model.functions.windFactor.windDirection.maxValue);
+			postRequest("ERROR2! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.windFactor.windDirection.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 
@@ -7250,15 +7811,21 @@ void loadWeatherFactorTableWind(int tableNr) {
 	}
 	fclose(filpek);
 
+	auto tid1 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+	printf("loading %s took %.3lf\n", model.tables.tableTyp[0][tableNr].fileName, fp_ms);
+
 	for (i = 0; i < nAlloc; i++) {
 		if (model.functions.windFactor.tableValue[i] < -9998) {
 			errlog("ERROR! No value given for wind factor table pos %d. I set it to 0.\n", i);
 			model.functions.windFactor.tableValue[i] = 0;
 		}
 	}
+
+	return nAlloc;
 }
 
-void loadDynamicStabilityTable(int tableNr) {
+int  loadDynamicStabilityTable(int tableNr) {
 	FILE* filpek;
 	int nAlloc, i, pos, windI, windDirI, shipSpeedI, antal;
 	double varde, wind, windDir, shipSpeed;
@@ -7269,6 +7836,7 @@ void loadDynamicStabilityTable(int tableNr) {
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open dynamic stability table file %s\n", namn);
+		postRequest("ERROR! Could not open dynamic stability table file " + std::string(namn));
 		exitKontrollerat(__LINE__);
 	}
 
@@ -7276,6 +7844,8 @@ void loadDynamicStabilityTable(int tableNr) {
 	copyAddTableInfo(model.tables.tableTyp[2][tableNr].windDirection, &(model.functions.dynStability.windDirection));
 	copyAddTableInfo(model.tables.tableTyp[2][tableNr].shipSpeedOverGround, &(model.functions.dynStability.shipSpeedOverGround));
 
+	if (model.functions.dynStability.tableValue != NULL)
+		free(model.functions.dynStability.tableValue);
 	nAlloc = model.functions.dynStability.windSpeed.nIndex * model.functions.dynStability.windDirection.nIndex * model.functions.dynStability.shipSpeedOverGround.nIndex;
 	model.functions.dynStability.tableValue = (float*)malloc(nAlloc * sizeof(float));
 	for (i = 0; i < nAlloc; i++) {
@@ -7297,12 +7867,20 @@ void loadDynamicStabilityTable(int tableNr) {
 			errlog("ERROR! wind %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wind, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.windSpeed.minValue);
+			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.dynStability.windSpeed.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (windI >= model.functions.dynStability.windSpeed.nIndex) {
 			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				wind, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.windSpeed.maxValue);
+			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.dynStability.windSpeed.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		windDirI = get_tableIndexDirection(windDir, model.functions.dynStability.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7310,12 +7888,20 @@ void loadDynamicStabilityTable(int tableNr) {
 			errlog("ERROR! windDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.windDirection.minValue);
+			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.dynStability.windDirection.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (windDirI >= model.functions.dynStability.windDirection.nIndex) {
 			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.windDirection.maxValue);
+			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.dynStability.windDirection.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		shipSpeedI = get_tableIndex(shipSpeed, model.functions.dynStability.shipSpeedOverGround, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
@@ -7323,12 +7909,20 @@ void loadDynamicStabilityTable(int tableNr) {
 			errlog("ERROR! shipSpeedOverGround %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.shipSpeedOverGround.minValue);
+			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.dynStability.shipSpeedOverGround.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		if (shipSpeedI >= model.functions.dynStability.shipSpeedOverGround.nIndex) {
 			errlog("ERROR! shipSpeedOverGround %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
 				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
 				model.functions.dynStability.shipSpeedOverGround.maxValue);
+			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
+				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.dynStability.shipSpeedOverGround.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!");
 			exitKontrollerat(__LINE__);
 		}
 		pos = shipSpeedI + model.functions.dynStability.shipSpeedOverGround.nIndex * 
@@ -7346,195 +7940,10 @@ void loadDynamicStabilityTable(int tableNr) {
 			model.functions.dynStability.tableValue[i] = 0;
 		}
 	}
+
+	return nAlloc;
 }
 
-int loadFunctions_old()
-{
-
-	std::ifstream fil;
-	char* namn;
-	std::string nameTable;
-	namn = (char*)malloc(256 * sizeof(char));
-	sprintf(namn, "%s/function_parameters.json", model.params.indataPath.c_str());
-	errlog("trying to open %s\n", namn);
-	if (!(exists_test3(namn))) {
-		errlog("%s does not exist. I quit\n", namn);
-		printf("%s does not exist. I quit\n", namn);
-		exitKontrollerat(__LINE__);
-	}
-	printf("opens %s\n", namn);
-	fil.open(namn);
-
-	json data;
-
-	try {
-		fil >> data;
-	}
-	catch (...) {
-		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		exitKontrollerat(__LINE__);
-	}
-
-	model.functions.iceCoverMaxFree = 0;
-	//model.functions.iceCoverCost_fix = 100000;
-	//model.functions.calmWaterSpeed.c0 = 5;
-	//model.functions.calmWaterSpeed.c1_rpm = 0.1;
-	//model.functions.calmWaterSpeed.c2_rpm = 0.0001;
-	//model.functions.fuelConsumption.c0 = 0.5;
-	//model.functions.fuelConsumption.c1_rpm = 0.01;
-	//model.functions.fuelConsumption.c2_rpm = 0.00001;
-	//model.functions.fuelConsumption.c3_rpm = 0.000001;
-
-	//if (!data["nWindDir"].is_null())
-	//	model.functions.table_niWindDir = data["nWindDir"];
-	//else
-	//	model.functions.table_niWindDir = 8;
-	//if (!data["nWaveDir"].is_null())
-	//	model.functions.table_niWaveDir = data["nWaveDir"];
-	//else
-	//	model.functions.table_niWaveDir = 8;
-
-	//if (!data["calmWaterSpeed"].is_null()) {
-	//	json data2 = data["calmWaterSpeed"];
-	//	if (!data2["c0"].is_null())
-	//		model.functions.calmWaterSpeed.c0 = data2["c0"];
-	//	if (!data2["c1_rpm"].is_null())
-	//		model.functions.calmWaterSpeed.c1_rpm = data2["c1_rpm"];
-	//	if (!data2["c2_rpm"].is_null())
-	//		model.functions.calmWaterSpeed.c2_rpm = data2["c2_rpm"];
-	//}
-	//if (!data["fuelConsumption"].is_null()) {
-	//	json data2 = data["fuelConsumption"];
-	//	if (!data2["c0"].is_null())
-	//		model.functions.fuelConsumption.c0 = data2["c0"];
-	//	if (!data2["c1_rpm"].is_null())
-	//		model.functions.fuelConsumption.c1_rpm = data2["c1_rpm"];
-	//	if (!data2["c2_rpm"].is_null())
-	//		model.functions.fuelConsumption.c2_rpm = data2["c2_rpm"];
-	//	if (!data2["c3_rpm"].is_null())
-	//		model.functions.fuelConsumption.c3_rpm = data2["c3_rpm"];
-	//}
-
-	/*
-	if (!data["windMagnitude_discreteSize_kts"].is_null())
-		model.functions.windMagnitude_discreteSize_kts = data["windMagnitude_discreteSize_kts"];
-	else
-		model.functions.windMagnitude_discreteSize_kts = 0.25;
-	if (!data["windMagnitudeTable"].is_null()) {
-		json data2 = data["windMagnitudeTable"];
-		int pos = 0;
-		model.functions.table_niWindSpeed = (int)data2.size();
-		model.functions.windSpeed_minVal_array = (double*)malloc(model.functions.table_niWindSpeed *
-			sizeof(double));
-		model.functions.windSpeed_maxVal_array = (double*)malloc(model.functions.table_niWindSpeed *
-			sizeof(double));
-		for (auto it = data2.begin(); it != data2.end(); ++it) {
-			json dataIt = it.value();
-			pos = dataIt["index"];
-			if (pos < 0 || pos >= model.functions.table_niWindSpeed) {
-				errlog("ERROR! Wrong index %d for windMagnitudeTable in function_parameters.json, is %d, must be 0 - %d\n",
-					pos, model.functions.table_niWindSpeed);
-				exitKontrollerat(__LINE__);
-			}
-			model.functions.windSpeed_minVal_array[pos] = dataIt["minWind_kts"];
-			model.functions.windSpeed_maxVal_array[pos] = dataIt["maxWind_kts"];
-		}
-		if (model.functions.table_niWindSpeed > 0)
-			model.functions.windSpeed_max = model.functions.windSpeed_maxVal_array[model.functions.table_niWindSpeed - 1];
-		else
-			model.functions.windSpeed_max = 0;
-	}
-	else {
-		model.functions.table_niWindSpeed = 0;
-		model.functions.windSpeed_max = 0;
-	}
-	generate_helpTable_windSpeed();
-
-	if (!data["waveHeight_discreteSize_m"].is_null())
-		model.functions.waveHeight_discreteSize_m = data["waveHeight_discreteSize_m"];
-	else
-		model.functions.waveHeight_discreteSize_m = 0.15;
-	if (!data["waveHeightTable"].is_null()) {
-		json data2 = data["waveHeightTable"];
-		int pos = 0;
-		model.functions.table_niWave = (int)data2.size();
-		model.functions.waveHeight_minVal_array = (double*)malloc(model.functions.table_niWave *
-			sizeof(double));
-		model.functions.waveHeight_maxVal_array = (double*)malloc(model.functions.table_niWave *
-			sizeof(double));
-		for (auto it = data2.begin(); it != data2.end(); ++it) {
-			json dataIt = it.value();
-			pos = dataIt["index"];
-			if (pos < 0 || pos >= model.functions.table_niWave) {
-				errlog("ERROR! Wrong index %d for waveHeightTable in function_parameters.json, is %d, must be 0 - %d\n",
-					pos, model.functions.table_niWave);
-				exitKontrollerat(__LINE__);
-			}
-			model.functions.waveHeight_minVal_array[pos] = dataIt["minWaveHeight_m"];
-			model.functions.waveHeight_maxVal_array[pos] = dataIt["maxWaveHeight_m"];
-		}
-		if (model.functions.table_niWave > 0)
-			model.functions.waveHeight_max = model.functions.waveHeight_maxVal_array[model.functions.table_niWave - 1];
-		else
-			model.functions.waveHeight_max = 0;
-	}
-	else {
-		model.functions.table_niWave = 0;
-		model.functions.waveHeight_max = 0;
-	}
-	generate_helpTable_waveHeight();
-	model.functions.max_wavePeriodSkalad = 1;
-	model.functions.rel_wavePeriod_ger_index = (int*)calloc(model.functions.max_wavePeriodSkalad, sizeof(int));
-
-	if (!data["wavePeriodTable"].is_null()) {
-		json data2 = data["wavePeriodTable"];
-		int pos = 0;
-		model.functions.table_niWavePeriod = (int)data2.size();
-		model.functions.wavePeriod_minVal_array = (double*)malloc(model.functions.table_niWavePeriod *
-			sizeof(double));
-		model.functions.wavePeriod_maxVal_array = (double*)malloc(model.functions.table_niWavePeriod *
-			sizeof(double));
-		for (auto it = data2.begin(); it != data2.end(); ++it) {
-			json dataIt = it.value();
-			pos = dataIt["index"];
-			if (pos < 0 || pos >= model.functions.table_niWavePeriod) {
-				errlog("ERROR! Wrong index %d for wavePeriodTable in function_parameters.json, is %d, must be 0 - %d\n",
-					pos, model.functions.table_niWavePeriod);
-				exitKontrollerat(__LINE__);
-			}
-			model.functions.wavePeriod_minVal_array[pos] = dataIt["minWavePeriod_s"];
-			model.functions.wavePeriod_maxVal_array[pos] = dataIt["maxWavePeriod_s"];
-		}
-		if(model.functions.table_niWavePeriod > 0)
-			model.functions.wavePeriod_max = model.functions.wavePeriod_maxVal_array[model.functions.table_niWavePeriod - 1];
-		else
-			model.functions.wavePeriod_max = 0;
-	}
-	else {
-		model.functions.table_niWavePeriod = 0;
-		model.functions.wavePeriod_max = 0;
-	}
-
-	std::string nameTable;
-	if (!data["weatherFactor_tableName"].is_null()) {
-		nameTable = data["weatherFactor_tableName"];
-		loadWeatherFactorTable(nameTable);
-	}
-	else {
-		errlog("ERROR! No weatherFactor_tableName given in function_parameters.json\n");
-		exitKontrollerat(__LINE__);
-	}
-	*/
-
-
-	fil.close();
-
-
-
-
-	return 0;
-}
 
 void getBastSpeedPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot) {
 	int i, posUnder = -1, posOver = -1;
@@ -7809,27 +8218,29 @@ void setupUsableSpeedSettings(strParams* params) {
 }
 
 
-int readParameterInfoForTable(json data, strTableParam* param, std::string namn) {
+int readParameterInfoForTable(json data, strTableParam* param, std::string namn, int useFactor, double skalning = 1.0) {
 	int nError = 0;
+	if (useFactor == 0)
+		skalning = 1.0;
 
 	if (!data[namn].is_null()) {
 		json dataNu = data[namn];
 		if (!dataNu["minValue"].is_null()) {
-			param->minValue = dataNu["minValue"];
+			param->minValue = (double)(dataNu["minValue"]) * skalning;
 		}
 		else {
 			errlog("ERROR! minValue is missing for parameter %s\n", namn.c_str());
 			nError = 1;
 		}
 		if (!dataNu["maxValue"].is_null()) {
-			param->maxValue = dataNu["maxValue"];
+			param->maxValue = (double)(dataNu["maxValue"]) * skalning;
 		}
 		else {
 			errlog("ERROR! maxValue is missing for parameter %s\n", namn.c_str());
 			nError = 1;
 		}
 		if (!dataNu["intervalSize"].is_null()) {
-			param->intervalSize = dataNu["intervalSize"];
+			param->intervalSize = (double)(dataNu["intervalSize"]) * skalning;
 		}
 		else {
 			errlog("ERROR! minValue is missing for parameter %s\n", namn.c_str());
@@ -7886,7 +8297,7 @@ int readAddParameterInfoForTable(json data, strTableParam* param, std::string na
 	return nError;
 }
 
-int loadTablesInfo()
+int loadTablesInfo(int useFactor)
 {
 
 	std::ifstream fil;
@@ -7898,6 +8309,7 @@ int loadTablesInfo()
 	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
+		postRequest(std::string(namn) + " does not exist. I quit");
 		exitKontrollerat(__LINE__);
 	}
 	printf("opens %s\n", namn);
@@ -7911,6 +8323,7 @@ int loadTablesInfo()
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -7923,10 +8336,19 @@ int loadTablesInfo()
 		model.tables.tableTyp[i] = (strTableTyp*)malloc(model.tables.nAllocTableTyp[i] * sizeof(strTableTyp));
 	}
 
+	std::string namnID, tableID;
+
 	for (auto it = data.begin(); it != data.end(); ++it) {
 		json dataTable = it.value();
 
 		if (!dataTable["tableType"].is_null()) {
+			if (!dataTable["tableID"].is_null())
+				tableID = str_alloc_cpyString(cleanString(dataTable["tableID"]));
+			else {
+				errlog("ERROR! tableID missing for a table in %s. It must be there, I skip this one.\n", namn);
+				continue;
+			}
+
 			std::string tableType = dataTable["tableType"];
 			if (tableType == "wind")
 				typeNr = 0;
@@ -7935,18 +8357,32 @@ int loadTablesInfo()
 			else if (tableType == "stability")
 				typeNr = 2;
 
+			if (useFactor == 1) {
+				if (typeNr == 0)
+					namnID = model.functions.windTableID;
+				else if (typeNr == 1)
+					namnID = model.functions.waveTableID;
+				else if (typeNr == 2)
+					namnID = model.functions.stabilityTableID;
+				if (namnID != tableID)
+					continue;
+			}
+
 			pos = model.tables.nTableTyp[typeNr];
 			if (pos >= model.tables.nAllocTableTyp[typeNr]) {
 				model.tables.nAllocTableTyp[typeNr] += model.tables.nBasAlloc;
 				model.tables.tableTyp[typeNr] = (strTableTyp*)realloc(model.tables.tableTyp[typeNr], model.tables.nAllocTableTyp[typeNr] * sizeof(strTableTyp));
 			}
 
+			model.tables.tableTyp[typeNr][pos].tableID = str_alloc_cpyString(cleanString(dataTable["tableID"]));
+
 			if (!dataTable["tableID"].is_null())
-				model.tables.tableTyp[typeNr][pos].tableID = str_alloc_cpyString(dataTable["tableID"]);
+				model.tables.tableTyp[typeNr][pos].tableID = str_alloc_cpyString(cleanString(dataTable["tableID"]));
 			else {
 				errlog("ERROR! tableID missing for a table in %s. It must be there, I skip this one.\n", namn);
 				continue;
 			}
+
 			if (!dataTable["fileName"].is_null())
 				model.tables.tableTyp[typeNr][pos].fileName = str_alloc_cpyString(dataTable["fileName"]);
 			else {
@@ -7957,19 +8393,19 @@ int loadTablesInfo()
 				paramsError = 0;
 				json dataParam = dataTable["parameters"];
 				if (typeNr == 0) { // wind
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedCalmWater), "shipSpeed_calmWater_knots");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "relativeWindSpeed_m_s");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "relativeWindDirection");
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedCalmWater), "shipSpeed_calmWater_knots", useFactor, model.params.knots_to_km);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "relativeWindSpeed_m_s", useFactor, 3.6);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "relativeWindDirection", useFactor, M_PI / 180.0);
 				}else if(typeNr == 1) { // wave
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedCalmWater), "shipSpeed_calmWater_knots");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].wavePeriod), "meanWavePeriod_s");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveDirection), "relativeWaveDirection");
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedCalmWater), "shipSpeed_calmWater_knots", useFactor, model.params.knots_to_km);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].wavePeriod), "meanWavePeriod_s", useFactor);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveDirection), "relativeWaveDirection", useFactor, M_PI / 180.0);
 				}
 				else { // stability
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "relativeWindSpeed_m_s");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "relativeWindDirection");
-					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedOverGround), "shipSpeedOverGround_knots");
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "relativeWindSpeed_m_s", useFactor, 3.6);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "relativeWindDirection", useFactor, M_PI / 180.0);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedOverGround), "shipSpeedOverGround_knots", useFactor, model.params.knots_to_km);
 				}
 			}
 			else {
@@ -7989,8 +8425,22 @@ int loadTablesInfo()
 
 	for (i = 0; i < 3; i++) {
 		if (model.tables.nTableTyp[i] < 1) {
-			errlog("ERROR! No tables in %s of type %d (0 wind, 1 wave, 2 stability). There must be at least one. I quit\n", namn, i);
-			exitKontrollerat(__LINE__);
+			if (useFactor == 0) {
+				errlog("ERROR! No tables in %s of type %d (0 wind, 1 wave, 2 stability). There must be at least one. I quit\n", namn, i);
+				postRequest("ERROR! No tables in " + std::string(namn) + " of type " + std::to_string(i) + " (0 wind, 1 wave, 2 stability).There must be at least one.I quit");
+				exitKontrollerat(__LINE__);
+			}
+			else {
+				if (i == 0)
+					namnID = model.functions.windTableID;
+				else if (i == 1)
+					namnID = model.functions.waveTableID;
+				else if (i == 2)
+					namnID = model.functions.stabilityTableID;
+				errlog("ERROR! Table %s typ %d is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit\n", namnID.c_str(), i);
+				postRequest("ERROR! Table " + namnID + " is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit");
+				exitKontrollerat(__LINE__);
+			}
 		}
 		for (int i1 = 0; i1 < model.tables.nTableTyp[i]; i1++) {
 			for (int i2 = i1 + 1; i2 < model.tables.nTableTyp[i]; i2++) {
@@ -8003,11 +8453,168 @@ int loadTablesInfo()
 		}
 	}
 
+	if (useFactor == 1) {
+		model.functions.windTableNr = 0;
+		model.functions.waveTableNr = 0;
+		model.functions.stabilityTableNr = 0;
+	}
+
 
 	fil.close();
 
 
 
+
+	return 0;
+}
+
+static int callbackDB2(void* data, int argc, char** argv, char** azColName) {
+	int i;
+	fprintf(stderr, "%s: ", (const char*)data);
+
+	//for (i = 0; i < argc; i++) {
+	//	printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	//}
+
+	//printf("\n");
+	return 0;
+}
+
+int loadTableSQLite(int type, int nAlloc, char* namn, char* tableID, float* tableValue) {
+	sqlite3* db;
+	char* zErrMsg = 0;
+	int rc;
+	sqlite3_stmt* query;
+	const char* data = "Callback function called";
+	FILE* filpek;
+	//filpek = fopen("tmpTable.txt", "w");
+	int retval, pos;
+	int count;
+
+	rc = sqlite3_open(namn, &db);
+	if (rc) {
+		fprintf(stderr, "Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
+		return(0);
+	}
+	else {
+		fprintf(stderr, "Opened database successfully\n");
+	}
+
+	/* Create SQL statement */
+	std::string sql = "SELECT * from " + std::string(tableID) + ";";
+	if (sqlite3_prepare_v2(db, sql.c_str(), -1, &query, NULL) != SQLITE_OK) {
+		printf("error executing query: %s\n", sqlite3_errmsg(db));
+		return 0;
+	}
+
+	count = 0;
+	while (1) {
+		retval = sqlite3_step(query);
+
+		if (retval == SQLITE_ROW) {
+			pos = (uint32_t)sqlite3_column_int(query, 0);
+			if (pos >= nAlloc) {
+				errlog("ERROR! Too many values in db table waveTable for type %d. Is more than %d.\n", type,
+					nAlloc);
+				postRequest("ERROR! Too many values in db table waveTable for type " + std::to_string(type) +
+					" is more than " + std::to_string(nAlloc));
+				exitKontrollerat(__LINE__);
+				sqlite3_finalize(query);
+				return 0;
+			}
+			tableValue[pos] = (float)sqlite3_column_double(query, 1);
+			//fprintf(filpek, "%f\n", model.functions.waveFactor.tableValue[pos]);
+			//printf("type %d speed %d waveHeight %.3lf waveperiod %d waveAngle %.3lf delta %.5lf\n",
+			//	(uint32_t)sqlite3_column_int(query, 0),
+			//	(uint32_t)sqlite3_column_int(query, 1),
+			//	(double)sqlite3_column_double(query, 2),
+			//	(uint32_t)sqlite3_column_int(query, 3),
+			//	(double)sqlite3_column_double(query, 4),
+			//	(double)sqlite3_column_double(query, 5));
+		}
+		else if (retval == SQLITE_DONE) {
+			/* all done */
+			printf("search: row processing done, %u rows processed\n", count);
+			break;
+		}
+		else {
+			/* error of some sort */
+			printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
+			sqlite3_finalize(query);
+			errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
+			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)));
+			exitKontrollerat(__LINE__);
+			return 0;
+		}
+		count++;
+	}
+	//fclose(filpek);
+
+	sqlite3_finalize(query);
+	sqlite3_close(db);
+
+	if (count != nAlloc) {
+		errlog("ERROR! Too few values in db table %s for type %d. Is %s, should be %d.\n",
+			tableID, type,
+			count, nAlloc);
+		postRequest("ERROR! Too few values in db table " + std::string(tableID) + " for type " + std::to_string(type) +
+			". Is " + std::to_string(count) + ", should be " + std::to_string(nAlloc));
+		exitKontrollerat(__LINE__);
+	}
+	return 0;
+}
+
+int loadAllNeededTablesFromSQLite() {
+	loadTablesInfo(1);
+
+	auto tid0 = std::chrono::high_resolution_clock::now();
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	float* tableValue = NULL;
+	int tableNr, nAlloc;
+
+	for (int ii = 0; ii < 3; ii++) {
+		if (ii == 0) { // wind
+			tableNr = model.functions.windTableNr;
+			copyAddTableInfo(model.tables.tableTyp[0][tableNr].shipSpeedCalmWater, &(model.functions.windFactor.shipSpeedCalmWater));
+			copyAddTableInfo(model.tables.tableTyp[0][tableNr].windSpeed, &(model.functions.windFactor.windSpeed));
+			copyAddTableInfo(model.tables.tableTyp[0][tableNr].windDirection, &(model.functions.windFactor.windDirection));
+			nAlloc = model.functions.windFactor.shipSpeedCalmWater.nIndex * model.functions.windFactor.windSpeed.nIndex *
+				model.functions.windFactor.windDirection.nIndex;
+			model.functions.windFactor.tableValue = (float*)malloc(nAlloc * sizeof(float));
+			tableValue = model.functions.windFactor.tableValue;
+		}
+		else if (ii == 1) {
+			tableNr = model.functions.waveTableNr;
+			copyAddTableInfo(model.tables.tableTyp[1][tableNr].shipSpeedCalmWater, &(model.functions.waveFactor.shipSpeedCalmWater));
+			copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveHeight, &(model.functions.waveFactor.waveHeight));
+			copyAddTableInfo(model.tables.tableTyp[1][tableNr].wavePeriod, &(model.functions.waveFactor.wavePeriod));
+			copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveDirection, &(model.functions.waveFactor.waveDirection));
+			nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex *
+				model.functions.waveFactor.wavePeriod.nIndex * model.functions.waveFactor.waveDirection.nIndex;
+			model.functions.waveFactor.tableValue = (float*)malloc(nAlloc * sizeof(float));
+			tableValue = model.functions.waveFactor.tableValue;
+		}
+		else if (ii == 2) {
+			tableNr = model.functions.stabilityTableNr;
+			copyAddTableInfo(model.tables.tableTyp[2][tableNr].windSpeed, &(model.functions.dynStability.windSpeed));
+			copyAddTableInfo(model.tables.tableTyp[2][tableNr].windDirection, &(model.functions.dynStability.windDirection));
+			copyAddTableInfo(model.tables.tableTyp[2][tableNr].shipSpeedOverGround, &(model.functions.dynStability.shipSpeedOverGround));
+
+			nAlloc = model.functions.dynStability.windSpeed.nIndex * model.functions.dynStability.windDirection.nIndex * model.functions.dynStability.shipSpeedOverGround.nIndex;
+			model.functions.dynStability.tableValue = (float*)malloc(nAlloc * sizeof(float));
+			tableValue = model.functions.dynStability.tableValue;
+		}
+
+		sprintf(namn, "%s/shipTables/%s_%d.db", model.params.indataPath.c_str(),
+			model.tables.tableTyp[ii][tableNr].tableID, ii);
+
+		loadTableSQLite(ii, nAlloc, namn, model.tables.tableTyp[ii][tableNr].tableID, tableValue);
+	}
+
+	auto tid1 = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+	printf("read all weather factor tables %.3lf\n", fp_ms);
 
 	return 0;
 }
@@ -8021,7 +8628,7 @@ int loadUsedTables() {
 	return 0;
 }
 
-int loadUsedTablesFromRedis() {
+int loadUsedTablesFromRedis() { // not used
 
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
 	std::string redisTest;
@@ -8030,12 +8637,14 @@ int loadUsedTablesFromRedis() {
 		if (redisTest != "PONG") {
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
+			postRequest("ERROR1! Redis is not running on the server. Start it and try to update redis via OptiNav again");
 			exitKontrollerat(__LINE__);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
+		postRequest("ERROR2! Redis is not running on the server. Start it and try to update redis via OptiNav again");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8057,10 +8666,13 @@ int loadUsedTablesFromRedis() {
 	else {
 		errlog("ERROR! The tableID for wind %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.windTableID.c_str());
+		std::string felError = "ERROR! The tableID for wind " + model.functions.windTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.";
+		postRequest(felError);
 		exitKontrollerat(__LINE__);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for wind tableID %s. Try to set redis keys again. I quit.\n", model.functions.windTableID.c_str());
+		postRequest("ERROR! Failed to load metaData for wind tableID " + model.functions.windTableID + ".Try to set redis keys again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 	keyID.assign("tableWind_");
@@ -8076,7 +8688,8 @@ int loadUsedTablesFromRedis() {
 		memcpy(model.functions.windFactor.tableValue, value->data(), value->size());
 	}
 	else {
-		errlog("ERROR! Could not read redis key %s try to run set redis again. I quit.\n", keyID.c_str());
+		errlog("ERROR! Could not read redis key %s. Try to run set redis again. I quit.\n", keyID.c_str());
+		postRequest("ERROR! Could not read redis key " + keyID  + ".Try to run set redis again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8103,10 +8716,13 @@ int loadUsedTablesFromRedis() {
 	else {
 		errlog("ERROR! The tableID for wave %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.waveTableID.c_str());
+		postRequest("ERROR! The tableID for wave " + model.functions.waveTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for wave tableID %s. Try to set redis keys again. I quit.\n", model.functions.waveTableID.c_str());
+		postRequest("ERROR! Failed to load metaData for wave tableID " + model.functions.waveTableID + ".Try to set redis keys again.I quit.");
+
 		exitKontrollerat(__LINE__);
 	}
 	keyID.assign("tableWave_");
@@ -8121,6 +8737,7 @@ int loadUsedTablesFromRedis() {
 	}
 	else {
 		errlog("ERROR! Could not read redis key %s try to run set redis again. I quit.\n", keyID.c_str());
+		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8139,10 +8756,13 @@ int loadUsedTablesFromRedis() {
 	else {
 		errlog("ERROR! The tableID for stability %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.stabilityTableID.c_str());
+		postRequest("ERROR! The tableID for stability " + model.functions.stabilityTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.");
+
 		exitKontrollerat(__LINE__);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for stability tableID %s. Try to set redis keys again. I quit.\n", model.functions.stabilityTableID.c_str());
+		postRequest("ERROR! Failed to load metaData for stability tableID " + model.functions.stabilityTableID  + ".Try to set redis keys again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 	keyID.assign("tableStability_");
@@ -8157,6 +8777,7 @@ int loadUsedTablesFromRedis() {
 	}
 	else {
 		errlog("ERROR! Could not read redis key %s try to run set redis again. I quit.\n", keyID.c_str());
+		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8181,6 +8802,7 @@ int loadpreferredPathGeojson()
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
 		exitKontrollerat(__LINE__);
 	}
 	
@@ -8258,6 +8880,7 @@ int loadVariables(int alt = 0)
 	}
 	else {
 		errlog("ERROR! timeIntervall_h not given in file %s. Fix this and run again. I quit\n", namn.c_str());
+		postRequest("ERROR! timeIntervall_h not given in file " + namn + ". Fix this and run again.I quit");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8331,36 +8954,44 @@ int loadVariables(int alt = 0)
 	}
 
 	if (model.functions.pos_wind_u == -1) {
-		errlog("ERROR! weather parameter wind_uComponent not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_wind_v == -1) {
-		errlog("ERROR! weather parameter wind_vComponent not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter wind_vComponent not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter wind_vComponent not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_current_u == -1) {
-		errlog("ERROR! weather parameter current_uComponent not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_current_v == -1) {
-		errlog("ERROR! weather parameter current_vComponent not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_waveHeight == -1) {
-		errlog("ERROR! weather parameter waveHeight not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter waveHeight not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter waveHeight not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_wavePeriod == -1) {
-		errlog("ERROR! weather parameter wavePeriod not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter wavePeriod not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter wavePeriod not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_waveDirection == -1) {
-		errlog("ERROR! weather parameter waveDirection not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter waveDirection not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter waveDirection not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 	if (model.functions.pos_iceThickness == -1) {
-		errlog("ERROR! weather parameter ice_thickness_m not given. It must exist\n");
-		//exitKontrollerat(__LINE__);
+		errlog("ERROR! weather parameter ice_thickness_m not given in weather_parameters.json. It must exist\n");
+		postRequest("ERROR! weather parameter ice_thickness_m not given in weather_parameters.json. It must exist");
+		exitKontrollerat(__LINE__);
 	}
 
 
@@ -8387,7 +9018,7 @@ int roundUp(double varde) {
 double get_colDblFromWeatherFile(int weatherNr, double lon)
 {
 	double colDbl, tmpLon = lon;
-	if (lon < model.weather[weatherNr].minX)
+	if (lon < model.weather[weatherNr].minX - 20)
 		lon += 360;
 	//	if (lon < model.weather[weatherNr].rasterPos[*nr].Get_minLongitude() ||
 	//		lon >= model.weather[weatherNr].rasterPos[*nr].Get_maxLongitude()) {
@@ -8433,6 +9064,8 @@ void redisTestRead() {
 	auto tid0 = std::chrono::high_resolution_clock::now();
 
 	//printf("testA\n");
+	arrFloat = NULL;
+
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		keyID.assign(model.weather[ii].weatherFileTypeName);
 		keyID.append(":metaData");
@@ -8482,7 +9115,8 @@ void redisTestRead() {
 		auto tid1a = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::milli> fp_msa = tid1a - tid0;
 		printf("read first part of redis data from %s took %.3lf\n", model.weather[ii].weatherFileTypeName, fp_msa);
-		if (ii > 0)
+
+		if(ii > 0)
 			delete arrFloat;
 		//printf("testA nAlloc %d\n", nAlloc);
 
@@ -8492,7 +9126,7 @@ void redisTestRead() {
 				pos = i2 + model.weather[ii].nBlock_x * i1;
 				keyID.assign(model.weather[ii].weatherFileTypeName);
 				keyID.append(":");
-				keyID += to_string(pos);
+				keyID += std::to_string(pos);
 				auto value = redis.get(keyID);
 				if (value) {
 					if (forsta == 1) {
@@ -8646,7 +9280,7 @@ void testAnropRedisMap() {
 
 }
 
-int redisSetKeys(std::string inputPath) {
+int redisSetKeys_old(std::string inputPath) {
 	int ii, i1, i2, i3, i4, i5, xPos1, yPos0, yPos1, nBands;
 	size_t nAlloc;
 	int nBlockRows, nBlockCols, pos, pos2, manad, dag;
@@ -8671,6 +9305,7 @@ int redisSetKeys(std::string inputPath) {
 	FILE* filcheck = fopen(namn, "w");
 	if (filcheck == NULL) {
 		errlog("ERROR! Could not open %s\n", namn);
+		postRequest("ERROR! Could not open " + std::string(namn));
 		exitKontrollerat(__LINE__);
 	}
 	printf("done\n");
@@ -8683,9 +9318,9 @@ int redisSetKeys(std::string inputPath) {
 
 	std::list<int> listOfInts;
 
-	stringstream stream, stream2;
+	std::stringstream stream, stream2;
 	stream.precision(3);
-	stream << fixed;
+	stream << std::fixed;
 	//stream2.precision(3);
 	//stream2 << fixed;
 
@@ -8711,12 +9346,14 @@ int redisSetKeys(std::string inputPath) {
 		if(redisTest != "PONG"){
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
+			postRequest("ERROR! Redis is not running on the server. Start it and try again");
 			exitKontrollerat(__LINE__);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
+		postRequest("ERROR! Redis is not running on the server. Start it and try again");
 		exitKontrollerat(__LINE__);
 	}
 
@@ -8802,7 +9439,7 @@ int redisSetKeys(std::string inputPath) {
 	free(namn2);
 	*/
 
-	loadTablesInfo();
+	loadTablesInfo(0);
 
 	loadVariables(1);
 
@@ -8825,7 +9462,7 @@ int redisSetKeys(std::string inputPath) {
 				keyID.assign("tableWind_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
 				keyID.append(":values");
-				redis.set(keyID, string_view(reinterpret_cast<const char*>(model.functions.windFactor.tableValue), nAlloc * sizeof(float)));
+				redis.set(keyID, std::string_view(reinterpret_cast<const char*>(model.functions.windFactor.tableValue), nAlloc * sizeof(float)));
 				// metaData key tableWind_tableID:metaData
 				keyID.assign("tableWind_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
@@ -8857,7 +9494,7 @@ int redisSetKeys(std::string inputPath) {
 				keyID.assign("tableWave_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
 				keyID.append(":values");
-				redis.set(keyID, string_view(reinterpret_cast<const char*>(model.functions.waveFactor.tableValue), nAlloc * sizeof(float)));
+				redis.set(keyID, std::string_view(reinterpret_cast<const char*>(model.functions.waveFactor.tableValue), nAlloc * sizeof(float)));
 				keyID.assign("tableWave_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
 				keyID.append(":metaData");
@@ -8893,7 +9530,7 @@ int redisSetKeys(std::string inputPath) {
 				keyID.assign("tableStability_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
 				keyID.append(":values");
-				redis.set(keyID, string_view(reinterpret_cast<const char*>(model.functions.dynStability.tableValue), nAlloc * sizeof(float)));
+				redis.set(keyID, std::string_view(reinterpret_cast<const char*>(model.functions.dynStability.tableValue), nAlloc * sizeof(float)));
 				// metaData key tableWind_tableID:metaData
 				keyID.assign("tableStability_");
 				keyID.append(model.tables.tableTyp[ii][i].tableID);
@@ -8929,12 +9566,13 @@ int redisSetKeys(std::string inputPath) {
 		//		maxLong = model.weather[ii].filePos[i1].maxX;
 		//}
 		for (i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
-			printf("test1 ii %d %d\n", ii, i1);
+			//printf("test1 ii %d %d\n", ii, i1);
 			openOK = model.weather[ii].rasterPos[i1].open(model.weather[ii].filePos[i1].fileName);
 			printf("%s openOK %d\n", model.weather[ii].filePos[i1].fileName, openOK);
 			if (openOK != 1) {
 				errlog("ERROR! Could not open forecast file %s. This one must exist. I quit\n",
 					model.weather[ii].filePos[i1].fileName);
+				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit");
 				exitKontrollerat(__LINE__);
 			}
 			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
@@ -8973,7 +9611,7 @@ int redisSetKeys(std::string inputPath) {
 				model.weather[ii].nTimeIntervals_forecast = nBands;
 				model.weather[ii].nTimeIntervals = nBands + nDaysNeeded_history;
 				model.weather[ii].secondsUTC = (long long*)malloc((nBands + nDaysNeeded_history) * sizeof(long long));
-				printf("\n\n### secondsUTC alloc %d ####\n\n\n", nBands + nDaysNeeded_history);
+				// printf("\n\n### secondsUTC alloc %d ####\n\n\n", nBands + nDaysNeeded_history);
 				model.weather[ii].valueCell = (float**)malloc((nBands + nDaysNeeded_history) * sizeof(float*));
 				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
 				for (i2 = 0; i2 < nBands + nDaysNeeded_history; i2++) {
@@ -9073,8 +9711,8 @@ int redisSetKeys(std::string inputPath) {
 					//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
 					//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
 					model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), model.weather[ii].nTimeIntervals_forecast + i2);
-					printf("history day %d changes secondsUTC from %I64d to %I64d\n",
-						model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2], secondsNow);
+					//printf("history day %d changes secondsUTC from %I64d to %I64d\n", i2,
+					//	model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2], secondsNow);
 				}
 				else {
 					errlog("ERROR! Failed to open %s. I use weather data from the previous loaded file\n",
@@ -9132,13 +9770,13 @@ int redisSetKeys(std::string inputPath) {
 		}
 		//printf("minX %.4lf\n", model.weather[ii].minX);
 
-		printf("test1d %d\n", ii);
+		//printf("test1d %d\n", ii);
 		nBlockRows = roundUp((double)model.weather[ii].nRows / model.weather[ii].nBlock_y);
 		nBlockCols = roundUp((double)model.weather[ii].nCols / model.weather[ii].nBlock_x);
 		pos = 0;
 		nAlloc = model.weather[ii].nTimeIntervals * nBlockRows * nBlockCols;
-		printf("nAlloc = %d nTimePeriods %d nBlockCols/Rows %d %d\n",
-			nAlloc, model.weather[ii].nTimeIntervals, nBlockCols, nBlockRows);
+		//printf("nAlloc = %d nTimePeriods %d nBlockCols/Rows %d %d\n",
+		//	nAlloc, model.weather[ii].nTimeIntervals, nBlockCols, nBlockRows);
 		if (nAlloc > 1500000000) {
 			nBlockRows = roundUp(1500000.0 / nBands / nBlockCols);
 			errlog("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
@@ -9208,7 +9846,7 @@ int redisSetKeys(std::string inputPath) {
 				//	printf("setting key\n");
 				keyID.assign(model.weather[ii].weatherFileTypeName);
 				keyID.append(":");
-				keyID += to_string(pos);
+				keyID += std::to_string(pos);
 				//printf("Setting key %s for i3 0 %d i4 %d %d i5 %d %d pos %d\n", keyID.c_str(),
 				//	nBands, nBlockRows * i1, i4-1, nBlockCols * i2, i5-1, pos);
 				//if (pos == 10) {
@@ -9218,7 +9856,7 @@ int redisSetKeys(std::string inputPath) {
 				//else
 				//if (ii >= 2)
 				//	printf("setting key2\n");
-				redis.set(keyID, string_view(reinterpret_cast<const char*>(arrFloat), nAlloc * sizeof(float)));
+				redis.set(keyID, std::string_view(reinterpret_cast<const char*>(arrFloat), nAlloc * sizeof(float)));
 				//if (ii >= 2)
 				//	printf("done\n");
 				pos++;
@@ -9226,7 +9864,527 @@ int redisSetKeys(std::string inputPath) {
 		}
 		free(arrFloat);
 
-		printf("ii %d nBands %d nTimePeriods %d\n", ii, nBands, model.weather[ii].nTimeIntervals);
+		//printf("ii %d nBands %d nTimePeriods %d\n", ii, nBands, model.weather[ii].nTimeIntervals);
+		if (ii == 2) {
+			lat = 74.4812;
+			lon = 116.0802;
+			rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+			colDbl = get_colDblFromWeatherFile(ii, lon);
+			i4 = (int)rowDbl;
+			i5 = (int)colDbl;
+			for (i3 = 0; i3 < model.weather[ii].nTimeIntervals && i3 < 10; i3++) {
+				printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.4f\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+			}
+		}
+
+		printf("setting metadata\n");
+		keyID.assign(model.weather[ii].weatherFileTypeName);
+		keyID.append(":metaData");
+		//redis.set(keyID, to_string(model.weather[ii].nCols));
+		mData["nCols"] = model.weather[ii].nCols;
+		mData["nRows"] = model.weather[ii].nRows;
+		mData["size_col"] = model.weather[ii].size_col;
+		mData["size_row"] = model.weather[ii].size_row;
+		mData["minX"] = model.weather[ii].minX;
+		mData["maxX"] = model.weather[ii].maxX;
+		mData["minY"] = model.weather[ii].minY;
+		mData["maxY"] = model.weather[ii].maxY;
+		mData["nBlockRows"] = nBlockRows;
+		mData["nBlockCols"] = nBlockCols;
+		mData["nTimeIntervals"] = model.weather[ii].nTimeIntervals;
+		mData["nTimeIntervals_forecast"] = model.weather[ii].nTimeIntervals_forecast;
+		errlog("%s nCols/Rows %d %d sizes %.3lf %.3lf minXY %.3lf %.3lf nTime/forecast %d %d\n",
+			model.weather[ii].weatherFileTypeName, model.weather[ii].nCols, model.weather[ii].nRows,
+			model.weather[ii].size_col, model.weather[ii].size_row,
+			model.weather[ii].minX, model.weather[ii].minY, model.weather[ii].nTimeIntervals,
+			model.weather[ii].nTimeIntervals_forecast);
+
+		listOfInts.clear();
+		for (int i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+			listOfInts.push_back(model.weather[ii].secondsUTC[i]);
+			errlog("%s timeInt %d sec %I64d %s\n",
+				model.weather[ii].weatherFileTypeName, i, model.weather[ii].secondsUTC[i],
+				stringDateFromUTCSeconds(model.weather[ii].secondsUTC[i]).c_str());
+		}
+
+		printf("metaData\n%s\n", mData.dump().c_str());
+		mData["UTCtimes"] = listOfInts;
+
+		//printf("Setting key %s\n", keyID.c_str());
+		redis.set(keyID, mData.dump());
+		printf("Setting of key %s done\n", keyID.c_str());
+
+		if (ii == 2) {
+			lat = 9.8;
+			lon = 91.96;
+			rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+			colDbl = get_colDblFromWeatherFile(ii, lon);
+			i4 = (int)rowDbl;
+			i5 = (int)colDbl;
+			for (i3 = 0; i3 < model.weather[ii].nTimeIntervals && i3 < 10; i3++) {
+				printf("%s lon/lat %.2lf %.2lf i345 %d %d %d val %.3lf %.3lf\n", model.weather[ii].weatherFileTypeName, lon, lat, i3, i4, i5,
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
+					model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4 + 1)]);
+			}
+		}
+		if (model.weather[ii].errorCode != 0)
+			model.params.errorCode = 1;
+
+
+	}
+
+	fclose(filcheck);
+	fclose(filCheck2);
+
+	if (model.params.errorCode != 0)
+		errlog("ERROR! Generation of redis keys failed\n");
+	else
+		errlog("Generation of redis keys successful\n");
+
+	return 0;
+}
+
+int saveTablesToSQLite(std::string inputPath) {
+	int ii;
+
+	resultPath = inputPath;
+	reset_errlog();
+
+	model.params.indataPath = inputPath;
+	model.params.errorCode = 0;
+	loadParams_theRestOld(&(model.params));
+
+	loadTablesInfo(0);
+
+	loadVariables(1);
+
+	readSQLiteAllTablesInfo();
+
+	model.functions.windFactor.tableValue = NULL;
+	model.functions.windFactor.tableValue = NULL;
+	model.functions.windFactor.tableValue = NULL;
+
+	int i, modified, nAlloc = 0;
+	json mDataParam;
+	for (ii = 0; ii < 3; ii++) {
+		for (i = 0; i < model.tables.nTableTyp[ii]; i++) {
+			modified = checkIfModifiedFile(ii, i);
+			if (modified == 0)
+				continue; // this file is not modified so no need to update it
+
+			if (ii == 0) {
+				nAlloc = loadWeatherFactorTableWind(i);
+			}
+			else if (ii == 1) {
+				nAlloc = loadWeatherFactorTableWave(i);
+			}
+			else if (ii == 2) {
+				nAlloc = loadDynamicStabilityTable(i);
+			}
+			saveFactorTableToSQLite(ii, i, modified, nAlloc);
+		}
+	}
+
+	if (model.params.errorCode != 0) {
+		errlog("ERROR! Saving tables to SQLite databases failed\n");
+	}
+	else
+		errlog("Saving tables to SQLite database successful\n");
+
+	return 0;
+}
+
+int redisSetKeys(std::string inputPath) {
+	int ii, i1, i2, i3, i4, i5, xPos1, yPos0, yPos1, nBands;
+	size_t nAlloc;
+	int nBlockRows, nBlockCols, pos, pos2, manad, dag;
+	double maxLong, xPosFrac, size_col, size_row, lat, lon, rowDbl, colDbl;
+	float* arrFloat;
+	float kvot;
+	std::string keyID, histFileName;
+	json mData;
+	long long nSecondsUTC_last, nSecondsHistory_first, nSecondsHistory_firstStartDay;
+	long long lastSecondUTC_needed, nExtraSecondsNeeded, nSecondsUTC_first, secondsNow;
+	int nDaysNeeded_history, openOK, zNu, iY, iX, pos1;
+
+
+	resultPath = inputPath;
+
+	char* namn;
+	namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/checkWeatherData_tmp.txt", resultPath.c_str());
+
+	printf("opens %s\n", namn);
+	FILE* filcheck = fopen(namn, "w");
+	if (filcheck == NULL) {
+		errlog("ERROR! Could not open %s\n", namn);
+		postRequest("ERROR! Could not open " + std::string(namn));
+		exitKontrollerat(__LINE__);
+	}
+	printf("done\n");
+	fprintf(filcheck, "tetsting\n");
+	printf("done2\n");
+
+
+	sprintf(namn, "%s/checkWeather2.txt", resultPath.c_str());
+	FILE* filCheck2 = fopen(namn, "w");
+
+	std::list<int> listOfInts;
+
+	std::stringstream stream, stream2;
+	stream.precision(3);
+	stream << std::fixed;
+	//stream2.precision(3);
+	//stream2 << fixed;
+
+	//printf("test1\n");
+
+	//model.params.variableFileName = inputPath;
+
+	initModelStatusValues();
+
+	//model.params.indataPath = inputPath;
+	//model.params.errorCode = 0;
+	//loadParams_theRestOld(&(model.params));
+
+	Raster test;
+
+	//testAnropRedisMap();
+
+	printf("opening redis\n");
+	auto redis = Redis("tcp://127.0.0.1:6379/1");
+	std::string redisTest;
+	try {
+		redisTest = redis.ping();
+		if (redisTest != "PONG") {
+			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
+			printf("ERROR! Redis is not running on the server. Start it and try again\n");
+			postRequest("ERROR! Redis is not running on the server. Start it and try again");
+			exitKontrollerat(__LINE__);
+		}
+	}
+	catch (...) {
+		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
+		printf("ERROR! Redis is not running on the server. Start it and try again\n");
+		postRequest("ERROR! Redis is not running on the server. Start it and try again");
+		exitKontrollerat(__LINE__);
+	}
+
+	loadVariables(1);
+
+	json mDataParam;
+
+	lastSecondUTC_needed = make_gmtime_now() + model.params.longestRouteDays_history * 3600 * 24;
+
+	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		size_col = -1;
+		maxLong = -9999;
+		//for (i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
+		//	if (maxLong < model.weather[ii].filePos[i1].maxX)
+		//		maxLong = model.weather[ii].filePos[i1].maxX;
+		//}
+		for (i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
+			//printf("test1 ii %d %d\n", ii, i1);
+			openOK = model.weather[ii].rasterPos[i1].open(model.weather[ii].filePos[i1].fileName);
+			printf("%s openOK %d\n", model.weather[ii].filePos[i1].fileName, openOK);
+			if (openOK != 1) {
+				errlog("ERROR! Could not open forecast file %s. This one must exist. I quit\n",
+					model.weather[ii].filePos[i1].fileName);
+				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit");
+				exitKontrollerat(__LINE__);
+			}
+			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+			model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
+			model.weather[ii].filePos[i1].maxX = model.weather[ii].rasterPos[i1].Get_maxLongitude();
+			if (maxLong < model.weather[ii].filePos[i1].maxX)
+				maxLong = model.weather[ii].filePos[i1].maxX;
+			if (i1 == 0) {
+				nSecondsUTC_last = model.weather[ii].rasterPos[i1].GetMetaData_nSecondsUTC_last(&nSecondsUTC_first);
+				nSecondsHistory_first = nSecondsUTC_last + model.weather_timeIntervall_h * 3600;
+				nSecondsHistory_firstStartDay = getFirstSecondOfDay(nSecondsHistory_first);
+
+				nExtraSecondsNeeded = lastSecondUTC_needed - nSecondsHistory_first;
+				nDaysNeeded_history = (int)(nExtraSecondsNeeded / 3600 / 24) + 1;
+
+				//printf("test1\n");
+				size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+				model.weather[ii].size_col = size_col;
+				model.weather[ii].minX = model.weather[ii].filePos[i1].minX; // model.weather[ii].rasterPos[i1].Get_minLongitude();
+				xPosFrac = (maxLong - model.weather[ii].minX) /
+					size_col;
+				xPos1 = roundUp(xPosFrac);
+				model.weather[ii].maxX = model.weather[ii].minX +
+					xPos1 * size_col;
+				model.weather[ii].nCols = xPos1 + 1;
+
+				size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+				model.weather[ii].size_row = size_row;
+				yPos0 = 0;
+				model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude();
+				yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+				model.weather[ii].minY = model.weather[ii].maxY - yPos1 * size_row;
+				model.weather[ii].nRows = yPos1 + 1;
+
+				printf("nBands %d nDaysHistory %d\n", nBands, nDaysNeeded_history);
+				model.weather[ii].nTimeIntervals_forecast = nBands;
+				model.weather[ii].nTimeIntervals = nBands + nDaysNeeded_history;
+				model.weather[ii].secondsUTC = (long long*)malloc((nBands + nDaysNeeded_history) * sizeof(long long));
+				// printf("\n\n### secondsUTC alloc %d ####\n\n\n", nBands + nDaysNeeded_history);
+				model.weather[ii].valueCell = (float**)malloc((nBands + nDaysNeeded_history) * sizeof(float*));
+				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+				for (i2 = 0; i2 < nBands + nDaysNeeded_history; i2++) {
+					model.weather[ii].valueCell[i2] = (float*)malloc(nAlloc * sizeof(float));
+					for (int i3 = 0; i3 < nAlloc; i3++)
+						model.weather[ii].valueCell[i2][i3] = 9999;
+					model.weather[ii].secondsUTC[i2] = -1;
+				}
+				model.weather[ii].errorCode = 0;
+			}
+			else {
+				if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001 ||
+					abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+						errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+						errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+					model.weather[ii].errorCode = 3;
+					continue;
+				}
+				if (model.weather[ii].nTimeIntervals_forecast != nBands) {
+					errlog("ERROR! Different number of bands for weather parameter %s, %d and %d, file %s. Must be the same. I quit\n",
+						model.weather[ii].weatherFileTypeName, model.weather[ii].nTimeIntervals_forecast, nBands,
+						model.weather[ii].filePos[i1].fileName);
+					model.weather[ii].errorCode = 2;
+					continue;
+				}
+			}
+			//printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
+			//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
+			//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
+			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0);
+
+			for (i2 = 0; i2 < nDaysNeeded_history; i2++) {
+				// printf("i2 %d\n", i2);
+				if (i2 == 0)
+					secondsNow = nSecondsHistory_first + i2 * 24 * 3600;
+				else
+					secondsNow = nSecondsHistory_firstStartDay + i2 * 24 * 3600;
+
+				manad = getManadDagFranUTCSeconds(secondsNow, &dag);
+
+				histFileName = model.weather[ii].filePos[i1].fileName;
+				pos = histFileName.find_last_of("/\\");
+				pos1 = histFileName.rfind("_resampled");
+				if (pos1 > pos && pos1 < histFileName.size() - 1) {
+					// remove this part of the name as it is not part of resampled average
+					//printf("pos %d pos1 %d of  %s size %d\n", pos, pos1, histFileName.c_str(), histFileName.size());
+					histFileName.erase(pos1, 10);
+					//histFileName.erase(pos1 - 12, 10);
+					//printf("%s\n", histFileName.c_str());
+				}
+				histFileName.insert(pos, "/Monthly/");
+				pos += 9;
+				if (manad < 10) {
+					histFileName.insert(pos, "0");
+					histFileName.insert(pos + 1, std::to_string(manad));
+				}
+				else
+					histFileName.insert(pos, std::to_string(manad));
+				//pos += 2;
+				pos = histFileName.find_last_of(".");
+				if (dag < 10) {
+					histFileName.insert(pos, "_0");
+					histFileName.insert(pos + 2, std::to_string(dag));
+				}
+				else {
+					histFileName.insert(pos, "_");
+					histFileName.insert(pos + 1, std::to_string(dag));
+				}
+				pos += 3;
+				if (manad < 10) {
+					histFileName.insert(pos, "_0_avg");
+					histFileName.insert(pos + 2, std::to_string(manad));
+				}
+				else {
+					histFileName.insert(pos, "__avg");
+					histFileName.insert(pos + 1, std::to_string(manad));
+				}
+				openOK = model.weather[ii].rasterPos[i1].open(histFileName.c_str());
+				if (openOK == 1) {
+					errlog("Open %s okay.\n",
+						histFileName.c_str());
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001 ||
+						abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
+						if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+							errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+								model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+						if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+							errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+								model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+						model.weather[ii].errorCode = 4;
+						continue;
+					}
+					//printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
+					//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
+					//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
+					model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), model.weather[ii].nTimeIntervals_forecast + i2);
+					//printf("history day %d changes secondsUTC from %I64d to %I64d\n", i2,
+					//	model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2], secondsNow);
+				}
+				else {
+					errlog("ERROR! Failed to open %s. I use weather data from the previous loaded file\n",
+						histFileName.c_str());
+					zNu = model.weather[ii].nTimeIntervals_forecast + i2;
+					for (iY = 0; iY < model.weather[ii].nRows; iY++) {
+						for (iX = 0; iX < model.weather[ii].nCols; iX++) {
+							model.weather[ii].valueCell[zNu][iX + model.weather[ii].nCols * iY] =
+								model.weather[ii].valueCell[zNu - 1][iX + model.weather[ii].nCols * iY];
+						}
+					}
+
+					(model.status.weatherHistoryOpenFile_fail)++;
+					printf("ERROR! Failed to open %s, nFailed %d. I use weather data from the previous loaded file. secondsNow %I64d\n",
+						histFileName.c_str(), model.status.weatherHistoryOpenFile_fail, secondsNow);
+				}
+				//printf("test %d\n", model.weather[ii].nTimeIntervals_forecast + i2);
+				model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2] = secondsNow;
+				//printf("test igen\n");
+			}
+			//printf("test igen2\n");
+
+
+		}
+		// printf("test igen3\n");
+
+		fprintf(filcheck, "\nvar %d %s tidsperioder\n", ii, model.weather[ii].weatherFileTypeName);
+		// printf("\nvar %d %s tidsperioder\n", ii, model.weather[ii].weatherFileTypeName);
+		for (i1 = 0; i1 < model.weather[ii].nTimeIntervals; i1++) {
+			stringDateFromUTCSeconds(model.weather[ii].secondsUTC[i1]);
+			fprintf(filcheck, "%d %I64d %s\n", i1, model.weather[ii].secondsUTC[i1],
+				stringDateFromUTCSeconds(model.weather[ii].secondsUTC[i1]).c_str());
+		}
+
+		// printf("test2\n");
+		if (model.weather[ii].nRows > 5) {
+			fprintf(filcheck, "\nvar %d %s tidp 0 rad 5 varden i kolumner\n", ii, model.weather[ii].weatherFileTypeName);
+			for (i1 = 0; i1 < model.weather[ii].nCols; i1++) {
+				fprintf(filcheck, "%d midp_xy %.3lf %.3lf varde %f\n", i1,
+					(i1 + 0.5) * model.weather[ii].size_col + model.weather[ii].minX,
+					model.weather[ii].maxY - 4.5 * model.weather[ii].size_row,
+					model.weather[ii].valueCell[0][i1 + model.weather[ii].nCols * 4]);
+			}
+			if (nDaysNeeded_history > 0) {
+				fprintf(filcheck, "\nvar %d %s tidp %d (first historic) rad 5 varden i kolumner\n", ii, model.weather[ii].weatherFileTypeName,
+					model.weather[ii].nTimeIntervals_forecast);
+				for (i1 = 0; i1 < model.weather[ii].nCols; i1++) {
+					fprintf(filcheck, "%d midp_xy %.3lf %.3lf varde %f\n", i1,
+						(i1 + 0.5) * model.weather[ii].size_col + model.weather[ii].minX,
+						model.weather[ii].maxY - 4.5 * model.weather[ii].size_row,
+						model.weather[ii].valueCell[model.weather[ii].nTimeIntervals_forecast][i1 + model.weather[ii].nCols * 4]);
+				}
+
+			}
+		}
+		//printf("minX %.4lf\n", model.weather[ii].minX);
+
+		//printf("test1d %d\n", ii);
+		nBlockRows = roundUp((double)model.weather[ii].nRows / model.weather[ii].nBlock_y);
+		nBlockCols = roundUp((double)model.weather[ii].nCols / model.weather[ii].nBlock_x);
+		pos = 0;
+		nAlloc = model.weather[ii].nTimeIntervals * nBlockRows * nBlockCols;
+		//printf("nAlloc = %d nTimePeriods %d nBlockCols/Rows %d %d\n",
+		//	nAlloc, model.weather[ii].nTimeIntervals, nBlockCols, nBlockRows);
+		if (nAlloc > 1500000000) {
+			nBlockRows = roundUp(1500000.0 / nBands / nBlockCols);
+			errlog("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
+				model.weather[ii].nBlock_y, roundUp((double)(model.weather[ii].nRows / nBlockRows)));
+			printf("ERROR! Too much data per key, I increase the number of y blocks from %d to %d\n",
+				model.weather[ii].nBlock_y, roundUp((double)(model.weather[ii].nRows / nBlockRows)));
+			model.weather[ii].nBlock_y = roundUp((double)(model.weather[ii].nRows / nBlockRows));
+			nAlloc = model.weather[ii].nTimeIntervals * nBlockRows * nBlockCols;
+		}
+
+
+
+		kvot = 1.0; // to change from m/s to km/h
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_uComponent") == 0)
+			kvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_vComponent") == 0)
+			kvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_uComponent") == 0)
+			kvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_vComponent") == 0)
+			kvot = 3.6;
+
+		printf("Adding redis keys for weather parameter %s nAlloc %d nBlock xy %d %d\n",
+			model.weather[ii].weatherFileTypeName, nAlloc,
+			model.weather[ii].nBlock_x, model.weather[ii].nBlock_y);
+		arrFloat = (float*)malloc(nAlloc * sizeof(float));
+		if (ii == 3)
+			fprintf(filCheck2, "ii %d nTimePeriods %d nBlockRows %d nBlockCols %d\n", ii, model.weather[ii].nTimeIntervals, nBlockRows, nBlockCols);
+		for (i1 = 0; i1 < model.weather[ii].nBlock_y; i1++) {
+			for (i2 = 0; i2 < model.weather[ii].nBlock_x; i2++) {
+				//if(ii >= 2)
+				//	printf("block %d %d av %d %d\n", i1, i2,
+				//		model.weather[ii].nBlock_y, model.weather[ii].nBlock_x);
+				pos2 = 0;
+				for (i3 = 0; i3 < model.weather[ii].nTimeIntervals; i3++) {
+					for (i4 = nBlockRows * i1; i4 < nBlockRows * (i1 + 1); i4++) {
+						for (i5 = nBlockCols * i2; i5 < nBlockCols * (i2 + 1); i5++) {
+							//if (i3 == 0 && i4 == 194 && i5 == 3701) {
+							//	printf("i345 %d %d %d i12 %d %d pos %d pos2 %d val %.4lf\n",
+							//		i3, i4, i5, i1, i2, pos, pos2,
+							//		model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
+							//}
+							if (i4 < model.weather[ii].nRows && i5 < model.weather[ii].nCols) {
+								if (model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4] < 9998)
+									arrFloat[pos2] = model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4] * kvot;
+								else
+									arrFloat[pos2] = model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4];
+							}
+							else
+								arrFloat[pos2] = -9999.9;
+							if (ii == 3 && i1 == 3 && i2 == 7)
+								fprintf(filCheck2, "%.3lf ", arrFloat[pos2]);
+							//if (pos == 10) {
+							//	//stream << pos2 << ":" << arrFloat[pos2] << " ";
+							//	stream << arrFloat[pos2] << " ";
+							//}
+							pos2++;
+						}
+						if (ii == 3 && i1 == 3 && i2 == 7)
+							fprintf(filCheck2, "\n");
+						//if (pos == 0) 
+						//	stream << "\n";
+					}
+				}
+				//printf("pos %d %.3lf %.3lf %.3lf %.3lf\n", pos, arrFloat[0], arrFloat[1], arrFloat[384920], arrFloat[384921]);
+				//if (ii >= 2)
+				//	printf("setting key\n");
+				keyID.assign(model.weather[ii].weatherFileTypeName);
+				keyID.append(":");
+				keyID += std::to_string(pos);
+				//printf("Setting key %s for i3 0 %d i4 %d %d i5 %d %d pos %d\n", keyID.c_str(),
+				//	nBands, nBlockRows * i1, i4-1, nBlockCols * i2, i5-1, pos);
+				//if (pos == 10) {
+				//	redis.set(keyID, stream.str());
+				//	printf("pos %d arrFloat[471839] = %.3lf\n", pos, arrFloat[471839]);
+				//}
+				//else
+				//if (ii >= 2)
+				//	printf("setting key2\n");
+				redis.set(keyID, std::string_view(reinterpret_cast<const char*>(arrFloat), nAlloc * sizeof(float)));
+				//if (ii >= 2)
+				//	printf("done\n");
+				pos++;
+			}
+		}
+		free(arrFloat);
+
+		//printf("ii %d nBands %d nTimePeriods %d\n", ii, nBands, model.weather[ii].nTimeIntervals);
 		if (ii == 2) {
 			lat = 74.4812;
 			lon = 116.0802;
@@ -9578,10 +10736,10 @@ int eval_stormWithinBoundingBox(int stormNr) {
 }
 
 int eval_coordWithinBoundingBox(double lon, double lat){
-	if (lon < model.boundingBox.xMin) {
+	if (lon < model.boundingBox.xMin - 20) {
 		lon += 360;
 	}
-	else if (lon > model.boundingBox.xMax) {
+	else if (lon > model.boundingBox.xMax + 20) {
 		lon -= 360;
 	}
 	//printf("eval_coordWithinBoundingBox coords %.3lf %.3lf box %.2lf %.2lf %.2lf %.2lf\n\n", lon, lat,
@@ -9603,11 +10761,11 @@ int check_translate_xCoordArray(double* xCoord, int nCoords) {
 	int i, translate = 0;
 
 	for (i = 0; i < nCoords; i++) {
-		if (xCoord[i] < model.boundingBox.xMin - 10) {
+		if (xCoord[i] < model.boundingBox.xMin - 20) {
 			xCoord[i] += 360;
 			translate = 1;
 		}
-		else if (xCoord[i] > model.boundingBox.xMax + 10) {
+		else if (xCoord[i] > model.boundingBox.xMax + 20) {
 			xCoord[i] -= 360;
 			translate = 1;
 		}
@@ -9618,11 +10776,11 @@ int check_translate_xCoordArray(double* xCoord, int nCoords) {
 int check_translate_xCoord(double* xCoord) {
 	int translate = 0;
 
-	if (*xCoord < model.boundingBox.xMin - 10) {
+	if (*xCoord < model.boundingBox.xMin - 20) {
 		*xCoord += 360;
 		translate = 1;
 	}
-	else if (*xCoord > model.boundingBox.xMax + 10) {
+	else if (*xCoord > model.boundingBox.xMax + 20) {
 		*xCoord -= 360;
 		translate = 1;
 	}
@@ -9827,13 +10985,15 @@ void gen_infoWeatherAroundStorms() {
 
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
-	sprintf(namn, "%s/checkStormWeather.txt", model.params.resultPath.c_str());
+	FILE* filpek = NULL;
 
-	FILE* filpek = fopen(namn, "w");
-	free(namn);
-	fprintf(filpek, "stormID;featureNr;lon;lat;UTCseconds;dateTime;tidFromStartOpt;distFeatureNu;stormVal;uCurrent;vCurrent;"
-		"currentDirection;currentSpeed;uWind;vWind;windDirection;windSpeed;waveHeight;wavePeriod;waveDirection;iceCover\n");
-
+	if (SKRIV_UT_NOTHING == 0) {
+		sprintf(namn, "%s/checkStormWeather.txt", model.params.resultPath.c_str());
+		filpek = fopen(namn, "w");
+		free(namn);
+		fprintf(filpek, "stormID;featureNr;lon;lat;UTCseconds;dateTime;tidFromStartOpt;distFeatureNu;stormVal;uCurrent;vCurrent;"
+			"currentDirection;currentSpeed;uWind;vWind;windDirection;windSpeed;waveHeight;wavePeriod;waveDirection;iceCover\n");
+	}
 	for (i = 0; i < model.nStorms; i++) {
 		for (i1 = 0; i1 < model.storms[i].nFeatures - 1; i1++) {
 			time1 = (model.storms[i].feature[i1].UTCseconds - model.params.UTC_secondsStart) / 3600.0;
@@ -9900,18 +11060,21 @@ void gen_infoWeatherAroundStorms() {
 				//	seconds, stringDateFromUTCSeconds(seconds).c_str(), tidTot, distNu, stormVarde, uCurrent, vCurrent, currentDirection,
 				//	currentSpeed, uWind, vWind, windDirection, windSpeed,
 				//	waveHeight, wavePeriod, waveDirection, iceCover);
-				fprintf(filpek, "%d;%d;%.3lf;%.3lf;%I64d;%s;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf\n",
-					model.storms[i].stormNr, i1, p3.longitude().degrees(), p3.latitude().degrees(),
-					seconds, stringDateFromUTCSeconds(seconds).c_str(), tidTot, distNu, stormVarde, uCurrent, vCurrent, currentDirection,
-					currentSpeed, uWind, vWind, windDirection, windSpeed,
-					waveHeight, wavePeriod, waveDirection, iceCover);
-
+				if (SKRIV_UT_NOTHING == 0) {
+					fprintf(filpek, "%d;%d;%.3lf;%.3lf;%I64d;%s;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf;%.3lf\n",
+						model.storms[i].stormNr, i1, p3.longitude().degrees(), p3.latitude().degrees(),
+						seconds, stringDateFromUTCSeconds(seconds).c_str(), tidTot, distNu, stormVarde, uCurrent, vCurrent, currentDirection,
+						currentSpeed, uWind, vWind, windDirection, windSpeed,
+						waveHeight, wavePeriod, waveDirection, iceCover);
+				}
 			}
 
 
 		}
 	}
-	fclose(filpek);
+	if (SKRIV_UT_NOTHING == 0) {
+		fclose(filpek);
+	}
 }
 
 
@@ -10030,9 +11193,9 @@ void calc_boundingBoxFromAllNodes() {
 			if (y > model.boundingBox.yMax)
 				model.boundingBox.yMax = y;
 			x = model.network.physicalLev[i].point_x[i1];
-			if (x < model.preferredPath.minX - 10)
+			if (x < model.preferredPath.minX - 20)
 				x += 360;
-			if (x > model.preferredPath.maxX + 10)
+			if (x > model.preferredPath.maxX + 20)
 				x -= 360;
 			if (x < model.boundingBox.xMin)
 				model.boundingBox.xMin = x;
@@ -10480,10 +11643,10 @@ int check_nodeIsWithinPhysicalMapRaster(double lat1, double lon1) {
 }
 
 void getRowColDblFromPhysicalMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl) {
-	if (lon1 < physicalMap.minLongitude)
+	if (lon1 < physicalMap.minLongitude - 20)
 		lon1 += 360;
 	else {
-		if (lon1 > physicalMap.maxLongitude)
+		if (lon1 > physicalMap.maxLongitude + 20)
 			lon1 -= 360;
 	}
 	*row1Dbl = (physicalMap.maxLatitude - lat1) / physicalMap.size_row; // .raster.Get_sizeRow();
@@ -11182,7 +12345,7 @@ int try_addPhysicalArcsFromChannel(int toLevel, double noDataVal)
 			//if (model.network.channel[i2].nPolygonUsePoints[0] == 0) {
 				arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1, model.params.physicalMap_noDataValue);
 				if (arcOK == 1) {
-					printf("--add arc to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
+					//printf("--add arc to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
 					arcPos = model.network.channel[cNr].nOutNodes;
 					model.network.channel[cNr].outNode[arcPos] = i1;
 					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
@@ -11191,11 +12354,11 @@ int try_addPhysicalArcsFromChannel(int toLevel, double noDataVal)
 					(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				}
 				else {
-					printf("++ortoPos %d i1 %d bastEndLevel %d toLevel %d\n", 
-						model.params.preferredPathOrtoPos[toLevel], i1, model.network.channel[cNr].bastEndLevel, toLevel);
+					//printf("++ortoPos %d i1 %d bastEndLevel %d toLevel %d\n", 
+					//	model.params.preferredPathOrtoPos[toLevel], i1, model.network.channel[cNr].bastEndLevel, toLevel);
 					if (model.params.preferredPathOrtoPos[toLevel] == i1 && model.network.channel[cNr].bastEndLevel == toLevel) {
 						// add an arc from channel to pref path since the pref path needs to be able to use the channel if it passes it
-						printf("--add arc2 to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
+						//printf("--add arc2 to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
 						arcPos = model.network.channel[cNr].nOutNodes;
 						model.network.channel[cNr].outNode[arcPos] = i1;
 						//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
@@ -11703,9 +12866,9 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 				model.preferredPath.point[i], kvot); // 51.3721°N, 000.7073°E
 			intervallPoint[nIntervallPoints] = pMid;
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = pMid;
-			printf("-- i %d level %d adding pref path point %d %.3lf %.3lf dist %.2lf distKvar %.2lf distInt %.2lf\n", i, nIntervallPoints - 1, posNu,
-				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
-				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar, distInt);
+			//printf("-- i %d level %d adding pref path point %d %.3lf %.3lf dist %.2lf distKvar %.2lf distInt %.2lf\n", i, nIntervallPoints - 1, posNu,
+			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
+			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar, distInt);
 			posNu++;
 			model.network.physicalLev[nIntervallPoints - 1].npreferredPathPoints = posNu;
 			if (posNu + 1 > model.network.nMaxNodesInPath)
@@ -11728,9 +12891,9 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 					model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint, nAllocPoints * sizeof(spherical::Point));
 			}
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = model.preferredPath.point[i];
-			printf("-- i %d level %d adding pref path point2 %d %.3lf %.3lf dist %.2lf distKvar %.2lf\n", i, nIntervallPoints - 1, posNu,
-				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
-				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar);
+			//printf("-- i %d level %d adding pref path point2 %d %.3lf %.3lf dist %.2lf distKvar %.2lf\n", i, nIntervallPoints - 1, posNu,
+			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
+			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar);
 			posNu++;
 		}
 		dist += distKvar;
@@ -11752,11 +12915,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	//writePointsToGeojson((char*)"intervallPoints", intervallPoint, nIntervallPoints);
 
 	ortoDist = model.params.shipSpeed_average * 1000 / model.params.ortoDist_nPointsPerHour;
-	FILE* filtmp;
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
-	sprintf(namn, "%s/tmpCheck.txt", model.params.resultPath.c_str());
-	filtmp = fopen(namn, "w");
 	model.params.preferredPathOrtoPos = (int*)malloc(nIntervallPoints * sizeof(int));
 
 	// printf("-- Time1 %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
@@ -11842,14 +13002,13 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 			//model.network.physicalLev[i].point_x[model.network.physicalLev[i].nPoints] = intervallPoint[i].longitude().degrees();
 			//model.network.physicalLev[i].point_y[model.network.physicalLev[i].nPoints] = intervallPoint[i].latitude().degrees();
 		}
-		printf("--physicalLevel %d prefPathPos %d nPkter %d xy %.3lf %.3lf checkX %.3lf pos %d nAlloc %d\n", i, model.params.preferredPathOrtoPos[i],
-			model.network.physicalLev[i].nPoints, model.network.physicalLev[i].point_x[model.params.preferredPathOrtoPos[i]],
-			model.network.physicalLev[i].point_y[model.params.preferredPathOrtoPos[i]],
-			model.network.physicalLev[i].point[model.params.preferredPathOrtoPos[i]].longitude().degrees(),
-			model.network.physicalLev[i].nPoints, model.params.nPkterOrto);
+		//printf("--physicalLevel %d prefPathPos %d nPkter %d xy %.3lf %.3lf checkX %.3lf pos %d nAlloc %d\n", i, model.params.preferredPathOrtoPos[i],
+		//	model.network.physicalLev[i].nPoints, model.network.physicalLev[i].point_x[model.params.preferredPathOrtoPos[i]],
+		//	model.network.physicalLev[i].point_y[model.params.preferredPathOrtoPos[i]],
+		//	model.network.physicalLev[i].point[model.params.preferredPathOrtoPos[i]].longitude().degrees(),
+		//	model.network.physicalLev[i].nPoints, model.params.nPkterOrto);
 	}
 	model.network.nPhysicalLevels = i;
-	fclose(filtmp);
 	//printf("-- Time2 %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 
 	//for(i = 0; i < model.network.nPhysicalLevels; i++)
@@ -11868,8 +13027,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 	checkChannels();
 	addArcsToNetwork();
 
-	int saveBasicNetworkData = 1;
-	if (saveBasicNetworkData == 1) {
+	if (SKRIV_UT_NOTHING == 0){
 		if (sparaKorridorEnbart == 1) {
 			writeKorridorToGeojson((char*)"CorridorTmp");
 			return 0;
@@ -11878,10 +13036,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart)
 
 		//writeAllNodesToShape((char*)"networkNodes");
 		writeAllNodesToGeojson((char*)"networkNodes");
-
-		int saveArcs = 1;
-		if (saveArcs == 1)
-			writeAllArcsToGeojson((char*)"networkArcs");
+		writeAllArcsToGeojson((char*)"networkArcs");
 	}
 
 	return 0;
@@ -12927,7 +14082,6 @@ double getStormValue(int t, double lat, double lon, int saveStormData)
 	double outerCircleSize, outerCircleNext, innerCircleSize, innerCircleNext;
 	spherical::Point pointStorm;
 	double latStorm, lonStorm;
-
 
 	for (i = 0; i < model.nStorms; i++) {
 		tidInt = t * model.storms[i].inv_timeIntervall_h;
@@ -14477,8 +15631,14 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 	double totCost;
 
 	if (thisLevel >= 0) {
-		nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][i3];
-		tidInt0 = model.network.physicalLev[thisLevel].timeInterval[pos1][i3];
+		if (thisLevel < model.network.nPhysicalLevels) {
+			nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][i3];
+			tidInt0 = model.network.physicalLev[thisLevel].timeInterval[pos1][i3];
+		}
+		else {
+			nodNr1 = nodNr2 - 1;
+			tidInt0 = 0;
+		}
 	}
 	else {
 		nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][i3];
@@ -14486,7 +15646,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 	}
 
 	totCost = 0;
-	if (model.params.eta_h > 0.01) {
+	if (model.params.eta_h > 0.01 && thisLevel < model.network.nPhysicalLevels) {
 		if (tidInt0 < model.params.eta_h)
 			totCost += (model.params.eta_h - tidInt0) * model.params.eta_cost_early;
 		else
@@ -14524,6 +15684,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 	model.arc[arcNr].iceCoverCost = 0;
 	//model.arc[arcNr].safetyStability = 0;
 	model.arc[arcNr].safetyBase = 0;
+	model.arc[arcNr].channelCost = 0;
 	model.arc[arcNr].totCost = totCost;
 	model.arc[arcNr].nodNr1 = nodNr1;
 	model.arc[arcNr].nodNr2 = nodNr2;
@@ -15082,14 +16243,18 @@ void loadWeatherFiles() {
 		if (redisTest != "PONG") {
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
+			postRequest("ERROR! Redis is not running on the server. Start it and try again");
 			exitKontrollerat(__LINE__);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
+		postRequest("ERROR! Redis is not running on the server. Start it and try again");
 		exitKontrollerat(__LINE__);
 	}
+
+	arrFloat = NULL;
 
 		//errlog("test14\n");
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
@@ -15193,6 +16358,7 @@ void loadWeatherFiles() {
 		else {
 			errlog("ERROR! Failed to read metaData from redis for weather variable %s\n",
 				model.weather[ii].weatherFileTypeName);
+			postRequest("ERROR! Failed to read metaData from redis for weather variable " + std::string(model.weather[ii].weatherFileTypeName));
 			exitKontrollerat(__LINE__);
 		}
 
@@ -15451,7 +16617,7 @@ void loadWeatherFiles() {
 				pos = xBlockUse + model.weather[ii].nBlock_x * yBlockNr;
 				keyID.assign(model.weather[ii].weatherFileTypeName);
 				keyID.append(":");
-				keyID += to_string(pos);
+				keyID += std::to_string(pos);
 				// printf("redis call %s, xBlockNr %d yBlockNr %d\n", keyID.c_str(), xBlockNr, yBlockNr);
 
 				auto value = redis.get(keyID);
@@ -15465,6 +16631,7 @@ void loadWeatherFiles() {
 				else {
 					printf("ERROR! Failed to load keyID %s\n", keyID.c_str());
 					errlog("ERROR! Failed to load keyID %s. Try to set redis keys again. I quit\n", keyID.c_str());
+					postRequest("ERROR! Failed to load keyID " + keyID + ". Try to set redis keys again.I quit");
 					exitKontrollerat(__LINE__);
 				}
 
@@ -15702,10 +16869,10 @@ int gen_midTimeArrive() {
 		pointNr1 = model.params.preferredPathOrtoPos[i];
 		if (pointNr1 < 0)
 			pointNr1 = (int)(model.network.physicalLev[i].nPoints / 2);
-		printf("lev %d pointPos %d lon/lat %.3lf %.3lf reqPrefPathFeasible %d\n", i , pointNr1, 
-			model.network.physicalLev[i].point[pointNr1].longitude().degrees(),
-			model.network.physicalLev[i].point[pointNr1].latitude().degrees(),
-			model.network.physicalLev[i].requirePrefPathFeasible);
+		//printf("lev %d pointPos %d lon/lat %.3lf %.3lf reqPrefPathFeasible %d\n", i , pointNr1, 
+		//	model.network.physicalLev[i].point[pointNr1].longitude().degrees(),
+		//	model.network.physicalLev[i].point[pointNr1].latitude().degrees(),
+		//	model.network.physicalLev[i].requirePrefPathFeasible);
 
 
 		if (model.network.physicalLev[i].requirePrefPathFeasible == 1 || model.network.physicalLev[i + 1].requirePrefPathFeasible == 1) {
@@ -15718,25 +16885,25 @@ int gen_midTimeArrive() {
 				timeStart = timeExact;
 				calcWeatherPosAlongArc(model.network.physicalLev[i].point[pointNr1], model.network.channel[cNr].point[0]);
 				timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-				printf("timeExact to get onto corridor %.3lf\n", timeExact);
+				//printf("timeExact to get onto corridor %.3lf\n", timeExact);
 				calcWeatherPosAlongChannel(cNr);
 
 				timeExact = evalWeatherDataAlongArc(-cNr - 2, 0, timeExact);
-				printf("timeExact after corridor %.3lf arc from xy %.3lf %.3lf to xy %.3lf %.3lf\n", timeExact,
-					model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].longitude().degrees(),
-					model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].latitude().degrees(),
-					model.network.physicalLev[iNext].point[pointNr1].longitude().degrees(), model.network.physicalLev[iNext].point[pointNr1].latitude().degrees());
+				//printf("timeExact after corridor %.3lf arc from xy %.3lf %.3lf to xy %.3lf %.3lf\n", timeExact,
+				//	model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].longitude().degrees(),
+				//	model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].latitude().degrees(),
+				//	model.network.physicalLev[iNext].point[pointNr1].longitude().degrees(), model.network.physicalLev[iNext].point[pointNr1].latitude().degrees());
 				pointNr1 = model.params.preferredPathOrtoPos[iNext];
 				calcWeatherPosAlongArc(model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1],
 					model.network.physicalLev[iNext].point[pointNr1]);
 				timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-				printf("timeExact after corridor to to get to the level after %.3lf\n", timeExact);
+				//printf("timeExact after corridor to to get to the level after %.3lf\n", timeExact);
 
 				deltaTid = timeExact - timeStart;
 				totDist = model.network.physicalLev[iNext].distanceFromStartPosMid - model.network.physicalLev[i].distanceFromStartPosMid;
 				channelSpeed = model.network.channel[cNr].distance_km / model.network.channel[cNr].timeThroughChannel;
-				printf("using corridor from level %d to level %d, distance %.2lf time %.2lf. Speed %.2lf from corrDist %.2lf time %.2lf. I split the time over the levels depending on their length\n",
-					i, iNext, totDist, deltaTid, channelSpeed, model.network.channel[cNr].distance_km, model.network.channel[cNr].timeThroughChannel);
+				//printf("using corridor from level %d to level %d, distance %.2lf time %.2lf. Speed %.2lf from corrDist %.2lf time %.2lf. I split the time over the levels depending on their length\n",
+				//	i, iNext, totDist, deltaTid, channelSpeed, model.network.channel[cNr].distance_km, model.network.channel[cNr].timeThroughChannel);
 				// splitta ut tiden map avstand fran i - 1 to iNext - 1
 				for (i1 = i + 1; i1 <= iNext; i1++) {
 					model.network.physicalLev[i1].midTimeArrive = timeStart + deltaTid *
@@ -15745,9 +16912,9 @@ int gen_midTimeArrive() {
 						timeFromPreviousLevelThroughChannelFixed[i1] =
 							model.network.physicalLev[i1].midTimeArrive - model.network.physicalLev[i1 - 1].midTimeArrive;
 						timeFixedChannel += timeFromPreviousLevelThroughChannelFixed[i1];
-						printf("level i1 %d timeFixedChannel %.2lf\n", i1, timeFixedChannel);
+						//printf("level i1 %d timeFixedChannel %.2lf\n", i1, timeFixedChannel);
 					}
-					printf("i1 %d seting time to %.2lf\n", i1, model.network.physicalLev[i1].midTimeArrive);
+					//printf("i1 %d seting time to %.2lf\n", i1, model.network.physicalLev[i1].midTimeArrive);
 				}
 
 				if (model.network.physicalLev[i].requirePrefPathFeasible == 0)
@@ -15769,7 +16936,7 @@ int gen_midTimeArrive() {
 						arcOK = check_isPhysicalArcOK_alongPrefPath(i1, i1 + 1, pointNr2, pointLast, model.params.physicalMap_noDataValue); // arc before channel, is feasible?
 					if (arcOK == 0) {
 						model.params.preferredPathUseChannelSpeed[i1] = channelSpeed;
-						printf("level %d arcOK not okay\n", i1);
+						//printf("level %d arcOK not okay\n", i1);
 						model.params.preferredPathUseChannelConsumption[i1] = cNr;
 					}
 					else
@@ -15787,7 +16954,7 @@ int gen_midTimeArrive() {
 						arcOK = check_isPhysicalArcOK_alongPrefPath(i1, i1 + 1, pointNr2, pointLast, model.params.physicalMap_noDataValue); // arc after channel, is feasible?
 					if (arcOK == 0) {
 						model.params.preferredPathUseChannelSpeed[i1] = channelSpeed;
-						printf("level2 %d arcOK not okay\n", i1);
+						//printf("level2 %d arcOK not okay\n", i1);
 						model.params.preferredPathUseChannelConsumption[i1] = cNr;
 					}
 					else
@@ -16007,16 +17174,11 @@ int createTimeArcs()
 std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3d, tt;
 #endif
 	std::chrono::duration<double, std::milli> dur2, dur3, dur4, dur3b, dur3c, dur3d;
-	FILE* filpek11;
 	
 	//printf("a\n");
 	char* namn;
 	namn = (char*)malloc(256 * sizeof(char));
 	//printf("ab\n");
-	sprintf(namn, "%s/checkNetworkSize.txt", model.params.resultPath.c_str());
-
-	//printf("ac\n");
-	filpek11 = fopen(namn, "w");
 	//printf("ad\n");
 	errlog("\n");
 
@@ -16039,8 +17201,6 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 			//printf("point %d", i1);
 			//printf("model.network.physicalLev[i].nOutNodes[i1] %d", model.network.physicalLev[i].nOutNodes[i1]);
 			//printf("model.network.physicalLev[i].nTimeIntervals[i1] %d", model.network.physicalLev[i].nTimeIntervals[i1]);
-			fprintf(filpek11, "lev %d point %d nOutNodes %d nTimeInt %d\n", i, i1,
-				model.network.physicalLev[i].nOutNodes[i1], model.network.physicalLev[i].nTimeIntervals[i1]);
 			model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
 			if (model.network.physicalLev[i].nArcsToPoint[i1] == 0 && i > 0)
 				continue; // no arc to this point so no use to add arcs out
@@ -16176,8 +17336,6 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 
 		//printf("..done\n");
 	}
-	fclose(filpek11);
-	//freeMemory();
 
 	errlog("\n");
 	//printf("\n\n#### globalCount1 %d\n", globalCount1);
@@ -16197,14 +17355,20 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 
 	nodNr1 = nodNr2;
 	nodNr2 = adderaNod(i + 1, 0, 0);
+	addEndBage(i + 1, 0, i + 2, 0, nodNr2);
+
+	/*
 	totCost = 0;
 	posNy = adderaArc(nodNr1, nodNr2, totCost);
 	arcNr = model.nArcs;
 	model.arc[arcNr].nodNr1 = nodNr1;
 	model.arc[arcNr].nodNr2 = nodNr2;
+	model.arc[arcNr].distance = 0;
+	model.arc[arcNr].totCost = totCost;
+	model.arc[arcNr].channelCost = 0;
 	model.arc[arcNr].nodNr1_utNodPos = model.Noder[nodNr1].nUtNoder - 1;
 	model.nArcs++;
-
+	*/
 	nArcsTot += nArcsNu;
 	//errlog("level last nArcsAdded %d nArcs %d check %d\n", nArcsNu, model.nArcs, nArcsTot);
 	// printf("creatingTimeArcs done.\n");
@@ -16263,8 +17427,8 @@ int genExtraOpts() {
 	int nExtraOpt = 0;
 	int nAlloc = 5;
 
-	errlog("ERROR! remove the below row to do multiple opts\n");
-	return 0;
+	//errlog("ERROR! remove the below row to do multiple opts\n");
+	//return 0;
 
 
 	model.params.extraOptWeights = (strExtraWeights*)malloc(nAlloc * sizeof(strExtraWeights));
@@ -16396,7 +17560,7 @@ int modify_utNodCost(int alt) {
 	return 0;
 }
 
-int voyageOpt(string inputPath, string resultName)
+int voyageOpt(std::string inputPath, std::string resultName)
 {
 
 	double dist, cost;
@@ -16709,8 +17873,7 @@ int voyageOpt(string inputPath, string resultName)
 
 	model.params.resultPath = splitFilename(resultName);
 
-	sprintf(namn, "%s/result_json.json", model.params.resultPath.c_str());
-	filPek3 = fopen(namn, "w");
+	filPek3 = fopen(resultName.c_str(), "w"); // "result_json.json", "w");
 	fprintf(filPek3, "{\n\t\"solutionShape\": \"ERROR\"\n}\n");
 	fclose(filPek3);
 
@@ -16728,8 +17891,10 @@ int voyageOpt(string inputPath, string resultName)
 
 	loadParams_new(&(model.params));
 
+	loadAllNeededTablesFromSQLite();
+
 	// loadUsedTables();
-	loadUsedTablesFromRedis();
+	//loadUsedTablesFromRedis();
 
 	//printf("windFactor dimensions2 %d %d %d\n", model.functions.windFactor.shipSpeedCalmWater.nIndex, 
 	//	model.functions.windFactor.windSpeed.nIndex, 
@@ -16832,7 +17997,10 @@ int voyageOpt(string inputPath, string resultName)
 	sol_nSavedArcs = (int*)malloc((nExtraOpt + 1) * sizeof(int));
 	solSavedArcs = (int**)malloc((nExtraOpt + 1) * sizeof(int*));
 
-	string resAltName;
+	std::string resAltName;
+	char* baseName;
+	baseName = (char*)malloc(10 * sizeof(char));
+	sprintf(baseName, "base");
 
 
 	for (int ii = 0; ii < 1 + nExtraOpt; ii++) {
@@ -16874,7 +18042,7 @@ int voyageOpt(string inputPath, string resultName)
 			//sol_nSavedArcs[nSolSaved] = model.nBVArcs;
 			nSolSaved++;
 
-			printf("dist %.4lf endTidsp %d nSolSaved %d\n", dist, endTidsp, nSolSaved);
+			//printf("dist %.4lf endTidsp %d nSolSaved %d\n", dist, endTidsp, nSolSaved);
 
 			//printf("har13\n");
 			if(ii == 0)
@@ -16888,7 +18056,7 @@ int voyageOpt(string inputPath, string resultName)
 			//printf("Saving solution path1..");
 			if (ii == 0) {
 				printf("solution to base\n");
-				writeSolutionToJson(resultName, ii, "base");
+				writeSolutionToJson(resultName, ii, baseName);
 			}
 			else {
 				printf("solution to %s\n", model.params.extraOptWeights[ii - 1].identifierOpt);
@@ -16987,7 +18155,7 @@ int generate_solutionPathTest() {
 	return 0;
 }
 
-int voyageOpt_dummy(string inputName, string resultName)
+int voyageOpt_dummy(std::string inputName, std::string resultName)
 {
 
 	reset_errlog();

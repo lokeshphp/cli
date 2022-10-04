@@ -5,6 +5,10 @@
     {
       "type": "default",
       "authenticationType": "none",
+      "env": {
+        "DEBUG_LOGGING_LEVEL": "trace;info",
+        "ENABLE_TRACING": "true"
+      },
       "name": "OptiNav with 2 args",
       "project": "CMakeLists.txt",
       "projectTarget": "OptiNav.exe",

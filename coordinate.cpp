@@ -24,6 +24,9 @@
 *  SOFTWARE.                                                                      *
 ***********************************************************************************/
 
+#ifndef COORDINATE_CPP
+#define COORDINATE_CPP
+
 #define _USE_MATH_DEFINES
 
 #include <math.h>
@@ -92,3 +95,4 @@ Longitude::Longitude(double degree)
 
 }
 
+#endif

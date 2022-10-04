@@ -14,7 +14,7 @@ extern int printGlobal;
 
 int errlog(const char* format, ...);
 
-using namespace std;
+//using namespace std;
 typedef std::string String;
 
 class Raster;
@@ -312,7 +312,7 @@ public:
 			CPLErr e = rasterDataset->GetRasterBand(z)->RasterIO(
 				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
 			if (!(e == 0)) {
-				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 				exit(1);
 			}
 			//valueCell[NCOLS * 20412 + NCOLS - 1] = 0;
@@ -431,7 +431,7 @@ public:
 			CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
 			if (!(e == 0)) {
-				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 				exit(1);
 			}
 
@@ -492,7 +492,7 @@ public:
 			CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
 			if (!(e == 0)) {
-				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 				exit(1);
 			}
 
@@ -544,7 +544,7 @@ public:
 			CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
 			if (!(e == 0)) {
-				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 				exit(1);
 			}
 
@@ -568,7 +568,7 @@ public:
 			CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 				GF_Read, 0, row, NCOLS, 1, rowBuff, NCOLS, 1, bandType, 0, 0);
 			if (!(e == 0)) {
-				cout << "Warning: Unable to read scanline in Raster!" << endl;
+				std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 				exit(1);
 			}
 
@@ -1070,7 +1070,7 @@ public:
 			varde = faktor * varde + (long long)(time[i] - '0');
 		}
 
-		printf("%s UTCsecs %I64d\n", time, varde);
+		// printf("%s UTCsecs %I64d\n", time, varde);
 		return varde;
 	}
 
@@ -1275,7 +1275,7 @@ public:
 		long long nYBlocks;
 		int n_xBlocks, x0b;
 		int nbytes, nBands, xPosNu2, x2;
-		double* pabyData, useMinX, useMaxX;
+		double* pabyData = NULL, useMinX, useMaxX;
 		long long xPosNu, yPosNu, iY, iX, iYBlock, iXBlock;
 		long long nSecondsUTC, y0, y1, x0, x1, startX0, startY0, basX, basY;
 		double min_lonUse, max_lonUse, basXdbl, basYdbl;
@@ -1295,7 +1295,7 @@ public:
 
 
 		nBands = rasterDataset->GetRasterCount();
-		printf("nBands %d\n", nBands);
+		//printf("nBands %d\n", nBands);
 		if (nBands > 1 && zPosBas > 0) {
 			errlog("ERROR! nBands %d but should only be 1 band for historical data. I only read the first one\n", nBands);
 			nBands = 1;
@@ -1510,7 +1510,7 @@ public:
 			GF_Read, 0, 0, NCOLS, NROWS, rowBuff, NCOLS, NROWS, bandType, 0, 0);
 		//checkMinnesAnvandning(__LINE__);
 		if (!(e == 0)) {
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			exit(1);
 		}
 		return 0;
@@ -1527,7 +1527,7 @@ public:
 			GF_Read, 0, 0, NCOLS, NROWS, rowBuff, NCOLS, NROWS, bandType, 0, 0);
 		//checkMinnesAnvandning(__LINE__);
 		if (!(e == 0)) {
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			exit(1);
 		}
 		return 0;
@@ -1544,7 +1544,7 @@ public:
 		CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 			GF_Read, startPos, startPos, nElementX, nElementY, rowBuff, nElementX, nElementY, bandType, 0, 0);
 		if (!(e == 0)) {
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			exit(1);
 		}
 
@@ -1566,7 +1566,7 @@ public:
 		if (e1 == 0)
 			printf("call worked\n");
 		else{
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			printf("error msg %d, '%s'\n", e, (char*)(CPLGetLastErrorMsg()));
 			exit(1);
 		}
@@ -1602,7 +1602,7 @@ public:
 		CPLErr e = rasterDataset->GetRasterBand(layerIndex)->RasterIO(
 			GF_Read, startPos, startPos, nElementX, nElementY, bandLayer, nElementX, nElementY, bandType, 0, 0);
 		if (!(e == 0)) {
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			exit(1);
 		}
 	}
@@ -1619,7 +1619,7 @@ public:
 		CPLErr e = GDALDatasetRasterIOEx(rasterDataset,
 			GF_Read, 0, 0, NCOLS, NROWS, bandLayer, NCOLS, NROWS, bandType, nBandCount, panBandMap, 0, 0, 0, NULL);
 		if (!(e == 0)) {
-			cout << "Warning: Unable to read scanline in Raster!" << endl;
+			std::cout << "Warning: Unable to read scanline in Raster!" << std::endl;
 			exit(1);
 		}
 	}
