@@ -2483,6 +2483,23 @@ int identify_nChanges_lessXdegrees(int pos1, int pos2) {
 	return nChanges;
 }
 
+double getCorrect_longitude(double x) {
+	if (model.network.last_x < -999)
+		model.network.last_x = x;
+	else {
+		if (abs(model.network.last_x - x) > 180) {
+			if (model.network.last_x > x)
+				model.network.last_x = x + 360;
+			else
+				model.network.last_x = x - 360;
+		}
+		else
+			model.network.last_x = x;
+	}
+	return model.network.last_x;
+}
+
+
 void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName) {
 	int lev1, lev2, pointNr1, pointNr2, timmar, minuter, sekunder;
 	int nChangeBearingBetween, nChange_lessXdegrees;
@@ -2820,7 +2837,7 @@ void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startS
 		fprintf(filpekG, "},\n");
 
 		fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", 
-			model.network.xCoord[model.network.posSplitCoord[ii]],
+			getCorrect_longitude(model.network.xCoord[model.network.posSplitCoord[ii]]),
 			model.network.yCoord[model.network.posSplitCoord[ii]]);
 	}
 
@@ -2933,6 +2950,8 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 
 	model.network.nCoords = 0;
 	model.functions.valuesNow.Wpt = 0;
+	model.network.last_x = model.preferredPath.startX;
+
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 	{
 		// kopiera delen av punktfoljden som anvands, dess xyz
@@ -3235,11 +3254,15 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol)
 		fprintf(filpekG, ", ");
 	fprintf(filpekG, "%s", linePath.c_str());
 	//for (ii2 = 0; ii2 < nPkter; ii2++) {
+
+	model.network.last_x = model.preferredPath.startX;
 	for (ii2 = 0; ii2 < model.network.nCoords; ii2++) {
-		if (ii2 > 0)
+		if (ii2 > 0) {
 			fprintf(filpekG, ", ");
+		}
 		//fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", x[ii2], y[ii2]);
-		fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", model.network.xCoord[ii2], model.network.yCoord[ii2]);
+
+		fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", getCorrect_longitude(model.network.xCoord[ii2]), model.network.yCoord[ii2]);
 	}
 
 	//printf("here 3c\n");
@@ -6344,6 +6367,25 @@ std::string cleanString(std::string namn) {
 	return resultat;
 }
 
+int analyzePreferredPath_longitude() {
+	int i, dist;
+
+	//model.preferredPath.threeSixty = 0;
+	//errlog("ERROR! Add code here\n");
+	//for (i = 1; i < model.preferredPath.nPoints; i++) {
+	//	dist = model.preferredPath.point_x[i] - model.preferredPath.point_x[i - 1];
+	//	if (dist > 179 || dist < -179)
+	//		model.preferredPath.threeSixty = 1;
+	//}
+
+	if (model.preferredPath.minX < -180) {
+		model.preferredPath.minX += 360;
+		model.preferredPath.maxX += 360;
+	}
+	
+	return 0;
+}
+
 int loadParams_new(strParams* params)
 {
 	int i, closestI;
@@ -6657,6 +6699,7 @@ int loadParams_new(strParams* params)
 			i = 0;
 			xValOld = -999999;
 			yValOld = -999999;
+			model.preferredPath.startX = -1000;
 			if (geoType == "MultiLineString") {
 				for (auto it = dataCoord.begin(); it != dataCoord.end(); ++it) {
 					dataIt = it.value();
@@ -6680,6 +6723,8 @@ int loadParams_new(strParams* params)
 						for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
 							if (i2 == 0) {
 								xVal = it3.value();
+								if (model.preferredPath.startX < -998)
+									model.preferredPath.startX = xVal;
 								if (xVal > 180)
 									xVal -= 360;
 								if (xVal < -180)
@@ -6738,6 +6783,8 @@ int loadParams_new(strParams* params)
 					for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
 						if (i2 == 0) {
 							xVal = it3.value();
+							if (model.preferredPath.startX < -998)
+								model.preferredPath.startX = xVal;
 							if (xVal > 180)
 								xVal -= 360;
 							if (xVal < -180)
@@ -6789,11 +6836,7 @@ int loadParams_new(strParams* params)
 		exitKontrollerat(__LINE__);
 	}
 
-	if (model.preferredPath.minX < -180) {
-		model.preferredPath.minX += 360;
-		model.preferredPath.maxX += 360;
-	}
-
+	analyzePreferredPath_longitude();
 
 	json dataStorm, dataStorm2, dataGeom, dataIt3;
 	int i1, pos, stormNr, nAllocStorms;
@@ -16923,6 +16966,9 @@ int gen_midTimeArrive() {
 					startPos = i;
 
 
+				// setting requirements that the preferred path before and after corridor is the same as the speed in the corridor if not feasible
+				// we don't use this now!!
+				/*
 				for (i1 = startPos; i1 >= 0; i1--) {
 					pointNr2 = model.params.preferredPathOrtoPos[i1];
 					if (pointNr2 < 0)
@@ -16961,6 +17007,7 @@ int gen_midTimeArrive() {
 						break; // a feasible path so do not extend the usage of channel speed any longer
 					pointLast = pointNr2;
 				}
+				*/
 
 				i = iNext;
 			}
@@ -17211,16 +17258,19 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 				//	printGlobal = 1;
 				//}
 
-				if (nextLevel > i + 1)
-					i = i;
+				//if (i == 15 && i1 == 23)
+				//	i = i;
+
+				//if (nextLevel > i + 1)
+				//	i = i;
 				setupCheckPoints = 1;
 				//printf("test\n");
 				fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				//printf("test1b\n");
 				for (i3 = 0; i3 < model.network.physicalLev[i].nTimeIntervals[i1]; i3++) {
-					if (i == 11 && i1 == 42 && nextLevel == 12 && model.network.physicalLev[i].outNode[i1][i2b] == 40 &&
-						model.network.physicalLev[i].timeInterval[i1][i3] == 64)
-						i = i;
+					//if (i == 11 && i1 == 42 && nextLevel == 12 && model.network.physicalLev[i].outNode[i1][i2b] == 40 &&
+					//	model.network.physicalLev[i].timeInterval[i1][i3] == 64)
+					//	i = i;
 					//freeMemory();
 
 					model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
@@ -17258,8 +17308,8 @@ std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3
 		//printf("test1\n");
 
 
-		//if (i == 11)
-		//	freeMemory();
+		//if (i == 16)
+		//	i = i;
 		for (i1 = 0; i1 < model.network.nChannels; i1++){ //  .nUsedChannels; i1++) {
 			cNr = i1; // model.network.usedChannel[i1];
 			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {

@@ -221,6 +221,7 @@ struct strPath
 	double* point_x;
 	double minX;
 	double maxX;
+	double startX;
 };
 
 struct strCorrLines
@@ -360,6 +361,7 @@ struct strNetwork
 	double* xCoord;
 	double* yCoord;
 	int nCoords;
+	double last_x;
 	double* startKvot;
 	double* endKvot;
 	int* posSplitCoord;
