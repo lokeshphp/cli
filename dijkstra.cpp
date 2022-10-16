@@ -47,8 +47,8 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	}
 	if (maxCost > 0)
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-	errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
-		maxCost, model->Dijkstra.FAKTOR_NATVERK, minCost);
+	//errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
+	//	maxCost, model->Dijkstra.FAKTOR_NATVERK, minCost);
 	errlog("nNodes %d, nArcs %d\n", n, m);
 
 	/* allocating memory for  'nodes', 'arcs'  and internal arrays */
@@ -152,8 +152,8 @@ int SattUppDijkstraNatverk3(strModel *model) {
 			}
 		}
 	}
-	errlog("MaxCost efter skalning %.2lf, minCost is %.2lf\n",
-		maxCost, minCost);
+	//errlog("MaxCost efter skalning %.2lf, minCost is %.2lf\n",
+	//	maxCost, minCost);
 	//fclose(pek);
 
 	//pek = fopen("checkDijkst5.txt", "w");
@@ -425,13 +425,13 @@ int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached) {
 }
 
 
-double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost) {
+double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, long long* Cost) {
 	int i, i1, nNoder = 0, Nod1, Nod2, ArcPos, ArcNr, NodNu;
 	int i11, VerklBage, ArcNr2;
-	Node *source, *sink, *newNode;
-	long long TotCost = 0;
+	Node* source, * sink, * newNode;
+	double TotCost = 0;
 	double dist = 0;
-	FILE *FilPek = NULL;
+	FILE* FilPek = NULL;
 
 	source = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodA0;
@@ -446,10 +446,10 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 		if (nNoder >= model->nNoder)
 			errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
 		model->BVtempNodOrder[nNoder] = NodNu - 1;
-		//	  PFerrlog(0,"(pos%d)n%d(p%d):c%I64d ", nNoder, NodNu-1, nNoder, newNode->dist);
+		//errlog("(pos %d )n%d(p%d): c %.2lf\n", nNoder, NodNu-1, nNoder, newNode->dist / model->Dijkstra.FAKTOR_NATVERK);
 		nNoder++;
 
-	} 
+	}
 	// nNoder--;
 
 	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
@@ -470,7 +470,10 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 				//	(long long)(model->Noder[nod1].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK),
 				//	nod1, nod2);
 				dist += model->arc[model->BVArc[i]].distance;
-				//printf("pos %d arcNr %d dist %.2lf\n", i, model->BVArc[i], dist);
+				TotCost += model->arc[model->BVArc[i]].totCost;
+				//errlog("pos %d arcNr %d dist %.2lf totDist %.2lf cost %.2lf totCost %I64d\n", i, model->BVArc[i], 
+				//	model->arc[model->BVArc[i]].distance, dist,
+				//	model->arc[model->BVArc[i]].totCost, TotCost);
 			}
 			else {
 				errlog("ERROR! Could not find the arc that connects nodes %d and %d\n", nod1, nod2);
@@ -497,4 +500,5 @@ double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, l
 	//}
 	return dist;
 }
+
 

@@ -27,6 +27,7 @@ std::string weatherDataPath;
 std::string resultPath;
 std::string LOGFILE;
 int SKRIV_UT_NOTHING = 1;
+int SEND_POST_REQUEST = 1;
 
 //using namespace std;
 
@@ -271,34 +272,34 @@ void getRequest() {
 
 void postRequest(std::string errorMessage) {
 
-	
-	CURL* curl;
-	CURLcode res;
-	curl = curl_easy_init();
-	if (curl) {
-		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
-		curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-dev.tnmservices.ai/api/weather/notify");
-		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-		curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
-		struct curl_slist* headers = NULL;
-		headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImU5ODhjNjk3ZTI1NDA4ZWQzNTMzNjdhZmI4NmFkNzUzYmIyOWFlMWU3NzRmMzNiYWRiMDllZmYyOTdiNjE4ZjlmMDZhOTk3YmU3NWY2ZTM3In0.eyJhdWQiOiIxIiwianRpIjoiZTk4OGM2OTdlMjU0MDhlZDM1MzM2N2FmYjg2YWQ3NTNiYjI5YWUxZTc3NGYzM2JhZGIwOWVmZjI5N2I2MThmOWYwNmE5OTdiZTc1ZjZlMzciLCJpYXQiOjE2NDc1MjE4NDksIm5iZiI6MTY0NzUyMTg0OSwiZXhwIjoxNjc5MDU3ODQ5LCJzdWIiOiIyIiwic2NvcGVzIjpbXX0.UVbHJMid3B_5WyzD5VJ9AA1wllGtlr_aK4JRuQ66jRgSmn0fZGzB6D4Cm97sFUSltHp8cOPfQf0jOTC_sjFz0UoFGckSNrbw0GTwue3h9cduvdSZB7rUB7VgR_0XOL6hOiEgPzBOQU4okDwp52KZ5avZDE8x5PWF76qADJ2_835_9AMOq-myBQwFkysFiohJDZo5GS0MabVilJ58tls94KhX2er_8qj2_SpYGVWUVCCy_FYe8XnVrXOSO7j06LYvtpkR5Lspcp4Z9egDGb-NcqB80x9ilNc1CzzClt1DC1yMUUyTo1Z0162A6vxh5vM0Ly0pEX2r3UNfNDWo4-IDH-BB1aczK-43NTE2yafpPqHklj6FvzhdJAHX3Pht3SBFrHT2IG15yFeCj1fhJB9oHTwLnG4BYOmWwO6FohV5DSEolrFTOLWA1MoOrztN-xx4nmrmM6p53awVrRanNMbwnh6X7qPqS668Kd9ZQmR-EkyYHxEvib1YitOH7smnTFzI2P5Jfymf9K2fti3AyzzLGVa3HCKUHSaHU6yMaLk4ZECqRAcxOaYjQZFFJTqWSyY9weozmR1M-GdGFJ1shI9qqDl9utcCPoZ0-IxsJ8hKoVYT2KmqgAd-9vZLAXB2p_Q0twl1riqMyzg1J2W52HNNv8Mcu3WVZOWpLGjHuiy_O9o");
-		headers = curl_slist_append(headers, "Cookie: XSRF-TOKEN=eyJpdiI6IkRyMXNDcmhUcVhMZlFVamZNcysxNHc9PSIsInZhbHVlIjoibkFQcnhPV0RBby9pbVdpNllLdGZld2RJYTZXVjV4UWd6VmJuNERBMTc0T3NoUmhpdVNXcnJGcUZDUFBmQk5lSUFzcWo0QUplVVBsYytxYWRUcWxCbkRjWlF2UUdSbGZFeW1mbEF3ZjcxM3JrY0JqUWtIM2Z5UnI2d1FFWGhTWWIiLCJtYWMiOiJiNGU1NGFhNmYxNzY1ZjMyZjA4NjY0MTQ5Yzc3MzlmZDU4MTU2MTVlODNmZGI5Y2RjZjVkZTIwOWVmZTE0NjcwIiwidGFnIjoiIn0%3D; laravel_session=eyJpdiI6InppTmFLd1R3SE84bjB1d2hLcFg5eVE9PSIsInZhbHVlIjoiajdDNjU4dkpmY2RMVGdacHA0OXdUSGlZTjB4THRNbmFKQ3o5Z3hXL3ZUY1ZScHdwNGpsYXhOVU5sVG9KYUV6QVRNeXBhZTg3UXJXakYyd3I1c1RLUHdtVDNkOWd4MWx3ekpPMHpPOW1VM1J2QlhIcWhsVDNHSzZWclA4ZS9NbnQiLCJtYWMiOiIxNDVhZDNlYmY0YmM3MmNjYjZlNGIyYmFkN2EyMjMyNzVmMDRhNWE4NTg5ZDU2YTYwNWU0ZTkyZTdmOGE1MmMxIiwidGFnIjoiIn0%3D");
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-		curl_mime* mime;
-		curl_mimepart* part;
-		mime = curl_mime_init(curl);
-		part = curl_mime_addpart(mime);
-		curl_mime_name(part, "type");
-		curl_mime_data(part, "error", CURL_ZERO_TERMINATED);
-		part = curl_mime_addpart(mime);
-		curl_mime_name(part, "message");
-		curl_mime_data(part, errorMessage.c_str(), CURL_ZERO_TERMINATED);
-		curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
-		res = curl_easy_perform(curl);
-		curl_mime_free(mime);
+	if (SEND_POST_REQUEST == 1) {
+		CURL* curl;
+		CURLcode res;
+		curl = curl_easy_init();
+		if (curl) {
+			curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+			curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-dev.tnmservices.ai/api/weather/notify");
+			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+			curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+			struct curl_slist* headers = NULL;
+			headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImU5ODhjNjk3ZTI1NDA4ZWQzNTMzNjdhZmI4NmFkNzUzYmIyOWFlMWU3NzRmMzNiYWRiMDllZmYyOTdiNjE4ZjlmMDZhOTk3YmU3NWY2ZTM3In0.eyJhdWQiOiIxIiwianRpIjoiZTk4OGM2OTdlMjU0MDhlZDM1MzM2N2FmYjg2YWQ3NTNiYjI5YWUxZTc3NGYzM2JhZGIwOWVmZjI5N2I2MThmOWYwNmE5OTdiZTc1ZjZlMzciLCJpYXQiOjE2NDc1MjE4NDksIm5iZiI6MTY0NzUyMTg0OSwiZXhwIjoxNjc5MDU3ODQ5LCJzdWIiOiIyIiwic2NvcGVzIjpbXX0.UVbHJMid3B_5WyzD5VJ9AA1wllGtlr_aK4JRuQ66jRgSmn0fZGzB6D4Cm97sFUSltHp8cOPfQf0jOTC_sjFz0UoFGckSNrbw0GTwue3h9cduvdSZB7rUB7VgR_0XOL6hOiEgPzBOQU4okDwp52KZ5avZDE8x5PWF76qADJ2_835_9AMOq-myBQwFkysFiohJDZo5GS0MabVilJ58tls94KhX2er_8qj2_SpYGVWUVCCy_FYe8XnVrXOSO7j06LYvtpkR5Lspcp4Z9egDGb-NcqB80x9ilNc1CzzClt1DC1yMUUyTo1Z0162A6vxh5vM0Ly0pEX2r3UNfNDWo4-IDH-BB1aczK-43NTE2yafpPqHklj6FvzhdJAHX3Pht3SBFrHT2IG15yFeCj1fhJB9oHTwLnG4BYOmWwO6FohV5DSEolrFTOLWA1MoOrztN-xx4nmrmM6p53awVrRanNMbwnh6X7qPqS668Kd9ZQmR-EkyYHxEvib1YitOH7smnTFzI2P5Jfymf9K2fti3AyzzLGVa3HCKUHSaHU6yMaLk4ZECqRAcxOaYjQZFFJTqWSyY9weozmR1M-GdGFJ1shI9qqDl9utcCPoZ0-IxsJ8hKoVYT2KmqgAd-9vZLAXB2p_Q0twl1riqMyzg1J2W52HNNv8Mcu3WVZOWpLGjHuiy_O9o");
+			headers = curl_slist_append(headers, "Cookie: XSRF-TOKEN=eyJpdiI6IkRyMXNDcmhUcVhMZlFVamZNcysxNHc9PSIsInZhbHVlIjoibkFQcnhPV0RBby9pbVdpNllLdGZld2RJYTZXVjV4UWd6VmJuNERBMTc0T3NoUmhpdVNXcnJGcUZDUFBmQk5lSUFzcWo0QUplVVBsYytxYWRUcWxCbkRjWlF2UUdSbGZFeW1mbEF3ZjcxM3JrY0JqUWtIM2Z5UnI2d1FFWGhTWWIiLCJtYWMiOiJiNGU1NGFhNmYxNzY1ZjMyZjA4NjY0MTQ5Yzc3MzlmZDU4MTU2MTVlODNmZGI5Y2RjZjVkZTIwOWVmZTE0NjcwIiwidGFnIjoiIn0%3D; laravel_session=eyJpdiI6InppTmFLd1R3SE84bjB1d2hLcFg5eVE9PSIsInZhbHVlIjoiajdDNjU4dkpmY2RMVGdacHA0OXdUSGlZTjB4THRNbmFKQ3o5Z3hXL3ZUY1ZScHdwNGpsYXhOVU5sVG9KYUV6QVRNeXBhZTg3UXJXakYyd3I1c1RLUHdtVDNkOWd4MWx3ekpPMHpPOW1VM1J2QlhIcWhsVDNHSzZWclA4ZS9NbnQiLCJtYWMiOiIxNDVhZDNlYmY0YmM3MmNjYjZlNGIyYmFkN2EyMjMyNzVmMDRhNWE4NTg5ZDU2YTYwNWU0ZTkyZTdmOGE1MmMxIiwidGFnIjoiIn0%3D");
+			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+			curl_mime* mime;
+			curl_mimepart* part;
+			mime = curl_mime_init(curl);
+			part = curl_mime_addpart(mime);
+			curl_mime_name(part, "type");
+			curl_mime_data(part, "error", CURL_ZERO_TERMINATED);
+			part = curl_mime_addpart(mime);
+			curl_mime_name(part, "message");
+			curl_mime_data(part, errorMessage.c_str(), CURL_ZERO_TERMINATED);
+			curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+			res = curl_easy_perform(curl);
+			curl_mime_free(mime);
+		}
+		curl_easy_cleanup(curl);
 	}
-	curl_easy_cleanup(curl);
-	
 }
 
 int main(int argc, char* argv[])

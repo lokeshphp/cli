@@ -119,6 +119,7 @@ struct strParams
 	double ortoDist_nPointsPerHour;
 	int nPkterOrto;
 	int* preferredPathOrtoPos;
+	int* preferredPathStraightLineFeasibleFrom;
 	int preferredPath_followExactOK;
 	std::string readSolPathFile;
 	std::string solutionFileName;
@@ -158,7 +159,7 @@ struct strParams
 
 	double basDistArcs;
 	double physicalMap_noDataValue;
-	int speedSettings_addOnlyCheapestArcs;
+	//int speedSettings_addOnlyCheapestArcs;
 
 	int runAlt;
 	int startDelay_h;
@@ -367,6 +368,9 @@ struct strNetwork
 	int* posSplitCoord;
 	int nMaxSplits;
 
+	//int* arcGen_utilizeStaticWeather_ForOutNodePos;
+	//int** arcGen_staticWeatherArcNr_outNodePosSpeed;
+	int tidp_startHistoricDataOnly;
 };
 
 struct strPhysicalMap
@@ -529,6 +533,10 @@ struct strValuesNow {
 	double bowSlamming_max;
 	double greenWater_max;
 	double dynamicStability_max;
+
+	double speedDiffWind;
+	double speedDiffWave;
+	double baseGroundSpeed;
 
 	double accumDistance;
 	double totDistance;
@@ -738,9 +746,28 @@ struct strSQLiteTables {
 	int nTables;
 	strDBTableInfo* table;
 };
+
+struct strSQLiteMap {
+	int type;
+	double epochCount;
+	char* textFileName;
+	int nCols;
+	int nRows;
+	double size_col;
+	double size_row;
+	double minX;
+	double maxX;
+	double minY;
+	double maxY;
+	int nBlockRows;
+	int nBlockCols;
+};
+
 struct strModel
 {
 	strSQLiteTables* sqliteTables;
+	strSQLiteMap* sqliteMap;
+
 	double tmpEpochCount;
 
 	double weather_timeIntervall_h;
@@ -909,6 +936,12 @@ int fixReportDate(struct tm tmBas, char* namn);
 void postRequest(std::string errorMessage);
 int updateSQLiteAllTablesInfo(int type, int tablePos, int modified);
 int saveTablesToSQLite(std::string inputPath);
+
+int testSaveMapToBinaryFile();
+//int saveMapsToBinary();
+unsigned short* openBinaryMap(int ii, Raster::strPhysRaster* physRaster, strBoundBox boundingBox);
+
+
 
 #endif //PCH_H
 

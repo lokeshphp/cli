@@ -226,8 +226,8 @@ SmartQ::SmartQ(long long *pMinArcLen, long long *pMaxArcLen,
   for (i = 0; i < logTopDelta; i++)
     topLevel->digMask = 1 + ((topLevel->digMask) << 1);
   
-  errlog("minArcLen %I64d maxArcLen %I64d logBottom %d logMax %d logDelta %d logTopDelta %d cLevels %d relBitMask %I64d\n",
-	  minArcLen, maxArcLen, logBottom, logMax, logDelta, logTopDelta, cLevels, relBitMask);
+  //errlog("minArcLen %I64d maxArcLen %I64d logBottom %d logMax %d logDelta %d logTopDelta %d cLevels %d relBitMask %I64d\n",
+//	  minArcLen, maxArcLen, logBottom, logMax, logDelta, logTopDelta, cLevels, relBitMask);
 
 
   Init();
