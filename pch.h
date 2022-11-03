@@ -13,10 +13,13 @@
 #include"raster.cpp"
 #include "sp.h"
 #include <chrono>
+#include "json.hpp"
+//#include "redisDef.h"
 
 #include <string>
 
 using namespace erkir;
+using json = nlohmann::json;
 //using namespace std;
 
 
@@ -82,8 +85,25 @@ struct strExtraWeights {
 	char* identifierOpt;
 };
 
+struct strVisuell {
+	FILE* filVisuell;
+	struct tm tmBas;
+	char* startTime;
+	int pos;
+	double oldX;
+	double oldY;
+};
+
 struct strParams
 {
+	double delayEjPrefPathArcFactor;
+	int delay_onlySolveSP;
+	int simuleraTidVisuellt;
+	int simulateTimeVisually_nIntHour;
+
+	double tIndexGerH; // omvandling fran tIndex till timmar
+	int nTidsperioder_perH; // omvandling fran timmar till tIndex
+
 	double preferredSpeed_calmWater;
 	double calmWaterSpeedMin;
 	double calmWaterSpeedMax;
@@ -96,8 +116,8 @@ struct strParams
 	double* preferredPathUseChannelSpeed;
 	int* preferredPathUseChannelConsumption;
 
-	int nTimeZones;
-	strTimeZones* timeZone;
+	//int nTimeZones;
+	//strTimeZones* timeZone;
 	std::string indataPath;
 	std::string indataPathName;
 	std::string resultPath;
@@ -110,6 +130,9 @@ struct strParams
 	//int physicalMapRasterPos;
 	std::string mapFuelGeographyAFileName;
 	std::string mapFuelGeographyBFileName;
+	std::string mapTimeDelayName;
+	int nTimeDelayAngles;
+
 	//std::string mapFuelGeographyFileName;
 	std::string preferredPath;
 	std::string corridorPath;
@@ -126,21 +149,21 @@ struct strParams
 
 	double epsilon;
 	int save_weatherNodes;
-	int nShip_speedSettings;
-	int nShip_speedSettingsBase;
 	double commercialSpeed;
 	double commercialFuel;
 	double commercialAllowedVariation;
 	double report_minBearingDiff;
 	double report_minBearingDiffWpt;
 
-	int speedSetting95MCR;
 	//double *ship_speedSettings;
 	char **ship_speedSettingID;
 	// int *ship_speedSettingNr;
 	int maxDiffTimeFastSlow; // max time difference between fastest and slowest route
+	int maxDiffTimeFastSlow_fas3;
 	
 	int max_changeDirection;
+	int maxDiff_pointNrFas3;
+	int nMaxLev_posToDelayedPrefPath;
 	int longestRouteDays_history;
 	//double lengthIntervall; // length of a time intervall in hours
 	//double dist_checkOKroute; // nKm between checks if the route is on land or water, no need to check more often than the pixel size of the map
@@ -152,6 +175,7 @@ struct strParams
 	strFuel fuel;
 	double weightFuel;
 	double weightEmission;
+	double scaleObjEmission;
 	strSafety weightSafety;
 	strPenalties penalties;
 
@@ -223,6 +247,29 @@ struct strPath
 	double minX;
 	double maxX;
 	double startX;
+	double totDist;
+};
+
+struct strOptPathLevel
+{
+	double timeArrive;
+	int pointNr;
+	int speedSettingNr;
+	int levelNext;
+};
+
+struct strOptPathChannel
+{
+	double timeArriveNext;
+	int speedSettingNrNext;
+	int levelNext;
+	double timeArriveThrough;
+	int speedSettingNrThrough;
+};
+struct strOptPath
+{
+	strOptPathLevel* level;
+	strOptPathChannel* channel;
 };
 
 struct strCorrLines
@@ -286,6 +333,9 @@ struct strChannel {
 	double* point_x;
 	strBoundBox boundingBox;
 
+	double factorDelayedPrefPathDuring;
+	double factorDelayedPrefPathAfter;
+
 	int nPoints;
 	spherical::Point* point;
 	//int* allowedPoint;
@@ -328,6 +378,7 @@ struct strNodeSeq
 	int* minDistPrevNode_pos;
 	//int* nodeConnectedFromChannel;
 	int requirePrefPathFeasible;
+	double factorDelayedPrefPath;
 
 	//int *nAllocOutArcs;
 	//int *nOutArcs;
@@ -354,7 +405,10 @@ struct strNetwork
 	//int useLongitudeKvadrant[4];
 	int nMaxNodesInPath;
 	int nChannels;
-	strChannel* channel;
+	strChannel* channel; 
+	int nPhysicalNodes;
+	int nPhysicalArcs;
+
 	//int nUsedChannels;
 	//int* usedChannel;
 
@@ -548,6 +602,8 @@ struct strValuesNow {
 	double minDiffTime;
 	int maxDiffTime_level;
 	int minDiffTime_level;
+
+	int prefPathArc;
 };
 
 struct strTables {
@@ -557,14 +613,27 @@ struct strTables {
 	strTableTyp* tableTyp[3]; // 0 wind, 1 wave, 2 stability
 };
 
-
-struct strFunc2 {
+struct strSpeed {
+	int nShip_speedSettings;
 	double* rpmSetting_gerCalmWaterSpeed;
 	double* rpmSetting_gerFuelConsumption_main;
 	double* rpmSetting_gerFuelConsumption_aux;
+	double* rpm;
+
+	int* settingGerBaseSetting;
+};
+
+struct strFunc2 {
+	int nShip_speedSettingsBase;
 	double* rpmSetting_gerCalmWaterSpeedBase;
 	double* rpmSetting_gerFuelConsumption_mainBase;
 	double* rpmSetting_gerFuelConsumption_auxBase;
+	int speedSetting95MCR_base;
+
+	strSpeed* speedLevel;
+	strSpeed* speedChannelOut;
+	strSpeed* speedChannel;
+
 	double* varValue;
 	double* varValueAverage;
 
@@ -586,7 +655,6 @@ struct strFunc2 {
 	//int table_niWindSpeed;
 	//double* table_speedDiff;
 
-	double* rpm;
 	double* rpmBase;
 	//strCalmWaterFkn calmWaterSpeed;
 	//strFuelConsumptionFkn fuelConsumption;
@@ -763,8 +831,50 @@ struct strSQLiteMap {
 	int nBlockCols;
 };
 
+struct strPointxy {
+	double point_y1;
+	double point_x1;
+	double point_y2;
+	double point_x2;
+	int direction;
+	int arcNr;
+};
+
+struct strDelaySP {
+	double time;
+	double costs;
+	double distance;
+	int nSlowSpeed;
+	int nHighSpeed;
+};
+
+struct strDelay {
+	//strPointxy* baseNode;
+	//strPointxy** neighbour;
+	//int nNodes;
+	//int* nNodeNeighbours;
+	int nGroups;
+	strPointxy** group;
+	int* nGroupArcs;
+
+	int nYears;
+	int* year;
+	strDelaySP SPsol;
+	int nDiffTimeSol;
+	char* delayed_stormFileName;
+	int delayed_monthNr;
+
+	int* nStormsYear;
+	strStorm** stormsYear;
+};
+
+
 struct strModel
 {
+	strVisuell timeVisual;
+	strDelay delay;
+	strOptPath optPath;
+
 	strSQLiteTables* sqliteTables;
 	strSQLiteMap* sqliteMap;
 
@@ -784,6 +894,8 @@ struct strModel
 	int nWeatherFiles;
 	double inv_nWeatherFiles;
 	strWeather *weather;
+	strWeather delayedGrid;
+
 	int nStorms;
 	strStorm* storms;
 	strPath preferredPath;
@@ -887,8 +999,8 @@ double getVariableValue(int varNr, int checkPointNr, double tidpkt);
 int test2(int a);
 int testing(int a);
 
-int voyageOpt_old(std::string inputPath);
 int voyageOpt(std::string inputName, std::string resultName);
+int generateDelayedFactors(std::string inputName, int node);
 int exitKontrollerat(int codeLine, int callType = 1);
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol);
 std::string splitFilename(std::string namn, int alt = 0);
@@ -903,13 +1015,13 @@ double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double curren
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
 //double eval_fuelConsumption_main(int speedNr);
 //double eval_fuelConsumption_aux(int speedNr);
-double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int arcNr = -1);
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel);
 
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 void eval_safety(double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
 int calcWeatherPosAlongChannel(int cNr);
-double eval_calmWaterSpeed(int speedNr, int arcNr = -1);
+double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel);
 double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
 double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
 
@@ -930,7 +1042,7 @@ int identify_startEndOnChannel(int cNr, int startEnd);
 int checkCoordInBoundingBox(double y, double x, strBoundBox bbox);
 void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x);
 void initBoundingBox(strBoundBox* bbox);
-void setupUsableSpeedSettings(strParams* params);
+void setupUsableSpeedSettings();
 int check_translate_xCoord(double* xCoord);
 int fixReportDate(struct tm tmBas, char* namn);
 void postRequest(std::string errorMessage);
@@ -940,6 +1052,43 @@ int saveTablesToSQLite(std::string inputPath);
 int testSaveMapToBinaryFile();
 //int saveMapsToBinary();
 unsigned short* openBinaryMap(int ii, Raster::strPhysRaster* physRaster, strBoundBox boundingBox);
+
+int checkMinnesAnvandning(int rad);
+
+int loadParams_theRestOld(strParams* params);
+int loadParams_new(strParams* params);
+int loadAllNeededTablesFromSQLite();
+int loadVariables(int alt = 0);
+int createPhysicalNetwork(int sparaKorridorEnbart, int alt);
+int adderaNod(int physicalLevel, int pointNr, int timeInterval);
+int check_useRaster_longitude(int weatherNr, int filNr);
+int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
+double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
+int adderaArc(int nodNr1, int nodNr2, double cost);
+int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot);
+void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
+double getCorrect_longitude(double x);
+void fixPositionString_latLon(double y, double x, char* namn);
+int set_speedSettingsFromBase(strSpeed speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
+long long getSecondsFromUTC(const char* time);
+
+int testCallWeatherFile();
+int roundDown(double varde);
+
+void* malloc2(size_t size);
+void* calloc2(size_t count, size_t size);
+int loadStormObject(json dataFeature);
+int eval_stormWithinBoundingBox(int stormNr);
+void sortStormFeaturesTime(int pos);
+void addInfoToStorms(int pos);
+void calc_stormsNearby_delay();
+int plotNodeTimeVisuellt(double time, double x, double y);
+int simuleraStormsVisuellt();
+double fix_lonPos(double lon);
+int getMonthToUseForDelay(double dist);
+
+
+
 
 
 

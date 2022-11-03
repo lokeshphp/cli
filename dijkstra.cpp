@@ -2,24 +2,24 @@
 
 long long MAXVARDE_NATVERK = 100000000000;
 
-int SattUppDijkstraNatverk3(strModel *model) {
+int SattUppDijkstraNatverk3(strModel* model) {
 	//	int NodNr, antal;
 	//	Arc2 *arc;
 	int n, m, i1, NodNr = 0, Forsta = 0, taMedBage;
 	long long minArcLen = -1, maxArcLen = -1, length;
 	double dist;
-	Node *nodes = NULL, *nod = NULL;            /* pointer to the node structure */
-	Arc2 *arcs = NULL, *lastArc = NULL, *arc = NULL;             /* pointer to the arc structure */
-	Arc2 *arc_current = NULL;
-	Arc2 *arc_new;
-	SP *sp = NULL;
+	Node* nodes = NULL, * nod = NULL;            /* pointer to the node structure */
+	Arc2* arcs = NULL, * lastArc = NULL, * arc = NULL;             /* pointer to the arc structure */
+	Arc2* arc_current = NULL;
+	Arc2* arc_new;
+	SP* sp = NULL;
 
 	long    node_min = 0,               /* minimal no of node  */
 		node_max = 0,               /* maximal no of nodes */
-		*arc_first = NULL,              /* internal array for holding
+		* arc_first = NULL,              /* internal array for holding
 										- node degree
 										- position of the first outgoing arc */
-		*arc_tail = NULL;               /* internal array: tails of the arcs */
+		* arc_tail = NULL;               /* internal array: tails of the arcs */
 
 	long head, tail, i;
 	long last, arc_num, arc_new_num;
@@ -51,6 +51,12 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	//	maxCost, model->Dijkstra.FAKTOR_NATVERK, minCost);
 	errlog("nNodes %d, nArcs %d\n", n, m);
 
+	if (model->Dijkstra.nodes != NULL) {
+		delete model->Dijkstra.sp;
+		free(model->Dijkstra.nodes);
+		free(model->Dijkstra.arcs);
+	}
+
 	/* allocating memory for  'nodes', 'arcs'  and internal arrays */
 	nodes = (Node*)calloc(n + 2, sizeof(Node));
 	if (nodes == NULL) printf("Ups1\n");
@@ -67,9 +73,9 @@ int SattUppDijkstraNatverk3(strModel *model) {
 		/* memory is not allocated */
 	{
 		printf("Need %lld bytes for data and %lld bytes temp. data\n",
-			((long long)(n + 2))*((long long) sizeof(Node)) +
-			((long long)(m + 1))*((long long) sizeof(Arc2)),
-			((long long)(n + m + 2))*((long long) sizeof(long)));
+			((long long)(n + 2)) * ((long long)sizeof(Node)) +
+			((long long)(m + 1)) * ((long long)sizeof(Arc2)),
+			((long long)(n + m + 2)) * ((long long)sizeof(long)));
 		printf("n %d, m %d storl Node %d, storl Arc2 %d, storl long %d\n",
 			n, m, sizeof(Node), sizeof(Arc2), sizeof(long));
 	}
@@ -122,7 +128,7 @@ int SattUppDijkstraNatverk3(strModel *model) {
 				}
 				//printf("arcNr %d franTillNoder %d %d cost %I64d\n",
 				//	nBagarNatv, tail, head, length);
-				
+
 				//if (i== 10145 &&head == 11863)
 				//	errlog("error: arc from nod %d to %d cost %I64d\n", i, head, length);
 
@@ -152,22 +158,6 @@ int SattUppDijkstraNatverk3(strModel *model) {
 			}
 		}
 	}
-	//errlog("MaxCost efter skalning %.2lf, minCost is %.2lf\n",
-	//	maxCost, minCost);
-	//fclose(pek);
-
-	//pek = fopen("checkDijkst5.txt", "w");
-	//for (int i = 0; i < model->nNoder; i++) {
-	//	for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
-	//		fprintf(pek, "i %d i1 %d head %d\n", i, i1, model->Noder[i].UtNod[i1]);
-	//	}
-	//}
-	//fclose(pek);
-
-
-	//pek = fopen("checkDijkst6.txt", "w");
-	//errlog("nBagarNatv %d\n", nBagarNatv);
-	//fprintf(pek, "\n");
 
 	(nodes + node_min)->first = arcs;
 
@@ -294,28 +284,10 @@ int SattUppDijkstraNatverk3(strModel *model) {
 	}
 
 	/* free internal memory */
-	free(arc_first); free(arc_tail);
+	free(arc_first); 
+	free(arc_tail);
 
-	/*
-	FILE *FilPek;
-	FilPek = fopen("NatverkCheck.txt", "w");
-	for(nod = model->Dijkstra->nodes; nod < model->Dijkstra->nodes+model->Dijkstra->nNoder; nod++){
-	lastArc = (nod+1)->first - 1;
-	Forsta = 0;
-	NodNr = model->Dijkstra->sp->nodeId(nod)+model->Dijkstra->node_min-1;
-	for(arc = nod->first; arc <= lastArc; arc++){
-	if(Forsta == 0){
-	fprintf(FilPek, "nod %d (verkl %d, adr %ld), bagar:\n",
-	NodNr, model->Noder[NodNr]->NodID, (long)nod);
-	Forsta = 1;
-	}
-	NodNr = model->Dijkstra->sp->nodeId(arc->head)+model->Dijkstra->node_min-1;
-	fprintf(FilPek, "\tbagadr %ld baglangd %d till nod %d (verkl %d, adr %ld)\n",
-	(long) arc, (int)arc->len, NodNr, model->Noder[NodNr]->NodID, (long)(arc->head));
-	}
-	}
-	fclose(FilPek);
-	*/
+
 	/* Uff! all is done */
 	return (0);
 }
@@ -432,17 +404,20 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	double TotCost = 0;
 	double dist = 0;
 	FILE* FilPek = NULL;
-
+	
 	source = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodA0;
 	sink = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodB0;
 
+	
 	for (newNode = sink; newNode != source; newNode = newNode->parent) {
 		// NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
 		NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
 		//printf("uppnystning baklanges nNoder %d nodNu %d objCost %I64d\n", nNoder, NodNu - 1,
 		//	newNode->dist);
+		if (NodNu - 1 >= model->nNoder)
+			printf("ERROR! NodNr %d to high, max %d\n", NodNu, model->nNoder);
 		if (nNoder >= model->nNoder)
 			errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
 		model->BVtempNodOrder[nNoder] = NodNu - 1;
@@ -450,6 +425,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 		nNoder++;
 
 	}
+	//checkMinnesAnvandning(__LINE__);
 	// nNoder--;
 
 	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
@@ -486,7 +462,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	else {
 		*Cost = 9999999;
 	}
-
+	
 	//int pos = 0;
 	//for (newNode = source; ; newNode++) {
 	//	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min - 1;
