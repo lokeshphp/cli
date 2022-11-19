@@ -43,6 +43,7 @@ struct strWeather
 	//int nElement;
 	int nTimeIntervals;
 	int nTimeIntervals_forecast;
+	//int tidpHistoricalWeather;
 	long long* secondsUTC;
 	int useStandardWeather;
 	//double timeIntervall_h;

@@ -113,8 +113,8 @@ struct strParams
 	double historicDataFactor_current;
 
 	double maxDistStartToCorridorConnect;
-	double* preferredPathUseChannelSpeed;
-	int* preferredPathUseChannelConsumption;
+	//double* preferredPathUseChannelSpeed;
+	//int* preferredPathUseChannelConsumption;
 
 	//int nTimeZones;
 	//strTimeZones* timeZone;
@@ -289,28 +289,29 @@ struct strArcInfo
 	int toTime;
 	int speedSetting;
 
-	int nodNr1;
-	int nodNr2;
-	int nodNr1_utNodPos;
+	//int nodNr1;
+	//int nodNr2;
+	//int nodNr1_utNodPos;
+	//double safetyBowSlam;//
+	//double safetyGreenWater;//
+	//double safetyDynStability;//
+	//int feasibleSafety;
+	//double iceCoverCost;//
+	//double channelCost;//
 
+	////double safetyStability;
+	////double safetyPressure;
 	double distance;
 	double time;
 	double fuelBase;
-	double emission;
-	double fuel_aux;
-	double fuel_auxEca;
-	double fuel_noEca;
-	double fuel_eca;
+	double emission;//
+	double fuel_aux;//
+	double fuel_auxEca;//
+	double fuel_noEca;//
+	double fuel_eca;//
+	double fuelQualityKvot;
 	double safetyBase;
 	double safetyHurricane;
-	double safetyBowSlam;
-	double safetyGreenWater;
-	double safetyDynStability;
-	int feasibleSafety;
-	double iceCoverCost;
-	//double safetyStability;
-	//double safetyPressure;
-	double channelCost;
 	double totCost;
 };
 
@@ -559,6 +560,8 @@ struct strFunkData {
 struct strValuesNow {
 	double fuel_main;
 	double fuel_aux;
+	double totFuel_aux;
+	double totFuel_main;
 	double distance;
 
 	double bowSlam;
@@ -567,6 +570,7 @@ struct strValuesNow {
 	double worstStormValue;
 	int feasibleSafety;
 	double iceCoverCost;
+	double channelCost;
 
 	double current;
 	double windSpeed;
@@ -581,6 +585,10 @@ struct strValuesNow {
 	double windReal;
 	double windDirReal;
 	double waveDirReal;
+
+	double windDirReal_lastKnown;
+	double currentReal_lastKnown;
+	double waveDirReal_lastKnown;
 
 
 	double iceCover_max;
@@ -602,6 +610,15 @@ struct strValuesNow {
 	double minDiffTime;
 	int maxDiffTime_level;
 	int minDiffTime_level;
+
+	double WindF;
+	double WaveF;
+	double CurrentF;
+	double DelayF;
+	double totWindF;
+	double totWaveF;
+	double totCurrentF;
+	double totDelayF;
 
 	int prefPathArc;
 };
@@ -629,6 +646,7 @@ struct strFunc2 {
 	double* rpmSetting_gerFuelConsumption_mainBase;
 	double* rpmSetting_gerFuelConsumption_auxBase;
 	int speedSetting95MCR_base;
+	int speedSetting95MCR_use;
 
 	strSpeed* speedLevel;
 	strSpeed* speedChannelOut;
@@ -1069,7 +1087,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
-int set_speedSettingsFromBase(strSpeed speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
+int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
 long long getSecondsFromUTC(const char* time);
 
 int testCallWeatherFile();
@@ -1086,6 +1104,7 @@ int plotNodeTimeVisuellt(double time, double x, double y);
 int simuleraStormsVisuellt();
 double fix_lonPos(double lon);
 int getMonthToUseForDelay(double dist);
+double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2);
 
 
 

@@ -450,18 +450,17 @@ int setupNodesArcsNoTime_delay() {
 				model.arc[arcNr].fuel_eca = 0;
 				model.arc[arcNr].fuel_noEca = 0;
 				model.arc[arcNr].safetyHurricane = 0;
-				model.arc[arcNr].safetyBowSlam = 0;
-				model.arc[arcNr].safetyGreenWater = 0;
-				model.arc[arcNr].safetyDynStability = 0;
-				model.arc[arcNr].feasibleSafety = 0;
-				model.arc[arcNr].iceCoverCost = 0;
+				//model.arc[arcNr].safetyBowSlam = 0;
+				//model.arc[arcNr].safetyGreenWater = 0;
+				//model.arc[arcNr].safetyDynStability = 0;
+				//model.arc[arcNr].feasibleSafety = 0;
+				//model.arc[arcNr].iceCoverCost = 0;
 				//model.arc[arcNr].safetyStability = 0;
 				model.arc[arcNr].safetyBase = 0;
-				model.arc[arcNr].channelCost = 0;
+				//model.arc[arcNr].channelCost = 0;
 				model.arc[arcNr].totCost = timeNu;
-				model.arc[arcNr].nodNr1 = nodNu;
-				model.arc[arcNr].nodNr2 = nodNext;
-				model.arc[arcNr].nodNr1_utNodPos = model.Noder[nodNu].nUtNoder - 1;
+				//model.arc[arcNr].nodNr1 = nodNu;
+				//model.arc[arcNr].nodNr2 = nodNext;
 				model.nArcs++;
 			}
 		}
@@ -902,13 +901,6 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 				}
 			}
 		}
-		if (skrivMycket == 1) {
-			fprintf(filPek, "%d\t%d\t%.2lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n", iPos, model.arc[arcNr].speedSetting, model.arc[arcNr].distance,
-				model.arc[arcNr].time, model.arc[arcNr].fuelBase, model.arc[arcNr].emission, model.arc[arcNr].safetyBase,
-				model.arc[arcNr].channelCost, model.arc[arcNr].totCost, model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
-				model.arc[arcNr].fromTime, model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr, model.arc[arcNr].toTime,
-				x1, y1, x2, y2);
-		}
 
 		if (arcNr == 559126)
 			arcNr = arcNr;
@@ -930,9 +922,17 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 		nAdded = 0;
 
 		sprintf(namn, "res_%d_%d_%d", alt, model.delay.year[yearPos], startPos);
-		if(startPos >= 0)
+		if (startPos >= 0) {
 			addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, namn);
 
+			if (skrivMycket == 1) {
+				fprintf(filPek, "%d\t%d\t%.2lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n", iPos, model.arc[arcNr].speedSetting, model.arc[arcNr].distance,
+					model.arc[arcNr].time, model.arc[arcNr].fuelBase, model.arc[arcNr].emission, model.arc[arcNr].safetyBase,
+					model.functions.valuesNow.channelCost, model.arc[arcNr].totCost, model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
+					model.arc[arcNr].fromTime, model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr, model.arc[arcNr].toTime,
+					x1, y1, x2, y2);
+			}
+		}
 
 		//if (lev1 >= 0)
 		//	printf("BV iPos %d lev1 %d coord %.3lf %.3lf\n", iPos, lev1,
@@ -971,13 +971,13 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 							//	printf("arcNr %d fuelArc_noEca %.2lf arcTime %.2lf totFuel_noEca %.2lf\n", arcNr, model.arc[arcNr].fuel_noEca, model.arc[arcNr].time, fuel_noEca);
 							safety += model.arc[arcNr].safetyBase / nTp;
 							hurricane += model.arc[arcNr].safetyHurricane / nTp;
-							bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
-							greenWater += model.arc[arcNr].safetyGreenWater / nTp;
-							dynStability += model.arc[arcNr].safetyDynStability / nTp;
-							iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
-							feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+							bowSlamming += model.functions.valuesNow.bowSlam / nTp; // model.arc[arcNr].safetyBowSlam / nTp;
+							greenWater += model.functions.valuesNow.greenWater / nTp; // model.arc[arcNr].safetyGreenWater / nTp;
+							dynStability += model.functions.valuesNow.dynamicStability / nTp; // model.arc[arcNr].safetyDynStability / nTp;
+							iceCoverage += model.functions.valuesNow.iceCoverCost / nTp; // model.arc[arcNr].iceCoverCost / nTp;
+							feasibleSafety += (double)model.functions.valuesNow.feasibleSafety / nTp; // (model.arc[arcNr].feasibleSafety) / nTp;
 							//stability += model.arc[arcNr].safetyStability / nTp;
-							channelCost += model.arc[arcNr].channelCost / nTp;
+							channelCost += model.functions.valuesNow.channelCost / nTp; // model.arc[arcNr].channelCost / nTp;
 							totCost += model.arc[arcNr].totCost / nTp;
 							//printf("total objective cost1 after arcNr (part) %d %.2lf arcCost %.2lf\n", arcNr, totCost, model.arc[arcNr].totCost / nTp);
 
@@ -1060,13 +1060,13 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 									//	printf("arcNr2 %d fuelArc_noEca %.2lf arcTime %.2lf totFuel_noEca %.2lf\n", arcNr, model.arc[arcNr].fuel_noEca, model.arc[arcNr].time, fuel_noEca);
 									safety += model.arc[arcNr].safetyBase / nTp;
 									hurricane += model.arc[arcNr].safetyHurricane / nTp;
-									bowSlamming += model.arc[arcNr].safetyBowSlam / nTp;
-									greenWater += model.arc[arcNr].safetyGreenWater / nTp;
-									dynStability += model.arc[arcNr].safetyDynStability / nTp;
-									iceCoverage += model.arc[arcNr].iceCoverCost / nTp;
-									feasibleSafety += (double)(model.arc[arcNr].feasibleSafety) / nTp;
+									bowSlamming += model.functions.valuesNow.bowSlam / nTp; // model.arc[arcNr].safetyBowSlam / nTp;
+									greenWater += model.functions.valuesNow.greenWater / nTp; // model.arc[arcNr].safetyGreenWater / nTp;
+									dynStability += model.functions.valuesNow.dynamicStability / nTp; // model.arc[arcNr].safetyDynStability / nTp;
+									iceCoverage += model.functions.valuesNow.iceCoverCost / nTp; // model.arc[arcNr].iceCoverCost / nTp;
+									feasibleSafety += (double)model.functions.valuesNow.feasibleSafety / nTp; // (model.arc[arcNr].feasibleSafety) / nTp;
 									//stability += model.arc[arcNr].safetyStability / nTp;
-									channelCost += model.arc[arcNr].channelCost / nTp;
+									channelCost += model.functions.valuesNow.channelCost / nTp; // model.arc[arcNr].channelCost / nTp;
 									totCost += model.arc[arcNr].totCost / nTp;
 									//printf("total objective cost2 after arcNr (part) %d %.2lf arcCost %.2lf\n", arcNr, totCost, model.arc[arcNr].totCost / nTp);
 
@@ -1165,13 +1165,13 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 				//printf("arcNr3 %d fuelArc_noEca %.2lf arcTime %.2lf totFuel_noEca %.2lf\n", arcNr, model.arc[arcNr].fuel_noEca, model.arc[arcNr].time, fuel_noEca);
 				safety += model.arc[arcNr].safetyBase;
 				hurricane += model.arc[arcNr].safetyHurricane;
-				bowSlamming += model.arc[arcNr].safetyBowSlam;
-				greenWater += model.arc[arcNr].safetyGreenWater;
-				dynStability += model.arc[arcNr].safetyDynStability;
-				iceCoverage += model.arc[arcNr].iceCoverCost;
-				feasibleSafety += (double)(model.arc[arcNr].feasibleSafety);
+				bowSlamming += model.functions.valuesNow.bowSlam / nTp; // model.arc[arcNr].safetyBowSlam / nTp;
+				greenWater += model.functions.valuesNow.greenWater / nTp; // model.arc[arcNr].safetyGreenWater / nTp;
+				dynStability += model.functions.valuesNow.dynamicStability / nTp; // model.arc[arcNr].safetyDynStability / nTp;
+				iceCoverage += model.functions.valuesNow.iceCoverCost / nTp; // model.arc[arcNr].iceCoverCost / nTp;
+				feasibleSafety += (double)model.functions.valuesNow.feasibleSafety / nTp; // (model.arc[arcNr].feasibleSafety) / nTp;
 				//stability += model.arc[arcNr].safetyStability / nTp;
-				channelCost += model.arc[arcNr].channelCost;
+				channelCost += model.functions.valuesNow.channelCost / nTp; // model.arc[arcNr].channelCost / nTp;
 				totCost += model.arc[arcNr].totCost;
 				//printf("total objective cost3 after arcNr %d %.2lf arcCost %.2lf\n", arcNr, totCost, model.arc[arcNr].totCost);
 				if (lev2 < model.network.nPhysicalLevels) {
@@ -1431,12 +1431,12 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		}
 		model.Dijkstra.nodes = NULL;
 
-		model.params.preferredPathUseChannelSpeed = (double*)malloc2(model.network.nPhysicalLevels * sizeof(double));
-		model.params.preferredPathUseChannelConsumption = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
-		for (int i = 0; i < model.network.nPhysicalLevels; i++) {
-			model.params.preferredPathUseChannelSpeed[i] = -1;
-			model.params.preferredPathUseChannelConsumption[i] = -1;
-		}
+		//model.params.preferredPathUseChannelSpeed = (double*)malloc2(model.network.nPhysicalLevels * sizeof(double));
+		//model.params.preferredPathUseChannelConsumption = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
+		//for (int i = 0; i < model.network.nPhysicalLevels; i++) {
+			//model.params.preferredPathUseChannelSpeed[i] = -1;
+		//	model.params.preferredPathUseChannelConsumption[i] = -1;
+		//}
 	}
 
 	SattUppDijkstraNatverk3(&model);
@@ -1642,7 +1642,7 @@ void setupUsableSpeedSettings_delay() {
 	i = 0;
 	for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
 		for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
-			set_speedSettingsFromBase(model.functions.speedLevel[i1], i, iUse);
+			set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
 			if (i1 == 0)
 				errlog(" %d %.2lf", i, model.functions.speedLevel[i1].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
 		}
@@ -1650,6 +1650,7 @@ void setupUsableSpeedSettings_delay() {
 	}
 	errlog(" knots\n");
 	model.functions.speedSetting95MCR_base = model.functions.nShip_speedSettingsBase - 1;
+	model.functions.speedSetting95MCR_use = model.functions.speedSetting95MCR_base;
 
 	double averSpeed = 0;
 	minSpeed = 1e10;
