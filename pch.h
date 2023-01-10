@@ -13,6 +13,16 @@
 #include"raster.cpp"
 #include "sp.h"
 #include <chrono>
+
+#define JSON_TRY_USER if(true)
+#define JSON_CATCH_USER(exception) if(false)
+#define JSON_THROW_USER(exception)                           \
+    {std::clog << "Error in " << __FILE__ << ":" << __LINE__ \
+               << " (function " << __FUNCTION__ << ") - "    \
+               << (exception).what() << std::endl;           \
+	  printf("ERROR in JSON\n"); \
+     std::abort();}
+
 #include "json.hpp"
 //#include "redisDef.h"
 
@@ -492,6 +502,7 @@ struct strTableTyp {
 	//std::string fileName;
 	char* tableID;
 	char* fileName;
+	double maxWaveHeight;
 	strTableParam shipSpeedCalmWater;
 	strTableParam windSpeed;
 	strTableParam windDirection;
@@ -576,6 +587,8 @@ struct strValuesNow {
 	double windSpeed;
 	double relWindDir;
 	double waveHeight;
+	double maxWaveHeight;
+	int maxWaveHeight_tp;
 	double wavePeriod;
 	double relWaveDir;
 	double forecastType;
@@ -651,6 +664,7 @@ struct strFunc2 {
 	strSpeed* speedLevel;
 	strSpeed* speedChannelOut;
 	strSpeed* speedChannel;
+	int nAllocShipSpeedsLevel;
 
 	double* varValue;
 	double* varValueAverage;
@@ -661,6 +675,7 @@ struct strFunc2 {
 	int windTableNr;
 	int  waveTableNr;
 	int stabilityTableNr;
+	double maxWaveHeight;
 	// std::string bowSlammingTableID;
 	// std::string greenWaterTableID;
 
@@ -1084,7 +1099,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
 int adderaArc(int nodNr1, int nodNr2, double cost);
 int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot);
-void addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
+int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
 int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);

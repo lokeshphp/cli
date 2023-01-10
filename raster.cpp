@@ -845,8 +845,8 @@ public:
 
 	GByte* GetRasterBand_intArrTest(int z, strPhysRaster* rasterData, strBoundBox boundingBox) {
 
-		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse;
-		int nNotValid = 0, posTmp, posTmp2;
+		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, bb_xMin, bb_xMax;
+		int nNotValid = 0, posTmp, posTmp2, nXnotValid;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
 		//unsigned short* valueCell;
 		GDALRasterBand* poBand = rasterDataset->GetRasterBand(z);
@@ -882,12 +882,26 @@ public:
 			n_xBlocks++;
 
 		if (pnXSize == NCOLS) {
-			boundingBox.xMin = min_lon;
-			boundingBox.xMax = max_lon;
+			bb_xMin = min_lon;
+			bb_xMax = max_lon;
+			boundingBox.xMin = bb_xMin; // had to do this to make it work, no time to dig deeper...
+			boundingBox.xMax = bb_xMax;
+		}
+		else {
+			bb_xMin = boundingBox.xMin;
+			bb_xMax = boundingBox.xMax;
 		}
 
-		xPosFrac1 = (boundingBox.xMin - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
-		xPosFrac2 = (boundingBox.xMax - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
+
+		xPosFrac1 = (bb_xMin - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
+		xPosFrac2 = (bb_xMax - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
+		if (bb_xMax > max_lon) {
+			nXnotValid = n_xBlocks * pnXSize - NCOLS;
+			xPosFrac2 += nXnotValid / (double)pnXSize;
+		}
+		else
+			nXnotValid = 0;
+
 		yPosFrac1 = (max_lat - boundingBox.yMax) * NROWS / pnYSize / (max_lat - min_lat);
 		yPosFrac2 = (max_lat - boundingBox.yMin) * NROWS / pnYSize / (max_lat - min_lat);
 
@@ -908,7 +922,7 @@ public:
 		//printf("blocks to open for physical map x %d %d y %d %d\n", xMin, xMax, yMin, yMax);
 		rasterData->minLongitude = min_lon + (double)xMin * pnXSize * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
 		rasterData->minLatitude = max_lat - (double)(yMax + 1) * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
-		rasterData->maxLongitude = min_lon + (double)(xMax + 1) * pnXSize * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
+		rasterData->maxLongitude = min_lon + (double)((xMax + 1) * pnXSize - nXnotValid) * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
 		rasterData->maxLatitude = max_lat - (double)yMin * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
 
 		//printf("rasterData limits %.3lf %.3lf %.3lf %.3lf\n",
@@ -918,7 +932,7 @@ public:
 		GByte* pabyData = (GByte*)CPLMalloc(pnXSize * pnYSize);
 
 		//printf("alloc pabyData size %d x %d = %d\n", pnXSize, pnYSize, pnXSize * pnYSize);
-		rasterData->nCols = (xMax - xMin + 1) * pnXSize;
+		rasterData->nCols = (xMax - xMin + 1) * pnXSize - nXnotValid;
 		rasterData->nRows = (yMax - yMin + 1) * pnYSize;
 		rasterData->size_col = size_col;
 		rasterData->size_row = size_row;

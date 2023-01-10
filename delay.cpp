@@ -843,6 +843,8 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	model.network.nCoords = 0;
 	model.functions.valuesNow.Wpt = 0;
 	model.network.last_x = model.preferredPath.startX;
+	model.functions.valuesNow.maxWaveHeight = 0;
+	model.functions.valuesNow.maxWaveHeight_tp = 0;
 
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 	{
