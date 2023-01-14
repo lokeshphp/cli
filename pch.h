@@ -407,6 +407,7 @@ struct strNodeSeq
 	spherical::Point* preferredPathPoint;
 	int npreferredPathPoints;
 	double midTimeArrive;
+	int restrictedLevel;
 };
 
 struct strNetwork

@@ -11097,6 +11097,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 {
 	int checkNextLevel, i2, arcOK, arcPos, i3;
 	double distance;
+	int nChangeFactor;
 
 	checkNextLevel = 0;
 	if (nextLevel > 0) { // next physical level
@@ -11109,16 +11110,20 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 			//	i2 - model.network.physicalLev[nextLevel].nPoints / 2)) > model.params.max_changeDirection &&
 			//	(thisLevel != 0 && nextLevel != model.network.nPhysicalLevels - 1))
 			//	continue; // cannot turn too much...
-			if (thisLevel != 0 && nextLevel != model.network.nPhysicalLevels - 1) {
-				if (abs(pointPos - model.network.physicalLev[thisLevel].nPoints / 2 - (
-					i2 - model.network.physicalLev[nextLevel].nPoints / 2)) > model.params.max_changeDirection)
-					continue; // cannot turn too much...
-			}
+
+			if (thisLevel == 0)
+				nChangeFactor = 2;
 			else {
-				if (abs(pointPos - model.network.physicalLev[thisLevel].nPoints / 2 - (
-					i2 - model.network.physicalLev[nextLevel].nPoints / 2)) > 2 * model.params.max_changeDirection)
-					continue; // cannot turn too much...
+				if (model.network.physicalLev[thisLevel].restrictedLevel == 1 || model.network.physicalLev[nextLevel].restrictedLevel == 1)
+					nChangeFactor = 3; // 2;
+				else
+					nChangeFactor = 1;
 			}
+
+			if (abs(pointPos - model.network.physicalLev[thisLevel].nPoints / 2 - (
+				i2 - model.network.physicalLev[nextLevel].nPoints / 2)) > model.params.max_changeDirection * nChangeFactor)
+				continue; // cannot turn too much...
+
 			if (thisLevel == 33 && pointPos == 30 && i2 == 33)
 				i2 = i2;
 			arcOK = 1;
@@ -11304,8 +11309,38 @@ int addArcsToNetwork()
 		}
 	}
 
-	printf("nCorridors %d\n", model.network.nChannels);
+
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i == 0 || i == model.network.nPhysicalLevels - 1)
+			model.network.physicalLev[i].restrictedLevel = 1;
+		else
+			model.network.physicalLev[i].restrictedLevel = 0;
+	}
+
+
 	double noDataVal = model.params.physicalMap_noDataValue;
+	int pos1, pos2, arcOK;
+	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		pos1 = model.params.preferredPathOrtoPos[i];
+		pos2 = model.params.preferredPathOrtoPos[i + 1];
+		arcOK = check_isPhysicalArcOK(i, i + 1, pos1, pos2, noDataVal); // not a preferred path
+		if (arcOK == 0)
+			model.network.physicalLev[i + 1].restrictedLevel = 1;
+		else
+			break;
+	}
+	for (i = model.network.nPhysicalLevels - 2; i > 0; i--) {
+		pos1 = model.params.preferredPathOrtoPos[i];
+		pos2 = model.params.preferredPathOrtoPos[i + 1];
+		arcOK = check_isPhysicalArcOK(i, i + 1, pos1, pos2, noDataVal); // not a preferred path
+		if (arcOK == 0)
+			model.network.physicalLev[i].restrictedLevel = 1;
+		else
+			break;
+	}
+
+
+	printf("nCorridors %d\n", model.network.nChannels);
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		//printf("level %d\n", i);
 		//if (i >= 14)
