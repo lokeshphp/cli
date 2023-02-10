@@ -118,7 +118,7 @@ int loadGroups_delayedFactors() {
 	int nAlloc, direction, antal, groupNr, arcNr, nNu, i, nAllocGrupp;
 	double x1, y1, x2, y2, distTmp;
 
-	model.delay.nYears = 4;
+	// model.delay.nYears = 4;
 	model.delay.year = (int*)malloc2(model.delay.nYears * sizeof(int));
 	for (int i = 0; i < model.delay.nYears; i++)
 		model.delay.year[i] = 2018 + i;
@@ -262,6 +262,9 @@ int setUpBoundingBox_delay(int node){
 	}
 	model.preferredPath.minX = model.boundingBox.xMin;
 	model.preferredPath.maxX = model.boundingBox.xMax;
+	errlog("boundingBox in setUpBoundingBox node %d after groupArcs min/max %.3lf %.3lf\n", node,
+		model.boundingBox.xMin, model.boundingBox.xMax);
+
 
 	double absYmax = abs(model.boundingBox.yMax);
 	double absYmin = abs(model.boundingBox.yMin);
@@ -285,8 +288,8 @@ int setUpBoundingBox_delay(int node){
 	model.boundingBox.xMax += 6 + diffAddx;
 	model.boundingBox.yMin -= 6 + absYmin / 15.0;
 	model.boundingBox.xMin -= 6 + diffAddx;
-
-
+	errlog("boundingBox in setUpBoundingBox node %d after diffAddx min/max %.3lf %.3lf\n", node,
+		model.boundingBox.xMin, model.boundingBox.xMax);
 
 	return 0;
 }
@@ -485,10 +488,15 @@ int loadStorms_delayed(int year) {
 	char* namn = (char*)malloc2(256 * sizeof(char));
 	json data, dataFeature;
 	std::ifstream fil;
+	int manadNu;
 
 
 	if (model.delay.stormsYear[year] == NULL) {
-		sprintf(namn, "%s/%s%d.json", model.params.indataPath.c_str(), model.delay.delayed_stormFileName, model.delay.year[year]);
+		manadNu = model.delay.delayed_monthNr[0];
+		if(manadNu < 10)
+			sprintf(namn, "%s/%s_0%d_%d.json", model.params.indataPath.c_str(), model.delay.delayed_stormFileName, manadNu, model.delay.year[year]);
+		else
+			sprintf(namn, "%s/%s_%d_%d.json", model.params.indataPath.c_str(), model.delay.delayed_stormFileName, manadNu, model.delay.year[year]);
 
 		fil.open(namn);
 		fil >> data;
@@ -519,6 +527,192 @@ int loadStorms_delayed(int year) {
 	return 0;
 }
 
+int loadWeatherFiles_delayed_new(int year) {
+	int xPos0, xPos1, yPos0, yPos1, nBands, ii;
+	int nAlloc, i, returnVal, manad2, manadNu, nBandsNu, nBandsAlloc;
+	char* namn = (char*)malloc2(256 * sizeof(char));
+	int nMaxTimeInt = 0, tidInt;
+	long long maxTid, sekNu, nSecondsUTC;
+	int yearNu;
+
+	loadStorms_delayed(year);
+
+	double size_col, size_row, xPosFrac, yPosFrac;
+	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		size_col = -1;
+		manad2 = 0;
+		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
+			yearNu = model.delay.year[year];
+			if (i1 < model.weather[ii].nFiles / 2.0)
+				manadNu = model.delay.delayed_monthNr[0];
+			else {
+				manadNu = model.delay.delayed_monthNr[1];
+				if (manadNu == 1)
+					yearNu = model.delay.year[year] + 1;
+			}
+			if (manadNu < 10)
+				sprintf(namn, "%s_0%d_%d.grb", model.weather[ii].filePos[i1].fileName, manadNu,
+					yearNu);
+			else
+				sprintf(namn, "%s_%d_%d.grb", model.weather[ii].filePos[i1].fileName, manadNu,
+					yearNu);
+			printf("%s\n", namn);
+
+			returnVal = model.weather[ii].rasterPos[i1].open(namn);
+			if (returnVal == -1)
+				return -1;
+			if (i1 == 0 && i1 < model.weather[ii].nFiles / 2.0) { // if(size_col < 0){
+				size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+				model.weather[ii].size_col = size_col;
+				xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
+				xPos0 = roundDown(xPosFrac);
+				model.weather[ii].minX = model.weather[ii].rasterPos[i1].Get_minLongitude() +
+					xPos0 * size_col;
+				xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
+					size_col;
+				xPos1 = roundUp(xPosFrac);
+				model.weather[ii].maxX = model.weather[ii].minX +
+					xPos1 * size_col;
+				model.weather[ii].nCols = xPos1 + 1;
+
+				size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+				model.weather[ii].size_row = size_row;
+				yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
+					size_row;
+				yPos0 = roundDown(yPosFrac);
+				model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude() -
+					yPos0 * size_row;
+				yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+					size_row;
+				yPos1 = roundUp(yPosFrac);
+				if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
+					yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+				model.weather[ii].minY = model.weather[ii].maxY -
+					yPos1 * size_row;
+				model.weather[ii].nRows = yPos1 + 1;
+
+				if (ii == 3)
+					ii = ii;
+				nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+				nBandsAlloc = (int)(1.33 * nBands);
+				model.weather[ii].nTimeIntervals = nBandsAlloc;
+				model.weather[ii].nTimeIntervals_forecast = nBandsAlloc;
+				model.weather[ii].secondsUTC = (long long*)malloc2(nBandsAlloc * sizeof(long long));
+				model.weather[ii].valueCell = (float**)malloc2(nBandsAlloc * sizeof(float*));
+				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+				for (int i2 = 0; i2 < nBandsAlloc; i2++) {
+					model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+					for (int i3 = 0; i3 < nAlloc; i3++)
+						model.weather[ii].valueCell[i2][i3] = 9999;
+
+					if (i2 < nBands){
+						//if (ii != 6) {
+						nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
+						model.weather[ii].secondsUTC[i2] = nSecondsUTC;
+					}
+					//else {
+					//	model.weather[ii].secondsUTC[i2] = model.weather[ii - 2].secondsUTC[i2];
+					//}
+				}
+				if (ii == 0)
+					model.params.UTC_secondsStart = model.weather[ii].secondsUTC[0];
+
+			}
+			else {
+				if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+					errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+						model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+				if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+					errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+						model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+
+				if (manad2 == 0 && i1 >= model.weather[ii].nFiles / 2.0) {
+					manad2 = 1;
+					nBandsNu = model.weather[ii].rasterPos[i1].Get_nBands();
+					if (nBands + nBandsNu < nBandsAlloc) {
+						errlog("ERROR! Too few bands in the second months, should be %d + %d = %d but is only %d + %d = %d file %s\n",
+							nBands, nBandsAlloc - nBands, nBandsAlloc, nBands + nBandsNu, nBands + nBandsNu, namn);
+						model.weather[ii].nTimeIntervals = nBands + nBandsNu;
+						model.weather[ii].nTimeIntervals_forecast = nBands + nBandsNu;
+						nBandsAlloc = nBands + nBandsNu;
+					}
+
+					for (int i2 = nBands; i2 < nBandsAlloc; i2++) {
+						nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1 - nBands);
+						model.weather[ii].secondsUTC[i2] = nSecondsUTC;
+					}
+					nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
+					model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
+					if (nAlloc < 0) {
+						errlog("ERROR! nAlloc = %d, is it because if icetk fix, otherwise it's wrong. I set it to 2\n", nAlloc);
+						printf("ERROR! nAlloc = %d, is it because if icetk fix, otherwise it's wrong. I set it to 2\n", nAlloc);
+						nAlloc = 2;
+					}
+					errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+						ii, model.weather[ii].nTimeIntervals,
+						model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+					tidInt = 0;
+					for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+
+						if (i == model.weather[ii].nTimeIntervals - 1)
+							maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
+						else
+							maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+
+						for (; tidInt < 100000; tidInt++) {
+							if (tidInt >= nAlloc) {
+								printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+									model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+								errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+									model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+								break;
+							}
+							sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
+							if (sekNu <= maxTid)
+								model.weather[ii].timeIntervalIndex[tidInt] = i;
+							else
+								break;
+						}
+						//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
+						model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+						if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+							nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
+					}
+				}
+			}
+			if (ii == 2 && i1 == 1)
+				ii = ii;
+			if (i1 < model.weather[ii].nFiles / 2.0)
+				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), 0, nBandsAlloc);
+			else
+				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc);
+
+			//extractGribInfo("data/gribFilesToCheck.json");
+
+
+		}
+
+	}
+
+	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		//printf("var %d maxVal %d\n", ii, model.weather[ii].nTimeIntervals_maxValue);
+		if (model.weather[ii].nTimeIntervals_maxValue < nMaxTimeInt) {
+			errlog("extends weather %s to nMaxTimeInt %d from %d endValue %d\n",
+				model.weather[ii].weatherFileTypeName, nMaxTimeInt, model.weather[ii].nTimeIntervals_maxValue,
+				model.weather[ii].timeIntervalIndex[model.weather[ii].nTimeIntervals_maxValue]);
+			model.weather[ii].timeIntervalIndex = (int*)realloc(model.weather[ii].timeIntervalIndex, (nMaxTimeInt + 1) * sizeof(int));
+			for (i = model.weather[ii].nTimeIntervals_maxValue; i <= nMaxTimeInt; i++) {
+				model.weather[ii].timeIntervalIndex[i] = model.weather[ii].timeIntervalIndex[model.weather[ii].nTimeIntervals_maxValue];
+			}
+		}
+	}
+	model.weather_nTimeIntervals_maxValue = nMaxTimeInt;
+
+
+	free(namn);
+	return 0;
+}
+
 int loadWeatherFiles_delayed(int year) {
 	int xPos0, xPos1, yPos0, yPos1, nBands, ii;
 	int nAlloc, i, returnVal;
@@ -533,7 +727,9 @@ int loadWeatherFiles_delayed(int year) {
 		size_col = -1;
 		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
 			sprintf(namn, "%s%d.grb", model.weather[ii].filePos[i1].fileName, model.delay.year[year]);
+			sprintf(namn, "data/weather/mwp0_02_%d.grb", model.delay.year[year]);
 			printf("%s\n", namn);
+
 			returnVal = model.weather[ii].rasterPos[i1].open(namn);
 			if (returnVal == -1)
 				return -1;
@@ -577,7 +773,7 @@ int loadWeatherFiles_delayed(int year) {
 				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
 				for (int i2 = 0; i2 < nBands; i2++) {
 					model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
-					for (int i3 = 0; i3 < nAlloc; i3++) 
+					for (int i3 = 0; i3 < nAlloc; i3++)
 						model.weather[ii].valueCell[i2][i3] = 9999;
 
 					if (ii != 6) {
@@ -585,12 +781,12 @@ int loadWeatherFiles_delayed(int year) {
 						model.weather[ii].secondsUTC[i2] = nSecondsUTC;
 					}
 					else {
-						model.weather[ii].secondsUTC[i2] = model.weather[ii-2].secondsUTC[i2];
+						model.weather[ii].secondsUTC[i2] = model.weather[ii - 2].secondsUTC[i2];
 					}
 				}
 				if (ii == 0)
 					model.params.UTC_secondsStart = model.weather[ii].secondsUTC[0];
-					
+
 
 				nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
 				model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
@@ -636,12 +832,15 @@ int loadWeatherFiles_delayed(int year) {
 					errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
 						model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
 			}
-			if (ii == 2&&i1==1)
+			if (ii == 2 && i1 == 1)
 				ii = ii;
 			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0);
 
+			//extractGribInfo("data/gribFilesToCheck.json");
+
+
 		}
-	
+
 	}
 
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
@@ -663,12 +862,212 @@ int loadWeatherFiles_delayed(int year) {
 	return 0;
 }
 
+int loadWeatherFiles_checkData(int year) {
+	int xPos0, xPos1, yPos0, yPos1, nBands, ii, pos2;
+	int nAlloc, i, returnVal;
+	char* namn = (char*)malloc2(256 * sizeof(char));
+	int nMaxTimeInt = 0, tidInt, row, col;
+	long long maxTid, sekNu, nSecondsUTC;
+
+	model.delay.delayed_monthNr[0] = 2;
+
+	loadStorms_delayed(year);
+
+	double size_col, size_row, xPosFrac, yPosFrac, rowDbl, colDbl;
+	double x1 = -38.46, y1 = 16.02; // i Atlanten
+
+	model.boundingBox.xMin = x1;
+	model.boundingBox.xMax = x1;
+	model.boundingBox.yMin = y1;
+	model.boundingBox.yMax = y1;
+
+	std::ifstream fil;
+
+	resultPath = "data";
+	reset_errlog();
+
+	std::string inputPath = "data/gribFilesToCheck.json";
+	printf("opens %s\n", inputPath.c_str());
+	fil.open(inputPath.c_str());
+
+	json data, dataSpeed, dataVar, dataIt;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		exitKontrollerat(__LINE__);
+	}
+
+	ii = 0;
+	int pos = 0;
+
+	FILE* filpek = fopen("checkTimeDateGribfiles.txt", "w");
+	std::string namn2;
+	errlog("fileName\tpos\tnBands\tsizeCol\tsizeRow\tminLongitude\tmaxLatitude\tnCols\tnRows\n");
+	int i1 = 0;
+	for (auto it = data.begin(); it != data.end(); ++it) {
+		dataIt = it.value();
+		if (!dataIt["fileName"].is_null()) {
+			namn2 = dataIt["fileName"];
+		}
+		else
+			continue;
+
+		printf("%s\n", namn2.c_str());
+
+		size_col = -1;
+		returnVal = model.weather[ii].rasterPos[i1].open(namn2.c_str());
+		if (returnVal == -1)
+			return -1;
+		if (size_col < 0) {
+			size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+			model.weather[ii].size_col = size_col;
+			xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
+			xPos0 = roundDown(xPosFrac);
+			model.weather[ii].minX = model.weather[ii].rasterPos[i1].Get_minLongitude() +
+				xPos0 * size_col;
+			xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
+				size_col;
+			xPos1 = roundUp(xPosFrac);
+			model.weather[ii].maxX = model.weather[ii].minX +
+				xPos1 * size_col;
+			model.weather[ii].nCols = xPos1 + 1;
+
+			size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+			model.weather[ii].size_row = size_row;
+			yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
+				size_row;
+			yPos0 = roundDown(yPosFrac);
+			model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude() -
+				yPos0 * size_row;
+			yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+				size_row;
+			yPos1 = roundUp(yPosFrac);
+			if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
+				yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+			model.weather[ii].minY = model.weather[ii].maxY -
+				yPos1 * size_row;
+			model.weather[ii].nRows = yPos1 + 1;
+
+			if (ii == 3)
+				ii = ii;
+
+			if (pos > 0) {
+				free(model.weather[ii].secondsUTC);
+				free(model.weather[ii].timeIntervalIndex);
+				for (int i2 = 0; i2 < nBands; i2++) {
+					free(model.weather[ii].valueCell[i2]);
+				}
+				free(model.weather[ii].valueCell);
+			}
+
+			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+			model.weather[ii].nTimeIntervals = nBands;
+			model.weather[ii].nTimeIntervals_forecast = nBands;
+
+
+			model.weather[ii].secondsUTC = (long long*)malloc2(nBands * sizeof(long long));
+			model.weather[ii].valueCell = (float**)malloc2(nBands * sizeof(float*));
+			nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+			for (int i2 = 0; i2 < nBands; i2++) {
+				model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+				for (int i3 = 0; i3 < nAlloc; i3++) 
+					model.weather[ii].valueCell[i2][i3] = 9999;
+
+				if (ii != 6) {
+					nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
+					model.weather[ii].secondsUTC[i2] = nSecondsUTC;
+				}
+				else {
+					model.weather[ii].secondsUTC[i2] = model.weather[ii-2].secondsUTC[i2];
+				}
+			}
+			if (ii == 0)
+				model.params.UTC_secondsStart = model.weather[ii].secondsUTC[0];
+					
+
+			nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
+			model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
+
+			errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+				ii, model.weather[ii].nTimeIntervals,
+				model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+			tidInt = 0;
+			for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+
+				if (i == model.weather[ii].nTimeIntervals - 1)
+					maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
+				else
+					maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+
+				for (; tidInt < 100000; tidInt++) {
+					if (tidInt >= nAlloc) {
+						printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+							model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+						errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+							model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+						break;
+					}
+					sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
+					if (sekNu <= maxTid)
+						model.weather[ii].timeIntervalIndex[tidInt] = i;
+					else
+						break;
+				}
+				//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
+			}
+			model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+			if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+				nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
+
+
+		}
+		else {
+			if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+				errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+					model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+			if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+				errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+					model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+		}
+		if (ii == 2&&i1==1)
+			ii = ii;
+
+		errlog("%s\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%d\t%d\n", namn2.c_str(), pos, nBands,
+			size_col, model.weather[ii].rasterPos[i1].Get_sizeRow(), model.weather[ii].rasterPos[i1].Get_minLongitude(),
+			model.weather[ii].rasterPos[i1].Get_maxLatitude(),
+			model.weather[ii].rasterPos[i1].Get_nCols(), model.weather[ii].rasterPos[i1].Get_nRows());
+
+		model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0);
+
+		rowDbl = (model.weather[ii].maxY - y1) / model.weather[ii].size_row;
+		colDbl = get_colDblFromWeatherFile(i1, x1);
+		row = (int)rowDbl;
+		col = (int)colDbl;
+		pos2 = col + model.weather[ii].nCols * row;
+		for (int i2 = 0; i2 < nBands; i2++) {
+			nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
+			fprintf(filpek, "%s\t%d\t%d\t%lf\t%I64d\t%s\n", namn2.c_str(), pos, i2,
+				model.weather[ii].valueCell[i2][pos2],
+				nSecondsUTC, stringDateFromUTCSeconds(nSecondsUTC).c_str());
+		}
+		pos++;
+	}
+	fclose(filpek);
+
+	free(namn);
+	exit(0);
+	return 0;
+}
+
 long long make_gmtime_fromGivenDate_delay(int yearPos, strParams* params) {
 	struct tm tmBas = { 0 };
 	int hour, nHoursDiffTZ = 0, nMinDiffTZ = 0, nValuesHour;
 
 	tmBas.tm_year = model.delay.year[yearPos] - 1900;
-	tmBas.tm_mon = model.delay.delayed_monthNr - 1; // sep
+	tmBas.tm_mon = model.delay.delayed_monthNr[0] - 1; // sep
 	tmBas.tm_mday = 1;
 	hour = 0;
 	tmBas.tm_hour = hour;
@@ -728,19 +1127,19 @@ int determine_nPointsDelayVisuellt(double dist, double* faktorer) {
 	return nPkter;
 }
 
-int writeErrorMsgToFiles(int node, int year, int i, int i1) {
-
+int writeErrorMsgToFiles(int node, int year, int pos, int i1) {
+	
 	FILE* filTmp = fopen("data/resDelay_opt.txt", "a+");
 	fprintf(filTmp, "delay ERROR node %d neighbourNr %d arcID %d yearPos %d i1 %d optCost -1 "
 		"nBagar %d fagelDist %.2lf nPhysLev %d nDiffTimeSol -1\n",
-		node, i, model.delay.group[i][i1].arcNr, year, i1, model.nArcs,
+		node, pos, model.delay.group[pos][i1].arcNr, year, i1, model.nArcs,
 		model.preferredPath.point[0].distanceTo(model.preferredPath.point[1]) / 1000.0, model.network.nPhysicalLevels);
 	fclose(filTmp);
 	FILE* filDelay = fopen("data/res_delay.txt", "a+");
 	double distance = model.preferredPath.point[0].distanceTo(model.preferredPath.point[1]) / 1000.0;
 	fprintf(filDelay, "%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%.4lf\t%.4lf\t%.4lf",
 		model.delay.year[year], i1 + 1,
-		model.delay.group[node][i].direction,
+		model.delay.group[node][pos].direction,
 		-1, -1, distance, -1, -1,
 		2.0, 1.5, 1.5);
 
@@ -749,13 +1148,14 @@ int writeErrorMsgToFiles(int node, int year, int i, int i1) {
 	}
 	double* faktorer = (double*)malloc(5 * sizeof(double));
 	int nPkter = determine_nPointsDelayVisuellt(distance, faktorer);
+	int i;
 	fprintf(filDelay, "\t%d", nPkter);
 	for (i = 0; i < nPkter; i++) {
 		double x = get_lonFromKvotAvTva_delay(model.preferredPath.point_x[0], model.preferredPath.point_x[1], faktorer[i]);
 		fprintf(filDelay, "\t%.3lf\t%.3lf", x,
 			model.preferredPath.point_y[0] * (1 - faktorer[i]) + model.preferredPath.point_y[1] * faktorer[i]);
 	}
-	fprintf(filDelay, "\n");
+	fprintf(filDelay, "\t%d\n", node, model.delay.group[node][pos].arcNr);
 	fclose(filDelay);
 	free(faktorer);
 
@@ -925,7 +1325,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 
 		sprintf(namn, "res_%d_%d_%d", alt, model.delay.year[yearPos], startPos);
 		if (startPos >= 0) {
-			addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, namn);
+			addPositionDataToReport(filpekG, &posIreport, arcNr, 0, &timeExact, namn);
 
 			if (skrivMycket == 1) {
 				fprintf(filPek, "%d\t%d\t%.2lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n", iPos, model.arc[arcNr].speedSetting, model.arc[arcNr].distance,
@@ -1224,7 +1624,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	tmBas.tm_year = model.params.startYear - 1900;
 	tmBas.tm_mon = model.params.startMonth_nr - 1; // sep
 	tmBas.tm_mday = model.params.startDay_nr;
-	tmBas.tm_hour = model.params.startHour + alt * 24; // 0;
+	tmBas.tm_hour = model.params.startHour + startPos * 24; // 0;
 	tmBas.tm_min = model.params.startMinute;
 	tmBas.tm_sec = 0;
 
@@ -1233,6 +1633,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	char* startTime, * endTime;
 	startTime = (char*)malloc2(256 * sizeof(char));
 	endTime = (char*)malloc2(256 * sizeof(char));
+	mktime(&tmBas);
 	fixReadableDate(tmBas, startTime);
 	tmBas.tm_min += timeNu * 60;
 	mktime(&tmBas);
@@ -1379,7 +1780,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 			fprintf(filDelay, "\t%.3lf\t%.3lf", x,
 				model.preferredPath.point_y[0] * (1 - faktorer[i]) + model.preferredPath.point_y[1] * faktorer[i]);
 		}
-		fprintf(filDelay, "\n");
+		fprintf(filDelay, "\t%d\n", model.delay.group[node][alt].arcNr);
 		fclose(filDelay);
 	}
 
@@ -1479,6 +1880,8 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 	int cNr, tidInt0, returnVal;
 	double fuel, safety, tid, totCost, fuelQualityKvot;
 
+	model.nErrorCoordBB = 0;
+
 	if (model.weatherFunctions.nAllocPoints == 0) {
 		model.weatherFunctions.nAllocPoints = 50;
 		model.weatherFunctions.vesselBearing = (double*)malloc2(
@@ -1501,7 +1904,10 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 
 	}
 	if (startDay == 0 && neighbourPos == 0 || model.weather[0].valueCell == NULL) {
-		returnVal = loadWeatherFiles_delayed(year);
+		if(model.params.checkGribFilesSpecial == 1)
+			returnVal = loadWeatherFiles_checkData(year);
+		else
+			returnVal = loadWeatherFiles_delayed_new(year);
 		if (returnVal == -1)
 			return -1;
 	}
@@ -1778,13 +2184,259 @@ void calc_stormsNearby_delay() {
 
 }
 
+double get_colDblFromRaster(Raster raster, double lon)
+{
+	double colDbl, tmpLon = lon;
 
-int generateDelayedFactors(std::string inputPath, int node)
+	if (lon < raster.Get_minLongitude() - 20)
+		lon += 360;
+	if (lon > raster.Get_maxLongitude() + 20)
+		lon -= 360;
+
+	colDbl = (lon - raster.Get_minLongitude()) / raster.Get_sizeCol();
+	if (colDbl < 0)
+		colDbl += raster.Get_nCols();
+	if (colDbl < 0 || colDbl >= raster.Get_nCols()) {
+		if (colDbl < -0.1 || colDbl > raster.Get_nCols() + 0.1) {
+			errlog("ERROR! This should not happen. Fix it!! colDbl %.3lf nCols %d lon %.3lf minLon maxLon %.3lf\n",
+				colDbl, raster.Get_nCols(), lon,
+				raster.Get_minLongitude(), raster.Get_maxLongitude());
+			exit(0);
+		}
+		else {
+			if (colDbl < 0)
+				colDbl = 0;
+			else
+				colDbl = raster.Get_nCols() - 0.1;
+		}
+	}
+
+
+	return colDbl;
+}
+
+int extractGribInfo(std::string inputPath)
+{
+	std::ifstream fil;
+
+	resultPath = "data";
+	reset_errlog();
+
+	printf("opens %s\n", inputPath.c_str());
+	fil.open(inputPath.c_str());
+
+	json data, dataSpeed, dataVar, dataIt;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		exitKontrollerat(__LINE__);
+	}
+
+	std::string namn;
+	Raster raster;
+	int pos = 0, nBands, nAlloc, i2, i3, nXblock, nYblock;
+	long long nSecondsUTC;
+	FILE* filpek;
+	double x1 = -38.46, y1 = 16.02, x2, y2; // i Atlanten
+	double sizeCol, minLon, rowDbl, colDbl;
+	double xPosFrac, yPosFrac, size_row;
+	int xPos0, yPos0, xPos1, yPos1;
+	int nCols, nRows, row, col, rowBlock, colBlock, blockY, blockX;
+	strWeather weatherData;
+
+
+	//x1 = model.boundingBox.xMin;
+	x2 = x1 + 10;// model.boundingBox.xMax;
+	//y1 = model.boundingBox.yMin;
+	y2 = y1 + 10;// model.boundingBox.yMax;
+
+	weatherData.secondsUTC = NULL;
+
+	filpek = fopen("checkTimeDateGribfiles.txt", "w");
+	errlog("fileName\tpos\tnBands\tsizeCol\tsizeRow\tminLongitude\tmaxLatitude\tnCols\tnRows\n");
+	for (auto it = data.begin(); it != data.end(); ++it) {
+		dataIt = it.value();
+		if (!dataIt["fileName"].is_null()) {
+			namn = dataIt["fileName"];
+		}
+		else
+			continue;
+
+		printf("opens %s\n", namn.c_str());
+		raster.open(namn.c_str());
+		printf("done\n");
+
+		nBands = raster.Get_nBands();
+
+		sizeCol = raster.Get_sizeCol();
+		minLon = raster.Get_minLongitude();
+		nCols = raster.Get_nCols();
+		nRows = raster.Get_nRows();
+		errlog("%s\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%d\t%d\n", namn.c_str(), pos, nBands,
+			sizeCol, raster.Get_sizeRow(), minLon, raster.Get_maxLatitude(),
+			nCols, nRows);
+
+
+		for (int i2 = 0; i2 < nBands; i2++) {
+			printf("get time %d\n", i2);
+			nSecondsUTC = raster.GetSecondsFromUTC_metadataBand(i2 + 1);
+			fprintf(filpek, "%s\t%d\t%d\t%lf\t%I64d\t%s\n", namn.c_str(), pos, i2,
+				0,
+				nSecondsUTC, stringDateFromUTCSeconds(nSecondsUTC).c_str());
+		}
+
+
+		pos++;
+
+	}
+	fclose(filpek);
+
+
+	return 0;
+}
+
+int extractGribInfo2(std::string inputPath)
+{
+	std::ifstream fil;
+
+	resultPath = "data";
+	reset_errlog();
+
+	printf("opens %s\n", inputPath.c_str());
+	fil.open(inputPath.c_str());
+
+	json data, dataSpeed, dataVar, dataIt;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", inputPath.c_str());
+		exitKontrollerat(__LINE__);
+	}
+
+	std::string namn;
+	Raster raster;
+	int pos = 0, nBands, nAlloc, i2, i3, nXblock, nYblock;
+	long long nSecondsUTC;
+	FILE* filpek;
+	double x1 = -38.46, y1 = 16.02, x2, y2; // i Atlanten
+	double sizeCol, minLon, rowDbl, colDbl;
+	double xPosFrac, yPosFrac, size_row;
+	int xPos0, yPos0, xPos1, yPos1;
+	int nCols, nRows, row, col, rowBlock, colBlock, blockY, blockX;
+	strWeather weatherData;
+
+
+	//x1 = model.boundingBox.xMin;
+	x2 = x1 + 10;// model.boundingBox.xMax;
+	//y1 = model.boundingBox.yMin;
+	y2 = y1 + 10;// model.boundingBox.yMax;
+
+	weatherData.secondsUTC = NULL;
+
+	filpek = fopen("checkTimeDateGribfiles.txt", "w");
+	errlog("fileName\tpos\tnBands\tsizeCol\tsizeRow\tminLongitude\tmaxLatitude\tnCols\tnRows\n");
+	for (auto it = data.begin(); it != data.end(); ++it) {
+		dataIt = it.value();
+		if (!dataIt["fileName"].is_null()) {
+			namn = dataIt["fileName"];
+		}
+		else
+			continue;
+
+		raster.open(namn.c_str());
+
+		nBands = raster.Get_nBands();
+
+		sizeCol = raster.Get_sizeCol();
+		minLon = raster.Get_minLongitude();
+		nCols = raster.Get_nCols();
+		nRows = raster.Get_nRows();
+		errlog("%s\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%d\t%d\n", namn.c_str(), pos, nBands,
+			sizeCol, raster.Get_sizeRow(), minLon, raster.Get_maxLatitude(),
+			nCols, nRows);
+
+
+		weatherData.size_col = sizeCol;
+		xPosFrac = (x1 - raster.Get_minLongitude()) / sizeCol;
+		xPos0 = roundDown(xPosFrac);
+		weatherData.minX = raster.Get_minLongitude() +
+			xPos0 * sizeCol;
+		xPosFrac = (x2 - weatherData.minX) /
+			sizeCol;
+		xPos1 = roundUp(xPosFrac);
+		weatherData.maxX = weatherData.minX +
+			xPos1 * sizeCol;
+		weatherData.nCols = xPos1 + 1;
+		size_row = raster.Get_sizeRow();
+		weatherData.size_row = size_row;
+		yPosFrac = (raster.Get_maxLatitude() - y2) /
+			size_row;
+		yPos0 = roundDown(yPosFrac);
+		weatherData.maxY = raster.Get_maxLatitude() -
+			yPos0 * size_row;
+		yPosFrac = (weatherData.maxY - y1) /
+			size_row;
+		yPos1 = roundUp(yPosFrac);
+		if (yPos1 >= raster.Get_nRows())
+			yPos1 = raster.Get_nRows() - 1;
+		weatherData.minY = weatherData.maxY -
+			yPos1 * size_row;
+		weatherData.nRows = yPos1 + 1;
+		weatherData.valueCell = (float**)malloc2(nBands * sizeof(float*));
+		
+		raster.Get_BlockSize(1, &nXblock, &nYblock);
+		//nAlloc = nXblock * nYblock;
+		nAlloc = weatherData.nCols * weatherData.nRows;
+		for (int i2 = 0; i2 < nBands; i2++) {
+			weatherData.valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+			for (int i3 = 0; i3 < nAlloc; i3++)
+				weatherData.valueCell[i2][i3] = 9999;
+		}
+
+
+		rowDbl = (raster.Get_maxLatitude() - y1) / raster.Get_sizeRow();
+		blockY = (int)(rowDbl / nYblock);
+		colDbl = 287.8;// get_colDblFromRaster(raster, x1);
+		colDbl = get_colDblFromRaster(raster, x1);
+		blockX = (int)(colDbl / nXblock);
+		row = (int)rowDbl;
+		col = (int)colDbl;
+
+		rowBlock = row - blockY * nYblock;
+		colBlock = col - blockX * nXblock;
+
+		pos = colBlock + nXblock * rowBlock;
+
+		raster.GetRasterValues_realAllBands(&weatherData, 0);
+		for (int i2 = 0; i2 < nBands; i2++) {
+			nSecondsUTC = raster.GetSecondsFromUTC_metadataBand(i2 + 1);
+			fprintf(filpek, "%s\t%d\t%d\t%lf\t%I64d\t%s\n", namn.c_str(), pos, i2,
+				weatherData.valueCell[i2][pos],
+				nSecondsUTC, stringDateFromUTCSeconds(nSecondsUTC).c_str());
+		}
+
+
+		pos++;
+
+	}
+	fclose(filpek);
+
+
+	return 0;
+}
+
+int generateDelayedFactors(std::string inputPath, int node, int manad)
 {
 
 	double dist;
 	long long Cost;
 	reset_errlog();
+	errlog("delay for manad %d node %d\n", manad, node);
 	FILE* filTmp;
 
 	if (node == 0) {
@@ -1796,6 +2448,12 @@ int generateDelayedFactors(std::string inputPath, int node)
 	model.params.indataPath = splitFilename(inputPath);
 	model.params.errorCode = 0;
 
+	model.delay.delayed_monthNr[0] = manad;
+	if (manad == 12)
+		model.delay.delayed_monthNr[1] = 1;
+	else
+		model.delay.delayed_monthNr[1] = manad + 1;
+
 	//testCallWeatherFile();
 
 	char* namn;
@@ -1806,7 +2464,7 @@ int generateDelayedFactors(std::string inputPath, int node)
 			"dist_diffKvot\txStart\tyStart\txEnd\tyEnd\tnPoints");
 		for (int i = 0; i < 2; i++)
 			fprintf(filDelay, "\tx_%d\ty_%d", i, i);
-		fprintf(filDelay, "\n");
+		fprintf(filDelay, "\tarcNr\n");
 		fclose(filDelay);
 		filDelay = fopen("data/res_delaySP.txt", "w");
 		fprintf(filDelay, "nodeNr\tpoint_x1\tpoint_y1\tpoint_x2\tpoint_y2\tdirection\tcost\ttime\tdistance\tnSlowSpeed\tnHighSpeed\trowIndata\n");
@@ -1843,6 +2501,9 @@ int generateDelayedFactors(std::string inputPath, int node)
 	// start with the neighbour furtherst away
 	
 	//loadNodeAndNeighbours_delayedFactors();
+
+	model.delay.nYears = 5; // 2018 - 2022
+
 	loadGroups_delayedFactors();
 
 	if (node < 0 || node >= model.delay.nGroups) {
@@ -1866,10 +2527,10 @@ int generateDelayedFactors(std::string inputPath, int node)
 	sprintf(baseName, "base");
 
 	errlog("\n\n\n\n################################\nsolving for group %d %.3lf %.3lf month %d\n#################################\n\n",
-		node, model.delay.group[node][0].point_x1, model.delay.group[node][0].point_y1, model.delay.delayed_monthNr);
+		node, model.delay.group[node][0].point_x1, model.delay.group[node][0].point_y1, model.delay.delayed_monthNr[0]);
 	printf("\n\n\n\n################################\nsolving for group %d %.3lf %.3lf month %d\n#################################\n\n",
-		node, model.delay.group[node][0].point_x1, model.delay.group[node][0].point_y1, model.delay.delayed_monthNr);
-	printf("nNoder %d month %d\n", model.delay.nGroups, model.delay.delayed_monthNr);
+		node, model.delay.group[node][0].point_x1, model.delay.group[node][0].point_y1, model.delay.delayed_monthNr[0]);
+	printf("nNoder %d month %d\n", model.delay.nGroups, model.delay.delayed_monthNr[0]);
 	model.weatherFunctions.nAllocPoints = 0;
 
 	setUpBoundingBox_delay(node);
@@ -1885,27 +2546,34 @@ int generateDelayedFactors(std::string inputPath, int node)
 		model.timeVisual.tmBas = { 0 };
 	}
 
-	int nMaxYear = 3;
-	errlog("ERROR! Change maxYear to 4 when data is sorted\n");
+	errlog("ERROR! Change model.delay.nYears if years after %d are included\n", 2018 + model.delay.nYears - 1);
 	if (model.params.delay_onlySolveSP == 1)
-		nMaxYear = 1;
+		model.delay.nYears = 1;
 	//nMaxYear = 1;
 	//errlog("ERROR! nMaxYear hard coded to 1\n");
 
 	int nDaysMonths = 31;
-	if (model.delay.delayed_monthNr == 2)
+	if (model.delay.delayed_monthNr[0] == 2)
 		nDaysMonths = 28;
-	if (model.delay.delayed_monthNr == 4 || model.delay.delayed_monthNr == 4 || model.delay.delayed_monthNr == 6 ||
-		model.delay.delayed_monthNr == 9 || model.delay.delayed_monthNr == 11)
+	if (model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 6 ||
+		model.delay.delayed_monthNr[0] == 9 || model.delay.delayed_monthNr[0] == 11)
 		nDaysMonths = 30;
 
-	for (int year = 0; year < nMaxYear; year++) {
+	for (int year = 0; year < model.delay.nYears; year++) {
+		if (year != 2 && year != 4)
+			continue;
 		model.params.UTC_secondsStart = make_gmtime_fromGivenDate_delay(year, &(model.params));
 
 		for (i = 0; i < model.delay.nGroupArcs[node]; i++) { 
+			//if (i < 1)
+			//	continue;
 		//for (i = 2; i < model.delay.nNodeNeighbours[node]; i++) { // !!!!!!!!!!!!!!!!!!!!!!!!!
 		//	errlog("ERROR!!!!!!!!!!\n");
 			createPrefPath_delay(node, i);
+			printf("node %d year %d i %d boundingBox x %.3lf %.3lf y %.3lf %.3lf\n", node, year, i, model.boundingBox.xMin,
+				model.boundingBox.xMax, model.boundingBox.yMin, model.boundingBox.yMax);
+			errlog("node %d year %d i %d boundingBox x %.3lf %.3lf y %.3lf %.3lf\n", node, year, i, model.boundingBox.xMin,
+				model.boundingBox.xMax, model.boundingBox.yMin, model.boundingBox.yMax);
 			createPhysicalNetwork(0, 2);
 			setupUsableSpeedSettings_delay();
 
@@ -1920,8 +2588,11 @@ int generateDelayedFactors(std::string inputPath, int node)
 				continue;
 			}
 			for (i1 = 0; i1 < nDaysMonths; i1++) {
-			//for (i1 = 0; i1 < 2; i1++) {
+				//if (i != 1 || (i1 != 2 && i1 != 27))
+				//	continue;
+				//for (i1 = 0; i1 < 2; i1++) {
 				//errlog("ERRROR2!!!!!!!!!!!!!!\n");
+				errlog("-- node %d year %d i %d i1 %d\n", node, year, i, i1);
 				printf("-- node %d year %d i %d i1 %d\n", node, year, i, i1);
 				if (i1 == 2)
 					i1 = i1;

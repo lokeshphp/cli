@@ -1,6 +1,6 @@
 #include "pch.h"
 
-long long MAXVARDE_NATVERK = 100000000000000000; // 100000000000;
+long long MAXVARDE_NATVERK = 10000000000000000; // 100000000000;
 
 int SattUppDijkstraNatverk3(strModel* model) {
 	//	int NodNr, antal;

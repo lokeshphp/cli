@@ -106,10 +106,13 @@ struct strVisuell {
 
 struct strParams
 {
+	int checkGribFilesSpecial;
+
 	double delayEjPrefPathArcFactor;
 	int delay_onlySolveSP;
 	int simuleraTidVisuellt;
 	int simulateTimeVisually_nIntHour;
+	int eta_naraMaxSpeed;
 
 	double tIndexGerH; // omvandling fran tIndex till timmar
 	int nTidsperioder_perH; // omvandling fran timmar till tIndex
@@ -172,6 +175,8 @@ struct strParams
 	int maxDiffTimeFastSlow_fas3;
 	
 	int max_changeDirection;
+	int max_changeDirection_factorStartEnd;
+	int varyStartEndArcLength;
 	int maxDiff_pointNrFas3;
 	int nMaxLev_posToDelayedPrefPath;
 	int longestRouteDays_history;
@@ -258,6 +263,7 @@ struct strPath
 	double maxX;
 	double startX;
 	double totDist;
+	double* distToPrevPoint;
 };
 
 struct strOptPathLevel
@@ -601,6 +607,7 @@ struct strValuesNow {
 	double waveDirReal;
 
 	double windDirReal_lastKnown;
+	double windReal_lastKnown;
 	double currentReal_lastKnown;
 	double waveDirReal_lastKnown;
 
@@ -896,7 +903,7 @@ struct strDelay {
 	strDelaySP SPsol;
 	int nDiffTimeSol;
 	char* delayed_stormFileName;
-	int delayed_monthNr;
+	int delayed_monthNr[2];
 
 	int* nStormsYear;
 	strStorm** stormsYear;
@@ -905,6 +912,8 @@ struct strDelay {
 
 struct strModel
 {
+	int nErrorCoordBB;
+
 	strVisuell timeVisual;
 	strDelay delay;
 	strOptPath optPath;
@@ -1034,7 +1043,8 @@ int test2(int a);
 int testing(int a);
 
 int voyageOpt(std::string inputName, std::string resultName);
-int generateDelayedFactors(std::string inputName, int node);
+int generateDelayedFactors(std::string inputName, int node, int manad);
+int extractGribInfo(std::string inputPath);
 int exitKontrollerat(int codeLine, int callType = 1);
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol);
 std::string splitFilename(std::string namn, int alt = 0);
@@ -1100,7 +1110,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
 int adderaArc(int nodNr1, int nodNr2, double cost);
 int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot);
-int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
+int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
 int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
@@ -1122,6 +1132,8 @@ double fix_lonPos(double lon);
 int getMonthToUseForDelay(double dist);
 double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2);
 
+std::string stringDateFromUTCSeconds(long long seconds);
+double get_colDblFromWeatherFile(int weatherNr, double lon);
 
 
 

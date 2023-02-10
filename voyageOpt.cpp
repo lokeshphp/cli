@@ -1227,6 +1227,16 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 	model.functions.valuesNow.CurrentF = 0;
 	model.functions.valuesNow.DelayF = 0;
 
+	if (model.arc[arcNr].time <= 0.001 && model.arc[arcNr].distance <= 0.001) {
+		model.functions.valuesNow.fuel_aux = 0;
+		model.functions.valuesNow.fuel_main = 0;
+		model.functions.valuesNow.currentReal = 0;
+		model.functions.valuesNow.currentDirReal = 0;
+		model.functions.valuesNow.windReal = 9999;
+		model.functions.valuesNow.windDirReal = 0;
+		model.functions.valuesNow.waveDirReal = 0;
+		return timeExact;
+	}
 
 	dist = 0;
 	distStart = model.arc[arcNr].distance * startKvot;
@@ -1924,7 +1934,10 @@ int genSplitsArc(int arcNr, spherical::Point p1, spherical::Point p2, int prefPa
 		nWantedSplits = round(model.arc[arcNr].time / wantedTimeLength);
 		if (model.network.nMaxSplits == 1)
 			nWantedSplits = 1;
-
+		else {
+			if (nWantedSplits > model.network.nMaxSplits - 1)
+				nWantedSplits = model.network.nMaxSplits - 1;
+		}
 		if(model.arc[arcNr].speedSetting == -1)
 			wantedDist = model.arc[arcNr].distance * 1000.0;
 		else
@@ -1989,7 +2002,7 @@ int genSplitsArc(int arcNr, spherical::Point p1, spherical::Point p2, int prefPa
 			//printf("/// solPathCoord2 pos %d added %.3lf %.3lf\n", model.network.nCoords,
 			//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords]);
 			//printf("distLastSplit %.2lf distTmp %.2lf wantedDist %.2lf distTot %.2lf distArc %.2lf\n", distLastSplit, distTmp, wantedDist, distTot, distArc);
-			if (distLastSplit >= wantedDist && distTot < distArc - wantedDist * 0.3) {
+			if (distLastSplit >= wantedDist * 0.8 && distTot < distArc - wantedDist * 0.3) {
 				model.network.posSplitCoord[nSplit] = model.network.nCoords;
 				model.network.startKvot[nSplit] = distTot / distArc;
 				model.network.endKvot[nSplit - 1] = distTot / distArc;
@@ -2394,15 +2407,15 @@ int plotPathTimeVisuellt(int arcNr, double time1, double time2) {
 	return 0;
 }
 
-int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName) {
+int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName) {
 	int lev1, lev2, pointNr1, pointNr2, timmar, minuter, sekunder;
 	int nChangeBearingBetween, nChange_lessXdegrees;
 	struct tm tmBas;
 	double x, y, bearing, speedOnGround, fuel_day, fuel_dayCheck, diff, diffTime;
 	spherical::Point p1, p2, p3;
 
-	if (posReport > 0 && filpekG != NULL)
-		fprintf(filpekG, ",\n ");
+	//if (*posReport > 0 && filpekG != NULL && model.arc[arcNr].distance > 0.001)
+	//	fprintf(filpekG, ",\n ");
 
 	lev1 = model.arc[arcNr].fromLevel;
 	lev2 = model.arc[arcNr].toLevel;
@@ -2425,9 +2438,6 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 	if(model.arc[arcNr].distance > 0.001)
 		fuelQualityKvot = get_fuelQualityKvot(model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
 		model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr);
-
-	if (arcNr == 39216)
-		arcNr = arcNr;
 
 	strSpeed speedSetting;
 	if (lev1 >= 0) {
@@ -2499,6 +2509,8 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 
 	if (lev2 == 27)
 		lev2 = lev2;
+	if (arcNr == 60)
+		arcNr = arcNr;
 	if (lev2 < model.network.nPhysicalLevels)
 		nSplit = genSplitsArc(arcNr, p1, p2, prefPath);
 	else { // last arc or a channel
@@ -2553,7 +2565,10 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 	}
 	else
 		delayFactor = -1;
-		arcNr = arcNr;
+	
+	//if(arcNr ==3)
+	//	arcNr = arcNr;
+
 	for (ii = 0; ii < nSplit; ii++) {
 		startKvot = model.network.startKvot[ii];
 		endKvot = model.network.endKvot[ii];
@@ -2561,10 +2576,16 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 
 		//if (model.functions.valuesNow.Wpt >= 21)
 		//	printGlobal = 1;
-		if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001)
-			timeCheck = evalWeatherDataAlongArcSection(arcNr, startKvot, endKvot, startSlutArc, *timeExact, delayFactor) - (*timeExact);
-		else
-			timeCheck = 0;
+		//if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001)
+		timeCheck = evalWeatherDataAlongArcSection(arcNr, startKvot, endKvot, startSlutArc, *timeExact, delayFactor) - (*timeExact);
+		if (timeCheck < 0.001)
+			continue;
+
+
+		//else{
+		//	timeCheck = 0;
+
+
 		if (*timeExact >= model.network.tidp_startHistoricDataOnly) {
 			timeCheck = model.arc[arcNr].time * (endKvot - startKvot); // we use estimated delay then, don't use the one calculated with historical weather data
 			model.functions.valuesNow.totFuel_aux += (model.arc[arcNr].fuel_aux + model.arc[arcNr].fuel_auxEca) * (endKvot - startKvot);
@@ -2590,8 +2611,9 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 			mktime(&tmBas);
 		fixReportDate(tmBas, startTime);
 		tmBas.tm_min += timeCheck * 60;
-		if (ii > 0)
+		if (*posReport > 0)
 			fprintf(filpekG, ",\n");
+		(*posReport)++;
 		fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"dateUTC\":\"%s\",\n",
 			startTime);
 		fprintf(filpekG, "\"solutionID\":\"%s\",\n",
@@ -2744,11 +2766,15 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 				}
 
 				if (model.functions.valuesNow.windReal < 1000 || model.functions.valuesNow.windDirReal_lastKnown < 1000) {
-					if (model.functions.valuesNow.windReal < 1000)
+					if (model.functions.valuesNow.windReal < 1000) {
 						model.functions.valuesNow.windDirReal_lastKnown = model.functions.valuesNow.windDirReal;
-						fixDirectionLetters(model.functions.valuesNow.windDirReal_lastKnown, startTime, 1);
+						model.functions.valuesNow.windReal_lastKnown = model.functions.valuesNow.windReal;
+					}
+					fixDirectionLetters(model.functions.valuesNow.windDirReal_lastKnown, startTime, 1);
+					if (model.functions.valuesNow.windReal > 1000)
+						model.functions.valuesNow.windReal = model.functions.valuesNow.windReal;
 					fprintf(filpekG, "    \"windSpeedReal_knots\":%.1lf, \"windDirection_degrees\":%.0lf, \"windDir_letters\":\"%s\",\n",
-						model.functions.valuesNow.windReal / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
+						model.functions.valuesNow.windReal_lastKnown / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
 				}
 				if (model.functions.valuesNow.currentReal < 1000 || model.functions.valuesNow.currentReal_lastKnown < 1000) {
 					if (model.functions.valuesNow.currentReal < 1000)
@@ -2884,7 +2910,7 @@ int addPositionDataToReport(FILE* filpekG, int posReport, int arcNr, int startSl
 
 int makeSure_eta_inTime() {
 	int iPos, arcNr, posIreport = 0, speedNr, fromLevel, baseSpeedNr;
-	int nAlloc;
+	int nAlloc, newSpeedNr, iPosUse;
 	double timeExact = 0, timeOld, deltaError, speedNew, speedOld;
 	double* timeArc = (double*)malloc((model.nBVArcs - 2) * sizeof(double));
 
@@ -2894,7 +2920,7 @@ int makeSure_eta_inTime() {
 	for (iPos = 0; iPos < model.nBVArcs - 2; iPos++) {
 		arcNr = model.BVArc[iPos];
 		timeOld = timeExact;
-		addPositionDataToReport(NULL, posIreport++, arcNr, 0, &timeExact, "");
+		addPositionDataToReport(NULL, &posIreport, arcNr, 0, &timeExact, "");
 		timeArc[iPos] = timeExact - timeOld;
 	}
 	if (timeExact > model.params.eta_h) {
@@ -2902,19 +2928,38 @@ int makeSure_eta_inTime() {
 			"I try to make it earlier by increasing speed one level wherever possible, starting from the end.\n",
 			timeExact, model.params.eta_h);
 		deltaError = timeExact - model.params.eta_h;
-		for (iPos = model.nBVArcs - 3; iPos >= 0; iPos--) {
-			arcNr = model.BVArc[iPos];
+		for (iPos = model.nBVArcs - 3; iPos >= -2; iPos--) {
+			if (iPos < 2)
+				iPos = iPos;
+			if (iPos < 0) {
+				if (iPos == -1)
+					iPosUse = 0;
+				else
+					iPosUse = model.nBVArcs - 3;
+			}
+			else
+				iPosUse = iPos;
+			arcNr = model.BVArc[iPosUse];
 			fromLevel = model.arc[arcNr].fromLevel;
 			if (fromLevel >= 0){
 				speedNr = model.arc[arcNr].speedSetting;
 				baseSpeedNr = model.functions.speedLevel[fromLevel].settingGerBaseSetting[speedNr];
 				if (baseSpeedNr < model.functions.nShip_speedSettingsBase - 1) {
 					speedOld = model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[speedNr];
-					speedNew = model.functions.rpmSetting_gerCalmWaterSpeedBase[baseSpeedNr + 1];
-					deltaError -= timeArc[iPos] * (1 - speedOld / speedNew);
-					if (speedNr + 1 >= model.functions.speedLevel[fromLevel].nShip_speedSettings) {
-						if (speedNr + 1 >= model.functions.nAllocShipSpeedsLevel) {
-							nAlloc = speedNr + 2;
+					if (iPos < 0) {
+						speedNew = model.functions.rpmSetting_gerCalmWaterSpeedBase[model.functions.nShip_speedSettingsBase - 1];
+						newSpeedNr = model.functions.speedLevel[fromLevel].nShip_speedSettings - 1;
+						if (model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[newSpeedNr] < speedNew - 0.0001)
+							newSpeedNr++;
+					}
+					else {
+						speedNew = model.functions.rpmSetting_gerCalmWaterSpeedBase[baseSpeedNr + 1];
+						newSpeedNr = speedNr + 1;
+					}
+					deltaError -= timeArc[iPosUse] * (1 - speedOld / speedNew);
+					if (newSpeedNr >= model.functions.speedLevel[fromLevel].nShip_speedSettings) {
+						if (newSpeedNr >= model.functions.nAllocShipSpeedsLevel) {
+							nAlloc = newSpeedNr + 1;
 							model.functions.speedLevel[fromLevel].rpm = (double*)realloc(
 								model.functions.speedLevel[fromLevel].rpm, nAlloc * sizeof(double));
 							model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed = (double*)realloc(
@@ -2926,21 +2971,23 @@ int makeSure_eta_inTime() {
 							model.functions.speedLevel[fromLevel].settingGerBaseSetting = (int*)realloc(
 								model.functions.speedLevel[fromLevel].settingGerBaseSetting, nAlloc * sizeof(int));
 						}
-						set_speedSettingsFromBase(&(model.functions.speedLevel[fromLevel]), speedNr + 1, baseSpeedNr + 1);
+						set_speedSettingsFromBase(&(model.functions.speedLevel[fromLevel]), newSpeedNr, baseSpeedNr + 1);
 					}
 					errlog("changing arcNr %d fromLevel %d speedsetting from %d to %d  speeds (knots) %.2lf %.2lf deltaError now %.2lf\n", 
-						arcNr, fromLevel, speedNr, speedNr + 1, 
+						arcNr, fromLevel, speedNr, newSpeedNr,
 						model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[speedNr] / model.params.knots_to_km, 
-						model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[speedNr + 1] / model.params.knots_to_km,
+						model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[newSpeedNr] / model.params.knots_to_km,
 						deltaError);
-					model.arc[arcNr].speedSetting = speedNr + 1;
-					model.arc[arcNr].time -= timeArc[iPos] * (1 - speedOld / speedNew);
+					model.arc[arcNr].speedSetting = newSpeedNr;
+					model.arc[arcNr].time -= timeArc[iPosUse] * (1 - speedOld / speedNew);
 
 					if (deltaError < 0)
 						break;
 				}
 			}
 		}
+
+
 	}
 	errlog("Estimated new end time %.2lf\n", model.params.eta_h + deltaError);
 
@@ -3221,7 +3268,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		}
 
 
-		addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, namnSol);
+		addPositionDataToReport(filpekG, &posIreport, arcNr, 0, &timeExact, namnSol);
 		
 		if (SKRIV_UT_NOTHING == 0) {
 			fprintf(filPek, "\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
@@ -3493,6 +3540,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		fuel_aux += model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot;
 		fuel_auxEca += model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot);
 		fuel_eca += model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot);
+		if (fuel_eca > 0)
+			fuel_eca = fuel_eca;
+
 		fuel_noEca += model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot;
 	}
 	//printf("here 3b\n");
@@ -3958,6 +4008,8 @@ int identifyClosestPointInPhysicalLevel(int level, double x, double y) {
 	double minDist = 1e10, dist;
 
 	basPos = model.params.preferredPathOrtoPos[level];
+	if (basPos < 0)
+		basPos = -basPos - 1;
 	minDist = estimateLargeCircleDistance_km(y, x, model.network.physicalLev[level].point_y[basPos], model.network.physicalLev[level].point_x[basPos]);
 	minPos = basPos;
 
@@ -4506,18 +4558,17 @@ int checkChannels() {
 	int cNr, nCoords, pos0, pos1, i1, pos;
 
 
-	for (int i = 0; i < model.network.nPhysicalLevels - 1; i++) {
-		// model.network.physicalLev[i].nodeConnectedFromChannel = (int*)calloc2(model.network.physicalLev[i].nPoints, sizeof(int));
-		if (i == 0) {
-			model.network.physicalLev[i].distanceFromStartPosMid = 0;
-			pos = (int)model.network.physicalLev[i].nPoints / 2;
-		}
-		else
-			pos = pos1;
-		pos1 = (int)model.network.physicalLev[i + 1].nPoints / 2;
-		model.network.physicalLev[i + 1].distanceFromStartPosMid = model.network.physicalLev[i].distanceFromStartPosMid +
-			model.network.physicalLev[i].point[pos].distanceTo(model.network.physicalLev[i + 1].point[pos1]) / 1000.0;
-	}
+	//for (int i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+	//	if (i == 0) {
+	//		model.network.physicalLev[i].distanceFromStartPosMid = 0;
+	//		pos = (int)model.network.physicalLev[i].nPoints / 2;
+	//	}
+	//	else
+	//		pos = pos1;
+	//	pos1 = (int)model.network.physicalLev[i + 1].nPoints / 2;
+	//	model.network.physicalLev[i + 1].distanceFromStartPosMid = model.network.physicalLev[i].distanceFromStartPosMid +
+	//		model.network.physicalLev[i].point[pos].distanceTo(model.network.physicalLev[i + 1].point[pos1]) / 1000.0;
+	//}
 
 
 	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
@@ -5285,6 +5336,8 @@ int loadParams_theRestOld(strParams* params)
 	params->epsilon = 0.000001;
 	params->save_weatherNodes = 0;
 	params->max_changeDirection = 1;
+	params->max_changeDirection_factorStartEnd = 3;
+	params->varyStartEndArcLength = 1;
 	//params->lengthIntervall = 1;
 	//params->dist_checkOKroute = 1;
 	//params->variableFileName = "variablesInfo.json";
@@ -5463,6 +5516,10 @@ int loadParams_theRestOld(strParams* params)
 
 	if (!data["max_changeDirection"].is_null())
 		params->max_changeDirection = data["max_changeDirection"];
+	if (!data["max_changeDirection_factorStartEnd"].is_null())
+		params->max_changeDirection_factorStartEnd = data["max_changeDirection_factorStartEnd"];
+	if (!data["varyStartEndArcLength"].is_null())
+		params->varyStartEndArcLength = data["varyStartEndArcLength"];
 	if (!data["maxDiff_pointNrFas3"].is_null())
 		params->maxDiff_pointNrFas3 = data["maxDiff_pointNrFas3"];
 	else
@@ -7643,7 +7700,7 @@ void setupUsableSpeedSettings() {
 	if (model.params.commercialAllowedVariation < 0) {
 		// not commercial
 		nShip_speedSettings = 3;
-		nAlloc = 5;
+		nAlloc = model.functions.nShip_speedSettingsBase; //  5;
 	}
 	else {
 		// commercial version
@@ -8556,11 +8613,11 @@ int loadVariables(int alt)
 	else
 		model.delay.delayed_stormFileName = NULL;
 
-	if (!data["delayed_monthNr"].is_null()) {
-		model.delay.delayed_monthNr = data["delayed_monthNr"];
-	}
-	else
-		model.delay.delayed_monthNr = -1;
+	//if (!data["delayed_monthNr"].is_null()) {
+	//	model.delay.delayed_monthNr = data["delayed_monthNr"];
+	//}
+	//else
+	//	model.delay.delayed_monthNr = -1;
 	if (!data["simulateTimeVisually"].is_null())
 		model.params.simuleraTidVisuellt = data["simulateTimeVisually"];
 	else
@@ -9102,6 +9159,9 @@ int redisSetKeys(std::string inputPath) {
 	Raster test;
 
 	//testAnropRedisMap();
+
+
+
 
 	printf("opening redis\n");
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
@@ -10080,27 +10140,60 @@ void setupBoundingBoxFromMapCoords(Raster map) {
 	model.boundingBox.yMax = map.Get_maxLatitude();;
 }
 
-void calc_boundingBoxFrompreferredPath() {
-	double y;
-	// not used
-	model.boundingBox.xMin = model.preferredPath.minX;
-	model.boundingBox.yMin = 90;
-	model.boundingBox.xMax = model.preferredPath.maxX;
-	model.boundingBox.yMax = -90;
+void calc_boundingBoxFrompreferredPath(int alt) {
+	double y, distTmp;
+	int i1, nIntervall;
+	spherical::Point p1;
 
-	for (int i = 0; i < model.preferredPath.nPoints; i++) {
-		y = model.preferredPath.point_y[i];
-		if (y < model.boundingBox.yMin)
-			model.boundingBox.yMin = y;
-		if (y > model.boundingBox.yMax)
-			model.boundingBox.yMax = y;
+
+	if (alt == 0) {
+		model.boundingBox.xMin = model.preferredPath.minX;
+		model.boundingBox.yMin = 90;
+		model.boundingBox.xMax = model.preferredPath.maxX;
+		model.boundingBox.yMax = -90;
+		errlog("boundingBox in calc_boundingBoxFrompreferredPath alt %d set to min/max %.3lf %.3lf\n", alt,
+			model.boundingBox.xMin, model.boundingBox.xMax);
+		// }
+
+		for (int i = 0; i < model.preferredPath.nPoints; i++) {
+			y = model.preferredPath.point_y[i];
+			if (y < model.boundingBox.yMin)
+				model.boundingBox.yMin = y;
+			if (y > model.boundingBox.yMax)
+				model.boundingBox.yMax = y;
+			if (model.preferredPath.distToPrevPoint[i] > 300) {
+				nIntervall = (int)(model.preferredPath.distToPrevPoint[i] / 200.0);
+				distTmp = model.preferredPath.distToPrevPoint[i] / (nIntervall + 1) * 1000;
+
+				for (i1 = 0; i1 < nIntervall; i1++) {
+					p1 = model.preferredPath.point[i - 1].destinationPoint(distTmp * (i1 + 1), model.preferredPath.point[i - 1].bearingTo(model.preferredPath.point[i]));
+					y = p1.latitude().degrees();
+					if (y < model.boundingBox.yMin)
+						model.boundingBox.yMin = y;
+					if (y > model.boundingBox.yMax)
+						model.boundingBox.yMax = y;
+				}
+			}
+		}
+		errlog("boundingBox in calc_boundingBoxFrompreferredPath alt %d after prefPath points min/max %.3lf %.3lf\n", alt,
+			model.boundingBox.xMin, model.boundingBox.xMax);
+
+		double deltaY = model.params.maxDeviationPreferred_km / 111 + 0.3; // 120; max antal grader
+		model.boundingBox.yMin -= deltaY;
+		model.boundingBox.yMax += deltaY;
+		double abs_yMax = abs(model.boundingBox.yMax);
+		double abs_yMin = abs(model.boundingBox.yMin);
+		double abs_y;
+		if (abs_yMax > abs_yMin)
+			abs_y = abs_yMax;
+		else
+			abs_y = abs_yMin;
+		double deltaX = model.params.maxDeviationPreferred_km / 110.25 / lookUpCos(abs_y * M_PI / 180) + 0.3; // 120; max antal grader
+		model.boundingBox.xMin -= deltaX;
+		model.boundingBox.xMax += deltaX;
+		errlog("boundingBox in calc_boundingBoxFrompreferredPath alt %d after deltaX min/max %.3lf %.3lf\n", alt,
+			model.boundingBox.xMin, model.boundingBox.xMax);
 	}
-
-	double delta = model.params.maxDeviationPreferred_km / 120; // max antal grader
-	model.boundingBox.xMin -= delta;
-	model.boundingBox.xMax += delta;
-	model.boundingBox.yMin -= delta;
-	model.boundingBox.yMax += delta;
 
 }
 
@@ -10115,20 +10208,22 @@ int loadTimeDelayMap() {
 
 	auto tid10 = std::chrono::high_resolution_clock::now();
 	size_col = -1;
-	model.delay.delayed_monthNr = getMonthToUseForDelay(model.preferredPath.totDist);
+	model.delay.delayed_monthNr[0] = getMonthToUseForDelay(model.preferredPath.totDist);
 
 	sprintf(namn, "%s/%s%d.tif", model.params.indataPath.c_str(), model.params.mapTimeDelayName.c_str(),
-		model.delay.delayed_monthNr);
+		model.delay.delayed_monthNr[0]);
 	printf("time delay map %s\n", namn);
 	model.delayedGrid.rasterPos = (Raster*)malloc2(1 * sizeof(Raster));
 	returnVal = model.delayedGrid.rasterPos[0].open(namn);
 	if (returnVal == -1) {
 		errlog("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! I use month 11 instead for now\n",
-			model.delay.delayed_monthNr);
+			model.delay.delayed_monthNr[0]);
 		printf("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! I use month 11 instead for now\n",
-			model.delay.delayed_monthNr);
+			model.delay.delayed_monthNr[0]);
 		// postRequest("Warning! Failed to open delay map " + std::string(namn) + ". Add it! I use month 11 for now");
-		sprintf(namn, "%s/%s11.tif", model.params.indataPath.c_str(), model.params.mapTimeDelayName.c_str());
+		model.delay.delayed_monthNr[0] = 11;
+		sprintf(namn, "%s/%s%d.tif", model.params.indataPath.c_str(), model.params.mapTimeDelayName.c_str(),
+			model.delay.delayed_monthNr[0]);
 		printf("time delay map %s\n", namn);
 		model.delayedGrid.rasterPos = (Raster*)malloc2(1 * sizeof(Raster));
 		returnVal = model.delayedGrid.rasterPos[0].open(namn);
@@ -10151,6 +10246,7 @@ int loadTimeDelayMap() {
 	model.delayedGrid.maxX = model.delayedGrid.minX +
 		xPos1 * size_col;
 	model.delayedGrid.nCols = xPos1 + 1;
+
 
 	size_row = model.delayedGrid.rasterPos[0].Get_sizeRow();
 	model.delayedGrid.size_row = size_row;
@@ -10185,6 +10281,22 @@ int loadTimeDelayMap() {
 
 	printf("read delay map  took %.3lf\n", std::chrono::duration<double, std::milli> (std::chrono::high_resolution_clock::now()- tid10));
 
+	/*
+	double lat = -40.8;
+	double lon = -62.9;
+	double rowDbl = (model.delayedGrid.maxY - lat) / model.delayedGrid.size_row;
+	double colDbl = get_colDblFromWeatherFile(-1, lon);
+	int i4 = (int)rowDbl;
+	int i5 = (int)colDbl;
+	for (int i3 = 0; i3 < model.delayedGrid.nTimeIntervals && i3 < 10; i3++) {
+		printf("delaygrid lon/lat %.2lf %.2lf i345 %d %d %d val %.4f opposite y %.4f\n", lon, lat, i3, i4, i5,
+			model.delayedGrid.valueCell[i3][i5 + model.delayedGrid.nCols * i4],
+			model.delayedGrid.valueCell[i3][i5 + model.delayedGrid.nCols * (model.delayedGrid.nRows - i4 - 1)]);
+	}
+	*/
+
+
+
 	return 0;
 }
 
@@ -10193,7 +10305,11 @@ int openNeededRasterFilesNew(int alt)
 	char* namn2;
 	namn2 = (char*)malloc2(256 * sizeof(char));
 	Raster rasterPhysicalMapA, rasterPhysicalMapB, rasterFuelMapA, rasterFuelMapB, rasterTimeDelay;
-	calc_boundingBoxFromAllNodes(alt);
+
+	if(model.params.varyStartEndArcLength == 0)
+		calc_boundingBoxFromAllNodes(alt);
+	else
+		calc_boundingBoxFrompreferredPath(alt);
 	calc_stormsNearby();
 
 //	loadMapsSQLite();
@@ -10362,6 +10478,7 @@ double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2)
 	get_fuelUseKvotECA(y1, x1, y2, x2, 0, &distECA, &distOther);
 	// get_fuelUseKvotECA(p1.latitude().degrees(), p1.longitude().degrees(), p2.latitude().degrees(), p2.longitude().degrees(), 0, &distECA, &distOther);
 	distTot = distECA + distOther;
+
 	if (distTot > 0)
 		return distOther / distTot;
 	else
@@ -11112,10 +11229,10 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel, double 
 			//	continue; // cannot turn too much...
 
 			if (thisLevel == 0)
-				nChangeFactor = 2;
+				nChangeFactor = model.params.max_changeDirection_factorStartEnd; // 2;
 			else {
 				if (model.network.physicalLev[thisLevel].restrictedLevel == 1 || model.network.physicalLev[nextLevel].restrictedLevel == 1)
-					nChangeFactor = 3; // 2;
+					nChangeFactor = model.params.max_changeDirection_factorStartEnd; // 3; // 2;
 				else
 					nChangeFactor = 1;
 			}
@@ -11322,7 +11439,11 @@ int addArcsToNetwork()
 	int pos1, pos2, arcOK;
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
 		pos1 = model.params.preferredPathOrtoPos[i];
+		if (pos1 < 0)
+			pos1 = -pos1 - 1;
 		pos2 = model.params.preferredPathOrtoPos[i + 1];
+		if (pos2 < 0)
+			pos2 = -pos2 - 1;
 		arcOK = check_isPhysicalArcOK(i, i + 1, pos1, pos2, noDataVal); // not a preferred path
 		if (arcOK == 0)
 			model.network.physicalLev[i + 1].restrictedLevel = 1;
@@ -11331,7 +11452,11 @@ int addArcsToNetwork()
 	}
 	for (i = model.network.nPhysicalLevels - 2; i > 0; i--) {
 		pos1 = model.params.preferredPathOrtoPos[i];
+		if (pos1 < 0)
+			pos1 = -pos1 - 1;
 		pos2 = model.params.preferredPathOrtoPos[i + 1];
+		if (pos2 < 0)
+			pos2 = -pos2 - 1;
 		arcOK = check_isPhysicalArcOK(i, i + 1, pos1, pos2, noDataVal); // not a preferred path
 		if (arcOK == 0)
 			model.network.physicalLev[i].restrictedLevel = 1;
@@ -11728,28 +11853,288 @@ int getMonthToUseForDelay(double dist) {
 	return getMonthFromHoursSinceRouteStart(midHistorical); // create a date from startTime plus midHistorical
 }
 
+int check_isStraightLineFeasible(double y1, double x1, double y2, double x2, double *distOK)
+{
+	int arcOK = 1, mittPktPos1, mittPktPos2, level1, level2, row, col, colUse;
+	double row1Dbl, col1Dbl, row2Dbl, col2Dbl;
+	double distance;
+
+	distance = estimateLargeCircleDistance_km(y1, x1, y2, x2); // p1.distanceTo(p2) / 1000.0;
+
+	getRowColDblFromPhysicalMap(model.physicalMapA, y1, x1, &row1Dbl, &col1Dbl);
+	row = (int)row1Dbl;
+	col = (int)col1Dbl;
+	if (col >= model.physicalMapA.nCols)
+		colUse = col - model.physicalMapA.nCols;
+	else {
+		if (col < 0)
+			colUse = col + model.physicalMapA.nCols;
+		else
+			colUse = col;
+	}
+	if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 1) {
+		*distOK = 0;
+		return 2; // startpoint is okay
+	}
+
+	getRowColDblFromPhysicalMap(model.physicalMapA, y2, x2, &row2Dbl, &col2Dbl);
+	row = (int)row2Dbl;
+	col = (int)col2Dbl;
+	if (col >= model.physicalMapA.nCols)
+		colUse = col - model.physicalMapA.nCols;
+	else {
+		if (col < 0)
+			colUse = col + model.physicalMapA.nCols;
+		else
+			colUse = col;
+	}
+	if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 0) {
+		*distOK = 0;
+		return 0; // start and endpoint not okay
+	}
+
+	double colDbl = col2Dbl;
+	double rowDbl = row2Dbl;
+	double delta_row = row1Dbl - row2Dbl;
+	if (delta_row > model.physicalMapA.nRows / 2) {
+		delta_row = model.physicalMapA.nRows - delta_row;
+	}
+	else {
+		if (delta_row < -model.physicalMapA.nRows / 2) {
+			delta_row = -model.physicalMapA.nRows - delta_row;
+		}
+	}
+	double delta_col = col1Dbl - col2Dbl;
+	if (delta_col > model.physicalMapA.nCols / 2) {
+		delta_col = delta_col - model.physicalMapA.nCols;
+	}
+	else {
+		if (delta_col < -model.physicalMapA.nCols / 2) {
+			delta_col = model.physicalMapA.nCols + delta_col;
+		}
+	}
+	double kvot = 0;
+
+	double a0 = 0, ok_a0 = 0, ac, ar, a1, xNy, yNy;
+	int i;
+	for (i = 0; i < 10000; i++) {
+		if (col >= model.physicalMapA.nCols)
+			colUse = col - model.physicalMapA.nCols;
+		else {
+			if (col < 0)
+				colUse = col + model.physicalMapA.nCols;
+			else
+				colUse = col;
+		}
+		if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 0)
+			break;
+		ok_a0 = a0;
+		if (delta_col > 0)
+			ac = (col + 1 - col2Dbl) / delta_col;
+		else {
+			if (delta_col == 0)
+				ac = 999999;
+			else {
+				if (colDbl > col + 0.001)
+					ac = (col - col2Dbl) / delta_col;
+				else
+					ac = (col - 1 - col2Dbl) / delta_col;
+			}
+		}
+		if (delta_row > 0)
+			ar = (row + 1 - row2Dbl) / delta_row;
+		else {
+			if (delta_row == 0)
+				ar = 999999;
+			else {
+				if (rowDbl > row + 0.001)
+					ar = (row - row2Dbl) / delta_row;
+				else
+					ar = (row - 1 - row2Dbl) / delta_row;
+			}
+		}
+		if (ac < ar)
+			a1 = ac;
+		else
+			a1 = ar;
+		if (a1 > 1)
+			a1 = 1;
+
+		if (a1 >= 0.9999)
+			break;
+
+		colDbl = col2Dbl + a1 * delta_col;
+		rowDbl = row2Dbl + a1 * delta_row;
+
+		col = (int)(colDbl + 0.0001 * delta_col);
+		if (colDbl < 0)
+			colDbl = colDbl;
+		row = (int)(rowDbl + 0.0001 * delta_row);
+		if (rowDbl < 0)
+			rowDbl = rowDbl;
+
+		a0 = a1;
+	}
+
+	colDbl = col2Dbl + ok_a0 * delta_col;
+	rowDbl = row2Dbl + ok_a0 * delta_row;
+
+	getLatLonFromPhysicalMap(model.physicalMapA, &yNy, &xNy, rowDbl, colDbl);
+	*distOK = estimateLargeCircleDistance_km(y2, x2, yNy, xNy);
+
+	return 1;
+}
+
+int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDistBad) {
+	double dist = 0, prevDistOK = 0, minKravOKdist = 5.0, distOK, distNu;
+	int i, isAllowed;
+	spherical::Point newPoint;
+
+	for (i = 1; i < model.preferredPath.nPoints; i++) {
+		if (dist >= distInt - 1) {
+			*startDistBad = distInt;
+			break;
+		}
+		distNu = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000.0;
+		if (dist + distNu > distInt) {
+			newPoint = model.preferredPath.point[i - 1].destinationPoint((distInt - dist) * 1000.0, model.preferredPath.point[i - 1].bearingTo(model.preferredPath.point[i]));
+			isAllowed = check_isStraightLineFeasible(model.preferredPath.point_y[i-1], model.preferredPath.point_x[i-1], 
+				newPoint.latitude().degrees(), newPoint.longitude().degrees(), &distOK);
+		}
+		else
+			isAllowed = check_isStraightLineFeasible(model.preferredPath.point_y[i - 1], model.preferredPath.point_x[i - 1], 
+				model.preferredPath.point_y[i], model.preferredPath.point_x[i], &distOK);
+
+		if (isAllowed > 0) {
+			if (isAllowed == 2) { // point i - 1 is allowed
+				if (i == 1)
+					*startDistBad = 0;
+				else {
+					if (prevDistOK + distNu >= minKravOKdist)
+						*startDistBad = dist + minKravOKdist - prevDistOK;
+					else {
+						prevDistOK += distNu;
+						dist += distNu;
+						continue;
+					}
+				}
+				break;
+			}
+			else {
+				// point i - 1 is not allowed but the next point is
+				if (prevDistOK + distOK >= minKravOKdist) {
+					if (dist + distNu > distInt)
+						*startDistBad = distInt - (prevDistOK + distOK) + minKravOKdist;
+					else
+						*startDistBad = dist + distNu - (prevDistOK + distOK) + minKravOKdist;
+					break;
+				}
+				else
+					prevDistOK += distOK;
+			}
+		}
+		dist += distNu;
+	}
+
+	dist = 0;
+	prevDistOK = 0;
+	for (i = model.preferredPath.nPoints - 1; i > 0; i--) {
+		if (dist >= distInt - 0.01) {
+			*startDistBad = distInt;
+			break;
+		}
+		distNu = model.preferredPath.point[i].distanceTo(model.preferredPath.point[i - 1]) / 1000.0;
+		if (dist + distNu > distInt) {
+			newPoint = model.preferredPath.point[i].destinationPoint((distInt - dist) * 1000.0, model.preferredPath.point[i].bearingTo(model.preferredPath.point[i - 1]));
+			isAllowed = check_isStraightLineFeasible(model.preferredPath.point_y[i], model.preferredPath.point_x[i], 
+				newPoint.latitude().degrees(), newPoint.longitude().degrees(), &distOK);
+		}
+		else
+			isAllowed = check_isStraightLineFeasible(model.preferredPath.point_y[i], model.preferredPath.point_x[i],
+				model.preferredPath.point_y[i - 1], model.preferredPath.point_x[i - 1], &distOK);
+
+		if (isAllowed > 0) {
+			if (isAllowed == 2) { // point i is allowed
+				if (i == 1)
+					*endDistBad = 0;
+				else {
+					if (prevDistOK + distNu >= minKravOKdist)
+						*endDistBad = dist + minKravOKdist - prevDistOK;
+					else {
+						prevDistOK += distNu;
+						dist += distNu;
+						continue;
+					}
+				}
+				break;
+			}
+			else {
+				// point i is not allowed but the previous point is
+				if (prevDistOK + distOK >= minKravOKdist) {
+					if(dist + distNu > distInt)
+						*endDistBad = distInt - (prevDistOK + distOK) + minKravOKdist;
+					else
+						*endDistBad = dist + distNu - (prevDistOK + distOK) + minKravOKdist;
+					break;
+				}
+				else
+					minKravOKdist += distOK;
+			}
+		}
+		dist += distNu;
+	}
+
+	return 0;
+}
+
+
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 {
 	int i, nInt, nPkterOrto;
-	double dist, distTot, nIntDbl, distInt;
+	double dist, distTot, nIntDbl, distInt, distIntUse;
 	double ortoDist, bNy;
-	double distNu;
+	double distNu, startDistBad, endDistBad;
 	spherical::Point pointNu;
 
 	distTot = 0;
+	model.preferredPath.distToPrevPoint = (double*)calloc(model.preferredPath.nPoints, sizeof(double));
 	for (i = 1; i < model.preferredPath.nPoints; i++) {
 		dist = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000;
+		model.preferredPath.distToPrevPoint[i] = dist;
 		distTot += dist;
 	}
 	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n", 
 		distTot, model.preferredPath.nPoints);
 
 	model.preferredPath.totDist = distTot;
+	
+	if (model.params.varyStartEndArcLength == 1)
+		openNeededRasterFilesNew(alt);
+
 	nIntDbl = distTot / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
 	errlog("nHoursIntervals: %lf", model.params.nHours_changeCourseInterval);
 	nInt = (int)ceil(nIntDbl);
 	distInt = distTot / nInt * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
 	errlog(" nIntDbl %lf nInt %d distInt %lf\n", nIntDbl, nInt, distInt);
+
+	if (model.params.varyStartEndArcLength == 1)
+		identifyStartEndAllowed(distInt, &startDistBad, &endDistBad);
+	else {
+		startDistBad = 0;
+		endDistBad = 0;
+	}
+	if (startDistBad + endDistBad > 0.01) {
+		nIntDbl = (distTot - (startDistBad + endDistBad)) / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
+		nInt = (int)ceil(nIntDbl);
+		distInt = (distTot - (startDistBad + endDistBad)) / nInt * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
+		if (startDistBad > 0)
+			nInt++;
+		if (endDistBad > 0)
+			nInt++;
+		errlog("recalculate distInt, nIntDbl %lf nInt %d distInt %lf, startDistBad %.2lf endDistBad %.2lf\n", 
+			nIntDbl, nInt, distInt, startDistBad, endDistBad);
+	}
+
 	model.params.basDistArcs = distInt;
 
 	int nIntervallPoints, nAllocPoints, posNu;
@@ -11767,20 +12152,32 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	nAllocPoints = 100;
 	model.network.physicalLev[0].preferredPathPoint = (spherical::Point*)malloc2(nAllocPoints * sizeof(spherical::Point));
 	model.network.physicalLev[0].npreferredPathPoints = 0;
+	model.network.physicalLev[0].distanceFromStartPosMid = 0;
 
 	// add nodes at even distances along given path
 	dist = 0;
 	posNu = 0;
 	for (i = 1; i < model.preferredPath.nPoints; i++) {
+		if (i >= 46)
+			i = i;
 		distNu = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000.0;
 		distKvar = distNu;
-		while (dist + distKvar >= distInt) {
+
+		distIntUse = distInt;
+		if (nIntervallPoints == 1) {
+			if (startDistBad > 0.001) {
+				distIntUse = startDistBad;
+			}
+		}
+		while (dist + distKvar >= distIntUse && nIntervallPoints < nInt) {
 			// add an intervall here
-			kvot = (distInt - dist + distNu - distKvar) / distNu;
+			kvot = (distIntUse - dist + distNu - distKvar) / distNu;
 			auto pMid = model.preferredPath.point[i - 1].intermediatePointTo(
 				model.preferredPath.point[i], kvot); // 51.3721°N, 000.7073°E
 			intervallPoint[nIntervallPoints] = pMid;
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = pMid;
+			model.network.physicalLev[nIntervallPoints].distanceFromStartPosMid = model.network.physicalLev[nIntervallPoints - 1].distanceFromStartPosMid + distIntUse;
+
 			//printf("-- i %d level %d adding pref path point %d %.3lf %.3lf dist %.2lf distKvar %.2lf distInt %.2lf\n", i, nIntervallPoints - 1, posNu,
 			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
 			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar, distInt);
@@ -11790,14 +12187,18 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 				model.network.nMaxNodesInPath = posNu + 1;
 			posNu = 0;
 			nIntervallPoints++;
+			if (nIntervallPoints >= 47)
+				nIntervallPoints = nIntervallPoints;
 			nAllocPoints = 100;
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)malloc2(nAllocPoints * sizeof(spherical::Point));
+			//distIntUse = distInt;
 			if (dist > distInt)
-				dist -= distInt;
+				dist -= distIntUse;
 			else {
-				distKvar -= distInt - dist;
+				distKvar -= distIntUse - dist;
 				dist = 0;
 			}
+			distIntUse = distInt;
 		}
 		if (dist + distKvar > 0.1) {
 			if (posNu >= nAllocPoints - 1) {
@@ -11816,6 +12217,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	if (nIntervallPoints >= nInt + 1)
 		errlog("ERROR! Memory problem. Fix this on code row %d\n", __LINE__);
 	intervallPoint[nIntervallPoints] = model.preferredPath.point[model.preferredPath.nPoints - 1];
+	model.network.physicalLev[nIntervallPoints].distanceFromStartPosMid = model.network.physicalLev[nIntervallPoints - 1].distanceFromStartPosMid + dist;
 
 	//model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = intervallPoint[nIntervallPoints];
 	//printf("-- i xx level %d adding pref path point3 %d %.3lf %.3lf dist %.2lf distKvar %.2lf\n", nIntervallPoints - 1, posNu,
@@ -11912,7 +12314,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 			if (model.params.preferredPath_followExactOK == 1)
 				model.params.preferredPathOrtoPos[i] = (int)(nPkterOrto / 2);
 			else
-				model.params.preferredPathOrtoPos[i] = -1;
+				model.params.preferredPathOrtoPos[i] = -(int)(nPkterOrto / 2) - 1;
 
 			//writePointsToShape((char*)"shapeTest", model.network.physicalLev[i].point, model.network.physicalLev[i].nPoints);
 
@@ -11932,9 +12334,9 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	//for(i = 0; i < model.network.nPhysicalLevels; i++)
 	//	printf("lev %d nPrefPathPoints %d\n", i, model.network.physicalLev[i].npreferredPathPoints);
 
+	if (model.params.varyStartEndArcLength == 0)
+		openNeededRasterFilesNew(alt);
 
-	openNeededRasterFilesNew(alt);
-	//printf("-- Time3 %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	for(i = 0; i < model.network.nPhysicalLevels; i++)
 		makeSure_feasibleNodes(i, (int)(nPkterOrto / 2));
 
@@ -12227,23 +12629,42 @@ int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp)
 			colDbl = get_colDblFromWeatherFile(i1, pMid.longitude().degrees());
 			model.weatherFunctions.checkPoint[i].latPos[i1] = (int)rowDbl;
 			if (model.weatherFunctions.checkPoint[i].latPos[i1] < 0) {
-				errlog("ERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
-				printf("\n\n\n\n\n\n\n############################################################\nERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
+					postRequest("ERROR! latPos " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]));
+					printf("\n\n\n\n\n\n\n############################################################\nERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
+					model.nErrorCoordBB = 1;
+				}
 				model.weatherFunctions.checkPoint[i].latPos[i1] = 0;
 			}
 			if (model.weatherFunctions.checkPoint[i].latPos[i1] >=  model.weather[i1].nRows) {
-				errlog("ERROR! latPos too high %d (max %d)\n", model.weatherFunctions.checkPoint[i].latPos[i1],
-					model.weather[i1].nRows - 1);
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! latPos too high %d (max %d) lat lon %.4lf %.4lf maxY %.4lf minX %.4lf nArcs %d\n", model.weatherFunctions.checkPoint[i].latPos[i1],
+						model.weather[i1].nRows - 1, pMid.latitude().degrees(), pMid.longitude().degrees(),
+						model.weather[i1].maxY, model.weather[i1].minX, model.nArcs);
+					postRequest("ERROR! latPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]) +
+						" max " + std::to_string(model.weather[i1].nRows - 1));
+					model.nErrorCoordBB = 1;
+				}
 				model.weatherFunctions.checkPoint[i].latPos[i1] = model.weather[i1].nRows - 1;
 			}
 			model.weatherFunctions.checkPoint[i].lonPos[i1] = (int)colDbl;
 			if (model.weatherFunctions.checkPoint[i].lonPos[i1] < 0) {
-				errlog("ERROR! lonPos %d\n", model.weatherFunctions.checkPoint[i].lonPos[i1]);
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! lonPos %d\n", model.weatherFunctions.checkPoint[i].lonPos[i1]);
+					postRequest("ERROR! lonPos " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]));
+					model.nErrorCoordBB = 1;
+				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = 0;
 			}
 			if (model.weatherFunctions.checkPoint[i].lonPos[i1] >= model.weather[i1].nCols) {
-				errlog("ERROR! lonPos too high %d (max %d)\n", model.weatherFunctions.checkPoint[i].lonPos[i1],
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! lonPos too high %d (max %d)\n", model.weatherFunctions.checkPoint[i].lonPos[i1],
 					model.weather[i1].nCols - 1);
+					postRequest("ERROR! lonPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]) +
+						" (max " + std::to_string(model.weather[i1].nCols - 1));
+					model.nErrorCoordBB = 1;
+				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = model.weather[i1].nCols - 1;
 			}
 			model.weatherFunctions.checkPoint[i].pos_latLon[i1] = model.weatherFunctions.checkPoint[i].latPos[i1] *
@@ -12610,12 +13031,15 @@ int getDirectionAndFactorsDelayedGridFromBearing(double direction, int* dir1, do
 
 double eval_factorDelayedAlongPrefPath(int level)
 {
-	int i, pos_latLon, dir1, dir2, posLast;
+	int i, pos_latLon, dir1, dir2, posLast, pos1;
 	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
 	double factor1, factor2, direction;
 	spherical::Point p1, pMid;
 
-	p1 = model.network.physicalLev[level].point[model.params.preferredPathOrtoPos[level]];
+	pos1 = model.params.preferredPathOrtoPos[level];
+	if (pos1 < 0)
+		pos1 = -pos1 - 1;
+	p1 = model.network.physicalLev[level].point[pos1];
 
 	model.tmpTid3[0] = std::chrono::high_resolution_clock::now();
 	totDist = 0;
@@ -12663,14 +13087,17 @@ double eval_factorDelayedAlongPrefPath(int level)
 
 double eval_factorDelayedAlongPath(int level)
 {
-	int i, pos_latLon, dir1, dir2, posLast, pointPos2;
+	int i, pos_latLon, dir1, dir2, posLast, pointPos2, pos1;
 	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
 	double factor1, factor2, direction;
 	spherical::Point p1, pMid;
 	double x0, y0;
 
 	if (level >= 0) {
-		p1 = model.network.physicalLev[level].point[model.params.preferredPathOrtoPos[level]];
+		pos1 = model.params.preferredPathOrtoPos[level];
+		if (pos1 < 0)
+			pos1 = -pos1 - 1;
+		p1 = model.network.physicalLev[level].point[pos1];
 		totDist = 0;
 		pMid = p1;
 		for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
@@ -13802,7 +14229,7 @@ double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLeve
 	model.functions.valuesNow.dynamicStability = 0; // a / b
 	model.functions.valuesNow.feasibleSafety = 1;
 
-	if (model.nArcs == 25619)
+	if (model.nArcs == 42)
 		model.nArcs = model.nArcs;
 
 	if (calmWaterSpeed < 0)
@@ -14372,6 +14799,8 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 	int arcNr, nodNr1, tidInt0, posNy;
 	double totCost;
 
+	if (model.nArcs == 944639)
+		i3 = i3;
 	if (thisLevel >= 0) {
 		if (thisLevel < model.network.nPhysicalLevels) {
 			nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][i3];
@@ -14619,6 +15048,8 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 	}
 
 	model.functions.valuesNow.maxWaveHeight = 0;
+	if (model.nArcs == 2668886)
+		model.nArcs = model.nArcs;
 	if (thisLevel >= 0 || nextLevel >= 0) {
 		if (thisLevel >= 0) {
 			timeInt = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
@@ -14630,8 +15061,6 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 		}
 		//model.tmpTid2[2] = std::chrono::high_resolution_clock::now();
 
-		if (model.nArcs >= 57)
-			model.nArcs = model.nArcs;
 		tid = calcArcTimeCost(timeInt, i4, thisLevel, nextLevel, calmWaterSpeed, fuelFactorMain); // , & fuel, & safety, & distance, & worstStormValue, & worstStabilityValue);
 		//if (skrivUtExtreme == 1) {
 		//	if (thisLevel >= 16) {
@@ -14774,6 +15203,8 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 		}
 		else {
 			arcNr = model.nArcs;
+			if (model.nArcs >= 3939)
+				arcNr = arcNr;
 			//if (arcNr < 500)
 			//	errlog("Add arc %d levels %d %d pointNr %d %d tid %.3lf speedSetting %d dist %.3lf emission %.3lf fuelCost %.3lf\n", arcNr, thisLevel, nextLevel, pos1, pos2,
 			//		tid, i4, model.functions.valuesNow.distance, emission, fuelBase);
@@ -14883,7 +15314,9 @@ int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos
 		//	nSpeedSettings = model.functions.speedChannel[-thisLevel - 1].nShip_speedSettings;
 	}
 
-	if (model.nArcs >= 41034)
+	if (model.nArcs == 383210)
+		model.nArcs = model.nArcs;
+	if (model.nArcs >= 3939)
 		pos1 = pos1;
 	if (thisLevel >= 0 || nextLevel >= 0) {
 		if (thisLevel >= 0) {
@@ -14995,6 +15428,8 @@ int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos
 		}
 		else {
 			arcNr = model.nArcs;
+			if (model.nArcs >= 3939)
+				model.nArcs = model.nArcs;
 			//if (model.network.physicalLev[thisLevel].timeInterval[pos1][tPos] >= model.network.tidp_startHistoricDataOnly)
 			//	model.network.arcGen_staticWeatherArcNr_outNodePosSpeed[pos2][i4] = arcNr;
 			if (arcNr >= model.nAllocArcs) {
@@ -15083,7 +15518,7 @@ int genArcs_withDelay(int thisLevel, int pos1, int nextLevel, int pos2, int tPos
 		*distArc = estimateLargeCircleDistance_km(y1, x1, y2, x2);
 	}
 	for (i4 = 0; i4 < nSpeedSettings; i4++) {
-		if (model.nArcs >= 25619)
+		if (model.nArcs >= 3939)
 			model.nArcs = model.nArcs;
 		arcNr = addEnBage_delayAB(thisLevel, pos1, nextLevel, pos2, tPos, i4, 0, 1e10, fuelQualityKvot, *distArc, delayFactor);
 		if (arcNr >= 0)
@@ -15103,19 +15538,23 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 
 	int posPrefP1, posPrefP2, nArcs;
 	
-	if (thisLevel >= 0)
+	if (thisLevel >= 0) {
 		posPrefP1 = model.params.preferredPathOrtoPos[thisLevel];
+	}
 	else {
 		posPrefP1 = 1; // end point of channel
 	}
-	if (nextLevel >= 0)
+	if (nextLevel >= 0) {
 		posPrefP2 = model.params.preferredPathOrtoPos[nextLevel];
-	else {
+	}
+		else {
 		posPrefP2 = 0; // start point of channel
 	}
 
-	if (model.nArcs >= 25619)
+	if (model.nArcs == 42)
 		model.nArcs = model.nArcs;
+	if (thisLevel == 6)
+		thisLevel = thisLevel;
 
 	if (posPrefP1 == pos1) {
 		if (posPrefP2 != pos2)
@@ -15226,6 +15665,8 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 		}
 	}
 
+	if (model.nArcs >= 383210)
+		model.nArcs = model.nArcs;
 	if (thisLevel >= 0) {
 		for (i3 = 0; i3 < model.network.physicalLev[thisLevel].nTimeIntervals[pos1]; i3++) {
 			if (model.network.physicalLev[thisLevel].timeInterval[pos1][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
@@ -15994,6 +16435,16 @@ int setNewSpeedAlt(strSpeed* speed, int baseSpeed) {
 		}
 		speed->nShip_speedSettings = posSave;
 	}
+	if (model.params.eta_naraMaxSpeed == 1) {
+		if (speed->settingGerBaseSetting[speed->nShip_speedSettings - 1] < model.functions.nShip_speedSettingsBase - 1) {
+			// add the higher speeds as well to make sure we can get there in time if possible
+			posSave = speed->nShip_speedSettings;
+			for (i = speed->settingGerBaseSetting[speed->nShip_speedSettings - 1] + 1; i < model.functions.nShip_speedSettingsBase; i++) {
+				set_speedSettingsFromBase(speed, posSave++, i);
+			}
+			speed->nShip_speedSettings = posSave;
+		}
+	}
 
 
 	return 0;
@@ -16086,6 +16537,7 @@ int gen_midTimeArrive() {
 	double timeExactTmp;
 
 	errlog("OBS! Calculating estimate time for the trip by following preferred path at preferred speed.\n");
+	model.params.eta_naraMaxSpeed = 0;
 
 	model.network.physicalLev[0].midTimeArrive = timeExact;
 	calmWaterSpeed = model.params.preferredSpeed_calmWater;
@@ -16143,12 +16595,16 @@ int gen_midTimeArrive() {
 
 				if (timeStart < model.network.tidp_startHistoricDataOnly) {
 					pointNr1 = model.params.preferredPathOrtoPos[iNext];
+					if (pointNr1 < 0)
+						pointNr1 = -pointNr1 - 1;
 					calcWeatherPosAlongArc(model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1],
 						model.network.physicalLev[iNext].point[pointNr1]);
 					timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
 				}
 				else {
 					pointNr1 = model.params.preferredPathOrtoPos[iNext];
+					if (pointNr1 < 0)
+						pointNr1 = -pointNr1 - 1;
 					calcWeatherPosAlongArc(model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1],
 						model.network.physicalLev[iNext].point[pointNr1]);
 					timeExactTmp = evalWeatherDataAlongArc(-1, 0, timeExact);
@@ -16236,16 +16692,18 @@ int gen_midTimeArrive() {
 		errlog("wanted ending time from eta: %.2lf kvotFix %.4lf timeFixedChannel %.3lf\n", model.params.eta_h, kvotFix, timeFixedChannel);
 		if (kvotFix > 1) {
 			if (kvotFix > model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin) {
+				errlog("ERROR! cannot decrease the speed enough to get there at eta, only allow slowest speed, giving a factor of %.4lf but we need to get up to %.4lf\n",
+					model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin, kvotFix);
 				kvotFix = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin;
-				errlog("ERROR! cannot decrease the speed enough to get there at eta, only allow slowest speed, giving a factor of %.4lf\n",
-					kvotFix);
 			}
 		}else{
 			if (kvotFix < model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax) {
+				errlog("ERROR! cannot increase the speed enough to get there at eta, only allow highest speed, giving a factor of %.4lf but we need to get down to %.4lf\n",
+					model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax, kvotFix);
 				kvotFix = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax;
-				errlog("ERROR! cannot increase the speed enough to get there at eta, only allow highest speed, giving a factor of %.4lf\n",
-					kvotFix);
 			}
+			if (kvotFix < model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax + 0.1)
+				model.params.eta_naraMaxSpeed = 1;
 		}
 
 		tidNu = 0;
@@ -16308,6 +16766,8 @@ int createTimeArcs(int runAlt)
 	int i2b, nodNr1, nodNr2, posNy, arcNr, nextLevel;
 	int cNr, tidInt0;
 	double fuel, safety, tid, totCost, fuelQualityKvot;
+
+	model.nErrorCoordBB = 0;
 
 	if (runAlt == 0) {
 		model.weatherFunctions.nAllocPoints = 50;
