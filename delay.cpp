@@ -2447,6 +2447,9 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	model.params.indataPathName = inputPath;
 	model.params.indataPath = splitFilename(inputPath);
 	model.params.errorCode = 0;
+	model.delay.nDelayed_months = 2;
+	model.delay.delayed_monthNr = (int*)malloc(model.delay.nDelayed_months * sizeof(int));
+
 
 	model.delay.delayed_monthNr[0] = manad;
 	if (manad == 12)

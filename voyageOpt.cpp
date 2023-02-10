@@ -8791,7 +8791,7 @@ double get_colDblFromWeatherFile(int weatherNr, double lon)
 	if (weatherNr >= 0)
 		gridData = model.weather[weatherNr];
 	else
-		gridData = model.delayedGrid;
+		gridData = model.delayedGrid[0];
 
 	if (lon < gridData.minX - 20)
 		lon += 360;
@@ -10208,74 +10208,68 @@ int loadTimeDelayMap() {
 
 	auto tid10 = std::chrono::high_resolution_clock::now();
 	size_col = -1;
-	model.delay.delayed_monthNr[0] = getMonthToUseForDelay(model.preferredPath.totDist);
+	model.delay.nDelayed_months = getMonthsToUseForDelay(model.preferredPath.totDist);
+	model.delayedGrid = (strWeather*)malloc2(model.delay.nDelayed_months * sizeof(strWeather));
 
-	sprintf(namn, "%s/%s%d.tif", model.params.indataPath.c_str(), model.params.mapTimeDelayName.c_str(),
-		model.delay.delayed_monthNr[0]);
-	printf("time delay map %s\n", namn);
-	model.delayedGrid.rasterPos = (Raster*)malloc2(1 * sizeof(Raster));
-	returnVal = model.delayedGrid.rasterPos[0].open(namn);
-	if (returnVal == -1) {
-		errlog("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! I use month 11 instead for now\n",
-			model.delay.delayed_monthNr[0]);
-		printf("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! I use month 11 instead for now\n",
-			model.delay.delayed_monthNr[0]);
-		// postRequest("Warning! Failed to open delay map " + std::string(namn) + ". Add it! I use month 11 for now");
-		model.delay.delayed_monthNr[0] = 11;
+	for (i = 0; i < model.delay.nDelayed_months; i++) {
 		sprintf(namn, "%s/%s%d.tif", model.params.indataPath.c_str(), model.params.mapTimeDelayName.c_str(),
-			model.delay.delayed_monthNr[0]);
+			model.delay.delayed_monthNr[i]);
 		printf("time delay map %s\n", namn);
-		model.delayedGrid.rasterPos = (Raster*)malloc2(1 * sizeof(Raster));
-		returnVal = model.delayedGrid.rasterPos[0].open(namn);
+		model.delayedGrid[i].rasterPos = (Raster*)malloc2(sizeof(Raster));
+		returnVal = model.delayedGrid[i].rasterPos[0].open(namn);
 		if (returnVal == -1) {
-			postRequest("Faile to open delay map " + std::string(namn) + " as well. Something is very wrong!");
-			exitKontrollerat(__LINE__);
-			return -1;
+			errlog("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! It must exist\n",
+				model.delay.delayed_monthNr[i]);
+			if (returnVal == -1) {
+				postRequest("Faile to open delay map " + std::string(namn) + ". Something is very wrong!");
+				exitKontrollerat(__LINE__);
+				return -1;
+			}
 		}
+
+		size_col = model.delayedGrid[i].rasterPos[0].Get_sizeCol();
+		model.delayedGrid[i].size_col = size_col;
+		xPosFrac = (model.boundingBox.xMin - model.delayedGrid[i].rasterPos[0].Get_minLongitude()) / size_col;
+		xPos0 = roundDown(xPosFrac);
+		model.delayedGrid[i].minX = model.delayedGrid[i].rasterPos[0].Get_minLongitude() +
+			xPos0 * size_col;
+		xPosFrac = (model.boundingBox.xMax - model.delayedGrid[i].minX) /
+			size_col;
+		xPos1 = roundUp(xPosFrac);
+		model.delayedGrid[i].maxX = model.delayedGrid[i].minX +
+			xPos1 * size_col;
+		model.delayedGrid[i].nCols = xPos1 + 1;
+
+
+		size_row = model.delayedGrid[i].rasterPos[0].Get_sizeRow();
+		model.delayedGrid[i].size_row = size_row;
+		yPosFrac = (model.delayedGrid[i].rasterPos[0].Get_maxLatitude() - model.boundingBox.yMax) /
+			size_row;
+		yPos0 = roundDown(yPosFrac);
+		model.delayedGrid[i].maxY = model.delayedGrid[i].rasterPos[0].Get_maxLatitude() -
+			yPos0 * size_row;
+		yPosFrac = (model.delayedGrid[i].maxY - model.boundingBox.yMin) /
+			size_row;
+		yPos1 = roundUp(yPosFrac);
+		if (yPos1 >= model.delayedGrid[i].rasterPos[0].Get_nRows())
+			yPos1 = model.delayedGrid[i].rasterPos[i].Get_nRows() - 1;
+		model.delayedGrid[i].minY = model.delayedGrid[i].maxY -
+			yPos1 * size_row;
+		model.delayedGrid[i].nRows = yPos1 + 1;
+
+		nBands = model.delayedGrid[i].rasterPos[0].Get_nBands();
+		model.delayedGrid[i].nTimeIntervals = nBands;
+		model.delayedGrid[i].secondsUTC = NULL;
+		model.delayedGrid[i].valueCell = (float**)malloc2(nBands * sizeof(float*));
+		nAlloc = model.delayedGrid[i].nCols * model.delayedGrid[i].nRows;
+		for (int i2 = 0; i2 < nBands; i2++) {
+			model.delayedGrid[i].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+			for (int i3 = 0; i3 < nAlloc; i3++)
+				model.delayedGrid[i].valueCell[i2][i3] = 9999;
+		}
+
+		model.delayedGrid[i].rasterPos[0].GetRasterValues_realAllBands(&(model.delayedGrid[i]), 0);
 	}
-
-	size_col = model.delayedGrid.rasterPos[0].Get_sizeCol();
-	model.delayedGrid.size_col = size_col;
-	xPosFrac = (model.boundingBox.xMin - model.delayedGrid.rasterPos[0].Get_minLongitude()) / size_col;
-	xPos0 = roundDown(xPosFrac);
-	model.delayedGrid.minX = model.delayedGrid.rasterPos[0].Get_minLongitude() +
-		xPos0 * size_col;
-	xPosFrac = (model.boundingBox.xMax - model.delayedGrid.minX) /
-		size_col;
-	xPos1 = roundUp(xPosFrac);
-	model.delayedGrid.maxX = model.delayedGrid.minX +
-		xPos1 * size_col;
-	model.delayedGrid.nCols = xPos1 + 1;
-
-
-	size_row = model.delayedGrid.rasterPos[0].Get_sizeRow();
-	model.delayedGrid.size_row = size_row;
-	yPosFrac = (model.delayedGrid.rasterPos[0].Get_maxLatitude() - model.boundingBox.yMax) /
-		size_row;
-	yPos0 = roundDown(yPosFrac);
-	model.delayedGrid.maxY = model.delayedGrid.rasterPos[0].Get_maxLatitude() -
-		yPos0 * size_row;
-	yPosFrac = (model.delayedGrid.maxY - model.boundingBox.yMin) /
-		size_row;
-	yPos1 = roundUp(yPosFrac);
-	if (yPos1 >= model.delayedGrid.rasterPos[0].Get_nRows())
-		yPos1 = model.delayedGrid.rasterPos[0].Get_nRows() - 1;
-	model.delayedGrid.minY = model.delayedGrid.maxY -
-		yPos1 * size_row;
-	model.delayedGrid.nRows = yPos1 + 1;
-
-	nBands = model.delayedGrid.rasterPos[0].Get_nBands();
-	model.delayedGrid.nTimeIntervals = nBands;
-	model.delayedGrid.secondsUTC = NULL;
-	model.delayedGrid.valueCell = (float**)malloc2(nBands * sizeof(float*));
-	nAlloc = model.delayedGrid.nCols * model.delayedGrid.nRows;
-	for (int i2 = 0; i2 < nBands; i2++) {
-		model.delayedGrid.valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
-		for (int i3 = 0; i3 < nAlloc; i3++)
-			model.delayedGrid.valueCell[i2][i3] = 9999;
-	}
-
-	model.delayedGrid.rasterPos[0].GetRasterValues_realAllBands(&(model.delayedGrid), 0);
 
 	free(namn);
 
@@ -11847,10 +11841,60 @@ int getMonthFromHoursSinceRouteStart(double hoursAfterStart) {
 	return tmBas.tm_mon + 1;
 }
 
-int getMonthToUseForDelay(double dist) {
+int getHoursAfterStart_monthEnd(int month) {
+	struct tm tmBas = { 0 };
+	tmBas.tm_year = model.params.startYear - 1900;
+	tmBas.tm_mon = model.params.startMonth_nr - 1;
+	tmBas.tm_mday = model.params.startDay_nr;
+	tmBas.tm_hour = model.params.startHour;
+	tmBas.tm_min = model.params.startMinute;
+	tmBas.tm_sec = 0;
+	time_t tidBas = mktime(&tmBas);
+
+	struct tm tmNy = { 0 };
+	if (month + 1 < model.params.startMonth_nr)
+		tmNy.tm_year = model.params.startYear - 1900 + 1;
+	else
+		tmNy.tm_year = model.params.startYear - 1900;
+	tmNy.tm_mon = month;
+	tmNy.tm_mday = 1;
+	tmNy.tm_hour = 0;
+	tmNy.tm_min = 0;
+	tmNy.tm_sec = 0;
+	time_t tidNy = mktime(&tmNy);
+
+	double difference = difftime(tidNy, tidBas) / 3600.0;
+	int diffInt = (int)difference;
+	return diffInt - 1;
+}
+
+int getMonthsToUseForDelay(double dist) {
+	int i, pos;
 	double tripHours = dist / model.params.shipSpeed_average;
-	double midHistorical = model.network.tidp_startHistoricDataOnly + (tripHours - model.network.tidp_startHistoricDataOnly) / 2;
-	return getMonthFromHoursSinceRouteStart(midHistorical); // create a date from startTime plus midHistorical
+	double tripHoursLongest = dist / model.params.shipSpeed_average * 2;
+	int startMonth = getMonthFromHoursSinceRouteStart(model.network.tidp_startHistoricDataOnly);
+	int endMonth = getMonthFromHoursSinceRouteStart(model.network.tidp_startHistoricDataOnly + tripHours) + 1;
+	int endMonth2 = getMonthFromHoursSinceRouteStart(model.network.tidp_startHistoricDataOnly + tripHoursLongest);
+	if (endMonth2 == endMonth - 1 || (endMonth2 == 12 && endMonth == 1))
+		endMonth = endMonth2;
+	//double midHistorical = model.network.tidp_startHistoricDataOnly + (tripHours - model.network.tidp_startHistoricDataOnly) / 2;
+	int nMonths = endMonth - startMonth + 1;
+	if (nMonths < 0)
+		nMonths += 12;
+	model.delay.delayed_monthNr = (int*)malloc(nMonths * sizeof(int));
+	pos = 0;
+	if (endMonth < startMonth) {
+		for (i = startMonth; i <= 12; i++)
+			model.delay.delayed_monthNr[pos++] = i;
+		for (i = 1; i <= endMonth; i++)
+			model.delay.delayed_monthNr[pos++] = i;
+	}
+	else {
+		for (i = startMonth; i <= endMonth; i++)
+			model.delay.delayed_monthNr[pos++] = i;
+	}
+	return nMonths;
+	//return getMonthFromHoursSinceRouteStart(midHistorical); // create a date from startTime plus midHistorical
 }
 
 int check_isStraightLineFeasible(double y1, double x1, double y2, double x2, double *distOK)
@@ -12991,103 +13035,57 @@ int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level)
 	return 0;
 }
 
-int loadDelayedGrid() {
-
-	errlog("ERROR! Load the delayed grid properly. Now it's just a dummy\n");
-	model.delayedGrid.nTimeIntervals = 8;
-	model.delayedGrid.minY = -90.199999;
-	model.delayedGrid.maxY = 90.2;
-	model.delayedGrid.nRows = 451;
-	model.delayedGrid.size_row = 0.4;
-	model.delayedGrid.nCols = 900;
-	model.delayedGrid.minX = -180.199999;
-	model.delayedGrid.maxX = 179.8;
-	model.delayedGrid.size_col = 0.4;
-
-	model.delayedGrid.valueCell = (float**)malloc2(model.delayedGrid.nTimeIntervals * sizeof(float*));
-	for (int i0 = 0; i0 < model.delayedGrid.nTimeIntervals; i0++) {
-		model.delayedGrid.valueCell[i0] = (float*)malloc2(model.delayedGrid.nCols * model.delayedGrid.nRows * sizeof(float));
-		for (int i = 0; i < model.delayedGrid.nCols * model.delayedGrid.nRows; i++)
-			model.delayedGrid.valueCell[i0][i] = 1.05;
-	}
-	return 0;
-}
-
 int getDirectionAndFactorsDelayedGridFromBearing(double direction, int* dir1, double* factor1, int* dir2, double* factor2) {
 	double kvot;
-	kvot = direction * model.delayedGrid.nTimeIntervals / 360; // M_PI2;
+	kvot = direction * model.delayedGrid[0].nTimeIntervals / 360; // M_PI2;
 	*dir1 = int(kvot);
 	*factor1 = 1 - (kvot - *dir1);
 	*factor2 = 1 - *factor1;
-	if (*dir1 < model.delayedGrid.nTimeIntervals - 1)
+	if (*dir1 < model.delayedGrid[0].nTimeIntervals - 1)
 		*dir2 = *dir1 + 1;
 	else {
 		*dir2 = 0;
-		*dir1 = model.delayedGrid.nTimeIntervals - 1;
+		*dir1 = model.delayedGrid[0].nTimeIntervals - 1;
 	}
 
 	return 0;
 }
 
-double eval_factorDelayedAlongPrefPath(int level)
-{
-	int i, pos_latLon, dir1, dir2, posLast, pos1;
-	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
-	double factor1, factor2, direction;
-	spherical::Point p1, pMid;
+int set_tidp_ger_delayPos() {
+	int i, i1, lastHour, startPos = model.network.tidp_startHistoricDataOnly;
+	int nAlloc = model.delay.nDelayed_months * 31 * 24;
 
-	pos1 = model.params.preferredPathOrtoPos[level];
-	if (pos1 < 0)
-		pos1 = -pos1 - 1;
-	p1 = model.network.physicalLev[level].point[pos1];
-
-	model.tmpTid3[0] = std::chrono::high_resolution_clock::now();
-	totDist = 0;
-	pMid = p1;
-	for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
-		if (printGlobal == 1)
-			printf("i %d innan totDist %.3lf\n", i, totDist);
-		totDist += pMid.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
-		//if (i < model.network.physicalLev[level].npreferredPathPoints - 1)
-		pMid = model.network.physicalLev[level].preferredPathPoint[i];
-	}
-	double x0, y0;
-	if (model.network.physicalLev[level].npreferredPathPoints == 0)
-		errlog("ERROR! no npreferredPathPoints but trying to use the first one for level %d\n", level);
-	y0 = model.network.physicalLev[level].preferredPathPoint[0].latitude().degrees();
-	x0 = model.network.physicalLev[level].preferredPathPoint[0].longitude().degrees();
-	dist = estimateLargeCircleDistance_km(y0, x0, y0 + model.delayedGrid.size_row, x0);
-	distHittils = 0;
-	direction = (90 - p1.bearingTo(pMid));// *M_PI / 180;
-	if (direction < 0)
-		direction += 360;// 2 * M_PI;
-	getDirectionAndFactorsDelayedGridFromBearing(direction, &dir1, &factor1, &dir2, &factor2);
-	pMid = p1;
-	posLast = -1;
-	for (i = 0;; i++) {
-		rowDbl = (model.delayedGrid.maxY - pMid.latitude().degrees()) / model.delayedGrid.size_row;
-		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
-		pos_latLon = (int)rowDbl * model.delayedGrid.nCols + (int)colDbl;
-
-		delay += model.delayedGrid.valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid.valueCell[dir2][pos_latLon] * factor2;
-		if (distHittils + dist * 1.05 < totDist) {
-			distHittils += dist;
-			pMid = getNextPointAlongpreferredPathArc(pMid, level, &posLast, distHittils, dist);
-
+	model.delay.tidpHistorical_ger_delayMapNr = (int*)malloc(nAlloc * sizeof(int));
+	for (i = 0; i < model.delay.nDelayed_months; i++) {
+		lastHour = getHoursAfterStart_monthEnd(model.delay.delayed_monthNr[i]);
+		if (lastHour >= nAlloc) {
+			errlog("ERROR! lastHour too big, is %d but cannot be more than %d, monthPos %d\n", lastHour, nAlloc - 1, i);
+			lastHour = nAlloc - 1;
 		}
-		else {
-			i++;
-			break;
-		}
+		for (i1 = startPos; i1 <= lastHour; i1++)
+			model.delay.tidpHistorical_ger_delayMapNr[i1 - model.network.tidp_startHistoricDataOnly] = i;
+		startPos = i1;
 	}
-	model.network.physicalLev[level].factorDelayedPrefPath = delay / i;
+	model.network.tidp_lastDelayTidp = lastHour;
 
-	return model.network.physicalLev[level].factorDelayedPrefPath;
+	return 0;
 }
 
-double eval_factorDelayedAlongPath(int level)
+int getDelayPosFrom_tidp(int tidp) {
+
+	if (tidp * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly)
+		return 0;
+	if (tidp * model.params.tIndexGerH > model.network.tidp_lastDelayTidp)
+		return model.delay.nDelayed_months - 1;
+
+	int tidPos = tidp * model.params.tIndexGerH - model.network.tidp_startHistoricDataOnly;
+	return model.delay.tidpHistorical_ger_delayMapNr[tidPos];
+}
+
+
+double eval_factorDelayedAlongPath(int level, int tidp)
 {
-	int i, pos_latLon, dir1, dir2, posLast, pointPos2, pos1;
+	int i, pos_latLon, dir1, dir2, posLast, pointPos2, pos1, delayNr;
 	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
 	double factor1, factor2, direction;
 	spherical::Point p1, pMid;
@@ -13118,7 +13116,7 @@ double eval_factorDelayedAlongPath(int level)
 	y0 = p1.latitude().degrees();
 	x0 = p1.longitude().degrees();
 
-	dist = estimateLargeCircleDistance_km(y0, x0, y0 + model.delayedGrid.size_row, x0);
+	dist = estimateLargeCircleDistance_km(y0, x0, y0 + model.delayedGrid[0].size_row, x0);
 	distHittils = 0;
 	direction = 90 - p1.bearingTo(pMid);// )* M_PI / 180;
 	if (direction < 0)
@@ -13126,12 +13124,13 @@ double eval_factorDelayedAlongPath(int level)
 	getDirectionAndFactorsDelayedGridFromBearing(direction, &dir1, &factor1, &dir2, &factor2);
 	pMid = p1;
 	posLast = -1;
+	delayNr = getDelayPosFrom_tidp(tidp);
 	for (i = 0;; i++) {
-		rowDbl = (model.delayedGrid.maxY - pMid.latitude().degrees()) / model.delayedGrid.size_row;
+		rowDbl = (model.delayedGrid[0].maxY - pMid.latitude().degrees()) / model.delayedGrid[0].size_row;
 		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
-		pos_latLon = (int)rowDbl * model.delayedGrid.nCols + (int)colDbl;
+		pos_latLon = (int)rowDbl * model.delayedGrid[0].nCols + (int)colDbl;
 
-		delay += model.delayedGrid.valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid.valueCell[dir2][pos_latLon] * factor2;
+		delay += model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2;
 		if (distHittils + dist * 1.05 < totDist) {
 			distHittils += dist;
 			if(level >= 0)
@@ -13149,9 +13148,9 @@ double eval_factorDelayedAlongPath(int level)
 	return model.network.physicalLev[level].factorDelayedPrefPath;
 }
 
-double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2)
+double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2, int tidp)
 {
-	int i, pos_latLon, dir1, dir2, posLast;
+	int i, pos_latLon, dir1, dir2, posLast, delayNr;
 	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
 	double factor1, factor2, direction;
 	spherical::Point p1, p2, pMid;
@@ -13176,7 +13175,7 @@ double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int po
 	y2 = p2.latitude().degrees();
 	x2 = p2.longitude().degrees();
 
-	dist = estimateLargeCircleDistance_km(y0, x0, y0 + model.delayedGrid.size_row, x0);
+	dist = estimateLargeCircleDistance_km(y0, x0, y0 + model.delayedGrid[0].size_row, x0);
 
 	distHittils = 0;
 	pMid = p1;
@@ -13193,12 +13192,13 @@ double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int po
 
 	pMid = p1;
 	posLast = -1;
+	delayNr = getDelayPosFrom_tidp(tidp);
 	for (i = 0;; i++) {
-		rowDbl = (model.delayedGrid.maxY - pMid.latitude().degrees()) / model.delayedGrid.size_row;
+		rowDbl = (model.delayedGrid[0].maxY - pMid.latitude().degrees()) / model.delayedGrid[0].size_row;
 		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
-		pos_latLon = (int)rowDbl * model.delayedGrid.nCols + (int)colDbl;
+		pos_latLon = (int)rowDbl * model.delayedGrid[0].nCols + (int)colDbl;
 
-		delay += model.delayedGrid.valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid.valueCell[dir2][pos_latLon] * factor2;
+		delay += model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2;
 		if (distHittils + dist * 1.05 < totDist) {
 			distHittils += dist;
 			pMid = p1.destinationPoint(distHittils * 1000, bearing);
@@ -15536,7 +15536,7 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 	// generate arcs back to pref path in up to nMaxLevToPrefPath
 	// use max turn of already generated arcs to determine if feasible when getting back to pref path
 
-	int posPrefP1, posPrefP2, nArcs;
+	int posPrefP1, posPrefP2, nArcs, tidp;
 	
 	if (thisLevel >= 0) {
 		posPrefP1 = model.params.preferredPathOrtoPos[thisLevel];
@@ -15568,7 +15568,7 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 			// not a channel
 			if (*delayFactor < 0.0001) {
 				// determine the delay factor for the pref path
-				*delayFactor = eval_factorDelayedAlongPath(thisLevel);
+				*delayFactor = eval_factorDelayedAlongPath(thisLevel, model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
 				if(nextLevel >= 0)
 					*distArc = model.network.physicalLev[thisLevel + 1].distanceFromStartPosMid - model.network.physicalLev[thisLevel].distanceFromStartPosMid;
 			}
@@ -15579,7 +15579,7 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 			if (*delayFactor < 0.0001) {
 				// determine the delay factor for the pref path
 				//errlog("ERROR! ADD factor delay after pref path NOT as it is now along prefPath\n");
-				*delayFactor = eval_factorDelayedAlongArc(thisLevel, 1, nextLevel, pos2);
+				*delayFactor = eval_factorDelayedAlongArc(thisLevel, 1, nextLevel, pos2, model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos]);
 				if(nextLevel < 0)
 					*distArc = model.network.channel[-thisLevel - 1].distance_km;
 			}
@@ -15611,7 +15611,11 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 				*distArc = model.network.channel[-thisLevel - 1].distance_km;
 			}
 			else {
-				*delayFactor = eval_factorDelayedAlongArc(thisLevel, pos1, nextLevel, pos2);
+				if (thisLevel >= 0)
+					tidp = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
+				else
+					tidp = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos];
+				*delayFactor = eval_factorDelayedAlongArc(thisLevel, pos1, nextLevel, pos2, tidp);
 			}
 		}
 		nArcs = genArcs_withDelay(thisLevel, pos1, nextLevel, pos2, tPos, nSpeedSettings, fuelQualityKvot, distArc, *delayFactor);
@@ -15710,8 +15714,9 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 					arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, i3, i4, setupCheckPoints, 0, 99999, fuelQualityKvot);
 			}
 			else {
-				if (model.network.channel[-nextLevel - 1].timeThroughChannel <= -0.5)
-					delayFactor = eval_factorDelayedAlongPath(nextLevel);
+				if (model.network.channel[-nextLevel - 1].timeThroughChannel <= -0.5) {
+					delayFactor = eval_factorDelayedAlongPath(nextLevel, model.network.channel[-nextLevel - 1].timeInterval[0][i3]);
+				}
 				else
 					delayFactor = 1;
 				distArc = model.network.channel[-nextLevel - 1].distance_km;
@@ -16359,7 +16364,6 @@ void loadWeatherFiles() {
 
 	}
 
-
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		//printf("var %d maxVal %d\n", ii, model.weather[ii].nTimeIntervals_maxValue);
 		if (model.weather[ii].nTimeIntervals_maxValue < nMaxTimeInt) {
@@ -16502,7 +16506,7 @@ double evalEndTimeDelayAlongArc(double timeExact, int lev1, int lev2) {
 	int cNr, pointNr1, pointNr2;
 
 	if (lev1 >= 0 && lev2 >= 0) {
-		delayFactor = eval_factorDelayedAlongPath(lev1);
+		delayFactor = eval_factorDelayedAlongPath(lev1, (int)timeExact);
 		distArc = model.network.physicalLev[lev2].distanceFromStartPosMid - model.network.physicalLev[lev1].distanceFromStartPosMid;
 		timeExact += distArc / model.params.preferredSpeed_calmWater * delayFactor;
 		return timeExact;
@@ -16512,7 +16516,7 @@ double evalEndTimeDelayAlongArc(double timeExact, int lev1, int lev2) {
 		pointNr1 = model.params.preferredPathOrtoPos[lev1];
 		if (pointNr1 < 0)
 			pointNr1 = (int)(model.network.physicalLev[lev1].nPoints / 2);
-		delayFactor = eval_factorDelayedAlongPath(lev1);
+		delayFactor = eval_factorDelayedAlongPath(lev1, (int)timeExact);
 	}
 	else
 		pointNr1 = 1;
@@ -16520,7 +16524,7 @@ double evalEndTimeDelayAlongArc(double timeExact, int lev1, int lev2) {
 		pointNr2 = model.params.preferredPathOrtoPos[lev2];
 		if (pointNr2 < 0)
 			pointNr2 = (int)(model.network.physicalLev[lev2].nPoints / 2);
-		delayFactor = eval_factorDelayedAlongPath(lev2 - 1);
+		delayFactor = eval_factorDelayedAlongPath(lev2 - 1, (int)timeExact);
 	}
 	else
 		pointNr2 = 0;
@@ -16825,11 +16829,10 @@ int createTimeArcs(int runAlt)
 
 		loadWeatherFiles();
 		loadTimeDelayMap();
+		set_tidp_ger_delayPos();
 
 		//gen_infoWeatherAroundStorms();
 		gen_midTimeArrive();
-
-		//loadDelayedGrid();
 
 	}
 	else {

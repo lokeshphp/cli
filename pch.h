@@ -443,6 +443,7 @@ struct strNetwork
 	//int* arcGen_utilizeStaticWeather_ForOutNodePos;
 	//int** arcGen_staticWeatherArcNr_outNodePosSpeed;
 	int tidp_startHistoricDataOnly;
+	int tidp_lastDelayTidp;
 };
 
 struct strPhysicalMap
@@ -903,10 +904,13 @@ struct strDelay {
 	strDelaySP SPsol;
 	int nDiffTimeSol;
 	char* delayed_stormFileName;
-	int delayed_monthNr[2];
+	int *delayed_monthNr;
+	int nDelayed_months;
 
 	int* nStormsYear;
 	strStorm** stormsYear;
+
+	int* tidpHistorical_ger_delayMapNr;
 };
 
 
@@ -937,7 +941,7 @@ struct strModel
 	int nWeatherFiles;
 	double inv_nWeatherFiles;
 	strWeather *weather;
-	strWeather delayedGrid;
+	strWeather *delayedGrid;
 
 	int nStorms;
 	strStorm* storms;
@@ -1129,7 +1133,7 @@ void calc_stormsNearby_delay();
 int plotNodeTimeVisuellt(double time, double x, double y);
 int simuleraStormsVisuellt();
 double fix_lonPos(double lon);
-int getMonthToUseForDelay(double dist);
+int getMonthsToUseForDelay(double dist);
 double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2);
 
 std::string stringDateFromUTCSeconds(long long seconds);
