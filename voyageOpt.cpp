@@ -2755,7 +2755,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 				fprintf(filpekG, "    \"waveHeight_m\":%.3lf, \"wavePeriod_s\":%.3lf,\n    \"relativeWaveDirection_degrees\":%.0lf,\n",
 					model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
 					model.functions.valuesNow.relWaveDir);
-				if(model.functions.valuesNow.waveHeight <= model.functions.maxWaveHeight)
+				if(model.functions.valuesNow.waveHeight < model.functions.maxWaveHeight_warning)
 					fprintf(filpekG, "    \"waveHeight_level\":\"normal\",\n");
 				else
 					fprintf(filpekG, "    \"waveHeight_level\":\"high\",\n");
@@ -6493,7 +6493,8 @@ int loadWeatherFactorTableWave(int tableNr) {
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].wavePeriod, &(model.functions.waveFactor.wavePeriod));
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveDirection, &(model.functions.waveFactor.waveDirection));
 	model.functions.maxWaveHeight = model.tables.tableTyp[1][tableNr].maxWaveHeight;
-	nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex * 
+	model.functions.maxWaveHeight_warning = model.tables.tableTyp[1][tableNr].maxWaveHeight_warning;
+	nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex *
 		model.functions.waveFactor.wavePeriod.nIndex * model.functions.waveFactor.waveDirection.nIndex;
 	if (model.functions.waveFactor.tableValue != NULL)
 		free(model.functions.waveFactor.tableValue);
@@ -8046,6 +8047,13 @@ int loadTablesInfo(int useFactor)
 						errlog("ERROR! maxWaveHeight is missing for parameter %s, I set it to 8.5 meters\n", model.tables.tableTyp[typeNr][pos].fileName);
 						model.tables.tableTyp[typeNr][pos].maxWaveHeight = 8.5;
 					}
+					if (!dataTable["maxWaveHeight_warning"].is_null()) {
+						model.tables.tableTyp[typeNr][pos].maxWaveHeight_warning = (double)(dataTable["maxWaveHeight_warning"]);
+					}
+					else {
+						errlog("OBS! No maxWaveHeight_warning is set for parameter %s, I set it to 7.0 meters\n", model.tables.tableTyp[typeNr][pos].fileName);
+						model.tables.tableTyp[typeNr][pos].maxWaveHeight_warning = 7.0;
+					}
 				}
 				else { // stability
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "relativeWindSpeed_m_s", useFactor, 3.6);
@@ -8322,6 +8330,7 @@ int loadAllNeededTablesFromSQLite() {
 			copyAddTableInfo(model.tables.tableTyp[1][tableNr].wavePeriod, &(model.functions.waveFactor.wavePeriod));
 			copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveDirection, &(model.functions.waveFactor.waveDirection));
 			model.functions.maxWaveHeight = model.tables.tableTyp[1][tableNr].maxWaveHeight;
+			model.functions.maxWaveHeight_warning = model.tables.tableTyp[1][tableNr].maxWaveHeight_warning;
 			nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex *
 				model.functions.waveFactor.wavePeriod.nIndex * model.functions.waveFactor.waveDirection.nIndex;
 			model.functions.waveFactor.tableValue = (float*)malloc2(nAlloc * sizeof(float));

@@ -7,12 +7,12 @@
 1279890537 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakePresets.json
 383538603 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.cpp
 1279898444 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.h
-1616501417 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\delay.cpp
+-1077782218 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\delay.cpp
 734806026 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\dijkstra.cpp
 1615663641 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\filhantering.cpp
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\json.hpp
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\nodearc.h
--1524243098 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
+-1522784210 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
 1278763306 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.cpp
 1278763306 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.h
 -1913131102 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\raster.cpp
@@ -29,7 +29,7 @@
 1278859014 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\test.cpp
 585860126 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy (2).cpp
 151548549 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy.cpp
--278899277 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
+-2042699008 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
 1512486993 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp
 1278827643 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.h
--151993846 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\
+528209258 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\

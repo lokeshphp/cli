@@ -511,6 +511,7 @@ struct strTableTyp {
 	char* tableID;
 	char* fileName;
 	double maxWaveHeight;
+	double maxWaveHeight_warning;
 	strTableParam shipSpeedCalmWater;
 	strTableParam windSpeed;
 	strTableParam windDirection;
@@ -685,6 +686,7 @@ struct strFunc2 {
 	int  waveTableNr;
 	int stabilityTableNr;
 	double maxWaveHeight;
+	double maxWaveHeight_warning;
 	// std::string bowSlammingTableID;
 	// std::string greenWaterTableID;
 
