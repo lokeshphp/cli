@@ -13,6 +13,7 @@
 			"add_executable",
 			"add_definitions",
 			"INCLUDE_DIRECTORIES",
+			"target_include_directories",
 			"include_directories"
 		],
 		"files" : 
@@ -45,19 +46,25 @@
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 82,
+				"line" : 97,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 120,
+				"line" : 145,
 				"parent" : 0
 			},
 			{
-				"command" : 3,
+				"command" : 4,
 				"file" : 0,
-				"line" : 122,
+				"line" : 156,
+				"parent" : 0
+			},
+			{
+				"command" : 4,
+				"file" : 0,
+				"line" : 158,
 				"parent" : 0
 			}
 		]
@@ -68,7 +75,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -g -O0  "
+					"fragment" : " -lstdc++fs -g /Zo  "
 				},
 				{
 					"fragment" : "-std=gnu++17"
@@ -93,10 +100,14 @@
 				},
 				{
 					"backtrace" : 5,
-					"path" : "/usr/include/gdal"
+					"path" : "/usr/bin"
 				},
 				{
 					"backtrace" : 6,
+					"path" : "/usr/include/gdal"
+				},
+				{
+					"backtrace" : 7,
 					"path" : "/mnt/c/OSGeo4W64/include"
 				}
 			],
@@ -115,7 +126,7 @@
 		"commandFragments" : 
 		[
 			{
-				"fragment" : "-g -g -O0",
+				"fragment" : "-lstdc++fs -g /Zo",
 				"role" : "flags"
 			},
 			{
@@ -135,6 +146,10 @@
 				"role" : "libraries"
 			},
 			{
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libcurl.so",
+				"role" : "libraries"
+			},
+			{
 				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
 				"role" : "libraries"
 			},
@@ -147,11 +162,23 @@
 				"role" : "libraries"
 			},
 			{
+				"fragment" : "-lsqlite3",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "/usr/lib/x86_64-linux-gnu/libcurl.so",
+				"role" : "libraries"
+			},
+			{
 				"fragment" : "/usr/lib/x86_64-linux-gnu/libz.so",
 				"role" : "libraries"
 			},
 			{
 				"fragment" : "/usr/lib/libgdal.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "-lsqlite3",
 				"role" : "libraries"
 			}
 		],

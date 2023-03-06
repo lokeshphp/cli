@@ -430,7 +430,7 @@ int setupNodesArcsNoTime_delay() {
 				//dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
 				dist = model.network.physicalLev[i].point[i2].distanceTo(model.network.physicalLev[nextLev].point[pos2]) / 1000.0;
 				timeNu = dist / maxSpeed;
-				posNy = adderaArc(nodNu, nodNext, timeNu);
+				posNy = adderaArc(nodNu, nodNext, timeNu, 1);
 				arcNr = model.nArcs;
 				if (arcNr + 1 >= model.nAllocArcs) {
 					model.nAllocArcs += 100000;

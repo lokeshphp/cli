@@ -47,6 +47,7 @@ struct strFuelType
 {
 	double price;
 	double emissionFactor;
+	double quantity;
 };
 struct strFuel
 {
@@ -55,6 +56,7 @@ struct strFuel
 	strFuelType aux_eca;
 	strFuelType main_noEca;
 	strFuelType main_eca;
+	strFuelType extra_fuel;
 };
 
 struct strSafety
@@ -106,6 +108,13 @@ struct strVisuell {
 
 struct strParams
 {
+	int etaFocus_speed;
+
+	int hindCast;
+	int nHindCastMonths;
+	int* hindCast_month;
+	int* hindCast_year;
+
 	int checkGribFilesSpecial;
 
 	double delayEjPrefPathArcFactor;
@@ -341,6 +350,8 @@ struct strChannel {
 	int intArrivalTime_h;
 	int intWaitingTime;
 	char* ID;
+
+	int ECA_type;
 
 	int earliestStartLevel;
 	int latestEndLevel;
@@ -1055,6 +1066,7 @@ int exitKontrollerat(int codeLine, int callType = 1);
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol);
 std::string splitFilename(std::string namn, int alt = 0);
 int fixReadableDate(struct tm tmBas, char* namn);
+int fixReadableDate_file(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 
@@ -1114,7 +1126,7 @@ int adderaNod(int physicalLevel, int pointNr, int timeInterval);
 int check_useRaster_longitude(int weatherNr, int filNr);
 int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
-int adderaArc(int nodNr1, int nodNr2, double cost);
+int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting);
 int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot);
 int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
 double getCorrect_longitude(double x);

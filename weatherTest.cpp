@@ -273,6 +273,28 @@ void getRequest() {
 void postRequest(std::string errorMessage) {
 
 	if (SEND_POST_REQUEST == 1) {
+		char* namn;
+		namn = (char*)malloc2(256 * sizeof(char));
+		char* datumNamn = (char*)malloc2(256 * sizeof(char));
+		char* namnDir = (char*)malloc2(256 * sizeof(char));
+
+		time_t rawtime;
+		time(&rawtime);
+		struct tm tmBas = *localtime(&rawtime);
+		// struct tm tmBas = { std::time(0) };
+		//setTMtime(&tmBas, endTime);
+		fixReadableDate_file(tmBas, datumNamn);
+		sprintf(namnDir, "%s/postRequestFiles", model.params.resultPath.c_str());
+		struct stat sb;
+		if (stat(namnDir, &sb) != 0) {
+			mkdir(namnDir, 0777);
+		}
+		sprintf(namn, "%s/postRequestFiles/input_%s", model.params.resultPath.c_str(), datumNamn);
+		//sprintf(namn, "%s", model.params.indataPathName.c_str());
+		write_copyAtoB(namn, (char*)"json", (char*)model.params.indataPathName.c_str(), (char*)"w");
+		errlog("OBS! Sending the following message to POST and saves the input file as %s\n%s.json\n", errorMessage.c_str(),
+			namn);
+
 		CURL* curl;
 		CURLcode res;
 		curl = curl_easy_init();

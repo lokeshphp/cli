@@ -1,5 +1,4 @@
 {
-  "ActiveTargetSystem": "WSL: Ubuntu-20.04",
   "MRUPresetsPerTargetSystem": {
     "Local Machine": {
       "configure": "x64-debug"
@@ -11,9 +10,10 @@
       "configure": "linux-release"
     },
     "WSL: Ubuntu-20.04": {
-      "configure": "linux-release"
+      "configure": "linux-debug"
     }
   },
+  "ActiveTargetSystem": "WSL: Ubuntu-20.04",
   "ExpandedNodes": [
     ""
   ],

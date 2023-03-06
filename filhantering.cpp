@@ -915,11 +915,15 @@ int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode)
 	FilIn = fopen(filenamnIn, "r");
 	if (FilIn != NULL) {
 		FilUt = fopen(fil2, mode);
-		for (; fgets(strang, 100000, FilIn) != NULL;) {
-			fprintf(FilUt, "%s", strang);
+		if (FilUt != NULL) {
+			for (; fgets(strang, 100000, FilIn) != NULL;) {
+				fprintf(FilUt, "%s", strang);
+			}
+			fclose(FilUt);
 		}
+		else
+			errlog("ERROR! Could not create file %s. Is it locked or does the directory not exist?\n", fil2);
 		fclose(FilIn);
-		fclose(FilUt);
 	}
 	else
 		errlog("ERROR! Skulle spara fil till resDir men fanns ej: %s\n", filenamnIn);

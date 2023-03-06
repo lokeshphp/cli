@@ -734,32 +734,14 @@ int initGeoJsonFil(FILE* filpek, const char* namn) {
 
 double identifyForecastType(double tidTot) {
 	int tidInt;
-	double forecastType = 0, tidDiff;
-	long long UTC;
+	double forecastType = 0;
 
 	tidInt = (int)(tidTot * model.weather_inv_timeIntervall_h); // ) / model.weather_timeIntervall_h);
-	if (tidInt > model.weather_nTimeIntervals_maxValue) {
-		if (model.params.hindCast == 1) {
-			forecastType += 8;
-			return forecastType;
-		}
+	if (tidInt > model.weather_nTimeIntervals_maxValue)
 		tidInt = model.weather_nTimeIntervals_maxValue;
-	}
 	for (int i = 0; i < 8; i++) {
-		if (model.params.hindCast == 0) {
-			if (model.weather[i].timeIntervalIndex[tidInt] >= model.weather[i].nTimeIntervals_forecast)
-				forecastType += 1;
-		}
-		else {
-			if (model.weather[i].timeIntervalIndex[tidInt] >= model.weather[i].nTimeIntervals_forecast)
-				forecastType += 1;
-			else {
-				UTC = (long long)(model.params.UTC_secondsStart + tidTot * 3600);
-				tidDiff = (UTC - model.weather[i].secondsUTC[model.weather[i].timeIntervalIndex[tidInt]]) / 3600.0;
-				if (tidDiff > model.weather[i].timeIntervall_expected * 1.5)
-					forecastType += 0.5;
-			}
-		}
+		if (model.weather[i].timeIntervalIndex[tidInt] >= model.weather[i].nTimeIntervals_forecast)
+			forecastType += 1;
 		//if (model.functions.valuesNow.Wpt == 17) {
 		//	printf("i %d tidInt %d, tidIndex %d nTimeInt %d\n", i, tidInt,
 		//		model.weather[i].timeIntervalIndex[tidInt], model.weather[i].nTimeIntervals_forecast);
@@ -838,10 +820,8 @@ double evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact, in
 				calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
 			else {
 				if (speedSettingGiven >= 0)
-					calmWaterSpeed = eval_calmWaterSpeed(speedSettingGiven, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
-				else
-					calmWaterSpeed = model.params.preferredSpeed_calmWater;
 			}
+				calmWaterSpeed = model.params.preferredSpeed_calmWater;
 		}
 		if (printGlobal == 1) {
 			if (arcNr >= 0)
@@ -1574,10 +1554,9 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					if (model.network.channel[-model.arc[arcNr].fromLevel - 1].totalConsumption < 0)
 						fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
 							model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
-					else {
-						fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -1, -100);
-						fuelConsumption_main = model.network.channel[-model.arc[arcNr].fromLevel - 1].totalConsumption;
-					}
+					else
+						fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -1, -100) *
+						model.network.channel[-model.arc[arcNr].fromLevel - 1].totalConsumption;
 				}
 				else {
 					fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
@@ -2822,22 +2801,10 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 					model.functions.valuesNow.dynamicStability_max);
 				fprintf(filpekG, "    \"max iceCover\":%.3lf",
 					model.functions.valuesNow.iceCover_max);
-				if (model.functions.valuesNow.forecastType > 0.5) {
-					if (model.params.hindCast == 0)
-						fprintf(filpekG, ", \"forecastType\":\"Ext. Hist\"");
-					else
-						fprintf(filpekG, ", \"forecastType\":\"Past Hist\"");
-				}
-				else {
-					if (model.params.hindCast == 0)
-						fprintf(filpekG, ", \"forecastType\":\"Fcst\"");
-					else {
-						if (model.functions.valuesNow.forecastType > 0.05)
-							fprintf(filpekG, ", \"forecastType\":\"Missing Hist\"");
-						else
-							fprintf(filpekG, ", \"forecastType\":\"Hist\"");
-					}
-				}
+				if (model.functions.valuesNow.forecastType > 0.5)
+					fprintf(filpekG, ", \"forecastType\":\"Ext. Hist\"");
+				else
+					fprintf(filpekG, ", \"forecastType\":\"Fcst\"");
 
 				if (filpek10 != NULL) {
 					fprintf(filpek10, "\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t"
@@ -2958,7 +2925,6 @@ int makeSure_eta_inTime() {
 		addPositionDataToReport(NULL, &posIreport, arcNr, 0, &timeExact, "");
 		timeArc[iPos] = timeExact - timeOld;
 	}
-	deltaError = 0;
 	if (timeExact > model.params.eta_h) {
 		errlog("OBS! eta %.2lf after exact calc of arcTimes but should be latest %.2lf. "
 			"I try to make it earlier by increasing speed one level wherever possible, starting from the end.\n",
@@ -3660,9 +3626,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	fuelCostDollar = fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
 		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price;
 	dollarCost = fuelCostDollar + time * model.params.priceTime + channelCost;
-	fprintf(filpekG, "    \"fuelConsumptionExtra_ton\":%.0lf,\n", model.params.fuel.extra_fuel.quantity);
-	fprintf(filpekG, "    \"emissionExtra\":%.0lf,\n", model.params.fuel.extra_fuel.quantity * model.params.fuel.extra_fuel.emissionFactor);
-	fprintf(filpekG, "    \"dollar_cost\":%.0lf,\n", dollarCost + model.params.fuel.extra_fuel.quantity * model.params.fuel.extra_fuel.price);
+	fprintf(filpekG, "    \"dollar_cost\":%.0lf,\n", dollarCost);
 	fprintf(filpekG, "    \"fuel_dollarCost\":%.0lf,\n", fuel_eca* model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
 		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price);
 	fprintf(filpekG, "    \"voyageTime_dollarCost\":%.0lf,\n", time* model.params.priceTime);
@@ -3810,33 +3774,6 @@ int fixReadableDate(struct tm tmBas, char* namn) {
 		sprintf(namn, "%s:0%d", namn, tmBas.tm_sec);
 	else
 		sprintf(namn, "%s:%d", namn, tmBas.tm_sec);
-
-	//printf("date/time2 %s\n", namn);
-	return 0;
-}
-
-int fixReadableDate_file(struct tm tmBas, char* namn) {
-	sprintf(namn, "%d", tmBas.tm_year + 1900);
-	if (tmBas.tm_mon + 1 < 10)
-		sprintf(namn, "%s_0%d", namn, tmBas.tm_mon + 1);
-	else
-		sprintf(namn, "%s_%d", namn, tmBas.tm_mon + 1);
-	if (tmBas.tm_mday < 10)
-		sprintf(namn, "%s_0%d", namn, tmBas.tm_mday);
-	else
-		sprintf(namn, "%s_%d", namn, tmBas.tm_mday);
-	if (tmBas.tm_hour < 10)
-		sprintf(namn, "%s_0%d", namn, tmBas.tm_hour);
-	else
-		sprintf(namn, "%s_%d", namn, tmBas.tm_hour);
-	if (tmBas.tm_min < 10)
-		sprintf(namn, "%s_0%d", namn, tmBas.tm_min);
-	else
-		sprintf(namn, "%s_%d", namn, tmBas.tm_min);
-	if (tmBas.tm_sec < 10)
-		sprintf(namn, "%s_0%d", namn, tmBas.tm_sec);
-	else
-		sprintf(namn, "%s_%d", namn, tmBas.tm_sec);
 
 	//printf("date/time2 %s\n", namn);
 	return 0;
@@ -5189,20 +5126,14 @@ int loadChannelsFromInfile(json data)
 				errlog("OBS! No 'total_consumption' given for a corridor. I set it to -1, to be calculated by the optimizer\n");
 				model.network.channel[pos].totalConsumption = -1.0;
 			}
-			if (!dataT["ECA_area"].is_null())
-				model.network.channel[pos].ECA_type = dataT["ECA_area"];
-			else {
-				errlog("ERROR! No 'ECA_area' given for a corridor. I set it to -1, to be determined by the ECA map\n");
-				model.network.channel[pos].ECA_type = -1;
-			}
 			if (model.network.channel[pos].timeThroughChannel >= 0 || model.network.channel[pos].totalConsumption >= 0) {
 				if (model.network.channel[pos].timeThroughChannel < 0) {
-					errlog("ERROR? total_consumption for a corridor is given but not corridor_time_h.\n");
-					// model.network.channel[pos].totalConsumption = -1;
+					errlog("ERROR! total_consumption for a corridor is given but not corridor_time_h. I set total_consumption to -1, to be calculated by the program\n");
+					model.network.channel[pos].totalConsumption = -1;
 				}
 				if (model.network.channel[pos].totalConsumption < 0) {
-					errlog("ERROR! corridor_time_h for a corridor is given but not total_consumption. I set it to be calculated by OptiNav\n");
-					// model.network.channel[pos].totalConsumption = 0.8;
+					errlog("ERROR! corridor_time_h for a corridor is given but not total_consumption. I set it to 0.8\n");
+					model.network.channel[pos].totalConsumption = 0.8;
 				}
 
 			}
@@ -6466,35 +6397,6 @@ int loadParams_new(strParams* params)
 			params->fuel.main_noEca.price = 700;
 			params->fuel.main_noEca.emissionFactor = 1;
 		}
-
-		if (!dataFuel["extra_fuel_consumption"].is_null()) {
-			json fuelType = dataFuel["extra_fuel_consumption"];
-			if (!fuelType["price"].is_null())
-				params->fuel.extra_fuel.price = fuelType["price"];
-			else {
-				errlog("ERROR! No fuel price for extra fuel, I use default\n");
-				params->fuel.extra_fuel.price = 700;
-			}
-			if (!fuelType["emissionFactor"].is_null())
-				params->fuel.extra_fuel.emissionFactor = fuelType["emissionFactor"];
-			else {
-				errlog("ERROR! No emissionFactor for extra fuel given in input data, I use default\n");
-				params->fuel.extra_fuel.emissionFactor = 1;
-			}
-			if (!fuelType["quantity_mts"].is_null())
-				params->fuel.extra_fuel.quantity = fuelType["quantity_mts"];
-			else {
-				errlog("ERROR! No quantity_mts for extra fuel given in input data, I set it to 0\n");
-				params->fuel.extra_fuel.quantity = 0;
-			}
-		}
-		else {
-			errlog("No extra fuel given in input data\n");
-			params->fuel.extra_fuel.quantity = 0;
-			params->fuel.extra_fuel.emissionFactor = 1;
-			params->fuel.extra_fuel.price = 700;
-		}
-
 	}
 	else {
 		errlog("ERROR! No fuel information given in input data, I use default\n");
@@ -7958,7 +7860,7 @@ void setupUsableSpeedSettings() {
 	model.params.calmWaterSpeedMax = maxSpeed;
 	errlog("OBS! Setting preferred speed to average of all speed settings right now: %.2lf knots (it is modified if eta is given)\n",
 		model.params.preferredSpeed_calmWater / model.params.knots_to_km);
-	//errlog("ERROR! ERROR! Modify so the rpeferredSpeed_calmWater uses the objective when calculated, ie min time -> high speed, min emission -> most economical speed aso\n");
+	errlog("ERROR! ERROR! Modify so the rpeferredSpeed_calmWater uses the objective when calculated, ie min time -> high speed, min emission -> most economical speed aso\n");
 
 
 }
@@ -8788,12 +8690,6 @@ int loadVariables(int alt)
 		namn = dataIt["variableID"];
 		model.weather[i0].weatherFileTypeName = str_alloc_cpy(namn.c_str());
 		model.weather[i0].nBlock_x = dataIt["nBlock_x"];
-		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
-		if(!dataIt["timeIntervall_expected_h"].is_null())
-			model.weather[i0].timeIntervall_expected = dataIt["timeIntervall_expected_h"];
-		else
-			model.weather[i0].timeIntervall_expected = -1;
-
 		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
 		dataFiles = dataIt["files"];
 		model.weather[i0].nFiles = (int)dataFiles.size();
@@ -10609,10 +10505,6 @@ double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2)
 			//p2 = model.network.physicalLev[nextLevel].point[pos2];
 		}
 		else {
-			if (model.network.channel[-thisLevel - 1].ECA_type >= 0)
-				return 1 - model.network.channel[-thisLevel - 1].ECA_type; // return the given ECA type if a corridor
-
-			// if no given value, then use the ECA map
 			x1 = model.network.channel[-thisLevel - 1].point_x[0];
 			y1 = model.network.channel[-thisLevel - 1].point_y[0];
 			//p1 = model.network.channel[-thisLevel - 1].point[0];
@@ -12613,41 +12505,21 @@ int adderaNod(int physicalLevel, int pointNr, int timeInterval)
 	return model.nNoder - 1;
 }
 
-int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting)
+int adderaArc(int nodNr1, int nodNr2, double cost)
 {
 	int i;
 	if (nodNr1 == 3 && nodNr2==39)
 		nodNr1 = nodNr1;
 	for (i = model.Noder[nodNr1].nUtNoder - 1; i >= 0; i--) {
 		if (model.Noder[nodNr1].UtNod[i] == nodNr2) {
-			if (model.params.eta_h < 0 || model.params.etaFocus_speed == 0 ||
-				model.arc[model.Noder[nodNr1].outArcNr[i]].speedSetting == speedSetting) {
-				if (cost < model.Noder[nodNr1].UtNodCost[i]) {
-					// this speed setting is cheaper than the old one...
-					model.Noder[nodNr1].UtNodCost[i] = cost;
-					if (cost < 0)
-						printf("ERROR cost negative %.2lf\n", cost);
-					return model.Noder[nodNr1].outArcNr[i];
-				}
-				else {
-					return -2;
-				}
+			if (cost < model.Noder[nodNr1].UtNodCost[i]) {
+				// this speed setting is cheaper than the old one...
+				model.Noder[nodNr1].UtNodCost[i] = cost;
+				if (cost < 0)
+					printf("ERROR cost negative %.2lf\n", cost);
+				return model.Noder[nodNr1].outArcNr[i];
 			}
 			else {
-				// lower speed is better: model.params.etaFocus_speed = -1;
-				// higher speed is better: model.params.etaFocus_speed = 1;
-				if (model.params.etaFocus_speed == 1 && speedSetting > model.arc[model.Noder[nodNr1].outArcNr[i]].speedSetting) {
-					model.Noder[nodNr1].UtNodCost[i] = cost;
-					if (cost < 0)
-						printf("ERROR cost negative %.2lf\n", cost);
-					return model.Noder[nodNr1].outArcNr[i];
-				}
-				if (model.params.etaFocus_speed == -1 && speedSetting < model.arc[model.Noder[nodNr1].outArcNr[i]].speedSetting) {
-					model.Noder[nodNr1].UtNodCost[i] = cost;
-					if (cost < 0)
-						printf("ERROR cost negative %.2lf\n", cost);
-					return model.Noder[nodNr1].outArcNr[i];
-				}
 				return -2;
 			}
 		}
@@ -14884,8 +14756,7 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr) {
 		else {
 			// channel without speed optimizing
 			timeArc = distNu / calmWaterSpeed; // in hours
-			fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1);
-			fuelConsumption_main = model.network.channel[channelNr].totalConsumption;
+			fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -channelNr-1, -channelNr-1) * model.network.channel[channelNr].totalConsumption;
 			fuelUsage_main = fuelConsumption_main * timeArc;
 			fuelUsage_aux = fuelConsumption_aux * timeArc;
 
@@ -14937,10 +14808,8 @@ double calcDelayedArcTimeCostChannel(int t, int speedSettingNr, int channelNr, d
 
 	if (model.network.channel[channelNr].totalConsumption < 0)
 		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, -channelNr-1, -channelNr-1);
-	else {
-		fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -1, -100);
-		fuelConsumption_main = model.network.channel[channelNr].totalConsumption;
-	}
+	else
+		fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -1, -100) * model.network.channel[channelNr].totalConsumption;
 
 	fuelUsage_main = fuelConsumption_main * timeArc;
 	fuelUsage_aux = fuelConsumption_aux * timeArc;
@@ -14979,7 +14848,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 	int arcNr, nodNr1, tidInt0, posNy;
 	double totCost;
 
-	if (model.nArcs == 6639 || model.nArcs == 97596)
+	if (model.nArcs == 944639)
 		i3 = i3;
 	if (thisLevel >= 0) {
 		if (thisLevel < model.network.nPhysicalLevels) {
@@ -15004,11 +14873,9 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 			totCost += (model.params.eta_h - tidInt0 * model.params.tIndexGerH) * model.params.eta_cost_early;
 		else
 			totCost += (tidInt0 - model.params.eta_h * model.params.tIndexGerH) * model.params.eta_cost_late;
-		if (model.params.tIndexGerH < 0.5 && tidInt0 < 1919)
-			totCost = totCost;
 	}
 
-	posNy = adderaArc(nodNr1, nodNr2, totCost, 0);
+	posNy = adderaArc(nodNr1, nodNr2, totCost);
 	arcNr = model.nArcs;
 
 	if (arcNr + 1 >= model.nAllocArcs) {
@@ -15078,7 +14945,7 @@ int copyArc_staticWeather(int arcUse, int tPos, int min_t, int max_t){
 	tidInt = timeInt + (int)round(tid);
 	if (tidInt <= max_t && tidInt >= min_t) {
 		nodNr2 = addTimeTo_timeInterval(thisLevel, nextLevel, pos2, tidInt);
-		posNy = adderaArc(nodNr1, nodNr2, model.arc[arcUse].totCost, model.arc[arcUse].speedSetting);
+		posNy = adderaArc(nodNr1, nodNr2, model.arc[arcUse].totCost);
 		if (posNy == -2)
 			return -1; // do not add this arc as there is another one thats cheaper between the time nodes
 
@@ -15344,7 +15211,7 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 				model.network.physicalLev[nextLevel].point[pos2].latitude().degrees());
 		}
 
-		posNy = adderaArc(nodNr1, nodNr2, totCost, i4);
+		posNy = adderaArc(nodNr1, nodNr2, totCost);
 		if (model.nArcs == 503)
 			posNy = posNy;
 		if (posNy == -2) {
@@ -15571,7 +15438,7 @@ int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos
 				model.network.physicalLev[nextLevel].point[pos2].latitude().degrees());
 		}
 
-		posNy = adderaArc(nodNr1, nodNr2, totCost, i4);
+		posNy = adderaArc(nodNr1, nodNr2, totCost);
 		if (posNy == -2) {
 			return -1; // do not add this arc as there is another one thats cheaper between the time nodes, this should not happen for historical data
 						// or maybe if close speed settings so two different speeds get there at the same time...
@@ -16665,15 +16532,9 @@ void loadWeatherFiles_grib() {
 
 				returnVal = model.weather[ii].rasterPos[i1].open(namn);
 				if (returnVal == -1) {
-					if (i10 == 0) {
-						errlog("ERROR! Failed to open weather file %s. I quit!\n", namn);
-						postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.");
-						exitKontrollerat(__LINE__);
-					}
-					else {
-						errlog("ERROR! Failed to open weather file %s. I don't use it!\n", namn);
-						continue;
-					}
+					errlog("ERROR! Failed to open weather file %s. I quit!\n", namn);
+					postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.");
+					exitKontrollerat(__LINE__);
 				}
 				if (i10 == 0) {
 					model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
@@ -16915,14 +16776,14 @@ void loadWeatherFiles_grib() {
 			if (i == model.weather[ii].nTimeIntervals - 1)
 				maxTid = model.weather[ii].secondsUTC[i] + 3600 - 1;
 			else
-				maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] +  model.weather[ii].secondsUTC[i + 1]));
+				maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
 
 			for (; tidInt < 100000; tidInt++) {
 				if (tidInt >= nAlloc) {
-					printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
-						model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
-					errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
-						model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
+					printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+					errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
 					break;
 				}
 				sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
@@ -16936,8 +16797,6 @@ void loadWeatherFiles_grib() {
 			if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
 				nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
 		}
-		if (model.weather[ii].nTimeIntervals_maxValue < 0)
-			model.weather[ii].nTimeIntervals_maxValue = 0;
 		
 		testCoordValue(ii, 141.639, -11.240);
 		//testCoordValue(ii, 149.315, -21.275);
@@ -17114,120 +16973,7 @@ double evalEndTimeDelayAlongArc(double timeExact, int lev1, int lev2) {
 	return timeExact;
 }
 
-double evalCostArc(double tid, double fuelQualityKvot) {
-	double channelCost, totCost, fuel_eca, fuel_noEca, fuel_aux, fuel_auxEca, fuelBase, emission, safety;
-
-	//if (thisLevel < 0 && nextLevel < 0) {
-	//	channelCost = model.network.channel[-thisLevel - 1].extraCostChannel;
-	//}
-	//else
-		channelCost = 0;
-	totCost = channelCost;
-
-	fuel_eca = model.functions.valuesNow.fuel_main * (1 - fuelQualityKvot);
-	fuel_noEca = model.functions.valuesNow.fuel_main * fuelQualityKvot;
-	fuel_aux = model.functions.valuesNow.fuel_aux * fuelQualityKvot;
-	fuel_auxEca = model.functions.valuesNow.fuel_aux * (1 - fuelQualityKvot);
-	fuelBase = (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
-		fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price);
-
-	emission = fuel_aux * model.params.fuel.aux_noEca.emissionFactor + fuel_auxEca * model.params.fuel.aux_eca.emissionFactor +
-		fuel_eca * model.params.fuel.main_eca.emissionFactor + fuel_noEca * model.params.fuel.main_noEca.emissionFactor;
-
-	safety = model.functions.valuesNow.worstStormValue *
-		model.params.weightSafety.hurricane +
-		model.functions.valuesNow.bowSlam *
-		model.params.weightSafety.bowSlam +
-		model.functions.valuesNow.greenWater *
-		model.params.weightSafety.greenWater +
-		model.functions.valuesNow.dynamicStability *
-		model.params.weightSafety.dynamicStability +
-		(1 - model.functions.valuesNow.feasibleSafety) *
-		model.params.weightSafety.feasibleSafety +
-		model.functions.valuesNow.iceCoverCost;
-
-	if (model.functions.valuesNow.maxWaveHeight > model.functions.maxWaveHeight)
-		safety += 1e12 * (1 + model.functions.valuesNow.maxWaveHeight - model.functions.maxWaveHeight);
-
-	totCost += model.params.weightTime * model.params.priceTime * tid +
-		model.params.weightFuel * fuelBase + model.params.weightSafety.base * safety +
-		emission * model.params.weightEmission * model.params.scaleObjEmission;
-
-	return totCost;
-}
-
-double calcEndTime_withLowestCostSpeedAlongArc(int level1, int pointNr1, int level2, int pointNr2, double timeStart) {
-
-	double tid, costNu, bastCost = 1e20, bastEndTid;
-	double fuelQualityKvot = get_fuelQualityKvot(level1, pointNr1, level2, pointNr2);
-	double distArc, delayFactor;
-	double x1, y1, x2, y2;
-
-	int nSpeedSettings, ii;
-	double calmWaterSpeed = -1;
-	if (level1 >= 0)
-		nSpeedSettings = model.functions.speedLevel[level1].nShip_speedSettings;
-	else {
-		if (level2 >= 0)
-			nSpeedSettings = model.functions.speedLevel[level2].nShip_speedSettings;
-		else {
-			nSpeedSettings = 1;
-		}
-	}
-
-	int timeInt = (int)round(timeStart * model.params.nTidsperioder_perH);
-		
-	for (ii = 0; ii < nSpeedSettings; ii++) {
-		if (timeStart < model.network.tidp_startHistoricDataOnly) {
-				// timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-			if (level1 >= 0 || level2 >= 0)
-				tid = calcArcTimeCost(timeInt, ii, level1, level2, calmWaterSpeed, -1);
-			else
-				tid = calcArcTimeCostChannel(timeInt, ii, -level1 - 1);
-		}
-		else {
-			if (ii == 0) {
-				distArc = -1;
-				if (level1 >= 0) {
-					delayFactor = eval_factorDelayedAlongPath(level1, timeInt);
-					if (level2 >= 0)
-						distArc = model.network.physicalLev[level1 + 1].distanceFromStartPosMid - model.network.physicalLev[level1].distanceFromStartPosMid;
-					else {
-						x1 = model.network.physicalLev[level1].point_x[pointNr1];
-						y1 = model.network.physicalLev[level1].point_y[pointNr1];
-						x2 = model.network.channel[-level2 - 1].point_x[pointNr2];
-						y2 = model.network.channel[-level2 - 1].point_y[pointNr2];
-					}
-				}
-				else {
-					delayFactor = eval_factorDelayedAlongArc(level1, 1, level2, pointNr2, timeInt);
-					if (level2 < 0)
-						distArc = model.network.channel[-level1 - 1].distance_km;
-					else {
-						x1 = model.network.channel[-level1 - 1].point_x[model.network.channel[-level1 - 1].nPoints - 1];
-						y1 = model.network.channel[-level1 - 1].point_y[model.network.channel[-level1 - 1].nPoints - 1];
-						x2 = model.network.physicalLev[level2].point_x[pointNr2];
-						y2 = model.network.physicalLev[level2].point_y[pointNr2];
-					}
-				}
-				if (distArc < 0) {
-					distArc = estimateLargeCircleDistance_km(y1, x1, y2, x2);
-				}
-			}
-			tid = calcDelayedArcTimeCost(level1, level2, ii, calmWaterSpeed, -1, delayFactor, distArc);
-			//timeExact = evalEndTimeDelayAlongArc(timeExact, i, -cNr - 1);
-		}
-		costNu = evalCostArc(tid - timeStart, fuelQualityKvot);
-		if (costNu < bastCost) {
-			bastCost = costNu;
-			bastEndTid = timeStart + tid;
-		}
-	}
-
-	return bastEndTid;
-}
-
-int gen_midTimeArrive_old() {
+int gen_midTimeArrive() {
 	int i, pointNr1, iNext, cNr, i1, pointNr2, pointLast, arcOK, startPos;
 	double timeExact = 0, calmWaterSpeed, kvotFix, timeStart, totDist, deltaTid;
 	double channelSpeed;
@@ -17266,7 +17012,7 @@ int gen_midTimeArrive_old() {
 
 		if (model.network.physicalLev[i].requirePrefPathFeasible == 1 || model.network.physicalLev[i + 1].requirePrefPathFeasible == 1) {
 			// next level can be done through a corridor instead, so try to use it
-			if (model.network.physicalLev[i].requirePrefPathFeasible == 1)
+			if(model.network.physicalLev[i].requirePrefPathFeasible == 1)
 				cNr = findChannelToUse(i, &iNext);
 			else
 				cNr = findChannelToUse(i + 1, &iNext);
@@ -17377,45 +17123,29 @@ int gen_midTimeArrive_old() {
 	mktime(&tmBas);
 	fixReadableDate(tmBas, endTime);
 
-	double tidNu, tidPrev, varierbarTid, minKvot, maxKvot;
+	double tidNu, tidPrev;
 	//for (i = 0; i < model.network.nPhysicalLevels; i++) {
 	//	errlog("midTimeArrive %d %lf\n", i, model.network.physicalLev[i].midTimeArrive);
 	//}
-	errlog("OLD! preferred path and speed gives ending time %.2lf: end date/time %s\n",
+	errlog("preferred path and speed gives ending time %.2lf: end date/time %s\n",
 		timeExact, endTime);
 	if (model.params.eta_h > 0) {
 
-		varierbarTid = (timeExact - timeFixedChannel);
-		if (varierbarTid < 0.1)
-			varierbarTid = 0.1;
-		kvotFix = (model.params.eta_h - timeFixedChannel) / varierbarTid;
+		kvotFix = (model.params.eta_h - timeFixedChannel) / (timeExact - timeFixedChannel);
 		errlog("wanted ending time from eta: %.2lf kvotFix %.4lf timeFixedChannel %.3lf\n", model.params.eta_h, kvotFix, timeFixedChannel);
 		if (kvotFix > 1) {
-			maxKvot = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin;
-			if (kvotFix > maxKvot) {
+			if (kvotFix > model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin) {
 				errlog("ERROR! cannot decrease the speed enough to get there at eta, only allow slowest speed, giving a factor of %.4lf but we need to get up to %.4lf\n",
-					maxKvot, kvotFix);
-				kvotFix = maxKvot;
-				model.params.etaFocus_speed = -1;
+					model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin, kvotFix);
+				kvotFix = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMin;
 			}
-			else {
-				if (kvotFix > maxKvot - 0.05)
-					model.params.etaFocus_speed = -1;
-			}
-		}
-		else {
-			minKvot = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax;
-			if (kvotFix < minKvot) {
+		}else{
+			if (kvotFix < model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax) {
 				errlog("ERROR! cannot increase the speed enough to get there at eta, only allow highest speed, giving a factor of %.4lf but we need to get down to %.4lf\n",
-					minKvot, kvotFix);
-				kvotFix = minKvot;
-				model.params.etaFocus_speed = 1;
+					model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax, kvotFix);
+				kvotFix = model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax;
 			}
-			else {
-				if (kvotFix < minKvot + 0.05)
-					model.params.etaFocus_speed = 1;
-			}
-			if (kvotFix < minKvot + 0.05)
+			if (kvotFix < model.params.preferredSpeed_calmWater / model.params.calmWaterSpeedMax + 0.1)
 				model.params.eta_naraMaxSpeed = 1;
 		}
 
@@ -17438,189 +17168,15 @@ int gen_midTimeArrive_old() {
 		}
 		model.network.physicalLev[i - 1].midTimeArrive = tidPrev;
 		// model.network.physicalLev[i].midTimeArrive *= kvotFix;
-		tmBas.tm_min += (model.network.physicalLev[i - 1].midTimeArrive - timeExact) * 60.0;
+		tmBas.tm_min += (model.network.physicalLev[i-1].midTimeArrive - timeExact) * 60.0;
 		mktime(&tmBas);
 		fixReadableDate(tmBas, endTime);
 		//for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		//	errlog("midTimeArrive_eta %d %lf\n", i, model.network.physicalLev[i].midTimeArrive);
 		//}
 		errlog("using eta gives ending time %.2lf: end date/time %s\n",
-			model.network.physicalLev[i - 1].midTimeArrive, endTime);
+			model.network.physicalLev[i-1].midTimeArrive, endTime);
 	}
-	free(endTime);
-	free(timeFromPreviousLevelThroughChannelFixed);
-
-
-	return 0;
-}
-
-
-
-int gen_midTimeArrive() {
-	int i, pointNr1, iNext, cNr, i1, pointNr2, pointLast, arcOK, startPos;
-	double timeExact = 0, kvotFix, timeStart, totDist, deltaTid;
-	double channelSpeed;
-	double timeExactTmp;
-
-	errlog("\nOBS! Calculating estimate time for the trip by following preferred path at preferred speed.\n");
-	model.params.eta_naraMaxSpeed = 0;
-
-	model.network.physicalLev[0].midTimeArrive = timeExact;
-
-	//model.params.preferredPathUseChannelSpeed = (double*)malloc2(model.network.nPhysicalLevels * sizeof(double));
-	//model.params.preferredPathUseChannelConsumption = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
-	//for (i = 0; i < model.network.nPhysicalLevels; i++) {
-	//	model.params.preferredPathUseChannelSpeed[i] = -1;
-	//	model.params.preferredPathUseChannelConsumption[i] = -1;
-	//}
-
-	double* timeFromPreviousLevelThroughChannelFixed;
-
-	timeFromPreviousLevelThroughChannelFixed = (double*)malloc2(model.network.nPhysicalLevels * sizeof(double));
-	for (i = 0; i < model.network.nPhysicalLevels; i++)
-		timeFromPreviousLevelThroughChannelFixed[i] = -1;
-
-	double timeFixedChannel = 0;
-	//printf("nPhysical levels %d\n", model.network.nPhysicalLevels);
-	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
-		pointNr1 = model.params.preferredPathOrtoPos[i];
-		if (pointNr1 < 0)
-			pointNr1 = (int)(model.network.physicalLev[i].nPoints / 2);
-		//printf("lev %d pointPos %d lon/lat %.3lf %.3lf reqPrefPathFeasible %d\n", i , pointNr1, 
-		//	model.network.physicalLev[i].point[pointNr1].longitude().degrees(),
-		//	model.network.physicalLev[i].point[pointNr1].latitude().degrees(),
-		//	model.network.physicalLev[i].requirePrefPathFeasible);
-
-
-		if (model.network.physicalLev[i].requirePrefPathFeasible == 1 || model.network.physicalLev[i + 1].requirePrefPathFeasible == 1) {
-			// next level can be done through a corridor instead, so try to use it
-			if(model.network.physicalLev[i].requirePrefPathFeasible == 1)
-				cNr = findChannelToUse(i, &iNext);
-			else
-				cNr = findChannelToUse(i + 1, &iNext);
-			if (cNr >= 0) {
-				timeStart = timeExact;
-				if (timeStart < model.network.tidp_startHistoricDataOnly) {
-					calcWeatherPosAlongArc(model.network.physicalLev[i].point[pointNr1], model.network.channel[cNr].point[0]);
-					// timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-					timeExact = calcEndTime_withLowestCostSpeedAlongArc(i, pointNr1, -cNr - 1, 0, timeExact);
-				}
-				else {
-					calcWeatherPosAlongArc(model.network.physicalLev[i].point[pointNr1], model.network.channel[cNr].point[0]);
-					//timeExactTmp = evalWeatherDataAlongArc(-1, 0, timeExact);
-					//timeExact = evalEndTimeDelayAlongArc(timeExact, i, -cNr - 1);
-					timeExact = calcEndTime_withLowestCostSpeedAlongArc(i, pointNr1, -cNr - 1, 0, timeExact);
-				}
-				//printf("timeExact to get onto corridor %.3lf\n", timeExact);
-				calcWeatherPosAlongChannel(cNr);
-
-				//timeExact = evalWeatherDataAlongArc(-cNr - 2, 0, timeExact);
-				timeExact = calcEndTime_withLowestCostSpeedAlongArc(-cNr - 1, 0, -cNr - 1, model.network.channel[cNr].nPoints - 1, timeExact);
-				//printf("timeExact after corridor %.3lf arc from xy %.3lf %.3lf to xy %.3lf %.3lf\n", timeExact,
-				//	model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].longitude().degrees(),
-				//	model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1].latitude().degrees(),
-				//	model.network.physicalLev[iNext].point[pointNr1].longitude().degrees(), model.network.physicalLev[iNext].point[pointNr1].latitude().degrees());
-
-				if (timeStart < model.network.tidp_startHistoricDataOnly) {
-					pointNr1 = model.params.preferredPathOrtoPos[iNext];
-					if (pointNr1 < 0)
-						pointNr1 = -pointNr1 - 1;
-					calcWeatherPosAlongArc(model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1],
-						model.network.physicalLev[iNext].point[pointNr1]);
-					// timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-					timeExact = calcEndTime_withLowestCostSpeedAlongArc(-cNr - 1, model.network.channel[cNr].nPoints - 1, iNext, pointNr1, timeExact);
-				}
-				else {
-					pointNr1 = model.params.preferredPathOrtoPos[iNext];
-					if (pointNr1 < 0)
-						pointNr1 = -pointNr1 - 1;
-					calcWeatherPosAlongArc(model.network.channel[cNr].point[model.network.channel[cNr].nPoints - 1],
-						model.network.physicalLev[iNext].point[pointNr1]);
-					//timeExactTmp = evalWeatherDataAlongArc(-1, 0, timeExact);
-					//timeExact = evalEndTimeDelayAlongArc(timeExact, -cNr - 1, iNext);
-					timeExact = calcEndTime_withLowestCostSpeedAlongArc(-cNr - 1, model.network.channel[cNr].nPoints - 1, iNext, pointNr1, timeExact);
-
-				}
-
-				deltaTid = timeExact - timeStart;
-				totDist = model.network.physicalLev[iNext].distanceFromStartPosMid - model.network.physicalLev[i].distanceFromStartPosMid;
-				channelSpeed = model.network.channel[cNr].distance_km / model.network.channel[cNr].timeThroughChannel;
-				//printf("using corridor from level %d to level %d, distance %.2lf time %.2lf. Speed %.2lf from corrDist %.2lf time %.2lf. I split the time over the levels depending on their length\n",
-				//	i, iNext, totDist, deltaTid, channelSpeed, model.network.channel[cNr].distance_km, model.network.channel[cNr].timeThroughChannel);
-				// splitta ut tiden map avstand fran i - 1 to iNext - 1
-				for (i1 = i + 1; i1 <= iNext; i1++) {
-					model.network.physicalLev[i1].midTimeArrive = timeStart + deltaTid *
-						(model.network.physicalLev[i1].distanceFromStartPosMid - model.network.physicalLev[i].distanceFromStartPosMid) / totDist;
-					if (model.network.channel[cNr].timeThroughChannel >= 0) {
-						timeFromPreviousLevelThroughChannelFixed[i1] =
-							model.network.physicalLev[i1].midTimeArrive - model.network.physicalLev[i1 - 1].midTimeArrive;
-						timeFixedChannel += timeFromPreviousLevelThroughChannelFixed[i1];
-						//printf("level i1 %d timeFixedChannel %.2lf\n", i1, timeFixedChannel);
-					}
-					//printf("i1 %d seting time to %.2lf\n", i1, model.network.physicalLev[i1].midTimeArrive);
-				}
-				//errlog("midTimeArrive i %d timeExact %.3lf channelSpeed %.3lf\n", i, timeExact, channelSpeed);
-
-				if (model.network.physicalLev[i].requirePrefPathFeasible == 0)
-					startPos = i + 1;
-				else
-					startPos = i;
-
-
-				i = iNext;
-			}
-		}
-
-		if (i < model.network.nPhysicalLevels - 1) {
-			pointNr2 = model.params.preferredPathOrtoPos[i + 1];
-			if (pointNr2 < 0)
-				pointNr2 = (int)(model.network.physicalLev[i + 1].nPoints / 2);
-			if (timeExact < model.network.tidp_startHistoricDataOnly) {
-				calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[i].point[pointNr1], i);
-				//timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
-				timeExact = calcEndTime_withLowestCostSpeedAlongArc(i, pointNr1, i + 1, pointNr2, timeExact);
-			}
-			else {
-				calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[i].point[pointNr1], i);
-				//timeExactTmp = evalWeatherDataAlongArc(-1, 0, timeExact);
-				// timeExact = evalEndTimeDelayAlongArc(timeExact, i, i + 1);
-				timeExact = calcEndTime_withLowestCostSpeedAlongArc(i, pointNr1, i + 1, pointNr2, timeExact);
-			}
-
-			//errlog("midTimeArrive i %d timeExact %.3lf\n", i, timeExact);
-
-			model.network.physicalLev[i + 1].midTimeArrive = timeExact;
-			//printf("level %d midTimeArrive %.2lf\n", i + 1, model.network.physicalLev[i + 1].midTimeArrive);
-			//printf("test i %d\n");
-		}
-	}
-	//printf("test2\n");
-	// model.network.physicalLev[i].midTimeArrive = timeExact;
-
-
-	struct tm tmBas;
-	time_t rawtime;
-	time(&rawtime);
-	char* endTime;
-	endTime = (char*)malloc2(256 * sizeof(char));
-	tmBas = *localtime(&rawtime);
-	tmBas.tm_year = model.params.startYear - 1900;
-	tmBas.tm_mon = model.params.startMonth_nr - 1; // sep
-	tmBas.tm_mday = model.params.startDay_nr;
-	tmBas.tm_hour = model.params.startHour; // 0;
-	tmBas.tm_min = model.params.startMinute;
-	tmBas.tm_sec = 0;
-	endTime = (char*)malloc2(256 * sizeof(char));
-	tmBas.tm_min += timeExact * 60.0;
-	mktime(&tmBas);
-	fixReadableDate(tmBas, endTime);
-
-	double tidNu, tidPrev;
-	//for (i = 0; i < model.network.nPhysicalLevels; i++) {
-	//	errlog("midTimeArrive %d %lf\n", i, model.network.physicalLev[i].midTimeArrive);
-	//}
-	errlog("preferred path and speed gives ending time %.2lf: end date/time %s\n",
-		timeExact, endTime);
 	free(endTime);
 	free(timeFromPreviousLevelThroughChannelFixed);
 
@@ -17719,12 +17275,8 @@ int createTimeArcs(int runAlt)
 			loadWeatherFiles_grib();
 
 		//gen_infoWeatherAroundStorms();
-		if (model.params.eta_h > 0)
-			gen_midTimeArrive_old();
-		else {
-			gen_midTimeArrive_old();
-			gen_midTimeArrive();
-		}
+		gen_midTimeArrive();
+
 	}
 	else {
 		for (i = 0; i < model.network.nPhysicalLevels; i++) {
@@ -18404,7 +17956,6 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	model.params.indataPath = splitFilename(inputPath);
 	model.params.errorCode = 0;
 	model.params.hindCast = 0;
-	model.params.etaFocus_speed = 0;
 
 	//model.params.resultPath = resultPath;
 
