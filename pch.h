@@ -109,6 +109,9 @@ struct strVisuell {
 struct strParams
 {
 	int etaFocus_speed;
+	int nSpeedSettingDivideIter1;
+	int nTidsperioder_perH_iter1;
+	int tidp_startHistoricDataOnly_iter1;
 
 	int hindCast;
 	int nHindCastMonths;
@@ -153,6 +156,7 @@ struct strParams
 	std::string mapFuelGeographyAFileName;
 	std::string mapFuelGeographyBFileName;
 	std::string mapTimeDelayName;
+	std::string map_currentDelayName[2];
 	int nTimeDelayAngles;
 
 	//std::string mapFuelGeographyFileName;
@@ -279,7 +283,7 @@ struct strOptPathLevel
 {
 	double timeArrive;
 	int pointNr;
-	int speedSettingNr;
+	int baseSpeedSettingNr;
 	int levelNext;
 };
 
@@ -341,6 +345,11 @@ struct strArcInfo
 };
 
 struct strChannel {
+	int straightArcFeasible_toChannelFromPrefPath;
+	int preferredPathPoint_posConnectTo;
+	int straightArcFeasible_fromChannelToPrefPath;
+	int preferredPathPoint_posConnectFrom;
+
 	double extraCostChannel;
 	double timeThroughChannel; // if -1 then optimized
 	double waitingTime;
@@ -348,10 +357,12 @@ struct strChannel {
 	double totalConsumption;
 	double arrivalTime_h;
 	int intArrivalTime_h;
-	int intWaitingTime;
+	//int intWaitingTime;
 	char* ID;
 
 	int ECA_type;
+	double waiting_consumption_main;
+	double waiting_consumption_aux;
 
 	int earliestStartLevel;
 	int latestEndLevel;
@@ -363,6 +374,9 @@ struct strChannel {
 
 	double factorDelayedPrefPathDuring;
 	double factorDelayedPrefPathAfter;
+
+	int midTimeArrive;
+	int midTimeFinish;
 
 	int nPoints;
 	spherical::Point* point;
@@ -378,6 +392,7 @@ struct strChannel {
 	int** nodNr_from_pt;
 	double* distanceFromStart;
 
+	int nodDelay[2];
 	//double* polygon_x[2];
 	//double* polygon_y[2];
 	//strBoundBox polygon_boundingBox[2];
@@ -425,6 +440,8 @@ struct strNodeSeq
 	int npreferredPathPoints;
 	double midTimeArrive;
 	int restrictedLevel;
+
+	int* nodDelay;
 };
 
 struct strNetwork
@@ -654,7 +671,28 @@ struct strValuesNow {
 	double totCurrentF;
 	double totDelayF;
 
+	double sumWindSpeed;
+	double sumRelCurrent;
+	double sumCurrent;
+	double sumWaveHight;
+	double maxWindSpeed;
+	double maxCurrent;
+	double maxWaveHight;
+	double sumSpeedOnWater;
+	double speedOnWater;
+
 	int prefPathArc;
+
+	double totDistance_movingNoCorridors;
+	double totTime_movingNoCorridors;
+	double totFuel_mainMovingNoCorridors;
+
+	double totTimeArcSTW;
+	double WindFArc;
+	double WaveFArc;
+	double CurrentFArc;
+	double DelayFArc;
+
 };
 
 struct strTables {
@@ -691,6 +729,7 @@ struct strFunc2 {
 	double* varValueAverage;
 
 	std::string windTableID;
+	std::string waveTableID_orig;
 	std::string waveTableID;
 	std::string stabilityTableID;
 	int windTableNr;
@@ -924,11 +963,33 @@ struct strDelay {
 	strStorm** stormsYear;
 
 	int* tidpHistorical_ger_delayMapNr;
+
+	int nXinterval;
+	int nYinterval;
+
+	int* changedSpeed;
 };
 
+struct strDelayToEnd {
+	double time;
+	double distance;
+	double fuel_main_noEca;
+	double fuel_main_eca;
+	double fuel_aux_noEca;
+	double fuel_aux_eca;
+
+	int nBVArcs;
+	int* BVArc;
+};
 
 struct strModel
 {
+	double scaledDelay;
+
+	FILE* filpek;
+	strDelayToEnd** delayRouteToEnd;
+	strDelayToEnd** delayRouteToEnd_channel;
+
 	int nErrorCoordBB;
 
 	strVisuell timeVisual;
@@ -955,6 +1016,7 @@ struct strModel
 	double inv_nWeatherFiles;
 	strWeather *weather;
 	strWeather *delayedGrid;
+	strWeather* delayedCurrent[2];
 
 	int nStorms;
 	strStorm* storms;
@@ -1153,6 +1215,16 @@ double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2);
 std::string stringDateFromUTCSeconds(long long seconds);
 double get_colDblFromWeatherFile(int weatherNr, double lon);
 
+int solve_SP_delay();
+int testAnrop(strModel* modelDelay, int nod2);
+double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int delayNr, double bearing, double lat, double lon, double calmWaterSpeed = -1.0);
+double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, double calmWaterSpeed = -1.0, double fuelFactorMain = -1.0);
+int checkWeatherCoverOK(int xPos, int yPos);
+int getClosestSetting_fromBase(int baseSetting, int fromLevel, int toLevel);
+int determineBastSpeedDelay_routeToEnd_eta(strDelayToEnd* routeToEnd, double startTidp);
+int calcWeatherPosAlongpreferredPathArc_connectChannel(spherical::Point p1, int level1, spherical::Point p2, int level2);
+double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nextLevel, int pos2, int tidp, double* speedDiffCurrent, double calmWaterSpeed = -1.0);
+int getBaseSpeedSetting(int speedSetting, int lev1, int lev2);
 
 
 

@@ -155,10 +155,10 @@ public:
 		min_lon = geotransform[0];
 		max_lon = geotransform[0] + geotransform[1] * NCOLS;
 		size_row = -geotransform[5];
-		if (size_row > 0)
-			errlog("size_row is positive for raster\n");
-		else
-			errlog("ERROR! size_row is negative for raster, ie a new definition of the size. Fix the raster or change the code!!!\n");
+		//if (size_row > 0)
+		//	errlog("size_row is positive for raster\n");
+		//else
+		//	errlog("ERROR! size_row is negative for raster, ie a new definition of the size. Fix the raster or change the code!!!\n");
 		size_col = geotransform[1];
 		//printf("opend raster min/max lon %.2lf %.2lf\n", min_lon, max_lon);
 		return 1;
@@ -1545,7 +1545,7 @@ public:
 	}
 
 
-	void GetRasterValues_realAllBands(strWeather* weatherData, int zPosBas) {
+	void GetRasterValues_realAllBands(strWeather* weatherData, int zPosBas, double filKvot) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, zNu;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
@@ -1769,8 +1769,8 @@ public:
 							if (pos < 0 || pos >= nAlloc3 || pos2 < 0 || pos2 >= pnXSize * pnYSize)
 								printf("ERROR!\n");
 							if (iY < nYValid && iX < nXValid) {
-								if (pabyData[iX + iY * pnXSize] < 9998)
-									weatherData->valueCell[zNu][pos] = pabyData[pos2];
+								if (pabyData[pos2] < 9998)
+									weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 							else
 								weatherData->valueCell[zNu][pos] = 0;
@@ -1782,17 +1782,18 @@ public:
 								pos = iX + xPosNu2 + weatherData->nCols * (iY + yPosNu);
 								if (pos < 0 || pos >= nAlloc3 || pos2 < 0 || pos2 >= pnXSize * pnYSize)
 									printf("ERROR!\n");
-								weatherData->valueCell[zNu][pos] = pabyData[pos2];
+								weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 						}
 					}
+
 				}
 			}
 
 		}
 	}
 
-	void GetRasterValues_realAllBands_fixBandNr(strWeather* weatherData, int zPosBas, int nMaxBands) {
+	void GetRasterValues_realAllBands_fixBandNr(strWeather* weatherData, int zPosBas, int nMaxBands, double filKvot) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, zNu;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
@@ -2019,7 +2020,7 @@ public:
 							}
 							if (iY < nYValid && iX < nXValid) {
 								if (pabyData[iX + iY * pnXSize] < 9998)
-									weatherData->valueCell[zNu][pos] = pabyData[pos2];
+									weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 							else
 								weatherData->valueCell[zNu][pos] = 0;
@@ -2035,7 +2036,7 @@ public:
 									errlog("ERROR! pos %d nAlloc3 %d pos2 %d pnXSize %d, pnYSize %d xx %d\n",
 										pos, nAlloc3, pos2, pnXSize, pnYSize, pnXSize * pnYSize);
 								}
-								weatherData->valueCell[zNu][pos] = pabyData[pos2];
+								weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 						}
 					}
@@ -2045,7 +2046,7 @@ public:
 		}
 	}
 
-	void GetRasterValues_realHindCastBands(strWeather* weatherData, int bandPosStart, int bandPosEnd, int posStartSave) {
+	void GetRasterValues_realHindCastBands(strWeather* weatherData, int bandPosStart, int bandPosEnd, int posStartSave, double filKvot) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, zNu;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
@@ -2288,7 +2289,7 @@ public:
 									errlog("ERROR! pos %d nAlloc3 %d pos2 %d pnXSize %d, pnYSize %d xx %d\n",
 										pos, nAlloc3, pos2, pnXSize, pnYSize, pnXSize * pnYSize);
 								}
-								weatherData->valueCell[zNu][pos] = pabyData[pos2];
+								weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 						}
 					}

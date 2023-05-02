@@ -1,6 +1,7 @@
 #include "pch.h"
 
 long long MAXVARDE_NATVERK = 10000000000000000; // 100000000000;
+int skrivUtWarning = 0;
 
 int SattUppDijkstraNatverk3(strModel* model) {
 	//	int NodNr, antal;
@@ -13,6 +14,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	Arc2* arc_current = NULL;
 	Arc2* arc_new;
 	SP* sp = NULL;
+	model->filpek = NULL;
 
 	long    node_min = 0,               /* minimal no of node  */
 		node_max = 0,               /* maximal no of nodes */
@@ -35,9 +37,9 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	//}
 	//fclose(pek);
 
-	n = model->nNoder;
+	n = model->nNoder; 
 	m = model->nArcs; //  model->nArcsOK;
-
+	errlog("Dijkstra network, nNodes %d, nArcs %d\n", n, m);
 	double maxCost = 0, minCost = 1e10;
 	for (i = 0; i < m; i++) {
 		if (model->arc[i].totCost > maxCost)
@@ -45,11 +47,16 @@ int SattUppDijkstraNatverk3(strModel* model) {
 		if (model->arc[i].totCost < minCost)
 			minCost = model->arc[i].totCost;
 	}
-	if (maxCost > 0)
+	if (maxCost > 0) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
+		//if (model->Dijkstra.FAKTOR_NATVERK > 1e10)
+			model->Dijkstra.FAKTOR_NATVERK = 1000;
+	}
+
 	//errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
 	//	maxCost, model->Dijkstra.FAKTOR_NATVERK, minCost);
-	errlog("nNodes %d, nArcs %d\n", n, m);
+	if(skrivUtWarning == 1)
+		errlog("nNodes %d, nArcs %d\n", n, m);
 
 	if (model->Dijkstra.nodes != NULL) {
 		delete model->Dijkstra.sp;
@@ -86,10 +93,12 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	node_max = 0;
 	node_min = n;
 
-	//pek = fopen("checkDijkst4.txt", "w");
+	//FILE* pek = fopen("checkDijkst4.txt", "w");
 	//for (int i = 0; i < model->nNoder; i++) {
 	//	for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
-	//		fprintf(pek, "i %d i1 %d head %d\n", i, i1, model->Noder[i].UtNod[i1]);
+	//		fprintf(pek, "i %d i1 %d head %d arcNr %d levels %d %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1], 
+	//			model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel, 
+	//			model->arc[model->Noder[i].outArcNr[i1]].toLevel, model->Noder[i].UtNodCost[i1]);
 	//	}
 	//}
 	//fclose(pek);
@@ -112,7 +121,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				tail = i;
 				head = model->Noder[i].UtNod[i1];
 				//fprintf(pek, "i1 %d head %d\n", i1, head);
-				if (tail >= 2242413 || head >= 2242413)
+				if (tail >= n || head >= n)
 					i = i;
 				length = (long long)(model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK);
 
@@ -151,7 +160,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				if (tail < node_min) node_min = tail;
 				if (head > node_max) node_max = head;
 				if (tail > node_max) node_max = tail;
-				if (node_max > 31680)
+				if (node_max > 4000)
 					node_max = node_max;
 				nBagarNatv++;
 				arc_current++;
@@ -275,12 +284,14 @@ int SattUppDijkstraNatverk3(strModel* model) {
 
 	// sanity check
 	dist = (double)model->Dijkstra.maxArcLen * (double)(model->Dijkstra.nNoder - 1);
-	if (dist > VERY_FAR) {
-		fprintf(stderr, "Warning: distances may overflow\n");
-		fprintf(stderr, "         proceed at your own risk!\n");
-		fprintf(stderr, "         maxArcLen %I64d nNoder %d ger %.10e och veryFar ar %I64d\n",
-			model->Dijkstra.maxArcLen, model->Dijkstra.nNoder, dist,
-			VERY_FAR);
+	if (skrivUtWarning == 1) {
+		if (dist > VERY_FAR) {
+			fprintf(stderr, "Warning: distances may overflow\n");
+			fprintf(stderr, "         proceed at your own risk!\n");
+			fprintf(stderr, "         maxArcLen %I64d nNoder %d ger %.10e och veryFar ar %I64d\n",
+				model->Dijkstra.maxArcLen, model->Dijkstra.nNoder, dist,
+				VERY_FAR);
+		}
 	}
 
 	/* free internal memory */
@@ -335,12 +346,14 @@ int ChangeArcCosts3(strModel* model) {
 
 	// sanity check
 	dist = (double)model->Dijkstra.maxArcLen * (double)(model->Dijkstra.nNoder - 1);
-	if (dist > VERY_FAR) {
-		fprintf(stderr, "Warning: distances may overflow\n");
-		fprintf(stderr, "         proceed at your own risk!\n");
-		fprintf(stderr, "         maxArcLen %I64d nNoder %d ger %.10e och veryFar ar %I64d\n",
-			model->Dijkstra.maxArcLen, model->Dijkstra.nNoder, dist,
-			VERY_FAR);
+	if (skrivUtWarning == 1){
+		if (dist > VERY_FAR) {
+			fprintf(stderr, "Warning: distances may overflow\n");
+			fprintf(stderr, "         proceed at your own risk!\n");
+			fprintf(stderr, "         maxArcLen %I64d nNoder %d ger %.10e och veryFar ar %I64d\n",
+				model->Dijkstra.maxArcLen, model->Dijkstra.nNoder, dist,
+				VERY_FAR);
+		}
 	}
 
 	/*
@@ -387,11 +400,11 @@ int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached) {
 			currentNode++)
 			currentNode->tStamp = 0;
 
-		*Reached = model->Dijkstra.sp->sp(source, sink, &OptCost); //, maxCost);
+		*Reached = model->Dijkstra.sp->sp(*model, source, sink, &OptCost); //, maxCost);
 		model->Dijkstra.OptCost = (long long)(OptCost / model->Dijkstra.FAKTOR_NATVERK);
 	}
 	else
-		*Reached = model->Dijkstra.sp->sp(source, source, &OptCost); //, maxCost);
+		*Reached = model->Dijkstra.sp->sp(*model, source, source, &OptCost); //, maxCost);
 
 	return 0;
 }
@@ -410,6 +423,10 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	sink = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodB0;
 
+	if (sink->dist > VERY_FAR / 1.1) {
+		model->nBVArcs = 0;
+		return (double)(source->dist);
+	}
 	
 	for (newNode = sink; newNode != source; newNode = newNode->parent) {
 		// NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
@@ -421,6 +438,9 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 		if (nNoder >= model->nNoder)
 			errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
 		model->BVtempNodOrder[nNoder] = NodNu - 1;
+		if(model->filpek != NULL)
+			fprintf(model->filpek, "pos %d nodNr %d costDijkstra %I64d\n", nNoder, model->BVtempNodOrder[nNoder],
+				newNode->dist);
 		//errlog("(pos %d )n%d(p%d): c %.2lf\n", nNoder, NodNu-1, nNoder, newNode->dist / model->Dijkstra.FAKTOR_NATVERK);
 		nNoder++;
 
@@ -435,6 +455,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 		for (i = 0; i < nNoder; i++) {
 			nod1 = model->BVtempNodOrder[nNoder - i];
 			nod2 = model->BVtempNodOrder[nNoder - i - 1];
+			//checkMinnesAnvandning(__LINE__);
 			for (i1 = 0; i1 < model->Noder[nod1].nUtNoder; i1++) {
 				if (model->Noder[nod1].UtNod[i1] == nod2)
 					break;
@@ -447,6 +468,9 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 				//	nod1, nod2);
 				dist += model->arc[model->BVArc[i]].distance;
 				TotCost += model->arc[model->BVArc[i]].totCost;
+				if (model->filpek != NULL)
+					fprintf(model->filpek, "pos %d arcNr %d costDijkstra %.3lf totCost %.3lf\n", i, model->BVArc[i],
+						TotCost);
 				//errlog("pos %d arcNr %d dist %.2lf totDist %.2lf cost %.2lf totCost %I64d\n", i, model->BVArc[i], 
 				//	model->arc[model->BVArc[i]].distance, dist,
 				//	model->arc[model->BVArc[i]].totCost, TotCost);
@@ -462,7 +486,8 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	else {
 		*Cost = 9999999;
 	}
-	
+	//checkMinnesAnvandning(__LINE__);
+
 	//int pos = 0;
 	//for (newNode = source; ; newNode++) {
 	//	NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min - 1;
@@ -477,4 +502,52 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	return dist;
 }
 
+
+int testAnrop(strModel* model, int nod1) {
+	int nod2, nReached = 0;
+	Node* source, * sink;
+	bool Reached;
+
+	//nod1 = model->nNoder - 1;
+	//nod2 = model->nNoder - 1;
+	nod1 = 0;
+	nod2 = 0;
+	AnropDijkstra2(nod1, nod2, model, &Reached);
+	source = model->Dijkstra.nodes -
+		model->Dijkstra.node_min + nod1;
+
+	for (int i = 0; i < model->nNoder; i++) {
+		sink = model->Dijkstra.nodes -
+			model->Dijkstra.node_min + i;
+		if (sink->dist < VERY_FAR)
+			nReached++;
+	}
+
+	nod1 = model->nNoder - 1;
+	nod2 = model->nNoder - 1;
+	AnropDijkstra2(nod1, nod2, model, &Reached);
+	source = model->Dijkstra.nodes -
+		model->Dijkstra.node_min + nod1;
+
+	for (int i = 0; i < model->nNoder; i++) {
+		sink = model->Dijkstra.nodes -
+			model->Dijkstra.node_min + i;
+		if (sink->dist < VERY_FAR)
+			nReached++;
+	}
+
+
+
+	nod1 = (int)(model->nNoder / 2);
+	AnropDijkstra2(nod1, nod2, model, &Reached);
+	source = model->Dijkstra.nodes -
+		model->Dijkstra.node_min + nod1;
+
+	nod1 = model->nNoder - 2;
+	AnropDijkstra2(nod1, nod2, model, &Reached);
+	source = model->Dijkstra.nodes -
+		model->Dijkstra.node_min + nod1;
+
+	return 0;
+}
 

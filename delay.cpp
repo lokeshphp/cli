@@ -9,8 +9,11 @@ extern double atan_table[20001];
 extern double LOOKUP_COS_STEP_INV;
 extern strModel model; 
 extern std::string resultPath;
+extern int SKRIV_UT_NOTHING;
+
 
 using json = nlohmann::json;
+int skrivMycket = 0;
 
 int getDirection(double y1, double x1, double y2, double x2) {
 	double xDiff = x2 - x1;
@@ -115,9 +118,13 @@ int loadNodeAndNeighbours_delayedFactors() {
 */
 
 int loadGroups_delayedFactors() {
-	int nAlloc, direction, antal, groupNr, arcNr, nNu, i, nAllocGrupp;
+	int nAlloc, direction, antal, groupNr, arcNr, nNu, i, nAllocGrupp, nDir = 2, startDir = 0;
 	double x1, y1, x2, y2, distTmp;
 
+	if (nDir == 1)
+		errlog("ERROR! Only using 1 direction for delay paths, for testing. CHANGE!!!!\n");
+	if (startDir == 1)
+		errlog("ERROR! Only using 1 direction for delay paths, the opposite!!!, for testing. CHANGE!!!!\n");
 	// model.delay.nYears = 4;
 	model.delay.year = (int*)malloc2(model.delay.nYears * sizeof(int));
 	for (int i = 0; i < model.delay.nYears; i++)
@@ -152,7 +159,7 @@ int loadGroups_delayedFactors() {
 		}
 		if (groupNr == 43)
 			pos = pos;
-		for (int i1 = 0; i1 < 2; i1++) {
+		for (int i1 = startDir; i1 < nDir; i1++) {
 			nNu = model.delay.nGroupArcs[pos];
 			if (nNu >= nAllocGrupp) {
 				nAllocGrupp += 10;
@@ -192,6 +199,45 @@ int loadGroups_delayedFactors() {
 	model.preferredPath.point = (spherical::Point*)malloc2(nAlloc * sizeof(spherical::Point));
 	model.preferredPath.point_y = (double*)malloc2(nAlloc * sizeof(double));
 	model.preferredPath.point_x = (double*)malloc2(nAlloc * sizeof(double));
+
+	return 0;
+}
+
+int setUpBoundingBox_delayNew(int node) {
+
+	model.delay.year = (int*)malloc2(model.delay.nYears * sizeof(int));
+	for (int i = 0; i < model.delay.nYears; i++)
+		model.delay.year[i] = 2018 + i;
+
+	int nAlloc = 2;
+
+	model.preferredPath.point = (spherical::Point*)malloc2(nAlloc * sizeof(spherical::Point));
+	model.preferredPath.point_y = (double*)malloc2(nAlloc * sizeof(double));
+	model.preferredPath.point_x = (double*)malloc2(nAlloc * sizeof(double));
+
+	if (node == 10000) {
+		model.boundingBox.xMin = -30;
+		model.boundingBox.yMin = 34;
+		model.boundingBox.xMax = -26;
+		model.boundingBox.yMax = 36;
+	}
+	else {
+		int yInt = (int)(node / 2);
+		int xInt = node - yInt * 2;
+		model.boundingBox.xMin = -180 + xInt * 180;
+		model.boundingBox.yMin = -80 + yInt * 80;
+		model.boundingBox.xMax = xInt * 180;
+		model.boundingBox.yMax = yInt * 80;
+	}
+	model.delay.nXinterval = model.boundingBox.xMax - model.boundingBox.xMin;
+	model.delay.nYinterval = model.boundingBox.yMax - model.boundingBox.yMin;
+
+	model.preferredPath.minX = model.boundingBox.xMin;
+	model.preferredPath.maxX = model.boundingBox.xMax;
+	errlog("boundingBox in setUpBoundingBox node %d after groupArcs min/max %.3lf %.3lf\n", node,
+		model.boundingBox.xMin, model.boundingBox.xMax);
+
+
 
 	return 0;
 }
@@ -409,6 +455,8 @@ int setupNodesArcsNoTime_delay() {
 	}
 
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i == 19)
+			i = i;
 		for (i2 = 0; i2 < model.network.physicalLev[i].nPoints; i2++) {
 			if (model.network.physicalLev[i].allowedPoint[i2] == 0)
 				continue; // not allowed node
@@ -499,20 +547,22 @@ int loadStorms_delayed(int year) {
 			sprintf(namn, "%s/%s_%d_%d.json", model.params.indataPath.c_str(), model.delay.delayed_stormFileName, manadNu, model.delay.year[year]);
 
 		fil.open(namn);
-		fil >> data;
-
-		int nAlloc = data.size();
 		model.nStorms = 0;
-		model.storms = (strStorm*)malloc2(nAlloc * sizeof(strStorm));
+		if (fil.is_open() == TRUE) {
+			fil >> data;
 
-		for (auto it = data.begin(); it != data.end(); ++it) {
-			dataFeature = it.value();
-			loadStormObject(dataFeature);
+			int nAlloc = data.size();
+			model.nStorms = 0;
+			model.storms = (strStorm*)malloc2(nAlloc * sizeof(strStorm));
+
+			for (auto it = data.begin(); it != data.end(); ++it) {
+				dataFeature = it.value();
+				loadStormObject(dataFeature);
+			}
+
+			calc_stormsNearby_delay();
+			model.delay.stormsYear[year] = model.storms;
 		}
-
-		calc_stormsNearby_delay();
-
-		model.delay.stormsYear[year] = model.storms;
 		model.delay.nStormsYear[year] = model.nStorms;
 		free(namn);
 
@@ -535,10 +585,23 @@ int loadWeatherFiles_delayed_new(int year) {
 	long long maxTid, sekNu, nSecondsUTC;
 	int yearNu;
 
+	Raster test;
+
 	loadStorms_delayed(year);
 
-	double size_col, size_row, xPosFrac, yPosFrac;
+	double size_col, size_row, xPosFrac, yPosFrac, filKvot;
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+
+		filKvot = 1.0; // to change from m/s to km/h
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_vComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_vComponent") == 0)
+			filKvot = 3.6;
+
 		size_col = -1;
 		manad2 = 0;
 		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
@@ -683,10 +746,11 @@ int loadWeatherFiles_delayed_new(int year) {
 			if (ii == 2 && i1 == 1)
 				ii = ii;
 			if (i1 < model.weather[ii].nFiles / 2.0)
-				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), 0, nBandsAlloc);
+				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), 0, nBandsAlloc, filKvot);
 			else
-				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc);
+				model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc, filKvot);
 
+			//printf("valueCell 1111 val %.3lf\n", model.weather[ii].valueCell[0][1111]);
 			//extractGribInfo("data/gribFilesToCheck.json");
 
 
@@ -713,7 +777,7 @@ int loadWeatherFiles_delayed_new(int year) {
 	return 0;
 }
 
-int loadWeatherFiles_delayed(int year) {
+int loadWeatherFiles_delayed_notUsed(int year) {
 	int xPos0, xPos1, yPos0, yPos1, nBands, ii;
 	int nAlloc, i, returnVal;
 	char* namn = (char*)malloc2(256 * sizeof(char));
@@ -834,7 +898,7 @@ int loadWeatherFiles_delayed(int year) {
 			}
 			if (ii == 2 && i1 == 1)
 				ii = ii;
-			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0);
+			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0, 1.0);
 
 			//extractGribInfo("data/gribFilesToCheck.json");
 
@@ -869,6 +933,8 @@ int loadWeatherFiles_checkData(int year) {
 	int nMaxTimeInt = 0, tidInt, row, col;
 	long long maxTid, sekNu, nSecondsUTC;
 
+	Raster test;
+
 	model.delay.delayed_monthNr[0] = 2;
 
 	loadStorms_delayed(year);
@@ -902,6 +968,7 @@ int loadWeatherFiles_checkData(int year) {
 
 	ii = 0;
 	int pos = 0;
+	double filKvot;
 
 	FILE* filpek = fopen("checkTimeDateGribfiles.txt", "w");
 	std::string namn2;
@@ -916,6 +983,8 @@ int loadWeatherFiles_checkData(int year) {
 			continue;
 
 		printf("%s\n", namn2.c_str());
+
+		filKvot = 1.0; // to change from m/s to km/h
 
 		size_col = -1;
 		returnVal = model.weather[ii].rasterPos[i1].open(namn2.c_str());
@@ -1040,7 +1109,7 @@ int loadWeatherFiles_checkData(int year) {
 			model.weather[ii].rasterPos[i1].Get_maxLatitude(),
 			model.weather[ii].rasterPos[i1].Get_nCols(), model.weather[ii].rasterPos[i1].Get_nRows());
 
-		model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0);
+		model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0, filKvot);
 
 		rowDbl = (model.weather[ii].maxY - y1) / model.weather[ii].size_row;
 		colDbl = get_colDblFromWeatherFile(i1, x1);
@@ -1137,8 +1206,8 @@ int writeErrorMsgToFiles(int node, int year, int pos, int i1) {
 	fclose(filTmp);
 	FILE* filDelay = fopen("data/res_delay.txt", "a+");
 	double distance = model.preferredPath.point[0].distanceTo(model.preferredPath.point[1]) / 1000.0;
-	fprintf(filDelay, "%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%.4lf\t%.4lf\t%.4lf",
-		model.delay.year[year], i1 + 1,
+	fprintf(filDelay, "%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%.4lf\t%.4lf\t%.4lf",
+		node, pos, model.delay.year[year], i1 + 1,
 		model.delay.group[node][pos].direction,
 		-1, -1, distance, -1, -1,
 		2.0, 1.5, 1.5);
@@ -1166,7 +1235,6 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 {
 	int nAllocPkter, i, iPos, nPkter, nArcs, ii3, forsta;
 	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
-	int skrivMycket = 0;
 	double* x, * y, xNu, yNu;
 	struct tm tmBas;
 	FILE* filpekG;
@@ -1186,7 +1254,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	y = (double*)malloc2(nAlloc * sizeof(double));
 	nSpeedSettingUsed = (int*)calloc2(model.functions.nShip_speedSettingsBase, sizeof(int));
 
-	FILE* filPek = NULL, * filPek2 = NULL;
+	FILE* filPek = NULL, * filPek2 = NULL, * filPek3 = NULL;
 	//std::string solName;
 	//sprintf(namn, "%s.csv", filename);
 	if (skrivMycket == 1) {
@@ -1197,16 +1265,21 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 		fprintf(filPek2, "level;nodPos;speedSetting;arcNr(for_information_only);nod1(info);nod2(info)\n");
 		fprintf(filPek, "arcPos\tspeedSetting\tdistance\ttime\tfuelBase\temission\tsafetyBase\tchannelCost\tweightCost\tfromLevel\tfromPointNr\tfromTimeInterval\t"
 			"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\tnodNr1\tnodNr2\n");
+		sprintf(namn, "%s/resDetailsDelayRoutes.txt", model.params.indataPath.c_str());
+		filPek3 = fopen(namn, "a+");
 	}
 
 	std::string linePath = "";
-	sprintf(namn, "%s/res_delay.json", model.params.indataPath.c_str());
-	filpekG = fopen(namn, "a+"); 
-	if(alt >0 || startPos >= 0)
-		fprintf(filpekG, ",\n");
+	if (skrivMycket == 1) {
+		sprintf(namn, "%s/res_delay.json", model.params.indataPath.c_str());
+		filpekG = fopen(namn, "a+");
+		if (alt > 0 || startPos >= 0)
+			fprintf(filpekG, ",\n");
 
-	linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
-
+		linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
+	}
+	else
+		filpekG = NULL;
 
 	double timeNu = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0, emission = 0;
 	double fuel_aux = 0, fuel_auxEca = 0, fuel_eca = 0, fuel_noEca = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
@@ -1333,6 +1406,23 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 					model.functions.valuesNow.channelCost, model.arc[arcNr].totCost, model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
 					model.arc[arcNr].fromTime, model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr, model.arc[arcNr].toTime,
 					x1, y1, x2, y2);
+
+				if (iPos < model.nBVArcs - 2)
+					fprintf(filPek3, "%d\t%d\t%d\t%d\t%d\t%d\t%.2lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t"
+						"%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
+						node, alt, yearPos, startPos, iPos, model.arc[arcNr].speedSetting, model.arc[arcNr].distance,
+						model.arc[arcNr].time, model.arc[arcNr].fuelBase, model.arc[arcNr].emission, model.arc[arcNr].safetyBase,
+						model.functions.valuesNow.channelCost, model.arc[arcNr].totCost, model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
+						model.arc[arcNr].fromTime, model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr, model.arc[arcNr].toTime,
+						x1, y1, x2, y2, model.functions.valuesNow.currentReal, model.functions.valuesNow.currentDirReal,
+						model.functions.valuesNow.windReal, model.functions.valuesNow.windDirReal,
+						model.functions.valuesNow.current, model.functions.valuesNow.windSpeed,
+						model.functions.valuesNow.relWindDir, model.functions.valuesNow.waveHeight, model.functions.valuesNow.relWaveDir,
+						model.functions.valuesNow.wavePeriod, model.functions.valuesNow.speedDiffWind,
+						model.functions.valuesNow.speedDiffWave, model.functions.valuesNow.baseGroundSpeed,
+						model.functions.valuesNow.WindF, model.functions.valuesNow.WaveF, model.functions.valuesNow.CurrentF, model.functions.valuesNow.DelayF);
+				else
+					fprintf(filPek3, "\n\n");
 			}
 		}
 
@@ -1599,26 +1689,30 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	//if(arcNr >= 0)
 	//	addPositionDataToReport(filpekG, posIreport++, arcNr, 1, &timeExact, solName);
 
-	if (posIreport > 0)
-		fprintf(filpekG, ", ");
-	fprintf(filpekG, "%s", linePath.c_str());
+	if (skrivMycket == 1) {
+		fclose(filPek3);
+		if (posIreport > 0)
+			fprintf(filpekG, ", ");
+		fprintf(filpekG, "%s", linePath.c_str());
+	}
 	//for (ii2 = 0; ii2 < nPkter; ii2++) {
 
 	model.network.last_x = model.preferredPath.startX;
 
-	for (ii2 = 0; ii2 < model.network.nCoords; ii2++) {
-		if (ii2 > 0) {
-			fprintf(filpekG, ", ");
+	if (skrivMycket == 1) {
+		for (ii2 = 0; ii2 < model.network.nCoords; ii2++) {
+			if (ii2 > 0) {
+				fprintf(filpekG, ", ");
+			}
+			//fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", x[ii2], y[ii2]);
+
+			fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", getCorrect_longitude(model.network.xCoord[ii2]), model.network.yCoord[ii2]);
 		}
-		//fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", x[ii2], y[ii2]);
 
-		fprintf(filpekG, "[ %lf, %lf, 0.0 ]\n", getCorrect_longitude(model.network.xCoord[ii2]), model.network.yCoord[ii2]);
+		//printf("here 3c\n");
+
+		fprintf(filpekG, "\n]]},\n\"properties\": {\n");
 	}
-
-	//printf("here 3c\n");
-
-	fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-
 	time(&rawtime);
 	tmBas = *localtime(&rawtime);
 	tmBas.tm_year = model.params.startYear - 1900;
@@ -1633,106 +1727,114 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	char* startTime, * endTime;
 	startTime = (char*)malloc2(256 * sizeof(char));
 	endTime = (char*)malloc2(256 * sizeof(char));
-	mktime(&tmBas);
-	fixReadableDate(tmBas, startTime);
-	tmBas.tm_min += timeNu * 60;
-	mktime(&tmBas);
-	fixReadableDate(tmBas, endTime);
 
-	//if(resAlt == 0)
-	//	fprintf(filpekG, "\"solutionID\": \"base\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n", 
-	//		startTime, endTime);
-	//else
-	fprintf(filpekG, "\"solutionID\": \"%s\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n",
-		namn, startTime, endTime);
-	fprintf(filpekG, ", \"fuelConsumption_ton\": %.2lf, \"fuelEcaMain\": %.2lf, \"fuelEcaAux\": %.2lf, \"fuelNotEcaMain\": %.2lf, \"fuelNotEcaAux\": %.2lf",
-		fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca, fuel_eca, fuel_auxEca, fuel_noEca, fuel_aux);
-	fprintf(filpekG, ", \"emission\": %.2lf, \"emissionEcaMain\": %.2lf, \"emissionEcaAux\": %.2lf, \"emissionNotEcaMain\": %.2lf, \"emissionNotEcaAux\": %.2lf",
-		emission, fuel_eca * model.params.fuel.main_eca.emissionFactor,
-		fuel_auxEca * model.params.fuel.aux_eca.emissionFactor, fuel_noEca * model.params.fuel.main_noEca.emissionFactor,
-		fuel_aux * model.params.fuel.aux_noEca.emissionFactor);
+	if (skrivMycket == 1) {
+		mktime(&tmBas);
+		fixReadableDate(tmBas, startTime);
+		tmBas.tm_min += timeNu * 60;
+		mktime(&tmBas);
+		fixReadableDate(tmBas, endTime);
+
+		//if(resAlt == 0)
+		//	fprintf(filpekG, "\"solutionID\": \"base\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n", 
+		//		startTime, endTime);
+		//else
+		fprintf(filpekG, "\"solutionID\": \"%s\", \"ID\": \"routeInfo\", \"route_startTime\": \"%s\", \"route_endTime\": \"%s\"\n",
+			namn, startTime, endTime);
+		fprintf(filpekG, ", \"fuelConsumption_ton\": %.2lf, \"fuelEcaMain\": %.2lf, \"fuelEcaAux\": %.2lf, \"fuelNotEcaMain\": %.2lf, \"fuelNotEcaAux\": %.2lf",
+			fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca, fuel_eca, fuel_auxEca, fuel_noEca, fuel_aux);
+		fprintf(filpekG, ", \"emission\": %.2lf, \"emissionEcaMain\": %.2lf, \"emissionEcaAux\": %.2lf, \"emissionNotEcaMain\": %.2lf, \"emissionNotEcaAux\": %.2lf",
+			emission, fuel_eca * model.params.fuel.main_eca.emissionFactor,
+			fuel_auxEca * model.params.fuel.aux_eca.emissionFactor, fuel_noEca * model.params.fuel.main_noEca.emissionFactor,
+			fuel_aux * model.params.fuel.aux_noEca.emissionFactor);
+	}
 	if (timeNu > 0)
 		averSpeed = distance / timeNu / model.params.knots_to_km;
 	else
 		averSpeed = 0;
 
-	fprintf(filpekG, ", \"average speed\": %.1lf, \"safety\": %.3lf, \"channel cost\": %.1lf, \"total objective cost\": %.1lf,",
-		averSpeed, safety, channelCost, totCost);
-
 	fuelCostDollar = fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
 		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price;
 	dollarCost = fuelCostDollar + timeNu * model.params.priceTime + channelCost;
-	fprintf(filpekG, "    \"dollar_cost\":%.0lf,\n", dollarCost);
-	fprintf(filpekG, "    \"fuel_dollarCost\":%.0lf,\n", fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
-		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price);
-	fprintf(filpekG, "    \"voyageTime_dollarCost\":%.0lf,\n", timeNu * model.params.priceTime);
 
 	fuel_objCost = model.params.weightFuel * fuel;
 	voyageTime_objCost = model.params.weightTime * timeNu * model.params.priceTime;
 	emission_objCost = model.params.weightEmission * emission * model.params.scaleObjEmission;
 
-	fprintf(filpekG, "    \"fuel_objCost\":%.1lf,\n", fuel_objCost);
-	fprintf(filpekG, "    \"voyageTime_objCost\":%.1lf,\n", voyageTime_objCost);
-	fprintf(filpekG, "    \"emission_objCost\":%.1lf,\n", emission_objCost);
 	lateEtaCost = 0;
 	earlyEtaCost = 0;
 
-	fprintf(filpekG, "\"storms\": [\n");
-	for (i = 0; i < model.nStorms; i++) {
-		forsta = 1;
-		if (model.storms[i].closestPointToRoute < 1e6) {
-			if (forsta == 0)
-				fprintf(filpekG, ", ");
-			forsta = 0;
-			fixPositionString_latLon(model.storms[i].feature[model.storms[i].nFeatures - 1].lat,
-				model.storms[i].feature[model.storms[i].nFeatures - 1].lon, startTime);
-			fprintf(filpekG, "  {\"stormID\":%d, \"STORMNAME\":\"%s\", \"CPA_nm\": %.1lf, \"latestPositionKnown\":\"%s\"}\n",
-				model.storms[i].stormNr, model.storms[i].stormName, model.storms[i].closestPointToRoute / model.params.knots_to_km,
-				startTime);
-		}
-	}
-	fprintf(filpekG, "], ");
-
-	if (model.functions.valuesNow.maxDiffTime > 0) {
-		fprintf(filpekG, "\"maxLateMidTimeArrive_h\": %.1lf, \"level_maxLateMidTimeArrive\": %d,\n",
-			model.functions.valuesNow.maxDiffTime, model.functions.valuesNow.maxDiffTime_level);
-		errlog("maxLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.maxDiffTime,
-			model.functions.valuesNow.maxDiffTime_level, model.network.nPhysicalLevels);
-	}
-	if (model.functions.valuesNow.minDiffTime < 0) {
-		fprintf(filpekG, "\"maxEarlyMidTimeArrive_h\": %.1lf, \"level_maxEarlyMidTimeArrive\": %d,\n",
-			model.functions.valuesNow.minDiffTime, model.functions.valuesNow.minDiffTime_level);
-		errlog("minLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.minDiffTime,
-			model.functions.valuesNow.minDiffTime_level, model.network.nPhysicalLevels);
-	}
-	fprintf(filpekG, "\"totalDistance_kts\": %.1lf, \"totalTime_h\": %.1lf}}\n", distance / model.params.knots_to_km, timeNu);
-
-	//fprintf(filpekG, "]\n}");
-
-	fclose(filpekG);
+	int nStormsPath;
+	double timeDelay;
 
 	if (skrivMycket == 1) {
+		fprintf(filpekG, ", \"average speed\": %.1lf, \"safety\": %.3lf, \"channel cost\": %.1lf, \"total objective cost\": %.1lf,",
+			averSpeed, safety, channelCost, totCost);
+		fprintf(filpekG, "    \"dollar_cost\":%.0lf,\n", dollarCost);
+		fprintf(filpekG, "    \"fuel_dollarCost\":%.0lf,\n", fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
+			fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price);
+		fprintf(filpekG, "    \"voyageTime_dollarCost\":%.0lf,\n", timeNu * model.params.priceTime);
+
+		fprintf(filpekG, "    \"fuel_objCost\":%.1lf,\n", fuel_objCost);
+		fprintf(filpekG, "    \"voyageTime_objCost\":%.1lf,\n", voyageTime_objCost);
+		fprintf(filpekG, "    \"emission_objCost\":%.1lf,\n", emission_objCost);
+
+		fprintf(filpekG, "\"storms\": [\n");
+		nStormsPath = 0;
+		for (i = 0; i < model.nStorms; i++) {
+			forsta = 1;
+			if (model.storms[i].closestPointToRoute < 1e6) {
+				if (forsta == 0)
+					fprintf(filpekG, ", ");
+				forsta = 0;
+				fixPositionString_latLon(model.storms[i].feature[model.storms[i].nFeatures - 1].lat,
+					model.storms[i].feature[model.storms[i].nFeatures - 1].lon, startTime);
+				fprintf(filpekG, "  {\"stormID\":%d, \"STORMNAME\":\"%s\", \"CPA_nm\": %.1lf, \"latestPositionKnown\":\"%s\"}\n",
+					model.storms[i].stormNr, model.storms[i].stormName, model.storms[i].closestPointToRoute / model.params.knots_to_km,
+					startTime);
+				nStormsPath++;
+			}
+		}
+		fprintf(filpekG, "], ");
+
+		if (model.functions.valuesNow.maxDiffTime > 0) {
+			fprintf(filpekG, "\"maxLateMidTimeArrive_h\": %.1lf, \"level_maxLateMidTimeArrive\": %d,\n",
+				model.functions.valuesNow.maxDiffTime, model.functions.valuesNow.maxDiffTime_level);
+			errlog("maxLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.maxDiffTime,
+				model.functions.valuesNow.maxDiffTime_level, model.network.nPhysicalLevels);
+		}
+		if (model.functions.valuesNow.minDiffTime < 0) {
+			fprintf(filpekG, "\"maxEarlyMidTimeArrive_h\": %.1lf, \"level_maxEarlyMidTimeArrive\": %d,\n",
+				model.functions.valuesNow.minDiffTime, model.functions.valuesNow.minDiffTime_level);
+			errlog("minLateMidTimeArrive_h %.1lf level %d av %d\n", model.functions.valuesNow.minDiffTime,
+				model.functions.valuesNow.minDiffTime_level, model.network.nPhysicalLevels);
+		}
+		fprintf(filpekG, "\"totalDistance_kts\": %.1lf, \"totalTime_h\": %.1lf}}\n", distance / model.params.knots_to_km, timeNu);
+
+		//fprintf(filpekG, "]\n}");
+
+		fclose(filpekG);
+
 		fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
 			distance, timeNu, fuel, emission, safety, channelCost, totCost);
 		fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
 			model.params.weightTime, 1.0,
 			model.params.weightSafety.base);
-	}
-	printf("dist\t%.2lf\ntime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
-		"fuel\t%.2lf\teca\t%.2lf\tnonEca\t%.2lf\tcost\t%.2lf\t"
-		"obj\t%.2lf\n"
-		"emission\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
-		"safety\t%.2lf\tobj\t%.2lf\nchannelCost\t%.2lf\n",
-		distance, timeNu, model.params.priceTime * timeNu, model.params.weightTime * model.params.priceTime * timeNu,
-		fuel_aux + fuel_auxEca + fuel_eca + fuel_noEca, fuel_aux + fuel_eca, fuel_noEca,
-		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price + fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price,
-		model.params.weightFuel * (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
-			fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price),
-		emission, model.params.weightEmission, emission_objCost,
-		safety, model.params.weightSafety.base * safety,
-		channelCost);
 
-	if (skrivMycket == 1) {
+		printf("dist\t%.2lf\ntime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
+			"fuel\t%.2lf\teca\t%.2lf\tnonEca\t%.2lf\tcost\t%.2lf\t"
+			"obj\t%.2lf\n"
+			"emission\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
+			"safety\t%.2lf\tobj\t%.2lf\nchannelCost\t%.2lf\n",
+			distance, timeNu, model.params.priceTime * timeNu, model.params.weightTime * model.params.priceTime * timeNu,
+			fuel_aux + fuel_auxEca + fuel_eca + fuel_noEca, fuel_aux + fuel_eca, fuel_noEca,
+			fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price + fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price,
+			model.params.weightFuel * (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
+				fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price),
+			emission, model.params.weightEmission, emission_objCost,
+			safety, model.params.weightSafety.base * safety,
+			channelCost);
+
 		for (i = 0; i < model.functions.nShip_speedSettingsBase; i++) {
 			if (nSpeedSettingUsed[i] > 0) {
 				fprintf(filPek, "used rpm_setting %.2lf %d times\n", model.functions.rpmBase[i], nSpeedSettingUsed[i]);
@@ -1740,8 +1842,21 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 			}
 		}
 		fprintf(filPek, "The speed settings are changed %d times during the trip\n", nSpeedChanges);
+		printf("The speed settings are changed %d times during the trip\n", nSpeedChanges);
+
+
 	}
-	printf("The speed settings are changed %d times during the trip\n", nSpeedChanges);
+	else {
+		nStormsPath = 0;
+		for (i = 0; i < model.nStorms; i++) {
+			if (model.storms[i].closestPointToRoute < 1e6) {
+				nStormsPath++;
+			}
+		}
+		printf("dist\t%.2lf\ttime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\tnStorms\t%d\n",
+			distance, timeNu, model.params.priceTime * timeNu, model.params.weightTime * model.params.priceTime * timeNu, nStormsPath);
+	}
+
 
 	if (startPos == -1) {
 		model.delay.SPsol.costs = dollarCost;
@@ -1762,17 +1877,22 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	}
 	else {
 		FILE* filDelay = fopen("data/res_delay.txt", "a+");
-		fprintf(filDelay, "%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%.4lf\t%.4lf\t%.4lf", 
-			model.delay.year[yearPos], startPos + 1,
+		timeDelay = timeNu / model.delay.SPsol.time;
+		if (nStormsPath > 0) {
+			if (timeDelay < 1.6)
+				timeDelay = 1.6;
+		}
+		fprintf(filDelay, "%d\t%d\t%d\t%d\t%d\t%.3lf\t%.3lf\t%.3lf\t%d\t%d\t%.4lf\t%.4lf\t%.4lf",
+			node, alt, model.delay.year[yearPos], startPos + 1,
 			model.delay.group[node][alt].direction,
 			dollarCost, timeNu, distance, nSpeedSettingUsed[0], nSpeedSettingUsed[1],
-			dollarCost / model.delay.SPsol.costs, timeNu / model.delay.SPsol.time,
+			dollarCost / model.delay.SPsol.costs, timeDelay,
 			distance / model.delay.SPsol.distance);
 
 		for (i = 0; i < 2; i++) {
 			fprintf(filDelay, "\t%.3lf\t%.3lf", model.preferredPath.point_x[i], model.preferredPath.point_y[i]);
 		}
-		nPkter = determine_nPointsDelayVisuellt(model.preferredPath.point[0].distanceTo(model.preferredPath.point[1]) / 1000.0, 
+		nPkter = determine_nPointsDelayVisuellt(model.preferredPath.point[0].distanceTo(model.preferredPath.point[1]) / 1000.0,
 			faktorer);
 		fprintf(filDelay, "\t%d", nPkter);
 		for (i = 0; i < nPkter; i++) {
@@ -1810,8 +1930,8 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		return retVal;
 
 	if (model.BVArc == NULL) {
-		model.BVArc = (int*)malloc2(model.nNoder * sizeof(int));
-		model.BVtempNodOrder = (int*)malloc2(model.nNoder * sizeof(int));
+		model.BVArc = (int*)malloc2(10000 * sizeof(int));
+		model.BVtempNodOrder = (int*)malloc2(10000 * sizeof(int));
 
 		model.network.startKvot = (double*)malloc2((model.network.nMaxSplits + 1) * sizeof(double));
 		model.network.endKvot = (double*)malloc2((model.network.nMaxSplits + 1) * sizeof(double));
@@ -1821,7 +1941,7 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		for (int lev1 = 0; lev1 < model.network.nPhysicalLevels; lev1++) {
 			model.optPath.level[lev1].timeArrive = -1;
 			model.optPath.level[lev1].pointNr = -1;
-			model.optPath.level[lev1].speedSettingNr = -1;
+			model.optPath.level[lev1].baseSpeedSettingNr = -1;
 			model.optPath.level[lev1].levelNext = -1;
 		}
 		model.optPath.channel = (strOptPathChannel*)malloc2(model.network.nChannels * sizeof(strOptPathChannel));
@@ -1862,12 +1982,13 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		return -1;
 	}
 	
-	printf("xy %.2lf %.2lf %.2lf %.2lf dir %d dist %.1lf time %.1lf speed %.3lf nPhysLev %d\n", 
-		model.delay.group[node][alt].point_x1, model.delay.group[node][alt].point_y1,
-		model.delay.group[node][alt].point_x2, model.delay.group[node][alt].point_y2,
-		model.delay.group[node][alt].direction,
-		model.delay.SPsol.distance, model.delay.SPsol.time, model.delay.SPsol.distance / model.delay.SPsol.time,
-		model.network.nPhysicalLevels);
+	if(skrivMycket == 1)
+		printf("xy %.2lf %.2lf %.2lf %.2lf dir %d dist %.1lf time %.1lf speed %.3lf nPhysLev %d\n", 
+			model.delay.group[node][alt].point_x1, model.delay.group[node][alt].point_y1,
+			model.delay.group[node][alt].point_x2, model.delay.group[node][alt].point_y2,
+			model.delay.group[node][alt].direction,
+			model.delay.SPsol.distance, model.delay.SPsol.time, model.delay.SPsol.distance / model.delay.SPsol.time,
+			model.network.nPhysicalLevels);
 	return 0;
 }
 
@@ -1904,7 +2025,7 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 
 	}
 	if (startDay == 0 && neighbourPos == 0 || model.weather[0].valueCell == NULL) {
-		if(model.params.checkGribFilesSpecial == 1)
+		if (model.params.checkGribFilesSpecial == 1)
 			returnVal = loadWeatherFiles_checkData(year);
 		else
 			returnVal = loadWeatherFiles_delayed_new(year);
@@ -2001,8 +2122,9 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 		}
 
 		nArcsTot += nArcsNu;
-		printf("\tLevel %d done (of %d). I have %d arcs now.\n",
-			i + 1, model.network.nPhysicalLevels - 1, model.nArcs);
+		if (skrivMycket == 1)
+			printf("\tLevel %d done (of %d). I have %d arcs now.\n",
+				i + 1, model.network.nPhysicalLevels - 1, model.nArcs);
 	}
 
 	errlog("\n");
@@ -2025,7 +2147,101 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 	return 0;
 }
 
+int openNeededWeatherFiles(int year)
+{
+	int i, i1, i2, i3, setupCheckPoints;
+	int tidInt, nArcsTot, min_t, max_t, n_added_t, nArcsNu;
+	int i2b, nodNr1, nodNr2, posNy, arcNr, nextLevel;
+	int cNr, tidInt0, returnVal;
+	double fuel, safety, tid, totCost, fuelQualityKvot;
+
+	model.nErrorCoordBB = 0;
+
+	if (model.weatherFunctions.nAllocPoints == 0) {
+		model.weatherFunctions.nAllocPoints = 50;
+		model.weatherFunctions.vesselBearing = (double*)malloc2(
+			model.weatherFunctions.nAllocPoints * sizeof(double));
+		model.weatherFunctions.point_lat = (double*)malloc2(
+			model.weatherFunctions.nAllocPoints * sizeof(double));
+		model.weatherFunctions.point_lon = (double*)malloc2(
+			model.weatherFunctions.nAllocPoints * sizeof(double));
+		model.weatherFunctions.checkPoint = (strCheckPkt*)malloc2(model.weatherFunctions.nAllocPoints * sizeof(strCheckPkt));
+		for (i = 0; i < model.weatherFunctions.nAllocPoints; i++) {
+			model.weatherFunctions.checkPoint[i].latPos = (int*)malloc2(model.nWeatherFiles * sizeof(int));
+			model.weatherFunctions.checkPoint[i].lonPos = (int*)malloc2(model.nWeatherFiles * sizeof(int));
+			model.weatherFunctions.checkPoint[i].pos_latLon = (int*)malloc2(model.nWeatherFiles * sizeof(int));
+		}
+		model.nAllocArcs = 50;
+		model.arc = (strArcInfo*)malloc2(model.nAllocArcs * sizeof(strArcInfo));
+
+		model.delay.stormsYear = (strStorm**)calloc2(model.delay.nYears, sizeof(strStorm));
+		model.delay.nStormsYear = (int*)malloc2(model.delay.nYears * sizeof(int));
+	}
+
+	if(model.params.checkGribFilesSpecial == 1)
+		returnVal = loadWeatherFiles_checkData(year);
+	else
+		returnVal = loadWeatherFiles_delayed_new(year);
+	if (returnVal == -1)
+		return -1;
+
+	return 0;
+}
+
 void setupUsableSpeedSettings_delay() {
+	int nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver, i1;
+	double min_rpm, max_rpm, midVal, diff, min_diff, delta, target, kvot;
+
+	model.network.nPhysicalLevels = 1;
+	model.functions.speedLevel = (strSpeed*)malloc2(model.network.nPhysicalLevels * sizeof(strSpeed));
+	int nShip_speedSettings;
+	double maxSpeed = 0, minSpeed = 1e10;
+
+	nShip_speedSettings = model.functions.nShip_speedSettingsBase;
+	nAlloc = model.functions.nShip_speedSettingsBase;
+
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		model.functions.speedLevel[i].rpm = (double*)malloc2(nAlloc * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAlloc * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAlloc * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAlloc * sizeof(double));
+		model.functions.speedLevel[i].settingGerBaseSetting = (int*)malloc2(nAlloc * sizeof(int));
+		model.functions.speedLevel[i].nShip_speedSettings = nShip_speedSettings;
+	}
+
+	i = 0;
+	for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
+		for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+			set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
+			if (i1 == 0)
+				errlog(" %d %.2lf", i, model.functions.speedLevel[i1].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+		}
+		i++;
+	}
+	errlog(" knots\n");
+	model.functions.speedSetting95MCR_base = model.functions.nShip_speedSettingsBase - 1;
+	model.functions.speedSetting95MCR_use = model.functions.speedSetting95MCR_base;
+
+	double averSpeed = 0;
+	minSpeed = 1e10;
+	maxSpeed = 0;
+	for (i = 0; i < model.functions.speedLevel[0].nShip_speedSettings; i++) {
+		averSpeed += model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i];
+		if (minSpeed > model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i])
+			minSpeed = model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i];
+		if (maxSpeed < model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i])
+			maxSpeed = model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i];
+	}
+
+	model.params.preferredSpeed_calmWater = averSpeed / model.functions.speedLevel[0].nShip_speedSettings;
+	model.params.calmWaterSpeedMin = minSpeed;
+	model.params.calmWaterSpeedMax = maxSpeed;
+	errlog("OBS! Setting preferred speed to average of all speed settings right now: %.2lf knots (it is modified if eta is given)\n",
+		model.params.preferredSpeed_calmWater / model.params.knots_to_km);
+
+
+}
+void setupUsableSpeedSettings_delayOld() {
 	int nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver, i1;
 	double min_rpm, max_rpm, midVal, diff, min_diff, delta, target, kvot;
 
@@ -2150,7 +2366,7 @@ int testCallWeatherFile() {
 
 	checkMinnesAnvandning(__LINE__);
 	//weather.valueCell = weather.rasterPos[i1].GetRasterValues_realAllBandsTest(&(weather), 0);
-	weather.rasterPos[i1].GetRasterValues_realAllBands(&(weather), 0);
+	weather.rasterPos[i1].GetRasterValues_realAllBands(&(weather), 0, 1.0);
 	checkMinnesAnvandning(__LINE__);
 	return 0;
 }
@@ -2412,7 +2628,7 @@ int extractGribInfo2(std::string inputPath)
 
 		pos = colBlock + nXblock * rowBlock;
 
-		raster.GetRasterValues_realAllBands(&weatherData, 0);
+		raster.GetRasterValues_realAllBands(&weatherData, 0, 1.0);
 		for (int i2 = 0; i2 < nBands; i2++) {
 			nSecondsUTC = raster.GetSecondsFromUTC_metadataBand(i2 + 1);
 			fprintf(filpek, "%s\t%d\t%d\t%lf\t%I64d\t%s\n", namn.c_str(), pos, i2,
@@ -2430,7 +2646,7 @@ int extractGribInfo2(std::string inputPath)
 	return 0;
 }
 
-int generateDelayedFactors(std::string inputPath, int node, int manad)
+int generateDelayedFactors_old(std::string inputPath, int node, int manad)
 {
 
 	double dist;
@@ -2460,10 +2676,11 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	//testCallWeatherFile();
 
 	char* namn;
+	FILE* filPek3;
 	namn = (char*)malloc2(256 * sizeof(char));
 	if (node == 0) {
 		FILE* filDelay = fopen("data/res_delay.txt", "w");
-		fprintf(filDelay, "year\tday\tdirection\tcost\ttime\tdistance\tnSlowSpeed\tnHighSpeed\tcost_diffKvot\ttime_diffKvot\t"
+		fprintf(filDelay, "node\tgroup\tyear\tday\tdirection\tcost\ttime\tdistance\tnSlowSpeed\tnHighSpeed\tcost_diffKvot\ttime_diffKvot\t"
 			"dist_diffKvot\txStart\tyStart\txEnd\tyEnd\tnPoints");
 		for (int i = 0; i < 2; i++)
 			fprintf(filDelay, "\tx_%d\ty_%d", i, i);
@@ -2478,8 +2695,19 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 		initGeoJsonFil(filpekG, "result_path");
 		fclose(filpekG);
 
+		if (skrivMycket == 1) {
+			sprintf(namn, "%s/resDetailsDelayRoutes.txt", model.params.indataPath.c_str());
+			filPek3 = fopen(namn, "w");
+			fprintf(filPek3, "node\talt\tyearPos\tstartPos\tarcPos\tspeedSetting\tdistance\ttime\tfuelBase\temission\tsafetyBase\tchannelCost\tweightCost\tfromLevel\tfromPointNr\tfromTimeInterval\t"
+				"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\t"
+				"currentReal\tcurrentDirReal\twindReal\twindDirReal\t"
+				"current\twindSpeed\trelWindDir\twaveHeight\trelWaveDir\twavePeriod\t"
+				"speedDiffWind\tspeedDiffWave\tbaseGroundSpeed\twindF\twaveF\tcurrentF\tdelayF\n");
+			fclose(filPek3);
+		}
+
+
 	}
-	FILE* filPek3;
 
 	model.timeStart = std::chrono::high_resolution_clock::now();
 
@@ -2495,17 +2723,21 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	loadParams_theRestOld(&(model.params));
 
 	loadParams_new(&(model.params));
-	
+	if (SKRIV_UT_NOTHING == 0 || skrivMycket == 1) {
+		skrivMycket = 1;
+		SKRIV_UT_NOTHING = 0;
+	}
+
 	model.network.tidp_startHistoricDataOnly = 999999;
 
 
 	// load the node to analyze and its neighbours
 	// generate a bounding box around all neighbours
 	// start with the neighbour furtherst away
-	
+
 	//loadNodeAndNeighbours_delayedFactors();
 
-	model.delay.nYears = 5; // 2018 - 2022
+	model.delay.nYears = 5; // 6; // 2018 - 2023
 
 	loadGroups_delayedFactors();
 
@@ -2521,7 +2753,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 
 	model.network.nMaxSplits = 1;
 
-	int i, i1, resultVal;
+	int i, i1, resultVal, i0;
 	int evalExtraSol = 0;
 	int nExtraOpt = 0; // genExtraOpts();
 	int nod1, nod2, nSolSaved = 0, endTidsp, returnVal;
@@ -2556,28 +2788,34 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	//errlog("ERROR! nMaxYear hard coded to 1\n");
 
 	int nDaysMonths = 31;
-	if (model.delay.delayed_monthNr[0] == 2)
+	if (model.delay.delayed_monthNr[0] == 2) {
 		nDaysMonths = 28;
+	}
 	if (model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 6 ||
 		model.delay.delayed_monthNr[0] == 9 || model.delay.delayed_monthNr[0] == 11)
 		nDaysMonths = 30;
 
 	for (int year = 0; year < model.delay.nYears; year++) {
-		if (year != 2 && year != 4)
-			continue;
+		if (year == 3 && model.delay.delayed_monthNr[0] == 2)
+			nDaysMonths = 29;
+		//if (year != 3)
+		//	continue;
 		model.params.UTC_secondsStart = make_gmtime_fromGivenDate_delay(year, &(model.params));
 
-		for (i = 0; i < model.delay.nGroupArcs[node]; i++) { 
-			//if (i < 1)
+		for (i = 0; i < model.delay.nGroupArcs[node]; i++) {
+			//if (i != 12)
 			//	continue;
 		//for (i = 2; i < model.delay.nNodeNeighbours[node]; i++) { // !!!!!!!!!!!!!!!!!!!!!!!!!
 		//	errlog("ERROR!!!!!!!!!!\n");
+			checkMinnesAnvandning(__LINE__);
 			createPrefPath_delay(node, i);
 			printf("node %d year %d i %d boundingBox x %.3lf %.3lf y %.3lf %.3lf\n", node, year, i, model.boundingBox.xMin,
 				model.boundingBox.xMax, model.boundingBox.yMin, model.boundingBox.yMax);
 			errlog("node %d year %d i %d boundingBox x %.3lf %.3lf y %.3lf %.3lf\n", node, year, i, model.boundingBox.xMin,
 				model.boundingBox.xMax, model.boundingBox.yMin, model.boundingBox.yMax);
+			checkMinnesAnvandning(__LINE__);
 			createPhysicalNetwork(0, 2);
+			checkMinnesAnvandning(__LINE__);
 			setupUsableSpeedSettings_delay();
 
 			resultVal = solveOnlyShortestPathWithoutTime_delay(node, year, i);
@@ -2591,12 +2829,17 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 				continue;
 			}
 			for (i1 = 0; i1 < nDaysMonths; i1++) {
+				//if (i1 != 0)
+				//	continue;
 				//if (i != 1 || (i1 != 2 && i1 != 27))
 				//	continue;
 				//for (i1 = 0; i1 < 2; i1++) {
 				//errlog("ERRROR2!!!!!!!!!!!!!!\n");
 				errlog("-- node %d year %d i %d i1 %d\n", node, year, i, i1);
-				printf("-- node %d year %d i %d i1 %d\n", node, year, i, i1);
+				if (skrivMycket == 1)
+					printf("-- node %d year %d i %d i1 %d\n", node, year, i, i1);
+				else
+					printf("-- node %d year %d i %d i1 %d ", node, year, i, i1);
 				if (i1 == 2)
 					i1 = i1;
 				returnVal = createTimeArcs_delay(year, i1, i);
@@ -2610,8 +2853,12 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 					writeErrorMsgToFiles(node, year, i, i1);
 					continue;
 				}
-				
+
+				for (i0 = 0; i0 < model.nStorms; i0++)
+					model.storms[i0].closestPointToRoute = 1e10;
+
 				SattUppDijkstraNatverk3(&model);
+				checkMinnesAnvandning(__LINE__);
 				nod1 = 0;
 				nod2 = model.nNoder - 1;
 				bool Reached;
@@ -2629,13 +2876,16 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 #endif 
 				std::string resAltName;
 
-				printf("\nsolving dijkstra's algorithm..");
+				//printf("\nsolving dijkstra's algorithm..");
 				AnropDijkstra2(nod1, nod2, &model, &Reached);
+				checkMinnesAnvandning(__LINE__);
 				model.delay.nDiffTimeSol = 0;
-				printf("..done. Obj %I64d\n", model.Dijkstra.OptCost);
+				//printf("..done. Obj %I64d\n", model.Dijkstra.OptCost);
 				filTmp = fopen("data/resDelay_opt.txt", "a+");
 				if (Reached == true) {
+					checkMinnesAnvandning(__LINE__);
 					dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
+					checkMinnesAnvandning(__LINE__);
 					if (model.nBVArcs < 2) {
 						endTidsp = 0;
 						errlog("ERROR! Too few arcs %d in Dijkstra solution\n", model.nBVArcs);
@@ -2649,13 +2899,15 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 					}
 					else
 						endTidsp = model.arc[model.BVArc[model.nBVArcs - 2]].fromTime;
-					printf("solution to base\n");
+					//printf("solution to base\n");
 					if (model.params.simuleraTidVisuellt == 1) {
-						if(model.timeVisual.pos > 0)
+						if (model.timeVisual.pos > 0)
 							fprintf(model.timeVisual.filVisuell, ",\n");
 						model.timeVisual.pos = 0;
 					}
+					checkMinnesAnvandning(__LINE__);
 					writeSolutionToJson_delay(node, i, year, i1);
+					checkMinnesAnvandning(__LINE__);
 
 					fprintf(filTmp, "delay opt node %d neighbourNr %d arcID %d yearPos %d i1 %d optCost %I64d "
 						"nBagar %d fagelDist %.2lf nPhysLev %d nDiffTimeSol %d\n",
@@ -2675,6 +2927,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 					fclose(filTmp);
 				}
 
+				checkMinnesAnvandning(__LINE__);
 			}
 		}
 	}
@@ -2684,6 +2937,414 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	filTmp = fopen(namn, "a+");
 	fprintf(filTmp, "]}\n");
 	fclose(filTmp);
+
+	if (model.params.simuleraTidVisuellt == 1) {
+		fprintf(model.timeVisual.filVisuell, "]}\n");
+		fclose(model.timeVisual.filVisuell);
+		simuleraStormsVisuellt();
+	}
+
+	return 0;
+}
+
+
+int checkWeatherCoverOK(int xPos, int yPos)
+{
+	int i, i1, i0, latPos, lonPos, pos_latLon;
+	double fy, fx, x, y, rowDbl, colDbl;
+
+	for (i = 0; i < 4; i++) {
+		if (i == 0) {
+			fy = 0.9;
+			fx = 0.9;
+		}
+		if (i == 1) {
+			fy = 0.9;
+			fx = 0.1;
+		}
+		if (i == 2) {
+			fy = 0.1;
+			fx = 0.9;
+		}
+		if (i == 3) {
+			fy = 0.1;
+			fx = 0.1;
+		}
+		y = fy * (yPos + model.boundingBox.yMin) + (1 - fy) * (yPos + 1 + model.boundingBox.yMin);
+		x = fx * (xPos + model.boundingBox.xMin) + (1 - fx) * (xPos + 1 + model.boundingBox.xMin);
+
+		for (i0 = 0; i0 < 4; i0++) {
+			if (i0 == 0) i1 = model.functions.pos_wind_u;
+			if (i0 == 1) i1 = model.functions.pos_wind_v;
+			if (i0 == 2) i1 = model.functions.pos_waveHeight;
+			if (i0 == 3) i1 = model.functions.pos_waveDirection;
+
+			rowDbl = (model.weather[i1].maxY - y) / model.weather[i1].size_row;
+			colDbl = get_colDblFromWeatherFile(i1, x);
+			latPos = (int)rowDbl;
+			if (latPos < 0) {
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! latPos %d\n", latPos);
+					printf("\n\n\n\n\n\n\n############################################################\nERROR! latPos %d\n", latPos);
+					model.nErrorCoordBB = 1;
+				}
+				latPos = 0;
+			}
+			if (latPos >= model.weather[i1].nRows) {
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! latPos too high %d (max %d) lat lon %.4lf %.4lf maxY %.4lf minX %.4lf nArcs %d\n",
+						latPos,
+						model.weather[i1].nRows - 1, y, x,
+						model.weather[i1].maxY, model.weather[i1].minX, model.nArcs);
+					model.nErrorCoordBB = 1;
+				}
+				latPos = model.weather[i1].nRows - 1;
+			}
+			lonPos = (int)colDbl;
+			if (lonPos < 0) {
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! lonPos %d\n", lonPos);
+					model.nErrorCoordBB = 1;
+				}
+				lonPos = 0;
+			}
+			if (lonPos >= model.weather[i1].nCols) {
+				if (model.nErrorCoordBB == 0) {
+					errlog("ERROR! lonPos too high %d (max %d)\n", lonPos,
+						model.weather[i1].nCols - 1);
+					model.nErrorCoordBB = 1;
+				}
+				lonPos = model.weather[i1].nCols - 1;
+			}
+			pos_latLon = latPos * model.weather[i1].nCols + lonPos;
+
+			if (model.weather[i1].valueCell[0][pos_latLon] > 1000)
+				return 0; // no value given
+		}
+	}
+	return 1;
+}
+
+int checkTidpOK(int tidp)
+{
+	int i, i1, i0, lastPos;
+
+	long long nSecondsUTC = model.params.UTC_secondsStart + (long long)(tidp * 3600);
+
+	for (i0 = 0; i0 < 4; i0++) {
+		if (i0 == 0) i1 = model.functions.pos_wind_u;
+		if (i0 == 1) i1 = model.functions.pos_wind_v;
+		if (i0 == 2) i1 = model.functions.pos_waveHeight;
+		if (i0 == 3) i1 = model.functions.pos_waveDirection;
+
+		lastPos = model.weather[i1].nTimeIntervals - 1;
+		if (2 * model.weather[i1].secondsUTC[lastPos] - model.weather[i1].secondsUTC[lastPos - 1] <= nSecondsUTC)
+			return 0;
+	}
+	return 1;
+}
+
+
+int generateDelayedFactors(std::string inputPath, int node, int manad)
+{
+
+	double dist;
+	long long Cost;
+	reset_errlog();
+	errlog("delay for manad %d node %d\n", manad, node);
+	FILE* filTmp;
+
+	if (node == 0) {
+		filTmp = fopen("data/resDelay_opt.txt", "w");
+		fclose(filTmp);
+	}
+
+	model.params.indataPathName = inputPath;
+	model.params.indataPath = splitFilename(inputPath);
+	model.params.errorCode = 0;
+	model.delay.nDelayed_months = 2;
+	model.delay.delayed_monthNr = (int*)malloc(model.delay.nDelayed_months * sizeof(int));
+
+
+	model.delay.delayed_monthNr[0] = manad;
+	if (manad == 12)
+		model.delay.delayed_monthNr[1] = 1;
+	else
+		model.delay.delayed_monthNr[1] = manad + 1;
+
+	//testCallWeatherFile();
+
+	char* namn;
+	FILE* filPek3;
+	namn = (char*)malloc2(256 * sizeof(char));
+	if (node == 0) {
+		FILE* filDelay = fopen("data/res_delay.txt", "w");
+		fprintf(filDelay, "node\tgroup\tyear\tday\tdirection\tcost\ttime\tdistance\tnSlowSpeed\tnHighSpeed\tcost_diffKvot\ttime_diffKvot\t"
+			"dist_diffKvot\txStart\tyStart\txEnd\tyEnd\tnPoints");
+		for (int i = 0; i < 2; i++)
+			fprintf(filDelay, "\tx_%d\ty_%d", i, i);
+		fprintf(filDelay, "\tarcNr\n");
+		fclose(filDelay);
+		filDelay = fopen("data/res_delaySP.txt", "w");
+		fprintf(filDelay, "nodeNr\tpoint_x1\tpoint_y1\tpoint_x2\tpoint_y2\tdirection\tcost\ttime\tdistance\tnSlowSpeed\tnHighSpeed\trowIndata\n");
+		fclose(filDelay);
+
+		sprintf(namn, "%s/res_delay.json", model.params.indataPath.c_str());
+		FILE* filpekG = fopen(namn, "w");
+		initGeoJsonFil(filpekG, "result_path");
+		fclose(filpekG);
+
+		if (skrivMycket == 1) {
+			sprintf(namn, "%s/resDetailsDelayRoutes.txt", model.params.indataPath.c_str());
+			filPek3 = fopen(namn, "w");
+			fprintf(filPek3, "node\talt\tyearPos\tstartPos\tarcPos\tspeedSetting\tdistance\ttime\tfuelBase\temission\tsafetyBase\tchannelCost\tweightCost\tfromLevel\tfromPointNr\tfromTimeInterval\t"
+				"toLevel\ttoPointNr\ttoTimeInterval\tlat1\tlon1\tlat2\tlon2\t"
+				"currentReal\tcurrentDirReal\twindReal\twindDirReal\t"
+				"current\twindSpeed\trelWindDir\twaveHeight\trelWaveDir\twavePeriod\t"
+				"speedDiffWind\tspeedDiffWave\tbaseGroundSpeed\twindF\twaveF\tcurrentF\tdelayF\n");
+			fclose(filPek3);
+		}
+
+
+	}
+
+	model.timeStart = std::chrono::high_resolution_clock::now();
+
+	for (int index = 0; index < 20001; index++)
+	{
+		cos_table[index] = std::cos(M_PI * (index) / 10000.0);
+		sin_table[index] = std::sin(M_PI * (index) / 10000.0);
+		atan_table[index] = std::atan(M_PI * (index) / 10000.0);
+	}
+	LOOKUP_COS_STEP_INV = 10000.0 / M_PI;
+
+
+	loadParams_theRestOld(&(model.params));
+
+	loadParams_new(&(model.params));
+	if (SKRIV_UT_NOTHING == 0 || skrivMycket == 1) {
+		skrivMycket = 1;
+		SKRIV_UT_NOTHING = 0;
+	}
+
+	model.network.tidp_startHistoricDataOnly = 999999;
+
+
+	// load the node to analyze and its neighbours
+	// generate a bounding box around all neighbours
+	// start with the neighbour furtherst away
+	
+	//loadNodeAndNeighbours_delayedFactors();
+
+	model.delay.nYears = 5; // 6; // 2018 - 2023
+
+	//setUpAreaToCalculateFor_delayedFactors();
+	setUpBoundingBox_delayNew(node);
+
+	if (node < 0 || (node >= 4 && node != 10000)) {
+		printf("ERROR! Wrong node number %d, must be between 0 and %d. I quit\n", node,
+			3);
+		exit(0);
+	}
+
+	loadAllNeededTablesFromSQLite();
+	loadVariables();
+	model.corridorPath.nLines = 0;
+
+	model.network.nMaxSplits = 1;
+
+	int i, i1, resultVal, i0;
+	int evalExtraSol = 0;
+	int nExtraOpt = 0; // genExtraOpts();
+	int nod1, nod2, nSolSaved = 0, endTidsp, returnVal;
+	double maxAllowedFactor = 2.0;
+	char* baseName;
+	baseName = (char*)malloc2(10 * sizeof(char));
+	sprintf(baseName, "base");
+
+	errlog("\n\n\n\n################################\nsolving for node %d month %d\n#################################\n\n",
+		node, model.delay.delayed_monthNr[0]);
+	model.weatherFunctions.nAllocPoints = 0;
+
+	model.BVArc = NULL;
+
+	if (model.params.simuleraTidVisuellt == 1) {
+		sprintf(namn, "%s/solVisuellt.geojson", model.params.indataPath.c_str());
+		model.timeVisual.filVisuell = fopen(namn, "w");
+		initGeoJsonFil(model.timeVisual.filVisuell, "sol");
+		model.timeVisual.pos = 0;
+		model.timeVisual.startTime = (char*)malloc(256 * sizeof(char));
+		model.timeVisual.tmBas = { 0 };
+	}
+
+	errlog("ERROR! Change model.delay.nYears if years after %d are included\n", 2018 + model.delay.nYears - 1);
+	if (model.params.delay_onlySolveSP == 1)
+		model.delay.nYears = 1;
+	//nMaxYear = 1;
+	//errlog("ERROR! nMaxYear hard coded to 1\n");
+
+	int nDaysMonths = 31;
+	if (model.delay.delayed_monthNr[0] == 2)
+		nDaysMonths = 28;
+	if (model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 4 || model.delay.delayed_monthNr[0] == 6 ||
+		model.delay.delayed_monthNr[0] == 9 || model.delay.delayed_monthNr[0] == 11)
+		nDaysMonths = 30;
+
+	setupUsableSpeedSettings_delay();
+
+
+	spherical::Point p1, p2;
+
+	double calmWaterSpeed = model.params.preferredSpeed_calmWater;
+	int direction, x, y, grader, timep, okCover, nFeasible, nVal, okTidp;
+	double x1, x2, y1, y2, tid, tidBas, factor;
+	double sumVal[8], minVal[8], maxVal[8], coord[2][8], distArr[8];
+	FILE* filpek, *filpek2;
+	
+	double* factor_posXYr;
+	int* antal_posXYr, pos_XYr;
+
+	factor_posXYr = (double*)calloc(8 * model.delay.nXinterval * model.delay.nXinterval, sizeof(double));
+	antal_posXYr = (int*)calloc(8 * model.delay.nXinterval * model.delay.nXinterval, sizeof(int));
+
+
+	if (node == 0 || node == 10000) {
+		filpek = fopen("data\\res_delayNew.txt", "w");
+		fprintf(filpek, "node\tyear\tday\tdirection\tdistance\ttime_factor\tmin_factor\tmax_factor\txMid\tyMid\n");
+	}
+	else {
+		filpek = fopen("data\\res_delayNew.txt", "a+");
+	}
+
+	//for (int year = 0; year < 2; year++) {
+	for (int year = 0; year < model.delay.nYears; year++) {
+			//if (year != 3)
+		//	continue;
+		model.params.UTC_secondsStart = make_gmtime_fromGivenDate_delay(year, &(model.params));
+
+		openNeededWeatherFiles(year);
+
+		printf("node %d year %d boundingBox x %.3lf %.3lf y %.3lf %.3lf\n", node, year, model.boundingBox.xMin,
+			model.boundingBox.xMax, model.boundingBox.yMin, model.boundingBox.yMax);
+		//for (x = 142; x < 146; x++) {
+		for (x = 0; x < model.delay.nXinterval; x++) {
+			nFeasible = 0;
+			//for (y = 63; y < 65; y++) {
+			for (y = 0; y < model.delay.nYinterval; y++) {
+				checkMinnesAnvandning(__LINE__);
+
+				okCover = checkWeatherCoverOK(x, y);
+				if (okCover == 0)
+					continue; // not enought weather cover
+
+				for (direction = 0; direction < 8; direction++) {
+					minVal[direction] = 100;
+					maxVal[direction] = 0;
+					sumVal[direction] = 0;
+					nVal = 0;
+				}
+				for (i1 = 0; i1 < nDaysMonths; i1++) {
+					timep = i1 - 8 * (int)(i1 / 8) + i1 * 24;
+					okTidp = checkTidpOK(timep);
+					if (okTidp == 0)
+						break; // this day is past the last date
+
+					if (i1 == 2)
+						i1 = i1;
+
+					for (direction = 0; direction < 8; direction++) {
+						if (direction < 2 || direction == 7) {
+							x1 = x + model.boundingBox.xMin;
+							x2 = x + model.boundingBox.xMin + 1;
+						}
+						if (direction == 2 || direction == 6) {
+							x1 = x + model.boundingBox.xMin + 0.5;
+							x2 = x1;
+						}
+						if (direction >= 3 && direction <= 5) {
+							x1 = x + model.boundingBox.xMin + 1;
+							x2 = x + model.boundingBox.xMin;
+						}
+						if (direction >= 1 && direction <= 3) {
+							y1 = y + model.boundingBox.yMin;
+							y2 = y + model.boundingBox.yMin + 1;
+						}
+						if (direction == 0 || direction == 4) {
+							y1 = y + model.boundingBox.yMin + 0.5;
+							y2 = y1;
+						}
+						if (direction >= 5) {
+							y1 = y + model.boundingBox.yMin + 1;
+							y2 = y + model.boundingBox.yMin;
+						}
+						grader = getDirection(y1, x1, y2, x2);
+						p1 = spherical::Point(y1, x1);
+						p2 = spherical::Point(y2, x2);
+						for (i0 = 0; i0 < model.nStorms; i0++)
+							model.storms[i0].closestPointToRoute = 1e10;
+						pos_XYr = direction + 8 * (x + model.delay.nXinterval * y);
+						if (pos_XYr == 93296)
+							i1 = i1;
+						calcWeatherPosAlongArc(p1, p2, timep);
+						tid = calcArcTimeCost(timep, -1, 0, 1, calmWaterSpeed);
+						tidBas = model.functions.valuesNow.distance / calmWaterSpeed;
+						factor = tid / tidBas;
+						if (factor > maxAllowedFactor)
+							factor = maxAllowedFactor;
+						if (minVal[direction] > factor)
+							minVal[direction] = factor;
+						if (maxVal[direction] < factor)
+							maxVal[direction] = factor;
+						sumVal[direction] += factor;
+						factor_posXYr[pos_XYr] += factor;
+						(antal_posXYr[pos_XYr])++;
+						if (i1 == 0) {
+							distArr[direction] = model.functions.valuesNow.distance;
+							coord[0][direction] = (x1 + x2) / 2;
+							coord[1][direction] = (y1 + y2) / 2;
+						}
+					}
+					nVal++;
+				}
+				for (direction = 0; direction < 8; direction++) {
+					fprintf(filpek, "%d\t%d\t%d\t%d\t%.3lf\t%.4lf\t%.4lf\t%.4lf\t%.3lf\t%.3lf\n", node, year, i1, direction * 45, distArr[direction],
+						sumVal[direction] / nVal, minVal[direction], maxVal[direction], coord[0][direction], coord[1][direction]);
+					if (abs(coord[0][direction] + 37.5) < 0.1 && abs(coord[0][direction] - 64.5) < 0.1)
+						direction = direction;
+				}
+				checkMinnesAnvandning(__LINE__);
+				nFeasible++;
+			}
+			printf("x %d nFeasible %d av %d\n", x, nFeasible, model.delay.nYinterval);
+		}
+	}
+	fclose(filpek);
+
+	for (i = 0; i < 8; i++) {
+		sprintf(namn, "data\\res_nodeDir_%d_%d.txt", i * 45, manad);
+		if (node == 0 || node == 10000) {
+			filpek2 = fopen(namn, "w");
+			fprintf(filpek2, "node\tdirection\ttime_factor\tnValues\txMid\tyMid\n");
+		}
+		else {
+			filpek2 = fopen(namn, "a+");
+		}
+		for (x = 0; x < model.delay.nXinterval; x++) {
+			for (y = 0; y < model.delay.nYinterval; y++) {
+				pos_XYr = i + 8 * (x + model.delay.nXinterval * y);
+				if (antal_posXYr[pos_XYr] > 0)
+					fprintf(filpek2, "%d\t%d\t%.4lf\t%d\t%.3lf\t%.3lf\n",
+						node, i * 45, factor_posXYr[pos_XYr] / antal_posXYr[pos_XYr], antal_posXYr[pos_XYr],
+						x + model.boundingBox.xMin + 0.5, y + model.boundingBox.yMin + 0.5);
+				if (abs(x + model.boundingBox.xMin + 0.5 + 37.5) < 0.1 && abs(y + model.boundingBox.yMin + 0.5 - 64.5) < 0.1)
+					direction = direction;
+			}
+		}
+		fclose(filpek2);
+	}
+
+	//callJsonTest();
+
 
 	if (model.params.simuleraTidVisuellt == 1) {
 		fprintf(model.timeVisual.filVisuell, "]}\n");

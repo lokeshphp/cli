@@ -14,6 +14,9 @@
 #include "stack.h"
 #include "smartq.h"
 
+//#include "pch.h"
+struct strModel;
+
 #define VERY_FAR            9223372036854775807LL // LLONG_MAX
 #define FAR2                 MAXLONG
 
@@ -46,7 +49,7 @@ class SP {
    void init(Node *source);
 #ifdef SINGLE_PAIR
    void initNode(Node *source, unsigned long ts);
-   bool sp(Node *currentNode, Node *sink, long long *OptCost);
+   bool sp(strModel model, Node *currentNode, Node *sink, long long *OptCost);
 #else
    void initNode(Node *currentNode);
 //   bool sp(Node *currentNode, Node *sink, long long *OptCost);

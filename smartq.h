@@ -6,6 +6,9 @@
 #define SMARTQ_H
 
 #include "nodearc.h"         // dfn of node and arc
+//#include "pch.h"
+struct strModel;
+
 
 #ifndef ulong
 typedef unsigned long ulong; // to get that extra bit
@@ -63,7 +66,7 @@ class SmartQ {
    ~SmartQ();
    void Init();              // resets bucket indices.  Assumes buckets are OK
 #ifdef SINGLE_PAIR
-   bool dijkstra(Node *source, Node *sink, SP *sp, long long *OptCost); // run dijkstra's algorithm
+   bool dijkstra(strModel model, Node *source, Node *sink, SP *sp, long long *OptCost); // run dijkstra's algorithm
 #else
    void dijkstra(Node *source, SP *sp);            // run dijkstra's algorithm
 #endif

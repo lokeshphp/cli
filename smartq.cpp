@@ -32,7 +32,7 @@
 #define POS_EVAL
 #endif
 
-extern strModel model;
+//extern strModel model;
 
 #define LOW_LEVEL_BUCKET_SIZE(minArcLen) ( (minArcLen) > 0 ? (minArcLen) : 1 )
 
@@ -511,7 +511,7 @@ void SmartQ::PrintStats()
  */
 
 #ifdef SINGLE_PAIR
-bool SmartQ::dijkstra(Node *source, Node *sink, SP *sp, long long *OptCost)
+bool SmartQ::dijkstra(strModel model, Node *source, Node *sink, SP *sp, long long *OptCost)
 #else
 void SmartQ::dijkstra(Node *source, SP *sp)
 //bool SmartQ::dijkstra(Node *source, Node *sink, SP *sp, long long *OptCost)

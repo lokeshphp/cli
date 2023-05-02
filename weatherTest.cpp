@@ -29,6 +29,8 @@ std::string LOGFILE;
 int SKRIV_UT_NOTHING = 1;
 int SEND_POST_REQUEST = 1;
 
+extern strModel model;
+
 //using namespace std;
 
 int test_OpenTheSameRasterMultipleTimesAndRead(std::string dataName, int nAnropData)
