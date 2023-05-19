@@ -9,7 +9,7 @@ add_definitions(-DUNICODE)
 add_definitions(-D_UNICODE)
 
 # Add source to this project's executable.
-add_executable (OptiNav "weatherTest.cpp" "weatherTest.h" "voyageOpt.cpp" "test.cpp")
+add_executable (OptiNav "weatherTest.cpp" "weatherTest.h" "voyageOpt.cpp" "test.cpp" "autoRoute.cpp")
 
 # TODO: Add tests and install targets if needed.
 

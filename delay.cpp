@@ -2404,10 +2404,22 @@ double get_colDblFromRaster(Raster raster, double lon)
 {
 	double colDbl, tmpLon = lon;
 
-	if (lon < raster.Get_minLongitude() - 20)
-		lon += 360;
-	if (lon > raster.Get_maxLongitude() + 20)
-		lon -= 360;
+	if (lon < raster.Get_minLongitude()) {
+		if (raster.Get_maxLongitude() - raster.Get_minLongitude() < 355) {
+			if (lon < raster.Get_minLongitude() - 20)
+				lon += 360;
+		}
+		else
+			lon += 360;
+	}
+	if (lon > raster.Get_maxLongitude()) {
+		if (raster.Get_maxLongitude() - raster.Get_minLongitude() < 355) {
+			if (lon > raster.Get_maxLongitude() + 20)
+				lon -= 360;
+		}
+		else
+			lon -= 360;
+	}
 
 	colDbl = (lon - raster.Get_minLongitude()) / raster.Get_sizeCol();
 	if (colDbl < 0)

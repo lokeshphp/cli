@@ -93,22 +93,30 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	node_max = 0;
 	node_min = n;
 
-	//FILE* pek = fopen("checkDijkst4.txt", "w");
-	//for (int i = 0; i < model->nNoder; i++) {
-	//	for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
-	//		fprintf(pek, "i %d i1 %d head %d arcNr %d levels %d %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1], 
-	//			model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel, 
-	//			model->arc[model->Noder[i].outArcNr[i1]].toLevel, model->Noder[i].UtNodCost[i1]);
-	//	}
-	//}
-	//fclose(pek);
+	int saveDijkstraNetwork = 0;
+	if (saveDijkstraNetwork == 1) {
+		FILE* pek = fopen("checkDijkst4.txt", "w");
+		for (int i = 0; i < model->nNoder; i++) {
+			for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
+				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
+					model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel,
+					model->arc[model->Noder[i].outArcNr[i1]].fromTime, model->arc[model->Noder[i].outArcNr[i1]].fromPointNr,
+					model->arc[model->Noder[i].outArcNr[i1]].toLevel, model->arc[model->Noder[i].outArcNr[i1]].toTime,
+					model->arc[model->Noder[i].outArcNr[i1]].toPointNr, model->Noder[i].UtNodCost[i1]);
+			}
+		}
+		fclose(pek);
+	}
 
 	//pek = fopen("checkDijkst.txt", "w");
+	checkMinnesAnvandning(__LINE__);
 
 	//	model->OmvandlDijkstraToNodeNr = (int*)calloc(model->nNoder, sizeof(int));
 	maxCost = 0;
 	minCost = 1e30;
 	for (i = 0; i < model->nNoder; i++) {
+		if (i == 21)
+			i = i;
 		//		model->OmvandlDijkstraToNodeNr[i] = 1;
 		//fprintf(pek, "i %d nUtNoder %d nBagarNatv %d node_min %d node_max %d\n", i, model->Noder[i].nUtNoder, nBagarNatv, node_min, node_max);
 		for (i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {

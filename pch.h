@@ -108,6 +108,8 @@ struct strVisuell {
 
 struct strParams
 {
+	double maxDistBetweenPrefPathPoints;
+
 	int etaFocus_speed;
 	int nSpeedSettingDivideIter1;
 	int nTidsperioder_perH_iter1;
@@ -152,6 +154,8 @@ struct strParams
 	//std::string mapPhysicalFileName;
 	std::string mapPhysicalBFileName;
 	std::string mapPhysicalAFileName;
+	std::string mapLandSeaBFileName;
+	std::string mapLandSeaAFileName;
 	//int physicalMapRasterPos;
 	std::string mapFuelGeographyAFileName;
 	std::string mapFuelGeographyBFileName;
@@ -687,6 +691,13 @@ struct strValuesNow {
 	double totTime_movingNoCorridors;
 	double totFuel_mainMovingNoCorridors;
 
+	double totCorridorWaitingFuel_mainECA;
+	double totCorridorWaitingFuel_mainNonECA;
+	double totCorridorWaitingFuel_auxECA;
+	double totCorridorWaitingFuel_auxNonECA;
+	double totCorridorWaitingTime;
+
+
 	double totTimeArcSTW;
 	double WindFArc;
 	double WaveFArc;
@@ -982,8 +993,65 @@ struct strDelayToEnd {
 	int* BVArc;
 };
 
+struct strExtraNoGoBase {
+	char* areaID;
+	char* fileNameA;
+	char* fileNameB;
+};
+
+struct strExtraNoGo {
+	std::string areaID;
+	int posBase;
+
+	Raster rasterA;
+	Raster rasterB;
+	Raster::strPhysRaster mapA;
+	Raster::strPhysRaster mapB;
+};
+
+struct strParamsAutoRoute {
+	double startPoint_lon;
+	double startPoint_lat;
+	double endPoint_lon;
+	double endPoint_lat;
+
+	int nCellLevels;
+	double* discretizationSizeLevel;
+	int* nDiscreteSizeLevel;
+	double x_min;
+	double y_min;
+	int nXbasLevel;
+	int nYbasLevel;
+	int nCellsBase;
+	int nCellsLevel1;
+	double factorExtraCover;
+	double maxBaseFeasibleCost;
+};
+
+struct strAutoCells {
+	double arcCost[8]; // 0 horizontal, 1 diagonal up, 2 vertical, 3 diagonal down
+	double arcDistance[8];
+	int nodeNr[4]; // 0 lowerLeft, 1 lowerRight, 2 upperLeft, 3 upperRight
+	strAutoCells* smallerCells;
+	double x;
+	double y;
+	int isLand;
+	int nXsmall;
+	int nYsmall;
+	int smallerCellsType;
+	// int useCell;
+};
+
 struct strModel
 {
+	strParamsAutoRoute paramsAutoRoute;
+	strAutoCells* autoRoute;
+
+	int nExtraNoGoAreasBase;
+	strExtraNoGoBase* extraNoGoAreaBase;
+	int nExtraNoGoAreas;
+	strExtraNoGo* extraNoGoArea;
+
 	double scaledDelay;
 
 	FILE* filpek;
@@ -1225,9 +1293,19 @@ int determineBastSpeedDelay_routeToEnd_eta(strDelayToEnd* routeToEnd, double sta
 int calcWeatherPosAlongpreferredPathArc_connectChannel(spherical::Point p1, int level1, spherical::Point p2, int level2);
 double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nextLevel, int pos2, int tidp, double* speedDiffCurrent, double calmWaterSpeed = -1.0);
 int getBaseSpeedSetting(int speedSetting, int lev1, int lev2);
+int getDelayPosFrom_tidp(int tidp);
+void getCurrent_fromCurrentDelayed(int delayNr, double lat, double lon, double* uCurrent, double* vCurrent);
 
-
-
+bool exists_test3(char* name);
+int openNeededRasterFilesNew(int alt);
+int calc_boundingBoxAutoRoute();
+int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt);
+int check_extraNoGoMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap);
+int genAutoRoute(std::string inputPath, std::string resultName);
+int findAreaIDpos_inBase(std::string ID);
+int initLookUpTables();
+int getCoordFromAutoArc(int arcNr, int fromTo, double* y, double* x);
+void getRowColDblFromPhysicalMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl);
+void getRowColDblFromNoGoMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl);
 
 #endif //PCH_H
-
