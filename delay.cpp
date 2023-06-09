@@ -1133,6 +1133,8 @@ int loadWeatherFiles_checkData(int year) {
 
 long long make_gmtime_fromGivenDate_delay(int yearPos, strParams* params) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
+
 	int hour, nHoursDiffTZ = 0, nMinDiffTZ = 0, nValuesHour;
 
 	tmBas.tm_year = model.delay.year[yearPos] - 1900;
@@ -1143,7 +1145,12 @@ long long make_gmtime_fromGivenDate_delay(int yearPos, strParams* params) {
 	tmBas.tm_min = 0;
 	tmBas.tm_sec = 0;
 
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+	}
 
 	params->startYear = tmBas.tm_year + 1900;
 	params->startMonth_nr = tmBas.tm_mon + 1;
@@ -1236,7 +1243,8 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	int nAllocPkter, i, iPos, nPkter, nArcs, ii3, forsta;
 	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
 	double* x, * y, xNu, yNu;
-	struct tm tmBas;
+	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	FILE* filpekG;
 	time_t rawtime;
 
@@ -1729,10 +1737,20 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	endTime = (char*)malloc2(256 * sizeof(char));
 
 	if (skrivMycket == 1) {
-		mktime(&tmBas);
+		time_t test = mktime(&tmBas);
+		if (test == -1) {
+			printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+				tmBas.tm_year,
+				tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		}
 		fixReadableDate(tmBas, startTime);
 		tmBas.tm_min += timeNu * 60;
-		mktime(&tmBas);
+		test = mktime(&tmBas);
+		if (test == -1) {
+			printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+				tmBas.tm_year,
+				tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		}
 		fixReadableDate(tmBas, endTime);
 
 		//if(resAlt == 0)

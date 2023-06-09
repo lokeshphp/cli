@@ -51,7 +51,8 @@ int globalFirst = 1;
 int delayVersion = 4; // 1 first version, 
 					  // 2 second version when not needed to go back to prefPath, 
 					  // 3 creating one arc from startHistoricalData to end,
-					  // 4 as 3 but only wind and sea in delay map and current on its own
+					  // 4 as 3 but only wind and sea in delay map and current on its own,
+					  // 5 as 3 but no delay and no current from startHistoricalData to end
 
 
 double M_PI2 = M_PI * 2;
@@ -955,7 +956,7 @@ double evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact, in
 				speedDiffWave = lookup_speedDiffWaveTable(calmWaterSpeed, waveHeight, wavePeriod, rel_waveDir);
 				speedDiffWindWave = speedDiffWind + speedDiffWave;
 				// speedOverGround = baseGroundSpeed * model.params.knots_to_km - speedDiffWindWave; // in km/h
-				if (model.delay.nYears > 0 && delayVersion == 4)
+				if (model.delay.nYears > 0 && delayVersion >= 4)
 					speedOverGround = calmWaterSpeed - speedDiffWindWave; // in km/h
 				else
 					speedOverGround = baseGroundSpeed - speedDiffWindWave; // in km/h
@@ -1350,8 +1351,14 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					vCurrent = model.functions.varValue[model.functions.pos_current_v]; // getVariableValue(model.functions.pos_current_v, i, tidTot);
 				}
 				else {
-					delayNr = getDelayPosFrom_tidp(tidTot);
-					getCurrent_fromCurrentDelayed(delayNr, model.weatherFunctions.point_lat[i], model.weatherFunctions.point_lon[i], &uCurrent, &vCurrent);
+					if (delayVersion != 5) {
+						delayNr = getDelayPosFrom_tidp(tidTot);
+						getCurrent_fromCurrentDelayed(delayNr, model.weatherFunctions.point_lat[i], model.weatherFunctions.point_lon[i], &uCurrent, &vCurrent);
+					}
+					else {
+						uCurrent = 0;
+						vCurrent = 0;
+					}
 				}
 
 				if (uCurrent < 1000 && vCurrent < 1000) {
@@ -1446,7 +1453,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 				//		speedDiffWave / model.params.knots_to_km);
 				speedDiffWindWave = speedDiffWind + speedDiffWave;
 				// speedOverGround = baseGroundSpeed * model.params.knots_to_km - speedDiffWindWave; // in km/h
-				if (model.delay.nYears > 0 && delayVersion == 4)
+				if (model.delay.nYears > 0 && delayVersion >= 4)
 					speedOverGround = calmWaterSpeed - speedDiffWindWave; // in km/h
 				else
 					speedOverGround = baseGroundSpeed - speedDiffWindWave; // in km/h
@@ -2621,15 +2628,42 @@ double getCorrect_longitude(double x) {
 }
 
 int setTMtime(struct tm* tmBas, double time) {
+	checkMinnesAnvandning(__LINE__);
 	tmBas->tm_year = model.params.startYear - 1900;
 	tmBas->tm_mon = model.params.startMonth_nr - 1; // sep
 	tmBas->tm_mday = model.params.startDay_nr;
 	int hInt = (int)time;
-	tmBas->tm_hour = model.params.startHour + hInt; // 0;
-	tmBas->tm_min = model.params.startMinute + (time - hInt) * 60;
+	//tmBas->tm_hour = model.params.startHour + hInt; // 0;
+	//tmBas->tm_min = model.params.startMinute + (time - hInt) * 60;
+	tmBas->tm_hour = model.params.startHour;
+	tmBas->tm_min = model.params.startMinute;
 	tmBas->tm_sec = 0;
-	mktime(tmBas);
-
+	time_t test = mktime(tmBas);
+	printf("time zone %d\n", tmBas->tm_isdst);
+	//errlog("setTMtime %d %d %d: %d %d %d\n", tmBas->tm_year,
+	//	tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec);
+	checkMinnesAnvandning(__LINE__);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d dst %d\n", __LINE__,
+			tmBas->tm_year,
+			tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec,
+			tmBas->tm_isdst);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
+	tmBas->tm_hour += hInt; // 0;
+	tmBas->tm_min += (time - hInt) * 60;
+	checkMinnesAnvandning(__LINE__);
+	time_t test2 = mktime(tmBas);
+	//errlog("setTMtime %d %d %d: %d %d %d\n", tmBas->tm_year,
+	//	tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec);
+	checkMinnesAnvandning(__LINE__);
+	if (test2 == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d dst %d\n", __LINE__,
+			tmBas->tm_year,
+			tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec,
+			tmBas->tm_isdst);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	return 0;
 }
 
@@ -2837,7 +2871,9 @@ int plotPathTimeVisuellt(int arcNr, double time1, double time2) {
 int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName) {
 	int lev1, lev2, pointNr1, pointNr2, timmar, minuter, sekunder;
 	int nChangeBearingBetween, nChange_lessXdegrees;
-	struct tm tmBas;
+	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
+
 	double x, y, bearing, speedOnGround, fuel_day, fuel_dayCheck, diff, diffTime;
 	spherical::Point p1, p2, p3;
 
@@ -2952,7 +2988,13 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 		tmBas.tm_min = model.params.startMinute + minuter;
 		sekunder = (int)((*timeExact - timmar - minuter / 60.0) * 60.0);
 		tmBas.tm_sec = sekunder;
-		mktime(&tmBas);
+		time_t test = mktime(&tmBas);
+		if (test == -1) {
+			printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+				tmBas.tm_year,
+				tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+			postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+		}
 	}
 
 	double timeCheck = model.arc[arcNr].time, accumTime = 0, startKvot, endKvot;
@@ -3003,7 +3045,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 
 	double calmWaterSpeed, delayFactor, timeOld = *timeExact;
 
-	if (arcNr == 408909)
+	if (arcNr == 17)
 		arcNr = arcNr;
 
 	//if (*timeExact >= model.network.tidp_startHistoricDataOnly) {
@@ -3023,7 +3065,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 	else
 		delayFactor = -1;
 	
-	if(arcNr ==980659)
+	if(arcNr ==17)
 		arcNr = arcNr;
 
 	for (ii = 0; ii < nSplit; ii++) {
@@ -3034,7 +3076,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 		//if (model.functions.valuesNow.Wpt >= 21)
 		//	printGlobal = 1;
 		//if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001)
-		if (model.arc[arcNr].fromLevel == 37)
+		if (model.arc[arcNr].fromLevel == 87 && ii == 1)
 			arcNr = arcNr;
 		timeCheck = evalWeatherDataAlongArcSection(arcNr, startKvot, endKvot, startSlutArc, *timeExact, delayFactor) - (*timeExact);
 		if (timeCheck < 0.001)
@@ -3067,8 +3109,15 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 			speedOnGround = 0;
 
 
-		if (ii > 0)
-			mktime(&tmBas);
+		if (ii > 0) {
+			time_t test = mktime(&tmBas);
+			if (test == -1) {
+				printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+					tmBas.tm_year,
+					tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+				postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+			}
+		}
 		fixReportDate(tmBas, startTime);
 		tmBas.tm_min += timeCheck * 60;
 		if (*posReport > 0)
@@ -3282,16 +3331,16 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 					if (model.params.hindCast == 0)
 						fprintf(filpekG, ", \"forecastType\":\"Ext. Hist\"");
 					else
-						fprintf(filpekG, ", \"forecastType\":\"Past Hist\"");
+						fprintf(filpekG, ", \"forecastType\":\"Past Hist %.5lf\"", model.functions.valuesNow.forecastType);
 				}
 				else {
 					if (model.params.hindCast == 0)
 						fprintf(filpekG, ", \"forecastType\":\"Fcst\"");
 					else {
 						if (model.functions.valuesNow.forecastType > 0.05)
-							fprintf(filpekG, ", \"forecastType\":\"Missing Hist\"");
+							fprintf(filpekG, ", \"forecastType\":\"Missing Hist %.5lf\"", model.functions.valuesNow.forecastType);
 						else
-							fprintf(filpekG, ", \"forecastType\":\"Hist\"");
+							fprintf(filpekG, ", \"forecastType\":\"Hist %.5lf\"", model.functions.valuesNow.forecastType);
 					}
 				}
 
@@ -3533,14 +3582,33 @@ int makeSure_eta_inTime() {
 	return 0;
 }
 
-double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu) {
-	double calcSpeed = modelDelay.arc[arcDelay].distance / modelDelay.arc[arcDelay].time;
-	double calmWaterSpeed = eval_calmWaterSpeed(modelDelay.arc[arcDelay].speedSetting, -1, -100);
-	double factor = calmWaterSpeed / calcSpeed;
+double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu, int tidInt) {
+	//double calcSpeed = modelDelay.arc[arcDelay].distance / modelDelay.arc[arcDelay].time;
+	//double calmWaterSpeed = eval_calmWaterSpeed(modelDelay.arc[arcDelay].speedSetting, -1, -100);
+	//double factor = calmWaterSpeed / calcSpeed;
 	double calmWaterSpeedNy = eval_calmWaterSpeed(speedSettingNu,
 		modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel);
-	double timeArc = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
-	return timeArc;
+	//double timeArc = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
+
+	double factorDelay, speedDiffCurrent = 0;
+	if (delayVersion < 4)
+		factorDelay = eval_factorDelayedAlongArc(modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].fromPointNr,
+			modelDelay.arc[arcDelay].toLevel, modelDelay.arc[arcDelay].toPointNr, tidInt);
+	else {
+		if (delayVersion == 4)
+			factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].fromPointNr,
+				modelDelay.arc[arcDelay].toLevel, modelDelay.arc[arcDelay].toPointNr, tidInt, &speedDiffCurrent);
+		else
+			factorDelay = 1.0;
+	}
+	double speedNow = calmWaterSpeedNy / factorDelay + speedDiffCurrent;
+	// double timeArcCheck = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
+	double timeArcCheck = modelDelay.arc[arcDelay].distance / speedNow;
+
+
+
+
+	return timeArcCheck;
 }
 
 
@@ -3565,7 +3633,7 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact) {
 		modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel) + model.delay.changedSpeed[posDelay];
 	model.arc[arcNu].speedSetting = speedSetting;
 //	if (model.delay.changedSpeed[posDelay] != 0) {
-		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting);
+		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)));
 		model.arc[arcNu].time = newTime;
 
 		//speedSetting = getClosestSetting_fromBase(modelDelay.arc[arcDelay].speedSetting,
@@ -3652,7 +3720,8 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	int nAllocPkter, i, iPos, nPkter, nArcs, ii3, forsta, speedSetting;
 	int arcNr, lev1, lev2, pointNr1, pointNr2, timeInt, * nSpeedSettingUsed, nSpeedChanges = 0;
 	double* x, * y, xNu, yNu, emissionWaiting;
-	struct tm tmBas;
+	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	FILE* filpekG;
 	time_t rawtime;
 
@@ -3737,8 +3806,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		{
 			printf("Faile to open file %s for writing.\n", namn);
 			errlog("Faile to open file %s for writing.\n", namn);
-			postRequest("Faile to open file " + std::string(namn) + " for writing.");
-			exitKontrollerat(__LINE__);
+			postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 		}
 		initGeoJsonFil(filpekG, "result_path");
 		linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
@@ -4318,19 +4386,37 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	startTime = (char*)malloc2(256 * sizeof(char));
 
 	tmBas.tm_min += model.functions.valuesNow.maxWaveHeight_tp * 60;
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	fixReadableDate(tmBas, startTime);
 	errlog("maxWaveHeight %.3lf at tp %d %s\n",
 		model.functions.valuesNow.maxWaveHeight, model.functions.valuesNow.maxWaveHeight_tp, startTime);
 	tmBas.tm_min -= model.functions.valuesNow.maxWaveHeight_tp * 60;
-	mktime(&tmBas);
+	test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 
 
 	endTime = (char*)malloc2(256 * sizeof(char));
 	fixReadableDate(tmBas, startTime);
 	time = timeExact;
 	tmBas.tm_min += time * 60;
-	mktime(&tmBas);
+	test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	fixReadableDate(tmBas, endTime);
 
 	//if(resAlt == 0)
@@ -4652,6 +4738,8 @@ int fixReportDate(struct tm tmBas, char* namn) {
 
 time_t make_gmtime_now() {
 	struct tm tmBas = { std::time(0) };
+	tmBas.tm_isdst = 0;
+
 //#ifdef WIN32
 //	time_t rawtime = _mkgmtime(&tmBas);
 //#endif
@@ -4665,13 +4753,20 @@ time_t make_gmtime_now() {
 
 time_t make_gmtime(strParams* params) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	tmBas.tm_year = params->startYear - 1900;
 	tmBas.tm_mon = params->startMonth_nr - 1; // sep
 	tmBas.tm_mday = params->startDay_nr;
 	tmBas.tm_hour = params->startHour; // 0;
 	tmBas.tm_min = params->startMinute;
 	tmBas.tm_sec = 0;
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 #ifdef WIN32
 	time_t rawtime = _mkgmtime(&tmBas);
 #endif
@@ -4684,6 +4779,7 @@ time_t make_gmtime(strParams* params) {
 
 long long make_gmtime_fromStormDateTime(std::string tidpkt) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	int hour, nMinDiffTZ = 0, nValuesHour;
 
 	tmBas.tm_year = std::stoi(tidpkt.substr(0, 4)) - 1900;
@@ -4709,7 +4805,13 @@ long long make_gmtime_fromStormDateTime(std::string tidpkt) {
 	tmBas.tm_hour = hour;
 	tmBas.tm_min = std::stoi(tidpkt.substr(12 + nValuesHour, 2)) + nMinDiffTZ;
 	tmBas.tm_sec = 0;
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 #ifdef WIN32
 	time_t rawtime = _mkgmtime(&tmBas);
 #endif
@@ -4722,6 +4824,7 @@ long long make_gmtime_fromStormDateTime(std::string tidpkt) {
 
 long long make_gmtime_fromDateTimeString(std::string tidpkt, strParams* params = NULL) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	int hour, nHoursDiffTZ = 0, nMinDiffTZ = 0, nValuesHour;
 
 	tmBas.tm_year = std::stoi(tidpkt.substr(0, 4)) - 1900;
@@ -4751,7 +4854,13 @@ long long make_gmtime_fromDateTimeString(std::string tidpkt, strParams* params =
 	tmBas.tm_min = std::stoi(tidpkt.substr(12 + nValuesHour, 2));
 	tmBas.tm_sec = 0; // std::stoi(tidpkt.substr(15 + nValuesHour, 2));
 
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 
 	if (params != NULL) {
 		params->startYear = tmBas.tm_year + 1900;
@@ -4803,7 +4912,14 @@ double load_eta(json data) {
 time_t getFirstSecondOfDay(long long seconds) {
 	time_t sec = seconds;
 	struct tm* tmBas = gmtime(&sec);
-	mktime(tmBas);
+	time_t test = mktime(tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas->tm_year,
+			tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
+
 	tmBas->tm_hour = 0;
 	tmBas->tm_min = 0;
 	tmBas->tm_sec = 0;
@@ -4820,7 +4936,13 @@ time_t getFirstSecondOfDay(long long seconds) {
 int getManadDagFranUTCSeconds(long long seconds, int* dag) {
 	time_t sec = seconds;
 	struct tm* tmBas = gmtime(&sec);
-	mktime(tmBas);
+	time_t test = mktime(tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas->tm_year,
+			tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	*dag = tmBas->tm_mday;
 	return tmBas->tm_mon + 1;
 }
@@ -4828,7 +4950,13 @@ int getManadDagFranUTCSeconds(long long seconds, int* dag) {
 std::string stringDateFromUTCSeconds(long long seconds) {
 	time_t sec = seconds;
 	struct tm* tmBas = gmtime(&sec);
-	mktime(tmBas);
+	time_t test = mktime(tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas->tm_year,
+			tmBas->tm_mon, tmBas->tm_mday, tmBas->tm_hour, tmBas->tm_min, tmBas->tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	char date_string[100];
 	strftime(date_string, 50, "%B %d, %Y %T", tmBas);
 	std::string resultat = date_string;
@@ -6312,8 +6440,18 @@ int loadParams_theRestOld(strParams* params)
 	catch(...){
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
+	}
+
+	if (!data["delayVersion"].is_null()) {
+		// loadSet_startDateTime(data["startDateTime", params]);
+		delayVersion = data["delayVersion"];
+		errlog("ERROR? OBS! Setting delayVersion to %d in file_params.json\n", delayVersion);
+	}
+
+	if (!data["startDateTime"].is_null()) {
+		// loadSet_startDateTime(data["startDateTime", params]);
+		params->UTC_secondsStart = make_gmtime_fromDateTimeString(data["startDateTime"], params);
 	}
 
 	if (!data["eta_penalty_early"].is_null())
@@ -6381,8 +6519,7 @@ int loadParams_theRestOld(strParams* params)
 	}
 	else {
 		errlog("ERROR! No time delay maps given in file_params.json. It must exist. I quit.\n");
-		postRequest("ERROR! No time delay maps given in file_params.json. It must exist. I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! No time delay maps given in file_params.json. It must exist. I quit.", 1);
 	}
 	if (delayVersion == 4) {
 		if (!data["map_currentDelayName0"].is_null()) {
@@ -6390,16 +6527,14 @@ int loadParams_theRestOld(strParams* params)
 		}
 		else {
 			errlog("ERROR! No map_currentDelayName0 for delay given in file_params.json. It must exist. I quit.\n");
-			postRequest("ERROR! No map_currentDelayName0 for delay given in file_params.json. It must exist. I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! No map_currentDelayName0 for delay given in file_params.json. It must exist. I quit.", 1);
 		}
 		if (!data["map_currentDelayName1"].is_null()) {
 			params->map_currentDelayName[1] = data["map_currentDelayName1"];
 		}
 		else {
 			errlog("ERROR! No map_currentDelayName1 for delay given in file_params.json. It must exist. I quit.\n");
-			postRequest("ERROR! No map_currentDelayName1 for delay given in file_params.json. It must exist. I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! No map_currentDelayName1 for delay given in file_params.json. It must exist. I quit.", 1);
 		}
 	}
 	if (!data["delayNotPreferredPathArcFactor"].is_null()) {
@@ -6785,8 +6920,7 @@ int loadParams_new(strParams* params)
 	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
-		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav.I quit\n");
-		exitKontrollerat(__LINE__);
+		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav.I quit\n", 1);
 	}
 	printf("opens %s\n", namn);
 	fil.open(namn);
@@ -6801,8 +6935,7 @@ int loadParams_new(strParams* params)
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 
 	if (!data["maxDeviationPreferred_km"].is_null())
@@ -6823,22 +6956,40 @@ int loadParams_new(strParams* params)
 		errlog("OBS! Changes nPkterOrto from %d to %d beacuse of maxDeviationPreferred_km given as %.2lf km\n",
 			nPkterOrtoOld, model.params.nPkterOrto, model.params.maxDeviationPreferred_km);
 
-	if (!data["startDateTime"].is_null()) {
+	if (!data["SKRIV_UT_NOTHING"].is_null()) {
+		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
+		if (SKRIV_UT_NOTHING == 0)
+			reset_errlog();
+	}
+
+	if (!data["onboard"].is_null()) {
 		// loadSet_startDateTime(data["startDateTime", params]);
-		params->UTC_secondsStart = make_gmtime_fromDateTimeString(data["startDateTime"], params);
+		params->onboard = data["onboard"];
+	}else
+		params->onboard = 0;
+
+	if (model.params.UTC_secondsStart == 0) {
+		if (!data["startDateTime"].is_null()) {
+			// loadSet_startDateTime(data["startDateTime", params]);
+			params->UTC_secondsStart = make_gmtime_fromDateTimeString(data["startDateTime"], params);
+		}
+		else {
+			if (!data["startYear"].is_null())
+				params->startYear = data["startYear"];
+			if (!data["startMonth_nr"].is_null())
+				params->startMonth_nr = data["startMonth_nr"];
+			if (!data["startDay_nr"].is_null())
+				params->startDay_nr = data["startDay_nr"];
+			if (!data["startHour"].is_null())
+				params->startHour = data["startHour"];
+			if (!data["startMinute"].is_null())
+				params->startMinute = data["startMinute"];
+			params->UTC_secondsStart = make_gmtime(params);
+		}
 	}
 	else {
-		if (!data["startYear"].is_null())
-			params->startYear = data["startYear"];
-		if (!data["startMonth_nr"].is_null())
-			params->startMonth_nr = data["startMonth_nr"];
-		if (!data["startDay_nr"].is_null())
-			params->startDay_nr = data["startDay_nr"];
-		if (!data["startHour"].is_null())
-			params->startHour = data["startHour"];
-		if (!data["startMinute"].is_null())
-			params->startMinute = data["startMinute"];
-		params->UTC_secondsStart = make_gmtime(params);
+		errlog("ERROR! OBS! Starting time taken from file_params.json, not from input file\n");
+		//params->UTC_secondsStart = model.params.UTC_secondsStart;
 	}
 	if (params->startMinute >= 30) {
 		params->startHoursSinceMidnight = params->startHour + 1;
@@ -6851,8 +7002,6 @@ int loadParams_new(strParams* params)
 	errlog("Do the planning for the dateTime %s\n", asctime(gmtime(&(params->UTC_secondsStart))));
 	printf("Do the planning for the dateTime %s\n", asctime(gmtime(&(params->UTC_secondsStart))));
 
-	if (!data["SKRIV_UT_NOTHING"].is_null())
-		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
 	if (!data["SEND_POST_REQUEST"].is_null())
 		SEND_POST_REQUEST = data["SEND_POST_REQUEST"];
 
@@ -6892,7 +7041,7 @@ int loadParams_new(strParams* params)
 			if (posBase < 0) {
 				errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
 					model.extraNoGoArea[pos].areaID);
-				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_params.json. Add this area. I ignore it for now and keep running.");
+				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_params.json. Add this area. I ignore it for now and keep running.", 0);
 				continue;
 			}
 			model.extraNoGoArea[pos].posBase = posBase;
@@ -7015,8 +7164,7 @@ int loadParams_new(strParams* params)
 		}
 		else {
 			errlog("ERROR No windTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
-			postRequest("ERROR No windTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR No windTableID given in input data in tag 'ship_specification'. It must exist. I quit.", 1);
 		}
 		if (!dataShip["tableID_wave"].is_null()) {
 			model.functions.waveTableID_orig = dataShip["tableID_wave"];
@@ -7024,22 +7172,19 @@ int loadParams_new(strParams* params)
 		}
 		else {
 			errlog("ERROR No waveTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
-			postRequest("ERROR No waveTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR No waveTableID given in input data in tag 'ship_specification'. It must exist. I quit.", 1);
 		}
 		if (!dataShip["tableID_stability"].is_null()) {
 			model.functions.stabilityTableID = cleanString(dataShip["tableID_stability"]);
 		}
 		else {
 			errlog("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
-			postRequest("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.", 1);
 		}
 	}
 	else {
 		errlog("ERROR! no ship_specification in input file. It must exist. I quit.\n");
-		postRequest("ERROR! no ship_specification in input file. It must exist. I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! no ship_specification in input file. It must exist. I quit.", 1);
 	}
 
 
@@ -7055,8 +7200,7 @@ int loadParams_new(strParams* params)
 
 	if (data["geoData"].is_null()) {
 		errlog("ERROR! No geoData tag in input.json. I quit\n");
-		postRequest("ERROR! No geoData tag in input data. I quit");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! No geoData tag in input data. I quit", 1);
 	}
 	dataGeo = data["geoData"];
 	if (!dataGeo["features"].is_null()) {
@@ -7070,35 +7214,34 @@ int loadParams_new(strParams* params)
 			if (dataFeature["properties"].is_null()) {
 				printf("ERROR! No properties for a feature in geoData. I skip this one\n");
 				errlog("ERROR! No properties for a feature in geoData. I skip this one\n");
+				postRequest("ERROR! No properties for a feature in geoData. I skip this one", 0);
 				continue; // no properties exists for this one, cannot be a preferred path
 			}
 			dataProp = dataFeature["properties"];
 			std::string namnNu = dataProp["type"];
-			if (namnNu != "preferredPath") {
+			if (namnNu != "preferredPath" && namnNu != "optimizedPath") {
 				printf("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
 				errlog("ERROR! Not the name preferredPath of type for a property in geoData. I skip this one\n");
+				postRequest("ERROR! Not the type 'preferredPath' or 'optimizedPath' for property in geoData. It is '" + namnNu + "'. ", 0);
 				continue; //not a preferred path
 			}
 			dataGeo3 = dataFeature["geometry"];
 			if (dataGeo3["type"].is_null()) {
 				errlog("ERROR! No type given for the geometry of prefered path. I quit!\n");
 				printf("ERROR! No type given for the geometry of prefered path. I quit!\n");
-				postRequest("ERROR! No type given for the geometry of prefered path. I quit!");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! No type given for the geometry of prefered path. I quit!", 1);
 			}
 			std::string geoType = dataGeo3["type"];
 			if(geoType != "LineString" && geoType != "MultiLineString"){
 				errlog("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is %s). I quit!\n", geoType.c_str());
 				printf("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is %s). I quit!\n", geoType.c_str());
-				postRequest("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is " + geoType + ").I quit!");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! Geometry type of prefered path must be LineString or MultiLineString (but it is " + geoType + ").I quit!", 1);
 			}
 
 			if (dataGeo3["coordinates"].is_null()) {
 				errlog("ERROR! No coordinates given for the prefered path. I quit!\n");
 				printf("ERROR! No coordinates given for the prefered path. I quit!\n");
-				postRequest("ERROR! No coordinates given for the prefered path. I quit!");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! No coordinates given for the prefered path. I quit!", 1);
 			}
 			dataCoord = dataGeo3["coordinates"];
 
@@ -7336,8 +7479,7 @@ int loadParams_new(strParams* params)
 	if (model.preferredPath.nPoints == 0) {
 		printf("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
 		errlog("ERROR! There must be points in the preferred path. I have nothing to do so I quit!\n");
-		postRequest("ERROR! There must be points in the preferred path. I have nothing to do so I quit!");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! There must be points in the preferred path. I have nothing to do so I quit!", 1);
 	}
 
 	analyzePreferredPath_longitude();
@@ -7605,8 +7747,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wave factor table file %s\n", namn);
-		postRequest("ERROR! Could not open wave factor table file " + std::string(namn));
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open wave factor table file " + std::string(namn), 1);
 	}
 
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].shipSpeedCalmWater, &(model.functions.waveFactor.shipSpeedCalmWater));
@@ -7647,8 +7788,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " + 
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.waveFactor.shipSpeedCalmWater.minValue) + 
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (calmWaterSpeedI >= model.functions.waveFactor.shipSpeedCalmWater.nIndex) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -7657,8 +7797,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.waveFactor.shipSpeedCalmWater.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveI = get_tableIndex(wave, model.functions.waveFactor.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveI < 0) {
@@ -7668,8 +7807,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.waveFactor.waveHeight.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveI >= model.functions.waveFactor.waveHeight.nIndex) {
 			errlog("ERROR! wave %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -7678,8 +7816,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.waveFactor.waveHeight.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveDirI = get_tableIndexDirection(waveDir, model.functions.waveFactor.waveDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveDirI < 0) {
@@ -7689,8 +7826,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.waveFactor.waveDirection.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveDirI >= model.functions.waveFactor.waveDirection.nIndex) {
 			errlog("ERROR! waveDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -7699,8 +7835,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.waveFactor.waveDirection.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		wavePeriodI = get_tableIndex(wavePeriod, model.functions.waveFactor.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (wavePeriodI < 0) {
@@ -7710,8 +7845,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.waveFactor.wavePeriod.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (wavePeriodI >= model.functions.waveFactor.wavePeriod.nIndex) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -7720,8 +7854,7 @@ int loadWeatherFactorTableWave(int tableNr) {
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
 				std::string(model.tables.tableTyp[1][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.waveFactor.wavePeriod.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 
 		pos = calmWaterSpeedI + model.functions.waveFactor.shipSpeedCalmWater.nIndex *
@@ -7864,8 +7997,7 @@ int saveFactorTableToSQLite(int type, int tablePos, int modified, int nAlloc) {
 	if (res == -2) {
 		errlog("ERROR! Could not delete the database %s. It must be open in another application. Close it and run the redis update again\n",
 			namn);
-		postRequest("ERROR! Could not delete the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not delete the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 	}
 	//}
 
@@ -7978,8 +8110,7 @@ int readSQLiteAllTablesInfo() {
 	int rc = sqlite3_open(namn, &db);
 	if (rc) {
 		errlog("ERROR. Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
-		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 	}
 	else {
 		errlog("Opened database successfully\n");
@@ -8030,8 +8161,7 @@ int readSQLiteAllTablesInfo() {
 			printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
 			sqlite3_finalize(query);
 			errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
-			postRequest("Error search in table all_tables: error during row processing: " + std::string(sqlite3_errmsg(db)));
-			exitKontrollerat(__LINE__);
+			postRequest("Error search in table all_tables: error during row processing: " + std::string(sqlite3_errmsg(db)), 1);
 			return 0;
 		}
 		count++;
@@ -8062,8 +8192,7 @@ int readSQLiteAllTablesInfo() {
 				/* Execute SQL statement */
 				rc = sqlite3_exec(db, sql.c_str(), callbackDB, 0, &zErrMsg);
 				if (rc) {
-					postRequest("Failed to add table maps to database: " + std::string(sqlite3_errmsg(db)));
-					exitKontrollerat(__LINE__);
+					postRequest("Failed to add table maps to database: " + std::string(sqlite3_errmsg(db)), 1);
 				}
 				sqlite3_stmt* query, * query2;
 				sql = "INSERT INTO maps (mapNr, textFileName, epochCount, nCols, nRows, size_col, size_row, minX, maxX, minY, maxY, nBlockRows, nBlockCols) VALUES "
@@ -8075,8 +8204,7 @@ int readSQLiteAllTablesInfo() {
 				continue;
 			}
 			else {
-				postRequest("Error executing query: " + std::string(sqlite3_errmsg(db)));
-				exitKontrollerat(__LINE__);
+				postRequest("Error executing query: " + std::string(sqlite3_errmsg(db)), 1);
 			}
 		}
 
@@ -8107,8 +8235,7 @@ int readSQLiteAllTablesInfo() {
 				printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
 				sqlite3_finalize(query);
 				errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
-				postRequest("Error search in table maps: error during row processing: " + std::string(sqlite3_errmsg(db)));
-				exitKontrollerat(__LINE__);
+				postRequest("Error search in table maps: error during row processing: " + std::string(sqlite3_errmsg(db)), 1);
 				return 0;
 			}
 			count++;
@@ -8136,8 +8263,7 @@ int updateSQLiteAllTablesInfo(int type, int tablePos, int modified) {
 	int rc = sqlite3_open(namn, &db);
 	if (rc) {
 		errlog("ERROR. Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
-		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 	}
 	else {
 		errlog("Opened database successfully\n");
@@ -8183,16 +8309,14 @@ int checkIfModifiedFile(int type, int tablePos) {
 	}
 	catch (...) {
 		printf("ERROR! Last modified date of %s given in table_parameters.json could not be read. Does it exist\n", namn);
-		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?", 1);
 	}
 #else
 	struct stat result;
 	if (stat(namn, &result) != 0)
 	{
 		printf("ERROR! Failed to get stats from file %s\n", namn);
-		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in table_parameters.json could not be read. Does it exist?", 1);
 	}
 	auto ticks = result.st_mtime;
 	model.tmpEpochCount = ticks;
@@ -8239,16 +8363,14 @@ int checkIfModifiedMap(int type) {
 	}
 	catch (...) {
 		printf("ERROR! Last modified date of %s given in file_params.json could not be read. Does it exist\n", namn);
-		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in file_params.json could not be read. Does it exist?"); 
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in file_params.json could not be read. Does it exist?", 1);
 	}
 #else
 	struct stat result; 
 	if (stat(namn, &result) != 0)
 	{
 		printf("ERROR! Failed to get stats from file %s\n", namn);
-		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in file_params.json could not be read. Does it exist?");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Last modified date of " + std::string(namn) + " given in file_params.json could not be read. Does it exist?", 1);
 	}
 	auto ticks = result.st_mtime;
 	model.tmpEpochCount = ticks;
@@ -8276,8 +8398,7 @@ int updateSQLiteMap(int type) {
 	int rc = sqlite3_open(namn, &db);
 	if (rc) {
 		errlog("ERROR. Can't open database %s: %s\n", namn, sqlite3_errmsg(db));
-		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 	}
 	else {
 		errlog("Opened database successfully\n");
@@ -8301,8 +8422,7 @@ int updateSQLiteMap(int type) {
 	if (sqlite3_exec(db, sql.c_str(), NULL, 0, &zErrMsg)) {
 		std::cout << sql << std::endl;
 		printf("error failed to modify the database table maps: %s\n", zErrMsg);
-		postRequest("ERROR! Failed to modify the database table maps in database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Failed to modify the database table maps in database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 		return 0;
 	}
 	sqlite3_close(db);
@@ -8417,8 +8537,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wind factor table file %s\n", namn);
-		postRequest("ERROR! Could not open wind factor table file " + std::string(namn));
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open wind factor table file " + std::string(namn), 1);
 	}
 
 
@@ -8463,8 +8582,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.windFactor.shipSpeedCalmWater.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (calmWaterSpeedI >= model.functions.windFactor.shipSpeedCalmWater.nIndex) {
 			errlog("ERROR! calmWaterSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8473,8 +8591,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! calmWaterSpeed " + std::to_string(calmWaterSpeed) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.windFactor.shipSpeedCalmWater.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		windI = get_tableIndex(wind, model.functions.windFactor.windSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (windI < 0) {
@@ -8484,8 +8601,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! wind " + std::to_string(wind) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.windFactor.windSpeed.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windI >= model.functions.windFactor.windSpeed.nIndex) {
 			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8494,8 +8610,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! wind " + std::to_string(wind) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.windFactor.windSpeed.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		windDirI = get_tableIndexDirection(windDir, model.functions.windFactor.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (windDirI < 0) {
@@ -8505,8 +8620,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! windDir " + std::to_string(windDir) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.windFactor.windDirection.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windDirI >= model.functions.windFactor.windDirection.nIndex) {
 			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8515,8 +8629,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 			postRequest("ERROR2! windDir " + std::to_string(windDir) + " given in " +
 				std::string(model.tables.tableTyp[0][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.windFactor.windDirection.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 
 		pos = calmWaterSpeedI + model.functions.windFactor.shipSpeedCalmWater.nIndex *
@@ -8562,8 +8675,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open dynamic stability table file %s\n", namn);
-		postRequest("ERROR! Could not open dynamic stability table file " + std::string(namn));
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open dynamic stability table file " + std::string(namn), 1);
 	}
 
 	copyAddTableInfo(model.tables.tableTyp[2][tableNr].windSpeed, &(model.functions.dynStability.windSpeed));
@@ -8596,8 +8708,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.windSpeed.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windI >= model.functions.dynStability.windSpeed.nIndex) {
 			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8606,8 +8717,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.windSpeed.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		windDirI = get_tableIndexDirection(windDir, model.functions.dynStability.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (windDirI < 0) {
@@ -8617,8 +8727,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.windDirection.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windDirI >= model.functions.dynStability.windDirection.nIndex) {
 			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8627,8 +8736,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.windDirection.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		shipSpeedI = get_tableIndex(shipSpeed, model.functions.dynStability.shipSpeedOverGround, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (shipSpeedI < 0) {
@@ -8638,8 +8746,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.shipSpeedOverGround.minValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (shipSpeedI >= model.functions.dynStability.shipSpeedOverGround.nIndex) {
 			errlog("ERROR! shipSpeedOverGround %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
@@ -8648,8 +8755,7 @@ int  loadDynamicStabilityTable(int tableNr) {
 			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
 				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.shipSpeedOverGround.maxValue) +
-				" given in table_parameters.json. Fix and run again, i quit!");
-			exitKontrollerat(__LINE__);
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		pos = shipSpeedI + model.functions.dynStability.shipSpeedOverGround.nIndex * 
 			(windDirI + model.functions.dynStability.windDirection.nIndex * windI);
@@ -8921,6 +9027,8 @@ void setupUsableSpeedSettings() {
 
 		i = 0;
 		nextTraff = roundUp(model.functions.nShip_speedSettingsBase / (double)model.params.nSpeedSettingDivideIter1);
+		if (nextTraff == maxPos)
+			nextTraff--;
 		for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
 			if (iUse == minPos || iUse == maxPos || iUse == nextTraff) {
 				if(iUse == nextTraff)
@@ -9118,8 +9226,7 @@ int loadTablesInfo(int useFactor)
 	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
-		postRequest(std::string(namn) + " does not exist. I quit");
-		exitKontrollerat(__LINE__);
+		postRequest(std::string(namn) + " does not exist. I quit", 1);
 	}
 	printf("opens %s\n", namn);
 	fil.open(namn);
@@ -9132,8 +9239,7 @@ int loadTablesInfo(int useFactor)
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 
 	int typeNr, pos, paramsError, i;
@@ -9250,8 +9356,7 @@ int loadTablesInfo(int useFactor)
 		if (model.tables.nTableTyp[i] < 1) {
 			if (useFactor == 0) {
 				errlog("ERROR! No tables in %s of type %d (0 wind, 1 wave, 2 stability). There must be at least one. I quit\n", namn, i);
-				postRequest("ERROR! No tables in " + std::string(namn) + " of type " + std::to_string(i) + " (0 wind, 1 wave, 2 stability).There must be at least one.I quit");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! No tables in " + std::string(namn) + " of type " + std::to_string(i) + " (0 wind, 1 wave, 2 stability).There must be at least one.I quit", 1);
 			}
 			else {
 				if (i == 0)
@@ -9261,8 +9366,7 @@ int loadTablesInfo(int useFactor)
 				else if (i == 2)
 					namnID = model.functions.stabilityTableID;
 				errlog("ERROR! Table %s typ %d is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit\n", namnID.c_str(), i);
-				postRequest("ERROR! Table " + namnID + " is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! Table " + namnID + " is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit", 1);
 			}
 		}
 		for (int i1 = 0; i1 < model.tables.nTableTyp[i]; i1++) {
@@ -9342,8 +9446,7 @@ int loadTableSQLite(int type, int nAlloc, char* namn, char* tableID, float* tabl
 				printf("ERROR! Too many values in db table waveTable for type %d. Is more than %d.\n", type,
 					nAlloc);
 				postRequest("ERROR! Too many values in db table waveTable for type " + std::to_string(type) +
-					" is more than " + std::to_string(nAlloc));
-				exitKontrollerat(__LINE__);
+					" is more than " + std::to_string(nAlloc), 1);
 				sqlite3_finalize(query);
 				return 0;
 			}
@@ -9367,8 +9470,7 @@ int loadTableSQLite(int type, int nAlloc, char* namn, char* tableID, float* tabl
 			printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
 			sqlite3_finalize(query);
 			errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
-			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)));
-			exitKontrollerat(__LINE__);
+			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)), 1);
 			return 0;
 		}
 		count++;
@@ -9383,8 +9485,7 @@ int loadTableSQLite(int type, int nAlloc, char* namn, char* tableID, float* tabl
 			tableID, type,
 			count, nAlloc);
 		postRequest("ERROR! Too few values in db table " + std::string(tableID) + " for type " + std::to_string(type) +
-			". Is " + std::to_string(count) + ", should be " + std::to_string(nAlloc));
-		exitKontrollerat(__LINE__);
+			". Is " + std::to_string(count) + ", should be " + std::to_string(nAlloc), 1);
 	}
 	return 0;
 }
@@ -9404,8 +9505,7 @@ int loadMapsSQLite() {
 	namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/shipTables/all_tables.db", model.params.indataPath.c_str());	rc = sqlite3_open(namn, &db);
 	if (rc) {
-		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open the database " + std::string(namn) + ". Is it possibly locked by another application. Close it and run the redis update again", 1);
 	}
 	else {
 		fprintf(stderr, "Opened database successfully\n");
@@ -9429,8 +9529,7 @@ int loadMapsSQLite() {
 
 			if (type >= 2) {
 				errlog("ERROR! Too many maps in db table maps, type %d.\n", type);
-				postRequest("ERROR! Too many maps in db table maps, type " + std::to_string(type));
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! Too many maps in db table maps, type " + std::to_string(type), 1);
 			}
 			model.sqliteMap[type].textFileName = str_alloc_cpy((char*)sqlite3_column_text(query, 1));
 			model.sqliteMap[type].epochCount = (double)sqlite3_column_double(query, 2);
@@ -9455,8 +9554,7 @@ int loadMapsSQLite() {
 			printf("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
 			sqlite3_finalize(query);
 			errlog("Error search: error during row processing: %s\n", sqlite3_errmsg(db));
-			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)));
-			exitKontrollerat(__LINE__);
+			postRequest("Error search: error during row processing: " + std::string(sqlite3_errmsg(db)), 1);
 			return 0;
 		}
 		count++;
@@ -9467,8 +9565,7 @@ int loadMapsSQLite() {
 	sqlite3_close(db);
 
 	if (count != 2) {
-		postRequest("ERROR! Wrong number of maps in table maps, must be 2 but is " + std::to_string(count));
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Wrong number of maps in table maps, must be 2 but is " + std::to_string(count), 1);
 	}
 	return 0;
 }
@@ -9548,15 +9645,13 @@ int loadUsedTablesFromRedis() { // not used
 		if (redisTest != "PONG") {
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
-			postRequest("ERROR1! Redis is not running on the server. Start it and try to update redis via OptiNav again");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR1! Redis is not running on the server. Start it and try to update redis via OptiNav again", 1);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
-		postRequest("ERROR2! Redis is not running on the server. Start it and try to update redis via OptiNav again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR2! Redis is not running on the server. Start it and try to update redis via OptiNav again", 1);
 	}
 
 	int paramsError = 0, nAlloc;
@@ -9578,13 +9673,11 @@ int loadUsedTablesFromRedis() { // not used
 		errlog("ERROR! The tableID for wind %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.windTableID.c_str());
 		std::string felError = "ERROR! The tableID for wind " + model.functions.windTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.";
-		postRequest(felError);
-		exitKontrollerat(__LINE__);
+		postRequest(felError, 1);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for wind tableID %s. Try to set redis keys again. I quit.\n", model.functions.windTableID.c_str());
-		postRequest("ERROR! Failed to load metaData for wind tableID " + model.functions.windTableID + ".Try to set redis keys again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Failed to load metaData for wind tableID " + model.functions.windTableID + ".Try to set redis keys again.I quit.", 1);
 	}
 	keyID.assign("tableWind_");
 	keyID.append(model.functions.windTableID.c_str());
@@ -9600,8 +9693,7 @@ int loadUsedTablesFromRedis() { // not used
 	}
 	else {
 		errlog("ERROR! Could not read redis key %s. Try to run set redis again. I quit.\n", keyID.c_str());
-		postRequest("ERROR! Could not read redis key " + keyID  + ".Try to run set redis again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not read redis key " + keyID  + ".Try to run set redis again.I quit.", 1);
 	}
 
 	keyID.assign("tableWave_");
@@ -9627,14 +9719,11 @@ int loadUsedTablesFromRedis() { // not used
 	else {
 		errlog("ERROR! The tableID for wave %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.waveTableID.c_str());
-		postRequest("ERROR! The tableID for wave " + model.functions.waveTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! The tableID for wave " + model.functions.waveTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.", 1);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for wave tableID %s. Try to set redis keys again. I quit.\n", model.functions.waveTableID.c_str());
-		postRequest("ERROR! Failed to load metaData for wave tableID " + model.functions.waveTableID + ".Try to set redis keys again.I quit.");
-
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Failed to load metaData for wave tableID " + model.functions.waveTableID + ".Try to set redis keys again.I quit.", 1);
 	}
 	keyID.assign("tableWave_");
 	keyID.append(model.functions.waveTableID.c_str());
@@ -9648,8 +9737,7 @@ int loadUsedTablesFromRedis() { // not used
 	}
 	else {
 		errlog("ERROR! Could not read redis key %s try to run set redis again. I quit.\n", keyID.c_str());
-		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.", 1);
 	}
 
 	keyID.assign("tableStability_");
@@ -9667,14 +9755,11 @@ int loadUsedTablesFromRedis() { // not used
 	else {
 		errlog("ERROR! The tableID for stability %s does not exist in redis memory. Add it to table_parameters.json and set redis keys again. I quit.\n",
 			model.functions.stabilityTableID.c_str());
-		postRequest("ERROR! The tableID for stability " + model.functions.stabilityTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.");
-
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! The tableID for stability " + model.functions.stabilityTableID + " does not exist in redis memory.Add it to table_parameters.json and set redis keys again.I quit.", 1);
 	}
 	if (paramsError > 0) {
 		errlog("ERROR! Failed to load metaData for stability tableID %s. Try to set redis keys again. I quit.\n", model.functions.stabilityTableID.c_str());
-		postRequest("ERROR! Failed to load metaData for stability tableID " + model.functions.stabilityTableID  + ".Try to set redis keys again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Failed to load metaData for stability tableID " + model.functions.stabilityTableID  + ".Try to set redis keys again.I quit.", 1);
 	}
 	keyID.assign("tableStability_");
 	keyID.append(model.functions.stabilityTableID.c_str());
@@ -9688,8 +9773,7 @@ int loadUsedTablesFromRedis() { // not used
 	}
 	else {
 		errlog("ERROR! Could not read redis key %s try to run set redis again. I quit.\n", keyID.c_str());
-		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not read redis key " + keyID + ". Try to run set redis again.I quit.", 1);
 	}
 
 	return 0;
@@ -9713,8 +9797,7 @@ int loadpreferredPathGeojson()
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 	
 	if (data["geometry"].is_null()) {
@@ -9835,8 +9918,7 @@ int loadVariables(int alt)
 	}
 	else {
 		errlog("ERROR! timeIntervall_h not given in file %s. Fix this and run again. I quit\n", namn.c_str());
-		postRequest("ERROR! timeIntervall_h not given in file " + namn + ". Fix this and run again.I quit");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! timeIntervall_h not given in file " + namn + ". Fix this and run again.I quit", 1);
 	}
 
 	model.nWeatherFiles = 0;
@@ -9922,43 +10004,35 @@ int loadVariables(int alt)
 
 	if (model.functions.pos_wind_u == -1) {
 		errlog("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_wind_v == -1) {
 		errlog("ERROR! weather parameter wind_vComponent not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter wind_vComponent not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter wind_vComponent not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_current_u == -1) {
 		errlog("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_current_v == -1) {
 		errlog("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_waveHeight == -1) {
 		errlog("ERROR! weather parameter waveHeight not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter waveHeight not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter waveHeight not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_wavePeriod == -1) {
 		errlog("ERROR! weather parameter wavePeriod not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter wavePeriod not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter wavePeriod not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_waveDirection == -1) {
 		errlog("ERROR! weather parameter waveDirection not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter waveDirection not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter waveDirection not given in weather_parameters.json. It must exist", 1);
 	}
 	if (model.functions.pos_iceThickness == -1) {
 		errlog("ERROR! weather parameter ice_thickness_m not given in weather_parameters.json. It must exist\n");
-		postRequest("ERROR! weather parameter ice_thickness_m not given in weather_parameters.json. It must exist");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! weather parameter ice_thickness_m not given in weather_parameters.json. It must exist", 1);
 	}
 
 
@@ -10357,8 +10431,7 @@ int redisSetKeys(std::string inputPath) {
 	FILE* filcheck = fopen(namn, "w");
 	if (filcheck == NULL) {
 		errlog("ERROR! Could not open %s\n", namn);
-		postRequest("ERROR! Could not open " + std::string(namn));
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Could not open " + std::string(namn), 1);
 	}
 	printf("done\n");
 	fprintf(filcheck, "tetsting\n");
@@ -10401,15 +10474,13 @@ int redisSetKeys(std::string inputPath) {
 		if (redisTest != "PONG") {
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
-			postRequest("ERROR! Redis is not running on the server. Start it and try again");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
-		postRequest("ERROR! Redis is not running on the server. Start it and try again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
 	}
 
 	loadVariables(1);
@@ -10450,8 +10521,7 @@ int redisSetKeys(std::string inputPath) {
 			if (openOK != 1) {
 				errlog("ERROR! Could not open forecast file %s. This one must exist. I quit\n",
 					model.weather[ii].filePos[i1].fileName);
-				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit");
-				exitKontrollerat(__LINE__);
+				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit", 1);
 			}
 			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
 			model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
@@ -10577,12 +10647,18 @@ int redisSetKeys(std::string inputPath) {
 						histFileName.c_str());
 					if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001 ||
 						abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
-						if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+						if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001) {
+							printf("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+								model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
 							errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
 								model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
-						if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+						}
+						if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
 							errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
 								model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+							printf("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+								model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+						}
 						model.weather[ii].errorCode = 4;
 						continue;
 					}
@@ -11501,8 +11577,7 @@ int loadDelayFactorScale_shipSize() {
 	if (!(exists_test3(namn))) {
 		errlog("ERROR! %s does not exist. I quit\n", namn);
 		printf("ERROR! %s does not exist. I quit\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " does not exist.Fix it and run OptiNav again.");
-		exit(0);
+		postRequest("ERROR! json file " + std::string(namn) + " does not exist.Fix it and run OptiNav again.", 1);
 	}
 	printf("opens %s\n", namn);
 	fil.open(namn);
@@ -11513,8 +11588,7 @@ int loadDelayFactorScale_shipSize() {
 	catch (...) {
 		errlog("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
 		printf("ERROR! json file %s is not valid. Fix it and run OptiNav again.\n", namn);
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 	fil.close();
 
@@ -11534,14 +11608,12 @@ int loadDelayFactorScale_shipSize() {
 	else {
 		errlog("ERROR! Field waveFactorTables_scale is missing in %s. I quit\n", namn);
 		printf("ERROR! Field waveFactorTables_scale is missing in %s. I quit\n", namn);
-		postRequest("ERROR! Field waveFactorTables_scale is missing in " + std::string(namn) + ".Fix it and run OptiNav again.");
-		exit(0);
+		postRequest("ERROR! Field waveFactorTables_scale is missing in " + std::string(namn) + ".Fix it and run OptiNav again.", 1);
 	}
 	if (model.scaledDelay < 0.1) {
 		errlog("ERROR! Scaled delay for waveFactorTable %s is not a valid scale %.3lf in file %s. I quit\n", model.functions.waveTableID.c_str(), model.scaledDelay, namn);
 		printf("ERROR! Scaled delay for waveFactorTable %s is not a valid scale %.3lf in file %s. I quit\n", model.functions.waveTableID.c_str(), model.scaledDelay, namn);
-		postRequest("ERROR! Scaled delay for waveFactorTable " + model.functions.waveTableID + " in file " + std::string(namn) + " is not a valid scale.Fix it and run OptiNav again.");
-		exit(0);
+		postRequest("ERROR! Scaled delay for waveFactorTable " + model.functions.waveTableID + " in file " + std::string(namn) + " is not a valid scale.Fix it and run OptiNav again.", 1);
 	}
 
 	return 0;
@@ -11571,8 +11643,7 @@ int loadTimeDelayMap() {
 			errlog("\n\n\n##########################################\nERROR! Delay map does not exist for month %d, ADD IT! It must exist\n",
 				model.delay.delayed_monthNr[i]);
 			if (returnVal == -1) {
-				postRequest("Faile to open delay map " + std::string(namn) + ". Something is very wrong!");
-				exitKontrollerat(__LINE__);
+				postRequest("Faile to open delay map " + std::string(namn) + ". Something is very wrong!", 1);
 				return -1;
 			}
 		}
@@ -11673,8 +11744,7 @@ int loadCurrentAverageMaps() {
 				errlog("\n\n\n##########################################\nERROR! Historical current map %d does not exist for month %d (%s), ADD IT! It must exist\n",
 					i0, model.delay.delayed_monthNr[i], namn);
 				if (returnVal == -1) {
-					postRequest("Faile to open historical current " + std::string(namn) + ". Something is very wrong!");
-					exitKontrollerat(__LINE__);
+					postRequest("Faile to open historical current " + std::string(namn) + ". Something is very wrong!", 1);
 					return -1;
 				}
 			}
@@ -11774,8 +11844,7 @@ int openNeededRasterFilesNew(int alt)
 	model.physicalMapA.valueCell = rasterPhysicalMapA.GetRasterBand_intArrTest(1, &(model.physicalMapA), model.boundingBox);
 	if (model.physicalMapA.valueCell == NULL) {
 		errlog("ERROR! Failed to load physical map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte", 1);
 	}
 	auto tid2 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> fp_ms2 = tid2 - tid1;
@@ -11790,8 +11859,7 @@ int openNeededRasterFilesNew(int alt)
 	model.physicalMapB.valueCell = rasterPhysicalMapB.GetRasterBand_intArrTest(1, &(model.physicalMapB), model.boundingBox);
 	if (model.physicalMapB.valueCell == NULL) {
 		errlog("ERROR! Failed to load physical map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte", 1);
 	}
 
 	int nExtra = model.nExtraNoGoAreas;
@@ -11807,8 +11875,7 @@ int openNeededRasterFilesNew(int alt)
 		model.extraNoGoArea[i].mapA.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapA), model.boundingBox);
 		if (model.extraNoGoArea[i].mapA.valueCell == NULL) {
 			errlog("ERROR! Failed to load extra noGo mapA %s. Must be datatype Byte. I quit\n", namn2);
-			postRequest("ERROR!Failed to load physical mapA " + std::string(namn2) + ". Must be datatype Byte");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR!Failed to load physical mapA " + std::string(namn2) + ". Must be datatype Byte", 1);
 		}
 		if (nExtra >= model.nExtraNoGoAreas)
 			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapLandSeaBFileName.c_str());
@@ -11818,8 +11885,7 @@ int openNeededRasterFilesNew(int alt)
 		model.extraNoGoArea[i].mapB.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapB), model.boundingBox);
 		if (model.extraNoGoArea[i].mapB.valueCell == NULL) {
 			errlog("ERROR! Failed to load extra noGo mapB %s. Must be datatype Byte. I quit\n", namn2);
-			postRequest("ERROR!Failed to load physical mapB " + std::string(namn2) + ". Must be datatype Byte");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR!Failed to load physical mapB " + std::string(namn2) + ". Must be datatype Byte", 1);
 		}
 	}
 
@@ -11839,8 +11905,7 @@ int openNeededRasterFilesNew(int alt)
 		model.fuelMapA.valueCell = rasterFuelMapA.GetRasterBand_intArrTest(1, &(model.fuelMapA), model.boundingBox);
 		if (model.fuelMapA.valueCell == NULL) {
 			errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
-			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
 		}
 		if (SKRIV_UT_NOTHING == 0) 
 			printf("-- Time after loading fuelMapA %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
@@ -11852,8 +11917,7 @@ int openNeededRasterFilesNew(int alt)
 		model.fuelMapB.valueCell = rasterFuelMapB.GetRasterBand_intArrTest(1, &(model.fuelMapB), model.boundingBox);
 		if (model.fuelMapA.valueCell == NULL) {
 			errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
-			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
 		}
 	//}
 
@@ -13480,6 +13544,7 @@ int check_isCoordFeasiblePhysicalMap(double y, double x) {
 
 int getMonthFromHoursSinceRouteStart(double hoursAfterStart) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	tmBas.tm_year = model.params.startYear - 1900;
 	tmBas.tm_mon = model.params.startMonth_nr - 1; // sep
 	tmBas.tm_mday = model.params.startDay_nr;
@@ -13488,12 +13553,19 @@ int getMonthFromHoursSinceRouteStart(double hoursAfterStart) {
 	int minuter = (int)((hoursAfterStart - timmar) * 60.0);
 	tmBas.tm_min = model.params.startMinute + minuter;
 	tmBas.tm_sec = 0;
-	mktime(&tmBas);
+	time_t test = mktime(&tmBas);
+	if (test == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	return tmBas.tm_mon + 1;
 }
 
 int getHoursAfterStart_monthEnd(int month) {
 	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	tmBas.tm_year = model.params.startYear - 1900;
 	tmBas.tm_mon = model.params.startMonth_nr - 1;
 	tmBas.tm_mday = model.params.startDay_nr;
@@ -13501,8 +13573,15 @@ int getHoursAfterStart_monthEnd(int month) {
 	tmBas.tm_min = model.params.startMinute;
 	tmBas.tm_sec = 0;
 	time_t tidBas = mktime(&tmBas);
+	if (tidBas == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 
 	struct tm tmNy = { 0 };
+	tmNy.tm_isdst = 0;
 	if (month + 1 < model.params.startMonth_nr)
 		tmNy.tm_year = model.params.startYear - 1900 + 1;
 	else
@@ -13513,6 +13592,12 @@ int getHoursAfterStart_monthEnd(int month) {
 	tmNy.tm_min = 0;
 	tmNy.tm_sec = 0;
 	time_t tidNy = mktime(&tmNy);
+	if (tidNy == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmNy.tm_year,
+			tmNy.tm_mon, tmNy.tm_mday, tmNy.tm_hour, tmNy.tm_min, tmNy.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 
 	double difference = difftime(tidNy, tidBas) / 3600.0;
 	int diffInt = (int)difference;
@@ -14407,7 +14492,7 @@ int evalWeatherPosAlongLine(spherical::Point p1, spherical::Point p2, int* check
 			if (model.weatherFunctions.checkPoint[i].latPos[i1] < 0) {
 				if (model.nErrorCoordBB == 0) {
 					errlog("ERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
-					postRequest("ERROR! latPos " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]));
+					postRequest("ERROR! latPos " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]), 0);
 					printf("\n\n\n\n\n\n\n############################################################\nERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
 					model.nErrorCoordBB = 1;
 				}
@@ -14419,7 +14504,7 @@ int evalWeatherPosAlongLine(spherical::Point p1, spherical::Point p2, int* check
 						model.weather[i1].nRows - 1, pMid.latitude().degrees(), pMid.longitude().degrees(),
 						model.weather[i1].maxY, model.weather[i1].minX, model.nArcs);
 					postRequest("ERROR! latPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]) +
-						" max " + std::to_string(model.weather[i1].nRows - 1));
+						" max " + std::to_string(model.weather[i1].nRows - 1), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].latPos[i1] = model.weather[i1].nRows - 1;
@@ -14428,7 +14513,7 @@ int evalWeatherPosAlongLine(spherical::Point p1, spherical::Point p2, int* check
 			if (model.weatherFunctions.checkPoint[i].lonPos[i1] < 0) {
 				if (model.nErrorCoordBB == 0) {
 					errlog("ERROR! lonPos %d\n", model.weatherFunctions.checkPoint[i].lonPos[i1]);
-					postRequest("ERROR! lonPos " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]));
+					postRequest("ERROR! lonPos " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = 0;
@@ -14438,7 +14523,7 @@ int evalWeatherPosAlongLine(spherical::Point p1, spherical::Point p2, int* check
 					errlog("ERROR! lonPos too high %d (max %d)\n", model.weatherFunctions.checkPoint[i].lonPos[i1],
 						model.weather[i1].nCols - 1);
 					postRequest("ERROR! lonPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]) +
-						" (max " + std::to_string(model.weather[i1].nCols - 1));
+						" (max " + std::to_string(model.weather[i1].nCols - 1), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = model.weather[i1].nCols - 1;
@@ -14565,7 +14650,7 @@ int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp)
 			if (model.weatherFunctions.checkPoint[i].latPos[i1] < 0) {
 				if (model.nErrorCoordBB == 0) {
 					errlog("ERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
-					postRequest("ERROR! latPos " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]));
+					postRequest("ERROR! latPos " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]), 0);
 					printf("\n\n\n\n\n\n\n############################################################\nERROR! latPos %d\n", model.weatherFunctions.checkPoint[i].latPos[i1]);
 					model.nErrorCoordBB = 1;
 				}
@@ -14577,7 +14662,7 @@ int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp)
 						model.weather[i1].nRows - 1, pMid.latitude().degrees(), pMid.longitude().degrees(),
 						model.weather[i1].maxY, model.weather[i1].minX, model.nArcs);
 					postRequest("ERROR! latPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].latPos[i1]) +
-						" max " + std::to_string(model.weather[i1].nRows - 1));
+						" max " + std::to_string(model.weather[i1].nRows - 1), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].latPos[i1] = model.weather[i1].nRows - 1;
@@ -14586,7 +14671,7 @@ int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp)
 			if (model.weatherFunctions.checkPoint[i].lonPos[i1] < 0) {
 				if (model.nErrorCoordBB == 0) {
 					errlog("ERROR! lonPos %d\n", model.weatherFunctions.checkPoint[i].lonPos[i1]);
-					postRequest("ERROR! lonPos " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]));
+					postRequest("ERROR! lonPos " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = 0;
@@ -14596,7 +14681,7 @@ int calcWeatherPosAlongArc(spherical::Point p1, spherical::Point p2, int tidp)
 					errlog("ERROR! lonPos too high %d (max %d)\n", model.weatherFunctions.checkPoint[i].lonPos[i1],
 					model.weather[i1].nCols - 1);
 					postRequest("ERROR! lonPos too high " + std::to_string(model.weatherFunctions.checkPoint[i].lonPos[i1]) +
-						" (max " + std::to_string(model.weather[i1].nCols - 1));
+						" (max " + std::to_string(model.weather[i1].nCols - 1), 0);
 					model.nErrorCoordBB = 1;
 				}
 				model.weatherFunctions.checkPoint[i].lonPos[i1] = model.weather[i1].nCols - 1;
@@ -15203,7 +15288,10 @@ double eval_factorDelayedAlongPath(int level, int tidp, double* speedDiffCurrent
 		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
 		pos_latLon = (int)rowDbl * model.delayedGrid[0].nCols + (int)colDbl;
 
-		delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
+		if (delayVersion == 5)
+			delay += 1;
+		else
+			delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
 		if (delayVersion == 4)
 			speedDiff += getSpeedDiff_currentDelayedFromBearing(level, level + 1, delayNr, direction, pMid.latitude().degrees(), pMid.longitude().degrees());
 
@@ -15407,7 +15495,10 @@ double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nex
 		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
 		pos_latLon = (int)rowDbl * model.delayedGrid[0].nCols + (int)colDbl;
 
-		delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
+		if (delayVersion == 5)
+			delay += 1;
+		else
+			delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
 		if(delayVersion == 4)
 			speedDiff += getSpeedDiff_currentDelayedFromBearing(thisLevel, nextLevel, delayNr, bearingRadians, pMid.latitude().degrees(), pMid.longitude().degrees(), calmWaterSpeed);
 
@@ -16665,7 +16756,7 @@ double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLeve
 		speedDiffWave = lookup_speedDiffWaveTable(calmWaterSpeed, waveHeight, wavePeriod, rel_waveDir);
 		speedDiffWindWave = speedDiffWind + speedDiffWave;
 
-		if(model.delay.nYears > 0 && delayVersion == 4)
+		if(model.delay.nYears > 0 && delayVersion >= 4)
 			speedOverGround = calmWaterSpeed - speedDiffWindWave; // in km/h
 		else
 			speedOverGround = baseGroundSpeed - speedDiffWindWave; // in km/h
@@ -16913,7 +17004,7 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr) {
 			speedDiffWave = lookup_speedDiffWaveTable(calmWaterSpeed, waveHeight, wavePeriod, rel_waveDir);
 			speedDiffWindWave = speedDiffWind + speedDiffWave;
 
-			if (model.delay.nYears > 0 && delayVersion == 4)
+			if (model.delay.nYears > 0 && delayVersion >= 4)
 				speedOverGround = calmWaterSpeed - speedDiffWindWave; // in km/h
 			else
 				speedOverGround = baseGroundSpeed - speedDiffWindWave; // in km/h
@@ -17804,8 +17895,12 @@ int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int p
 					tidp = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos];
 				if (delayVersion < 4)
 					*delayFactor = eval_factorDelayedAlongArc(thisLevel, pos1, nextLevel, pos2, tidp);
-				else
-					*delayFactor = eval_factorDelayedAlongArc_currSpeedDiff(thisLevel, pos1, nextLevel, pos2, tidp, &speedDiffCurrent);
+				else {
+					if (delayVersion == 4)
+						*delayFactor = eval_factorDelayedAlongArc_currSpeedDiff(thisLevel, pos1, nextLevel, pos2, tidp, &speedDiffCurrent);
+					else
+						*delayFactor = 1.0;
+				}
 			}
 		}
 		nArcs = genArcs_withDelay(thisLevel, pos1, nextLevel, pos2, tPos, nSpeedSettings, fuelQualityKvot, distArc, *delayFactor, 0);
@@ -18261,8 +18356,12 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 	// factorDelay = eval_factorDelayedAlongPath(thisLevel, tidInt);
 	if(delayVersion < 4)
 		factorDelay = eval_factorDelayedAlongArc(thisLevel, pos1, nextLevel, pos2, tidInt); // model.network.physicalLev[thisLevel].timeInterval[pos1][tidInt]);
-	else
-		factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(thisLevel, pos1, nextLevel, pos2, tidInt, &speedDiffCurrent);
+	else {
+		if (delayVersion == 4)
+			factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(thisLevel, pos1, nextLevel, pos2, tidInt, &speedDiffCurrent);
+		else
+			factorDelay = 1.0;
+	}
 	if (nextLevel >= 0) {
 		if (thisLevel >= 0) {
 			if (model.params.preferredPathOrtoPos[thisLevel] == pos1 && model.params.preferredPathOrtoPos[nextLevel] == pos2)
@@ -18318,6 +18417,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 
 	channelCost = 0;
 	for (i4 = 0; i4 < model.functions.nShip_speedSettingsBase; i4++) {
+		if (modelDelay.nArcs == 14)
+			modelDelay.nArcs = modelDelay.nArcs;
 		totCost = channelCost;
 		if (fixTime < -0.5) {
 			calmWaterSpeed = eval_calmWaterSpeed(i4, -1, -100);
@@ -18489,15 +18590,13 @@ void loadWeatherFiles_redis() {
 		if (redisTest != "PONG") {
 			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 			printf("ERROR! Redis is not running on the server. Start it and try again\n");
-			postRequest("ERROR! Redis is not running on the server. Start it and try again");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
 		}
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
-		postRequest("ERROR! Redis is not running on the server. Start it and try again");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
 	}
 
 	arrFloat = NULL;
@@ -18604,8 +18703,7 @@ void loadWeatherFiles_redis() {
 		else {
 			errlog("ERROR! Failed to read metaData from redis for weather variable %s\n",
 				model.weather[ii].weatherFileTypeName);
-			postRequest("ERROR! Failed to read metaData from redis for weather variable " + std::string(model.weather[ii].weatherFileTypeName));
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! Failed to read metaData from redis for weather variable " + std::string(model.weather[ii].weatherFileTypeName), 1);
 		}
 
 		if (forstaOverT <= 0) {
@@ -18684,6 +18782,7 @@ void loadWeatherFiles_redis() {
 					model.weather[ii].timeIntervalIndex[tidInt] = i;
 				else
 					break;
+				//errlog("ii %d tidInt %d i %d maxTid %I64d sekNu %I64d\n", ii, tidInt, i, maxTid, sekNu);
 			}
 			//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
 		}
@@ -18898,8 +18997,7 @@ void loadWeatherFiles_redis() {
 				else {
 					printf("ERROR! Failed to load keyID %s\n", keyID.c_str());
 					errlog("ERROR! Failed to load keyID %s. Try to set redis keys again. I quit\n", keyID.c_str());
-					postRequest("ERROR! Failed to load keyID " + keyID + ". Try to set redis keys again.I quit");
-					exitKontrollerat(__LINE__);
+					postRequest("ERROR! Failed to load keyID " + keyID + ". Try to set redis keys again.I quit", 1);
 				}
 
 				if (xBlockNr == xPos0) {
@@ -19112,6 +19210,8 @@ void identify_hindCastMonths(tm tmEnd) {
 	endMonth = tmEnd.tm_mon + 1;
 	startYear = model.params.startYear;
 	startMonth = model.params.startMonth_nr;
+	errlog("hindCastMonths start end: %d %d %d %d end day hour min %d %d %d\n", startYear, startMonth, endYear, endMonth,
+		tmEnd.tm_mday, tmEnd.tm_hour, tmEnd.tm_min);
 
 	model.params.nHindCastMonths = endMonth - startMonth + 1 + 12 * (endYear - startYear);
 	model.params.hindCast_month = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
@@ -19143,7 +19243,7 @@ void loadWeatherFiles_grib() {
 	int nTimeIntervals_forecast_redis, nTimeIntervals_redis, forstaOverT, startT;
 	int nDefault, nNoll, nTot, nBandsAlloc, nSecondsUTC, nBandsNu;
 	int nMaxTimeInt = 0, tidpHistoricalWeather;
-	int nBandsTooLate, posNu, savePosStart, *endPos, *startPos, i10;
+	int nBandsTooLate, posNu, savePosStart, * endPos, * startPos, i10;
 
 	long long maxTid, sekNu, offset_x2;
 	double min_lon, max_lon, min_lat, max_lat, min_lonUse, max_lonUse;
@@ -19153,13 +19253,14 @@ void loadWeatherFiles_grib() {
 
 	double factorExtraTime = 1.3;
 	double endTime = model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater; // * delayFactor;
-	
-	tm tmBas;
+
+	tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	setTMtime(&tmBas, endTime);
 	char* timeTxt = (char*)malloc(2356 * sizeof(char));
 	fixReadableDate(tmBas, timeTxt);
 	errlog("Estimated endtime %.2lf: end date/time %s\n",
-		endTime, timeTxt); 
+		endTime, timeTxt);
 	endTime *= factorExtraTime;
 	setTMtime(&tmBas, endTime);
 	fixReadableDate(tmBas, timeTxt);
@@ -19177,7 +19278,7 @@ void loadWeatherFiles_grib() {
 	int manad2, returnVal, first_i1;
 	double filKvot;
 
-	
+
 	//errlog("test14\n");
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		model.tmpTid[0] = std::chrono::high_resolution_clock::now();
@@ -19215,8 +19316,7 @@ void loadWeatherFiles_grib() {
 				if (returnVal == -1) {
 					if (i10 == 0) {
 						errlog("ERROR! Failed to open weather file %s. I quit!\n", namn);
-						postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.");
-						exitKontrollerat(__LINE__);
+						postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.", 1);
 					}
 					else {
 						errlog("ERROR! Failed to open weather file %s. I don't use it!\n", namn);
@@ -19416,7 +19516,7 @@ void loadWeatherFiles_grib() {
 				//else
 				//	model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc);
 			}
-			if(first_i1 == 2)
+			if (first_i1 == 2)
 				first_i1 = 0;
 
 
@@ -19438,7 +19538,7 @@ void loadWeatherFiles_grib() {
 			//	model.weather[ii].nCols, model.durationMilli[ii], model.weather[ii].nTimeIntervals);
 
 
-			
+
 
 
 			//errlog("iicc %d ii2 %d\n", ii, ii2);
@@ -19466,7 +19566,7 @@ void loadWeatherFiles_grib() {
 			if (i == model.weather[ii].nTimeIntervals - 1)
 				maxTid = model.weather[ii].secondsUTC[i] + 3600 - 1;
 			else
-				maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] +  model.weather[ii].secondsUTC[i + 1]));
+				maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]));
 
 			for (; tidInt < 100000; tidInt++) {
 				if (tidInt >= nAlloc) {
@@ -19489,7 +19589,441 @@ void loadWeatherFiles_grib() {
 		}
 		if (model.weather[ii].nTimeIntervals_maxValue < 0)
 			model.weather[ii].nTimeIntervals_maxValue = 0;
-		
+
+		//testCoordValue(ii, 141.639, -11.240);
+		//testCoordValue(ii, 149.315, -21.275);
+
+	}
+
+	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		//printf("var %d maxVal %d\n", ii, model.weather[ii].nTimeIntervals_maxValue);
+		if (model.weather[ii].nTimeIntervals_maxValue < nMaxTimeInt) {
+			errlog("extends weather %s to nMaxTimeInt %d from %d endValue %d\n",
+				model.weather[ii].weatherFileTypeName, nMaxTimeInt, model.weather[ii].nTimeIntervals_maxValue,
+				model.weather[ii].timeIntervalIndex[model.weather[ii].nTimeIntervals_maxValue]);
+			model.weather[ii].timeIntervalIndex = (int*)realloc(model.weather[ii].timeIntervalIndex, (nMaxTimeInt + 1) * sizeof(int));
+			for (i = model.weather[ii].nTimeIntervals_maxValue; i <= nMaxTimeInt; i++) {
+				model.weather[ii].timeIntervalIndex[i] = model.weather[ii].timeIntervalIndex[model.weather[ii].nTimeIntervals_maxValue];
+			}
+		}
+	}
+	model.weather_nTimeIntervals_maxValue = nMaxTimeInt;
+
+	printf("-- Time after weather data loaded %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+	printf("Time where only historic data is used: %d\n", model.network.tidp_startHistoricDataOnly);
+	errlog("Time where only historic data is used: %d\n", model.network.tidp_startHistoricDataOnly);
+	//exit(0);
+
+}
+
+long long determineLastSecondNeeded() {
+	long long lastSecond = model.params.UTC_secondsStart + model.params.longestRouteDays_history * 3600 * 24;
+	long long tmpSeconds = model.params.UTC_secondsStart + 
+		model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater * 2 * 3600 + 
+		3600 * 5;
+	if (tmpSeconds < lastSecond)
+		return tmpSeconds;
+	else
+		return lastSecond;
+}
+
+int estimate_nDaysNeededHistory(int weatherNr, long long lastSecondUTC_needed, long long* nSecondsHistory_first, long long* nSecondsHistory_firstStartDay) {
+	int nDaysNeeded;
+	long long nSecondsUTC_last = model.weather[weatherNr].secondsUTC[model.weather[weatherNr].nTimeIntervals - 1];
+	*nSecondsHistory_first = nSecondsUTC_last + model.weather_timeIntervall_h * 3600;
+	*nSecondsHistory_firstStartDay = getFirstSecondOfDay(*nSecondsHistory_first);
+
+	long long nExtraSecondsNeeded = lastSecondUTC_needed - (*nSecondsHistory_first);
+	nDaysNeeded = (int)(nExtraSecondsNeeded / 3600 / 24) + 1;
+	
+	return nDaysNeeded;
+}
+
+void loadWeatherFiles_onboard_grib() {
+	int xPos0, xPos1, yPos0, yPos1, nBands, ii;
+	int pos2, pos3, i4, i5, nAlloc, i3, offset_x, offset_y;
+	int nCols, nRows, nRows_inBlock, nCols_inBlock;
+	int yStartBlock, yStartValue, nY_valueAdd, yEndBlock;
+	int xStartBlock, xStartValue, nX_valueAdd, xEndBlock, i;
+	int xBlockNr, xBlockUse, yBlockNr, pos, latPos, lonPos, tidInt;
+	int nTimeIntervals_forecast_redis, nTimeIntervals_redis, forstaOverT, startT;
+	int nDefault, nNoll, nTot, nBandsAlloc, nSecondsUTC, nBandsNu;
+	int nMaxTimeInt = 0, tidpHistoricalWeather, nDaysUsed_history;
+	int nBandsTooLate, posNu, savePosStart, *endPos, *startPos, i10;
+
+	long long maxTid, sekNu, offset_x2;
+	double min_lon, max_lon, min_lat, max_lat, min_lonUse, max_lonUse;
+	double size_col, size_row, xPosFrac, yPosFrac, lat, lon;
+	double xPosFrac0, xPosFrac1, yPosFrac0, yPosFrac1;
+	float* arrFloat;
+
+	double factorExtraTime = 1.3;
+	double endTime = model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater; // * delayFactor;
+	
+	errlog("ERROR! Fix loadWeatherFiles_onboard_grib\n");
+
+	arrFloat = NULL;
+
+	char* namn = (char*)malloc(2356 * sizeof(char));
+	double filKvot, maxLong;
+	int openOK, nDaysNeeded_history, i2, manad, dag, pos1, zNu, iY, iX;
+	long long nSecondsUTC_last, nSecondsHistory_first, nSecondsHistory_firstStartDay, nExtraSecondsNeeded;
+	long long nSecondsUTC_first, secondsNow;
+	std::string histFileName;
+
+	long long lastSecondUTC_needed = determineLastSecondNeeded();
+
+	//errlog("test14\n");
+	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		model.tmpTid[0] = std::chrono::high_resolution_clock::now();
+
+		filKvot = 1.0; // to change from m/s to km/h
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_vComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_vComponent") == 0)
+			filKvot = 3.6;
+
+		size_col = -1;
+		maxLong = -9999;
+		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
+			openOK = model.weather[ii].rasterPos[i1].open(model.weather[ii].filePos[i1].fileName);
+			printf("%s openOK %d\n", model.weather[ii].filePos[i1].fileName, openOK);
+			if (openOK != 1) {
+				errlog("ERROR! Could not open forecast file %s. This one must exist. I quit\n",
+					model.weather[ii].filePos[i1].fileName);
+				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit", 1);
+			}
+			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+			model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
+			model.weather[ii].filePos[i1].maxX = model.weather[ii].rasterPos[i1].Get_maxLongitude();
+
+			if (maxLong < model.weather[ii].filePos[i1].maxX)
+				maxLong = model.weather[ii].filePos[i1].maxX;
+			if (i1 == 0) {
+				checkMinnesAnvandning(__LINE__);
+				//printf("test1\n");
+				nDaysNeeded_history = -1;
+
+				size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+				model.weather[ii].size_col = size_col;
+				model.weather[ii].minX = model.weather[ii].filePos[i1].minX; // model.weather[ii].rasterPos[i1].Get_minLongitude();
+				xPosFrac = (maxLong - model.weather[ii].minX) /
+					size_col;
+				xPos1 = roundUp(xPosFrac);
+				model.weather[ii].maxX = model.weather[ii].minX +
+					xPos1 * size_col;
+				model.weather[ii].nCols = xPos1 + 1;
+
+				size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+				model.weather[ii].size_row = size_row;
+
+				yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
+					size_row;
+				yPos0 = roundDown(yPosFrac);
+				model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude() -
+					yPos0 * size_row;
+				yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+					size_row;
+				yPos1 = roundUp(yPosFrac);
+				if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
+					yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+				//yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+				model.weather[ii].minY = model.weather[ii].maxY - yPos1 * size_row;
+				model.weather[ii].nRows = yPos1 + 1;
+				checkMinnesAnvandning(__LINE__);
+
+				model.weather[ii].nTimeIntervals_forecast = nBands;
+				model.weather[ii].nTimeIntervals = nBands;
+				model.weather[ii].secondsUTC = (long long*)malloc2((nBands) * sizeof(long long));
+				// printf("\n\n### secondsUTC alloc %d ####\n\n\n", nBands + nDaysNeeded_history);
+				//model.weather[ii].valueCell = (float**)malloc2((nBands) * sizeof(float*));
+				//nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+				checkMinnesAnvandning(__LINE__);
+				for (i2 = 0; i2 < nBands; i2++) {
+					//model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+					//for (int i3 = 0; i3 < nAlloc; i3++)
+					//	model.weather[ii].valueCell[i2][i3] = 9999;
+					model.weather[ii].secondsUTC[i2] = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1); //-1;
+				}
+				checkMinnesAnvandning(__LINE__);
+				model.weather[ii].errorCode = 0;
+
+				nDaysNeeded_history = estimate_nDaysNeededHistory(ii, lastSecondUTC_needed, &nSecondsHistory_first,
+					&nSecondsHistory_firstStartDay);
+
+				forstaOverT = -1;
+				for (i2 = 0; i2 < nBands; i2++) {
+					if (model.weather[ii].secondsUTC[i2] > model.params.UTC_secondsStart && forstaOverT == -1) {
+						forstaOverT = i2;
+						break;
+					}
+				}
+				if (forstaOverT <= 0) {
+					if (forstaOverT == 0) {
+						errlog("ERROR! %s Start planning a route at UTC second %I64d but weather data for %d only starts at %I64d, diff %.2lf hours \n",
+							model.weather[ii].weatherFileTypeName, model.params.UTC_secondsStart, ii, model.weather[ii].secondsUTC[0],
+							(model.params.UTC_secondsStart - model.weather[ii].secondsUTC[0]) / 3600.0);
+						startT = 0;
+					}
+					else {
+						errlog("ERROR! Start planning a route at UTC second %I64d but last weather data for parameter %d is %I64d, diff %.2lf hours \n",
+							model.params.UTC_secondsStart, ii, model.weather[ii].secondsUTC[pos - 1],
+							(model.params.UTC_secondsStart - model.weather[ii].secondsUTC[pos - 1]) / 3600.0);
+						startT = pos - 1;
+					}
+				}
+				else
+					startT = forstaOverT - 1;
+
+				if (startT > 0) {
+					for (i = startT; i < nBands; i++) {
+						model.weather[ii].secondsUTC[i - startT] = model.weather[ii].secondsUTC[i];
+						//for (i2 = 0; i2 < nAlloc; i2++)
+						//	model.weather[ii].valueCell[i - startT][i2] = model.weather[ii].valueCell[i][i2];
+					}
+				}
+				printf("nBands %d startT %d nDaysHistory %d\n", nBands, startT, nDaysNeeded_history);
+				if (model.params.onboard == 1)
+					nDaysUsed_history = nDaysNeeded_history;
+				else
+					nDaysUsed_history = 2;
+
+				model.weather[ii].nTimeIntervals_forecast = nBands - startT;
+				if (model.weather[ii].nTimeIntervals_forecast < 0)
+					model.weather[ii].nTimeIntervals_forecast = 0;
+				model.weather[ii].nTimeIntervals = nBands - startT + nDaysUsed_history;
+
+				checkMinnesAnvandning(__LINE__);
+
+
+				if(nBands + nDaysUsed_history - startT > nBands)
+					model.weather[ii].secondsUTC = (long long*)realloc(model.weather[ii].secondsUTC, (nBands + nDaysUsed_history - startT) * sizeof(long long));
+				model.weather[ii].valueCell = (float**)malloc((nBands + nDaysUsed_history - startT) * sizeof(float*));
+				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+				for (i2 = 0; i2 < nBands + nDaysUsed_history - startT; i2++) {
+					model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+					for (int i3 = 0; i3 < nAlloc; i3++)
+						model.weather[ii].valueCell[i2][i3] = 9999;
+					if (i2 >= nBands - startT)
+						model.weather[ii].secondsUTC[i2] = -1;
+				}
+				checkMinnesAnvandning(__LINE__);
+
+			}
+			else {
+				if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001 ||
+					abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+						errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+						errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+					model.weather[ii].errorCode = 3;
+					continue;
+				}
+				if (model.weather[ii].nTimeIntervals_forecast + startT != nBands) {
+					errlog("ERROR! Different number of bands for weather parameter %s, %d and %d, file %s. Must be the same. I quit\n",
+						model.weather[ii].weatherFileTypeName, model.weather[ii].nTimeIntervals_forecast, nBands,
+						model.weather[ii].filePos[i1].fileName);
+					model.weather[ii].errorCode = 2;
+					continue;
+				}
+			}
+			//printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
+			//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
+			//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
+			checkMinnesAnvandning(__LINE__);
+			model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), 0, filKvot, startT);
+			checkMinnesAnvandning(__LINE__);
+
+			if (model.params.onboard == 2) {
+				zNu = model.weather[ii].nTimeIntervals_forecast;
+				for (i2 = 0; i2 < nDaysUsed_history; i2++) {
+					zNu = model.weather[ii].nTimeIntervals_forecast + i2;
+					for (iY = 0; iY < model.weather[ii].nRows; iY++) {
+						for (iX = 0; iX < model.weather[ii].nCols; iX++) {
+							model.weather[ii].valueCell[zNu][iX + model.weather[ii].nCols * iY] =
+								model.weather[ii].valueCell[zNu - 1][iX + model.weather[ii].nCols * iY];
+						}
+					}
+					if(i2 == 0)
+						secondsNow = nSecondsHistory_first + i2 * 24 * 3600;
+					else
+						secondsNow = nSecondsHistory_firstStartDay + (nDaysNeeded_history - 1) * 24 * 3600;
+					model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2] = secondsNow;
+				}
+			}
+			else {
+				for (i2 = 0; i2 < nDaysNeeded_history; i2++) {
+					if (i2 == 0)
+						secondsNow = nSecondsHistory_first + i2 * 24 * 3600;
+					else
+						secondsNow = nSecondsHistory_firstStartDay + i2 * 24 * 3600;
+
+					manad = getManadDagFranUTCSeconds(secondsNow, &dag);
+					histFileName = model.weather[ii].filePos[i1].fileName;
+					pos = histFileName.find_last_of("/\\");
+					pos1 = histFileName.rfind("_resampled");
+					if (pos1 > pos && pos1 < histFileName.size() - 1) {
+						// remove this part of the name as it is not part of resampled average
+						//printf("pos %d pos1 %d of  %s size %d\n", pos, pos1, histFileName.c_str(), histFileName.size());
+						histFileName.erase(pos1, 10);
+						//histFileName.erase(pos1 - 12, 10);
+						//printf("%s\n", histFileName.c_str());
+					}
+					histFileName.insert(pos, "/Monthly/");
+					pos += 9;
+					if (manad < 10) {
+						histFileName.insert(pos, "0");
+						histFileName.insert(pos + 1, std::to_string(manad));
+					}
+					else
+						histFileName.insert(pos, std::to_string(manad));
+					//pos += 2;
+					pos = histFileName.find_last_of(".");
+					if (dag < 10) {
+						histFileName.insert(pos, "_0");
+						histFileName.insert(pos + 2, std::to_string(dag));
+					}
+					else {
+						histFileName.insert(pos, "_");
+						histFileName.insert(pos + 1, std::to_string(dag));
+					}
+					pos += 3;
+					if (manad < 10) {
+						histFileName.insert(pos, "_0_avg");
+						histFileName.insert(pos + 2, std::to_string(manad));
+					}
+					else {
+						histFileName.insert(pos, "__avg");
+						histFileName.insert(pos + 1, std::to_string(manad));
+					}
+					checkMinnesAnvandning(__LINE__);
+					openOK = model.weather[ii].rasterPos[i1].open(histFileName.c_str());
+					if (openOK == 1) {
+						errlog("Open %s okay.\n",
+							histFileName.c_str());
+						if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001 ||
+							abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
+							if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001) {
+								printf("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+									model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+								errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+									model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+							}
+							if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001) {
+								errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+									model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+								printf("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+									model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+							}
+							model.weather[ii].errorCode = 4;
+							continue;
+						}
+						//printf("test1c %d %s min/maxX %.2lf %.2lf nBand %d\n", i1, model.weather[ii].filePos[i1].fileName, 
+						//	model.weather[ii].rasterPos[i1].Get_minLongitude(), 
+						//	model.weather[ii].rasterPos[i1].Get_maxLongitude(), model.weather[ii].rasterPos[i1].Get_nBands());
+						model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands(&(model.weather[ii]), model.weather[ii].nTimeIntervals_forecast + i2, filKvot);
+						//printf("history day %d changes secondsUTC from %I64d to %I64d\n", i2,
+						//	model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2], secondsNow);
+					}
+					else {
+						errlog("ERROR! Failed to open %s. I use weather data from the previous loaded file\n",
+							histFileName.c_str());
+						zNu = model.weather[ii].nTimeIntervals_forecast + i2;
+						for (iY = 0; iY < model.weather[ii].nRows; iY++) {
+							for (iX = 0; iX < model.weather[ii].nCols; iX++) {
+								model.weather[ii].valueCell[zNu][iX + model.weather[ii].nCols * iY] =
+									model.weather[ii].valueCell[zNu - 1][iX + model.weather[ii].nCols * iY];
+							}
+						}
+
+						(model.status.weatherHistoryOpenFile_fail)++;
+						printf("ERROR! Failed to open %s, nFailed %d. I use weather data from the previous loaded file. secondsNow %I64d\n",
+							histFileName.c_str(), model.status.weatherHistoryOpenFile_fail, secondsNow);
+					}
+					//printf("test %d\n", model.weather[ii].nTimeIntervals_forecast + i2);
+					model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals_forecast + i2] = secondsNow;
+				}
+				(model.nCallsWeatherBand[ii])++;
+			}
+		}
+		// last dateTime plus 24 hours...
+		if (model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] <= model.params.UTC_secondsStart) {
+			errlog("ERROR! Last timeperiod in weather %d is earlier than the starttime for the planning (%I64d %I64d). Update the forecast planning. I set it to starttime plus 1 for it to work\n", ii,
+				model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1], model.params.UTC_secondsStart);
+			model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] = model.params.UTC_secondsStart + 1;
+		}
+
+		nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
+		model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
+
+		errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+			ii, model.weather[ii].nTimeIntervals,
+			model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+
+		tidInt = 0;
+		tidpHistoricalWeather = -1;
+		for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+
+			if (i == model.weather[ii].nTimeIntervals - 1)
+				maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
+			else
+				maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+			// maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] +  model.weather[ii].secondsUTC[i + 1]));
+
+			for (; tidInt < 100000; tidInt++) {
+				if (i >= model.weather[ii].nTimeIntervals_forecast && tidpHistoricalWeather == -1)
+					tidpHistoricalWeather = tidInt;
+				if (tidInt >= nAlloc) {
+					printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+					errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+					break;
+				}
+				sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
+				if (sekNu <= maxTid)
+					model.weather[ii].timeIntervalIndex[tidInt] = i;
+				else
+					break;
+				//errlog("ii %d tidInt %d i %d maxTid %I64d sekNu %I64d\n", ii, tidInt, i, maxTid, sekNu);
+			}
+		}
+		if (tidpHistoricalWeather == -1)
+			tidpHistoricalWeather = tidInt + 1;
+
+		if (tidpHistoricalWeather * model.weather_timeIntervall_h > model.network.tidp_startHistoricDataOnly)
+			model.network.tidp_startHistoricDataOnly = tidpHistoricalWeather * model.weather_timeIntervall_h;
+
+		//printf("tidInt %d nAlloc %d\n", tidInt, nAlloc);
+
+		model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+		if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+			nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
+
+		//if (model.boundingBox.xMin < min_lon) {
+		//	min_lonUse = min_lon - 360;
+		//	max_lonUse = max_lon - 360;
+		//}
+		//else {
+		//	if (model.boundingBox.xMin >= min_lon + 360) {
+		//		min_lonUse = min_lon + 360;
+		//		max_lonUse = max_lon + 360;
+		//	}
+		//	else {
+		//		min_lonUse = min_lon;
+		//		max_lonUse = max_lon;
+		//	}
+
+		//}
+		(model.nCallsWeatherBand[ii])++;
+
 		//testCoordValue(ii, 141.639, -11.240);
 		//testCoordValue(ii, 149.315, -21.275);
 
@@ -19763,8 +20297,12 @@ double calcEndTime_withLowestCostSpeedAlongArc(int level1, int pointNr1, int lev
 				else {
 					if (delayVersion < 4)
 						delayFactor = eval_factorDelayedAlongArc(level1, 1, level2, pointNr2, timeInt);
-					else
-						delayFactor = eval_factorDelayedAlongArc_currSpeedDiff(level1, 1, level2, pointNr2, timeInt, &speedDiffCurrent);
+					else {
+						if (delayVersion == 4)
+							delayFactor = eval_factorDelayedAlongArc_currSpeedDiff(level1, 1, level2, pointNr2, timeInt, &speedDiffCurrent);
+						else
+							delayFactor = 1.0;
+					}
 					if (level2 < 0)
 						distArc = model.network.channel[-level1 - 1].distance_km;
 					else {
@@ -19951,7 +20489,8 @@ int gen_midTimeArrive_old() {
 		//model.network.channel[cNr].straightArcFeasible_fromChannelToPrefPath = 1;
 	}
 
-	struct tm tmBas;
+	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	time_t rawtime;
 	time(&rawtime);
 	char* endTime;
@@ -19965,7 +20504,13 @@ int gen_midTimeArrive_old() {
 	tmBas.tm_sec = 0;
 	endTime = (char*)malloc2(256 * sizeof(char));
 	tmBas.tm_min += timeExact * 60.0;
-	mktime(&tmBas);
+	time_t tidBas = mktime(&tmBas);
+	if (tidBas == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	fixReadableDate(tmBas, endTime);
 
 	double tidNu, tidPrev, varierbarTid, minKvot, maxKvot;
@@ -20030,7 +20575,13 @@ int gen_midTimeArrive_old() {
 		model.network.physicalLev[i - 1].midTimeArrive = tidPrev;
 		// model.network.physicalLev[i].midTimeArrive *= kvotFix;
 		tmBas.tm_min += (model.network.physicalLev[i - 1].midTimeArrive - timeExact) * 60.0;
-		mktime(&tmBas);
+		time_t tidBas = mktime(&tmBas);
+		if (tidBas == -1) {
+			printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+				tmBas.tm_year,
+				tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+			postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+		}
 		fixReadableDate(tmBas, endTime);
 		//for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		//	errlog("midTimeArrive_eta %d %lf\n", i, model.network.physicalLev[i].midTimeArrive);
@@ -20189,7 +20740,8 @@ int gen_midTimeArrive() {
 	// model.network.physicalLev[i].midTimeArrive = timeExact;
 
 
-	struct tm tmBas;
+	struct tm tmBas = { 0 };
+	tmBas.tm_isdst = 0;
 	time_t rawtime;
 	time(&rawtime);
 	char* endTime;
@@ -20203,7 +20755,13 @@ int gen_midTimeArrive() {
 	tmBas.tm_sec = 0;
 	endTime = (char*)malloc2(256 * sizeof(char));
 	tmBas.tm_min += timeExact * 60.0;
-	mktime(&tmBas);
+	time_t tidBas = mktime(&tmBas);
+	if (tidBas == -1) {
+		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+			tmBas.tm_year,
+			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+		postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+	}
 	fixReadableDate(tmBas, endTime);
 
 	double tidNu, tidPrev;
@@ -20302,7 +20860,10 @@ int createTimeArcs(int runAlt)
 		model.nCallsWeatherBand = (int*)calloc2(model.nWeatherFiles, sizeof(int));
 
 		if (model.params.hindCast == 0) {
-			loadWeatherFiles_redis();
+			if(model.params.onboard == 0)
+				loadWeatherFiles_redis();
+			else
+				loadWeatherFiles_onboard_grib();
 			if (model.network.tidp_startHistoricDataOnly < 999999) {
 				loadTimeDelayMap();
 				if (delayVersion == 4)
@@ -21009,9 +21570,10 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	initModelStatusValues();
 
 	model.params.resultPath = splitFilename(resultName);
+	model.params.resultName = resultName;
 
 	filPek3 = fopen(resultName.c_str(), "w"); // "result_json.json", "w");
-	fprintf(filPek3, "{\n\t\"solutionShape\": \"ERROR\"\n}\n");
+	fprintf(filPek3, "{\n\t\"errorMessage\": \"unknown error\"\n}\n");
 	fclose(filPek3);
 
 	model.params.indataPathName = inputPath;
@@ -21019,6 +21581,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	model.params.errorCode = 0;
 	model.params.hindCast = 0;
 	model.params.etaFocus_speed = 0;
+	model.params.UTC_secondsStart = 0;
 
 	//errlog("#######\nERROR! Change the below code rows as it is for analysis only\n");
 	model.params.nSpeedSettingDivideIter1 = 2; // 2 ger 3 speed settings, 4 ger 5 speed settings
@@ -21035,6 +21598,8 @@ int voyageOpt(std::string inputPath, std::string resultName)
 
 	loadParams_new(&(model.params));
 
+	if (delayVersion == 5)
+		errlog("ERROR! OBS delayVersion %d\n", 5);
 
 	// testSaveMapToSQLite();
 	// testSaveMapToBinaryFile();
@@ -21106,8 +21671,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 		if (model.network.physicalLev[model.network.nPhysicalLevels - 1].nTimeIntervals[0] == 0) {
 			errlog("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map? I quit.\n");
 			printf("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map? I quit.\n");
-			postRequest("ERROR! Number of time intervals to the last level (" + std::to_string(model.network.nPhysicalLevels - 1) +") is 0. Is the preferred path outside of the extent of the feasibility map ? I quit.");
-			exitKontrollerat(__LINE__);
+			postRequest("ERROR! Number of time intervals to the last level (" + std::to_string(model.network.nPhysicalLevels - 1) +") is 0. Is the preferred path outside of the extent of the feasibility map ? I quit.", 1);
 		}
 
 		printf("setting up data for dijkstra's algorithm\n");

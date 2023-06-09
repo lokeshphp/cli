@@ -120,6 +120,8 @@ struct strParams
 	int* hindCast_month;
 	int* hindCast_year;
 
+	int onboard;
+
 	int checkGribFilesSpecial;
 
 	double delayEjPrefPathArcFactor;
@@ -148,6 +150,7 @@ struct strParams
 	std::string indataPath;
 	std::string indataPathName;
 	std::string resultPath;
+	std::string resultName;
 
 	double knots_to_km;
 	double shipSpeed_average; // km/h = 20 knots, 1 knot = 1.852 km/h
@@ -1237,7 +1240,7 @@ void initBoundingBox(strBoundBox* bbox);
 void setupUsableSpeedSettings();
 int check_translate_xCoord(double* xCoord);
 int fixReportDate(struct tm tmBas, char* namn);
-void postRequest(std::string errorMessage);
+void postRequest(std::string errorMessage, int avsluta);
 int updateSQLiteAllTablesInfo(int type, int tablePos, int modified);
 int saveTablesToSQLite(std::string inputPath);
 
@@ -1292,6 +1295,7 @@ int getClosestSetting_fromBase(int baseSetting, int fromLevel, int toLevel);
 int determineBastSpeedDelay_routeToEnd_eta(strDelayToEnd* routeToEnd, double startTidp);
 int calcWeatherPosAlongpreferredPathArc_connectChannel(spherical::Point p1, int level1, spherical::Point p2, int level2);
 double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nextLevel, int pos2, int tidp, double* speedDiffCurrent, double calmWaterSpeed = -1.0);
+double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2, int tidp);
 int getBaseSpeedSetting(int speedSetting, int lev1, int lev2);
 int getDelayPosFrom_tidp(int tidp);
 void getCurrent_fromCurrentDelayed(int delayNr, double lat, double lon, double* uCurrent, double* vCurrent);

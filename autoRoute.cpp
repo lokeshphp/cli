@@ -26,8 +26,7 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	sprintf(namn, "%s", model.params.indataPathName.c_str());
 	errlog("trying to open %s\n", namn);
 	if (!(exists_test3(namn))) {
-		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav-autoRoute.I quit\n");
-		exitKontrollerat(__LINE__);
+		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav-autoRoute.I quit\n", 1);
 	}
 	printf("opens %s\n", namn);
 	fil.open(namn);
@@ -40,8 +39,7 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		fil >> data;
 	}
 	catch (...) {
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
 	}
 
 	params->startPoint_lon = -9999;
@@ -79,7 +77,7 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 			if (posBase < 0) {
 				errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
 					model.extraNoGoArea[pos].areaID);
-				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_params.json. Add this area. I ignore it for now and keep running.");
+				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_params.json. Add this area. I ignore it for now and keep running.", 0);
 				continue;
 			}
 			model.extraNoGoArea[pos].posBase = posBase;
@@ -95,12 +93,10 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	fil.close();
 
 	if (params->startPoint_lon < -9998 || params->startPoint_lat < -9998) {
-		postRequest("ERROR! startCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! startCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n", 1);
 	}
 	if (params->endPoint_lon < -9998 || params->endPoint_lat < -9998) {
-		postRequest("ERROR! endCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n");
-		exitKontrollerat(__LINE__);
+		postRequest("ERROR! endCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n", 1);
 
 	}
 
@@ -2345,8 +2341,7 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter)
 	{
 		printf("Faile to open file %s for writing.\n", namn);
 		errlog("Faile to open file %s for writing.\n", namn);
-		postRequest("Faile to open file " + std::string(namn) + " for writing.");
-		exitKontrollerat(__LINE__);
+		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 	}
 	initGeoJsonFil(filpekG, "result_path");
 	linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";

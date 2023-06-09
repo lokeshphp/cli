@@ -272,7 +272,13 @@ void getRequest() {
 */
 }
 
-void postRequest(std::string errorMessage) {
+void postRequest(std::string errorMessage, int endProgram) {
+
+	if (endProgram == 1) {
+		FILE* filPek3 = fopen(model.params.resultName.c_str(), "w"); // "result_json.json", "w");
+		fprintf(filPek3, "{\n\t\"errorMessage\": \"%s\"\n}\n", errorMessage.c_str());
+		fclose(filPek3);
+	}
 
 	errorMessage.append(" hindcast: " + std::to_string(model.params.hindCast));
 	if(SKRIV_UT_NOTHING == 0)
@@ -333,6 +339,11 @@ void postRequest(std::string errorMessage) {
 		}
 		curl_easy_cleanup(curl);
 	}
+
+	if (endProgram == 1) {
+		exitKontrollerat(__LINE__);
+	}
+
 }
 
 int main(int argc, char* argv[])
@@ -376,23 +387,20 @@ int main(int argc, char* argv[])
 				if (userGivenOK == 0) {
 					errlog0("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
 					printf("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
-					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!");
-					exitKontrollerat(__LINE__, 0);
+					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!", 1);
 				}
 			}
 			if (inputPath == "-") {
 				errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 				printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 				postRequest("ERROR! Did not manage to identify an input name from " + std::string(argv[1]) + 
-					" or " + std::string(argv[2]) + ". I quit.");
-				exitKontrollerat(__LINE__, 0);
+					" or " + std::string(argv[2]) + ". I quit.", 1);
 			}
 			if (dataName == "-") {
 				errlog0("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
 				printf("ERROR! Did not manage to identify a result name from %s or %s. I quit.\n", argv[1], argv[2]);
 				postRequest("ERROR! Did not manage to identify a result name from " + std::string(argv[1]) +
-					" or " + std::string(argv[2]) + ". I quit.");
-				exitKontrollerat(__LINE__, 0);
+					" or " + std::string(argv[2]) + ". I quit.", 1);
 			}
 			resultPath = splitFilename(dataName);
 			filpek = fopen(dataName.c_str(), "w");
@@ -401,8 +409,7 @@ int main(int argc, char* argv[])
 					dataName.c_str());
 				printf("ERROR! Could not open file %s for writing. Is it locked or does the directory not exist? I quit.\n",
 					dataName.c_str());
-				postRequest("ERROR! Could not open file " + dataName + " for writing.Is it locked or does the directory not exist ? I quit.");
-				exitKontrollerat(__LINE__, 0);
+				postRequest("ERROR! Could not open file " + dataName + " for writing.Is it locked or does the directory not exist ? I quit.", 1);
 			}
 			fprintf(filpek, "{\nerror\n}\n");
 			fclose(filpek);
@@ -431,15 +438,13 @@ int main(int argc, char* argv[])
 				if (userGivenOK == 0) {
 					errlog0("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
 					printf("ERROR! Could not read user data '%s'. I quit!\n", argv[i]);
-					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!");
-					exitKontrollerat(__LINE__, 0);
+					postRequest("ERROR! Could not read user data '" + std::string(argv[i]) + "'. I quit!", 1);
 				}
 				if (inputPath == "-") {
 					errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 					printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 					postRequest("ERROR2! Did not manage to identify an input name from " + std::string(argv[1]) +
-						" or " + std::string(argv[2]) + ". I quit.");
-					exitKontrollerat(__LINE__, 0);
+						" or " + std::string(argv[2]) + ". I quit.", 1);
 				}
 				printf("input file for redis key generation '%s'\n", inputPath.c_str());
 				auto tid0 = std::chrono::high_resolution_clock::now();
@@ -451,8 +456,7 @@ int main(int argc, char* argv[])
 				if (returnVal != 0) {
 					errlog("ERROR! Failed to set redis keys for weather\n");
 					printf("ERROR! Failed to set redis keys for weather\n");
-					postRequest("ERROR! Failed to set redis keys for weather");
-					exitKontrollerat(__LINE__, 0);
+					postRequest("ERROR! Failed to set redis keys for weather", 1);
 				}
 				else
 					printf("Setting of all the keys done\n");
@@ -466,7 +470,7 @@ int main(int argc, char* argv[])
 			else {
 				LOGFILE = "logfile_error.txt";
 				printf("%d arguments read, should be two\n", argc);
-				postRequest("wrong number of arguments calling OptiNav");
+				postRequest("wrong number of arguments calling OptiNav", 1);
 
 			}
 		}

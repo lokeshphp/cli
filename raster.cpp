@@ -8,7 +8,7 @@
 #include "cpl_conv.h"
 #include "gdalwarper.h"
 #include "stdlib.h"
-#include "gdal.h"
+// #include "gdal.h"
 
 extern int printGlobal;
 int checkMinnesAnvandning(int rad);
@@ -1545,7 +1545,7 @@ public:
 	}
 
 
-	void GetRasterValues_realAllBands(strWeather* weatherData, int zPosBas, double filKvot) {
+	void GetRasterValues_realAllBands(strWeather* weatherData, int zPosBas, double filKvot, int startBand = 0) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, zNu;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
@@ -1580,13 +1580,13 @@ public:
 			errlog("ERROR! nBands %d but should only be 1 band for historical data. I only read the first one\n", nBands);
 			nBands = 1;
 		}
-		for (z = 1; z <= nBands; z++) {
+		for (z = startBand + 1; z <= nBands; z++) {
 			zNu = zPosBas + z - 1;
 			poBand = rasterDataset->GetRasterBand(z);
 			if (weatherData->secondsUTC != NULL)
 				nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
 			//printf("band %d nSecondsUTC %I64d\n", z, nSecondsUTC);
-			if (z == 1) {
+			if (z == startBand + 1) {
 				poBand->GetBlockSize(&pnXSize, &pnYSize);
 				nXBlocks = (poBand->GetXSize() + pnXSize - 1) / pnXSize;
 				nYBlocks = (poBand->GetYSize() + pnYSize - 1) / pnYSize;
@@ -1652,15 +1652,16 @@ public:
 			}
 			//printf("min_lonUse %.3lf\n", min_lonUse);
 			if (weatherData->secondsUTC != NULL) {
-				if (weatherData->secondsUTC[zNu] != -1) {
-					if (weatherData->secondsUTC[zNu] != nSecondsUTC && nBands > 1) {
-						errlog("ERROR! Different time stamp for different files for weather %s pos %d (%I64d vs %I64d). I use the first one but will send an error message\n",
-							weatherData->weatherFileTypeName, zNu, weatherData->secondsUTC[z - 1], nSecondsUTC);
-						nSecondsUTC = weatherData->secondsUTC[zNu];
+				if (weatherData->secondsUTC[zNu - startBand] != -1) {
+					if (weatherData->secondsUTC[zNu - startBand] != nSecondsUTC && nBands > 1) {
+						errlog("ERROR! Different time stamp for different files for weather %s pos %d verkl %d (%I64d vs %I64d). I use the first one but will send an error message\n",
+							weatherData->weatherFileTypeName, zNu - startBand, zNu, weatherData->secondsUTC[z - startBand - 1], nSecondsUTC);
+						nSecondsUTC = weatherData->secondsUTC[zNu - startBand];
 						weatherData->errorCode = 1;
 					}
 				}
-				weatherData->secondsUTC[zNu] = nSecondsUTC;
+				if(startBand == 0)
+					weatherData->secondsUTC[zNu - startBand] = nSecondsUTC;
 			}
 			//printf("weatherData->minX %.3lf\n", weatherData->minX);
 			//printf("weatherData->size_col %.3lf\n", weatherData->size_col);
@@ -1764,25 +1765,33 @@ public:
 					}
 					for (iY = y0; iY < y1; iY++) {
 						for (iX = x0; iX < x1; iX++) {
+							if (iX == 663)
+								iX = iX;
 							pos2 = iX + iY * pnXSize;
 							pos = iX + xPosNu + weatherData->nCols * (iY + yPosNu);
+							if (pos == 160140)
+								pos = pos;
 							if (pos < 0 || pos >= nAlloc3 || pos2 < 0 || pos2 >= pnXSize * pnYSize)
 								printf("ERROR!\n");
 							if (iY < nYValid && iX < nXValid) {
 								if (pabyData[pos2] < 9998)
-									weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
+									weatherData->valueCell[zNu - startBand][pos] = pabyData[pos2] * filKvot;
 							}
 							else
-								weatherData->valueCell[zNu][pos] = 0;
+								weatherData->valueCell[zNu - startBand][pos] = 0;
 						}
 
 						for (iX = x0b; iX < x2; iX++) {
+							if (iX == 663)
+								iX = iX;
+							if (pos == 160140)
+								pos = pos;
 							pos2 = iX + iY * pnXSize;
 							if (pabyData[pos2] < 9998) {
 								pos = iX + xPosNu2 + weatherData->nCols * (iY + yPosNu);
 								if (pos < 0 || pos >= nAlloc3 || pos2 < 0 || pos2 >= pnXSize * pnYSize)
 									printf("ERROR!\n");
-								weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
+								weatherData->valueCell[zNu - startBand][pos] = pabyData[pos2] * filKvot;
 							}
 						}
 					}
