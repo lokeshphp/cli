@@ -49,7 +49,11 @@ class SP {
    void init(Node *source);
 #ifdef SINGLE_PAIR
    void initNode(Node *source, unsigned long ts);
-   bool sp(strModel model, Node *currentNode, Node *sink, long long *OptCost);
+   bool sp(strModel model, Node* currentNode, Node* sink, long long* OptCost);
+   bool spTmp1();
+   bool spTmp2(strModel model);
+   bool spTmp3(Node* currentNode, Node* sink);
+   bool spTmp(strModel model, Node* currentNode, Node* sink, long long* OptCost);
 #else
    void initNode(Node *currentNode);
 //   bool sp(Node *currentNode, Node *sink, long long *OptCost);

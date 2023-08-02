@@ -551,9 +551,9 @@ int loadStorms_delayed(int year) {
 		if (fil.is_open() == TRUE) {
 			fil >> data;
 
-			int nAlloc = data.size();
+			model.nAllocStorms = data.size();
 			model.nStorms = 0;
-			model.storms = (strStorm*)malloc2(nAlloc * sizeof(strStorm));
+			model.storms = (strStorm*)malloc2(model.nAllocStorms * sizeof(strStorm));
 
 			for (auto it = data.begin(); it != data.end(); ++it) {
 				dataFeature = it.value();
@@ -2389,34 +2389,6 @@ int testCallWeatherFile() {
 	return 0;
 }
 
-
-void calc_stormsNearby_delay() {
-	int i, i1, i2, posUse, stormOK, keepStorm;
-	double timeFromStart, dist, minTid, maxTid, minDistToStorm, maxSpeed = 0, minSpeed = 9999, speed;
-
-	posUse = 0;
-	for (i = 0; i < model.nStorms; i++) {
-		stormOK = eval_stormWithinBoundingBox(i);
-		if (stormOK == 0) {
-			free(model.storms[i].feature);
-			continue;
-		}
-
-		if (i > posUse) {
-			model.storms[posUse] = model.storms[i];
-		}
-		// errlog("ERROR! sort the storm features in time order AND only include needed ones AND possibly identify timeperiod for each\n");
-		// sort the timeperiods in the storm
-		sortStormFeaturesTime(posUse);
-
-		// add bearing and distanceToNextPoint per timeperiod
-		addInfoToStorms(posUse);
-		posUse++;
-	}
-	model.nStorms = posUse;
-	errlog("nStormsUse %d\n", model.nStorms);
-
-}
 
 double get_colDblFromRaster(Raster raster, double lon)
 {

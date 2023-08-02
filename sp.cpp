@@ -178,6 +178,46 @@ void SP::BFSInit(Node *source)
 //     StopAt was NULL or no node passed StopAt\'s test.
 //-------------------------------------------------------------
 #ifdef SINGLE_PAIR
+bool SP::spTmp1()
+{
+    cCalls++;
+
+    tries++;
+    printf("ok\n");
+    return FALSE;
+    //return (model, smartq->dijkstra(model, source, sink, this, OptCost));
+}
+
+bool SP::spTmp2(strModel model)
+{
+    cCalls++;
+
+    tries++;
+    printf("ok\n");
+    return FALSE;
+    //return (model, smartq->dijkstra(model, source, sink, this, OptCost));
+}
+
+bool SP::spTmp3(Node* source, Node* sink)
+{
+    cCalls++;
+
+    tries++;
+    printf("ok\n");
+    return FALSE;
+    //return (model, smartq->dijkstra(model, source, sink, this, OptCost));
+}
+
+bool SP::spTmp(strModel model, Node* source, Node* sink, long long* OptCost)
+{
+    cCalls++;
+
+    tries++;
+    printf("ok\n");
+    return FALSE;
+    //return (model, smartq->dijkstra(model, source, sink, this, OptCost));
+}
+
 bool SP::sp(strModel model, Node *source, Node *sink, long long *OptCost)
 {
   cCalls++;

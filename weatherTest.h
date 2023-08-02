@@ -5,15 +5,15 @@
 
 #include <iostream>
 
-#include "raster.cpp"
+//#include "raster.cpp"
 #include"pch.h"
-#include"filhantering.cpp"
-#include"dijkstra.cpp"
-#include"sphericalpoint.cpp"
-#include"point.cpp"
-#include"sp.cpp"
-#include"smartq.cpp"
-#include"coordinate.cpp"
+//#include"filhantering.cpp"
+//#include"dijkstra.cpp"
+//#include"sphericalpoint.cpp"
+//#include"point.cpp"
+//#include"sp.cpp"
+//#include"smartq.cpp"
+//#include"coordinate.cpp"
 
 #include "redisDef.h"
 // #include "voyageOpt.cpp"

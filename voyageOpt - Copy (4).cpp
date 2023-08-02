@@ -14,7 +14,7 @@
 #include <cstring>
 //#include <boost/iostreams/filter/zlib.hpp>
 #include <zlib.h>
-//#include <filesystem>
+// #include <filesystem>
 //#include<iomanip>
 
 #include "redisDef.h"
@@ -27,8 +27,6 @@
 
 #ifdef WIN32
 #include <filesystem>
-
-
 double M_PI_2 = M_PI / 2;
 #endif
 
@@ -122,7 +120,7 @@ int checkMinnesAnvandning(int rad)
 }
 
 
-bool check_file_exist(char* name) {
+bool exists_test3(char* name) {
 	struct stat buffer;
 	return (stat(name, &buffer) == 0);
 }
@@ -143,7 +141,7 @@ std::string splitFilename(std::string namn, int alt) {
 }
 
 int callRaster()
-{ // NOT USED!
+{
 	// create object of Geotiff class
 	// Raster tiff((const char*)"trakt_contour.tif");
 	Raster raster; //  (const char*)"WW3_NCEP.grb");
@@ -6432,7 +6430,7 @@ int loadParams_theRestOld(strParams* params)
 	namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/file_params.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
-	if (!(check_file_exist(namn))) {
+	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
 		exit(0);
@@ -6928,7 +6926,7 @@ int loadParams_new(strParams* params)
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s", model.params.indataPathName.c_str());
 	errlog("trying to open %s\n", namn);
-	if (!(check_file_exist(namn))) {
+	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
 		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav.I quit\n", 1);
@@ -7736,34 +7734,6 @@ int loadParams_new(strParams* params)
 
 
 	return 0;
-}
-
-void calc_stormsNearby_delay() {
-	int i, i1, i2, posUse, stormOK, keepStorm;
-	double timeFromStart, dist, minTid, maxTid, minDistToStorm, maxSpeed = 0, minSpeed = 9999, speed;
-
-	posUse = 0;
-	for (i = 0; i < model.nStorms; i++) {
-		stormOK = eval_stormWithinBoundingBox(i);
-		if (stormOK == 0) {
-			free(model.storms[i].feature);
-			continue;
-		}
-
-		if (i > posUse) {
-			model.storms[posUse] = model.storms[i];
-		}
-		// errlog("ERROR! sort the storm features in time order AND only include needed ones AND possibly identify timeperiod for each\n");
-		// sort the timeperiods in the storm
-		sortStormFeaturesTime(posUse);
-
-		// add bearing and distanceToNextPoint per timeperiod
-		addInfoToStorms(posUse);
-		posUse++;
-	}
-	model.nStorms = posUse;
-	errlog("nStormsUse %d\n", model.nStorms);
-
 }
 
 
@@ -9311,7 +9281,7 @@ int loadTablesInfo(int useFactor)
 	namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/table_parameters.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
-	if (!(check_file_exist(namn))) {
+	if (!(exists_test3(namn))) {
 		errlog("%s does not exist. I quit\n", namn);
 		printf("%s does not exist. I quit\n", namn);
 		postRequest(std::string(namn) + " does not exist. I quit", 1);
@@ -10001,7 +9971,6 @@ int roundDown(double varde) {
 	return heltal;
 }
 
-
 int roundUp(double varde) {
 	int heltal = (int)varde;
 	if (heltal < varde)
@@ -10408,26 +10377,263 @@ int setRadiusFromMaxWind(double maxWind, double* r1, double* r2, double* r3) {
 	return 0;
 }
 
-
-std::string addDataToString(std::string namnStorm, double lat, double lon, int* nr, int stormNr, double maxWind, std::string datum, double radius1, double radius2, double radius3)
+std::string addDataToString(double lat, double lon, int* nr, int stormNr, double maxWind, std::string datum, double radius1, double radius2, double radius3)
 {
 	std::string data = "{\"properties\": {\n";
-	data += "\"LAT\": " + std::to_string(lat) + ",\n";
-	data += "\"LON\": " + std::to_string(lon) + ",\n";
-	data += "\"MAXWIND\": " + std::to_string(maxWind) + ",\n";
+	std::stringstream ss;
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lat;
+	data += "\"LAT\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lon;
+	data += "\"LON\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << maxWind;
+	data += "\"MAXWIND\": " + ss.str() + ",\n";
 	data += "\"FLDATELBL\": \"" + datum + "\",\n";
+	ss.str(std::string());
+	ss << stormNr;
 	(*nr)++;
-	data += "\"STORMNAME\":\"" + namnStorm + "\",\n";
-	data += "\"stormID\":" + std::to_string(stormNr) + ",\n";
-	data += "\"WindMaxRadius\": " + std::to_string(radius1) + ",\n";
-	data += "\"WindFrontRadius\": " + std::to_string(radius2) + ",\n";
-	data += "\"WindBackRadius\": " + std::to_string(radius3) + "},\n";
-	data += "\"geometry\": {\"type\": \"Point\",\n\"coordinates\": [" + std::to_string(lon);
-	data += ", " + std::to_string(lat) + "]}}\n";
+	data += "\"STORMNAME\":\"" + ss.str() + "\",\n";
+	data += "\"stormID\":" + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius1;
+	data += "\"WindMaxRadius\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius2;
+	data += "\"WindFrontRadius\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius3;
+	data += "\"WindBackRadius\": " + ss.str() + "},\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lon;
+	data += "\"geometry\": {\"type\": \"Point\",\n\"coordinates\": [" + ss.str();
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lat;
+	data += ", " + ss.str() + "]}}\n";
 
 	return data;
 }
 
+std::string addDataToString2(double lat, double lon, int nr, int stormNr, double maxWind, std::string datum, double radius1, double radius2, double radius3)
+{
+	std::string data = "{\"type\":\"Feature\", \"properties\": {\n";
+	std::stringstream ss;
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lat;
+	data += "\"LAT\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lon;
+	data += "\"LON\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << maxWind;
+	data += "\"MAXWIND\": " + ss.str() + ",\n";
+	data += "\"FLDATELBL\": \"" + datum + "\",\n";
+	ss.str(std::string());
+	ss << stormNr;
+	data += "\"STORMNAME\":\"" + ss.str() + "\",\n";
+	data += "\"stormID\":" + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius1;
+	data += "\"WindMaxRadius\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius2;
+	data += "\"WindFrontRadius\": " + ss.str() + ",\n";
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(1) << radius3;
+	data += "\"WindBackRadius\": " + ss.str() + "},\n";
+	ss.str(std::string());
+	if (lon > 180)
+		lon -= 360;
+	ss << std::fixed << std::setprecision(4) << lon;
+	data += "\"geometry\": {\"type\": \"Point\",\n\"coordinates\": [" + ss.str();
+	ss.str(std::string());
+	ss << std::fixed << std::setprecision(4) << lat;
+	data += ", " + ss.str() + "]}}\n";
+
+	return data;
+}
+
+
+int fixStormFiles_old(std::string inputPath) {
+
+	std::ifstream fil;
+	char* namn, * namnNu;
+	namn = (char*)malloc(256 * sizeof(char));
+	namnNu = (char*)malloc(256 * sizeof(char));
+	json data, data2, data3;
+	std::string datum, stringPrev, stringNu;
+	FILE* filPrev, * filNu, * filNext = NULL;
+	FILE* filPrev2, * filNu2, * filNext2 = NULL;
+	int nMonths = 0, monthYear[1000], monthNr[1000], taMedStormInfo;
+	int nextMonth, i, manadNu, yearNu, antal, dagNu, stormNr = 0;
+	char** monthText;
+	std::string stormInfo, stormPrev, stormTmp;
+	std::string stormInfo2, stormPrev2, stormTmp2;
+	double lat, lon, radius1, radius2, radius3, maxWind;
+
+	monthText = (char**)malloc(1000 * sizeof(char*));
+	sprintf(namn, "%s\\monthsToUse.txt", inputPath.c_str());
+	filNu = fopen(namn, "r");
+	if (filNu == NULL) {
+		postRequest("ERROR! Failed to open " + std::string(namn) + ". I could not generate the needed storm files.", 1);
+	}
+
+	nMonths = 0;
+	for (i = 0; i < 10000; i++) {
+		antal = fscanf(filNu, "%d\t%d\t%s\n", &yearNu, &manadNu, namn);
+		if (antal <= 0)
+			break;
+		monthYear[nMonths] = yearNu;
+		monthNr[nMonths] = manadNu;
+		monthText[nMonths] = str_alloc_cpy(namn);
+		nMonths++;
+	}
+	fclose(filNu);
+
+	// loop over all months with storms
+	filPrev = NULL;
+	filNu = NULL;
+	filPrev2 = NULL;
+	filNu2 = NULL;
+	int firstStorm = 0, firstStormNext = 0, nRowsNu, nInfoToday = 0, nInfoPrev = 0, posNu;
+	for (i = 0; i < nMonths; i++) {
+		printf("saving storms for %s %d\n", monthText[i], monthYear[i]);
+
+		if (monthNr[i] < 10)
+			sprintf(namn, "%s%d-0%d.json", inputPath.c_str(), monthYear[i], monthNr[i]);
+		else
+			sprintf(namn, "%s%d-%d.json", inputPath.c_str(), monthYear[i], monthNr[i]);
+		fil.open(namn);
+		fil >> data;
+
+		if (filNu == NULL) {
+			//sprintf(namnNu, "indataStorms/storms_%s_%d.json", monthText[i], monthYear[i]);
+			if (monthNr[i] < 10)
+				sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNr[i], monthYear[i]);
+			else
+				sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNr[i], monthYear[i]);
+			filNu = fopen(namnNu, "w");
+			//initGeoJsonFil(filNu, "storms");
+			fprintf(filNu, "[\n");
+			sprintf(namnNu, "%sstormsVisuellt\\storms_%s_%d.geojson", inputPath.c_str(), monthText[i], monthYear[i]);
+			filNu2 = fopen(namnNu, "w");
+			initGeoJsonFil2(filNu2, "storms");
+		}
+		if (i + 1 < nMonths) {
+			//sprintf(namnNu, "indataStorms/storms_%s_%d.json", monthText[i + 1], monthYear[i + 1]);
+			if (monthNr[i + 1] < 10)
+				sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNr[i + 1], monthYear[i + 1]);
+			else
+				sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNr[i + 1], monthYear[i + 1]);
+			filNext = fopen(namnNu, "w");
+			//initGeoJsonFil(filNext, "storms");
+			fprintf(filNext, "[\n");
+			sprintf(namnNu, "%sstormsVisuellt\\storms_%s_%d.gejson", inputPath.c_str(), monthText[i + 1], monthYear[i + 1]);
+			filNext2 = fopen(namnNu, "w");
+			initGeoJsonFil2(filNext2, "storms");
+		}
+		else
+			filNext = NULL;
+		for (auto it = data.begin(); it != data.end(); ++it) {
+			json dataSpeed2 = it.value();
+			nextMonth = 0;
+			data2 = dataSpeed2["StormForecast"];
+			stormPrev = "";
+			stormInfo = "";
+			stormPrev2 = "";
+			stormInfo2 = "";
+			nRowsNu = 0;
+			for (auto it2 = data2.begin(); it2 != data2.end(); ++it2) {
+				json dataSpeed3 = it2.value();
+				datum = dataSpeed3["ForecastDate"];
+				manadNu = getNrFromDate(datum, 5, 2);
+				dagNu = getNrFromDate(datum, 8, 2);
+				if (manadNu != monthNr[i]) {
+					nextMonth = 1;
+				}
+				maxWind = dataSpeed3["Wind"];
+				json dataPos = dataSpeed3["Position"];
+				lat = dataPos["LatitudeNormalized"];
+				lon = dataPos["LongitudeNormalized"];
+				taMedStormInfo = setRadiusFromMaxWind(maxWind, &radius1, &radius2, &radius3);
+				if (taMedStormInfo == -1)
+					continue;
+				if (abs(lon - 112.12) < 0.001)
+					lon = lon;
+				stormTmp = addDataToString(lat, lon, &posNu, stormNr, maxWind, datum, radius1, radius2, radius3);
+				stormTmp2 = addDataToString2(lat, lon, posNu - 1, stormNr, maxWind, datum, radius1, radius2, radius3);
+				//if (nInfoToday > 0 && nRowsNu > 0)
+				if (nRowsNu > 0) {
+					stormInfo += ",\n";
+					stormInfo2 += ",\n";
+				}
+				stormInfo += stormTmp;
+				stormInfo2 += stormTmp2;
+				nInfoToday++;
+				if (dagNu < 10 && manadNu == monthNr[i] && filPrev != NULL) {
+					if (nInfoPrev > 0) {
+						stormPrev += ",\n";
+						stormPrev2 += ",\n";
+					}
+					stormPrev += stormTmp;
+					stormPrev2 += stormTmp2;
+					nInfoPrev++;
+				}
+				nRowsNu++;
+			}
+			if (stormPrev != "") {
+				fprintf(filPrev, "%s", stormPrev.c_str());
+				fprintf(filPrev2, "%s", stormPrev2.c_str());
+			}
+			if (nRowsNu > 0) {
+				if (firstStorm > 0) {
+					fprintf(filNu, ",\n");
+					fprintf(filNu2, ",\n");
+				}
+				firstStorm++;
+				fprintf(filNu, "%s", stormInfo.c_str());
+				fprintf(filNu2, "%s", stormInfo2.c_str());
+				if (nextMonth == 1 && filNext != NULL) {
+					if (firstStormNext > 0) {
+						fprintf(filNext, ",\n");
+						fprintf(filNext2, ",\n");
+					}
+					fprintf(filNext, "%s", stormInfo.c_str());
+					fprintf(filNext2, "%s", stormInfo2.c_str());
+					firstStormNext++;
+				}
+			}
+			stormNr++;
+		}
+		fil.close();
+		if (filPrev != NULL) {
+			fprintf(filPrev, "]\n");
+			fclose(filPrev);
+			fprintf(filPrev2, "]}\n");
+			fclose(filPrev2);
+		}
+		filPrev = filNu;
+		filPrev2 = filNu2;
+		nInfoPrev = nInfoToday;
+		filNu = filNext;
+		filNu2 = filNext2;
+		nInfoToday = firstStormNext;
+		firstStorm = firstStormNext;
+		firstStormNext = 0;
+	}
+	if (filNu != NULL) {
+		fprintf(filNu, "]\n");
+		fclose(filNu);
+	}
+	if (filPrev != NULL) {
+		fprintf(filPrev, "]\n");
+		fclose(filPrev);
+		fprintf(filPrev2, "]}\n");
+		fclose(filPrev2);
+	}
+	return 0;
+}
 
 bool is_number(const std::string& s)
 {
@@ -10458,13 +10664,53 @@ int fixStormFiles(std::string inputPath) {
 	std::string datum, stringPrev, stringNu;
 	FILE* filPrev, * filNu, * filNext = NULL;
 	//FILE* filPrev2, * filNu2, * filNext2 = NULL;
-	int monthNu, taMedStormInfo;
+	int nMonths = 0, monthYear[1000], monthNr[1000], taMedStormInfo;
 	int nextMonth, i, manadNu, yearNu, antal, dagNu, stormNr = 0;
 	char** monthText;
 	std::string stormInfo, stormPrev, stormTmp;
-	//std::string stormInfo2, stormPrev2, stormTmp2;
+	std::string stormInfo2, stormPrev2, stormTmp2;
 	double lat, lon, radius1, radius2, radius3, maxWind;
 	int langd, year, month, isInteger, i1;
+	for (const auto& entry : std::filesystem::directory_iterator(inputPath)) {
+		std::cout << entry.path() << std::endl;
+		std::string filename = entry.path().u8string();
+		std::string base_filename = filename.substr(filename.find_last_of("/\\") + 1);
+		std::cout << base_filename << std::endl;
+		langd = base_filename.size();
+		if (langd < 11)
+			continue;
+		if (base_filename.substr(base_filename.size() - 5, 5) != ".json")
+			continue;
+
+		isInteger = getNumberFromString(base_filename.substr(0, 4), &year); //  stoi(base_filename.substr(0, 4));
+		if (isInteger == 0)
+			continue;
+		isInteger = getNumberFromString(base_filename.substr(5, 2), &month); // stoi(base_filename.substr(5, 2));
+		if (isInteger == 0)
+			continue;
+		if (year < 2021 || year > 2099)
+			continue;
+		if (month < 1 || month > 12)
+			continue;
+
+		for (i = 0; i < nMonths; i++) {
+			if (monthYear[i] < year)
+				continue;
+			if (monthNr[i] < month)
+				continue;
+			break;
+		}
+		if (monthYear[i] == year && monthNr[i] == month)
+			continue; // strange, two files with the same name?
+
+		for (i1 = nMonths; i1 > i; i1--) {
+			monthYear[i1] = monthYear[i1 - 1];
+			monthNr[i1] = monthNr[i1 - 1];
+		}
+		monthYear[i] = year;
+		monthNr[i] = month;
+		nMonths++;
+	}
 
 	// loop over all months with storms
 	filPrev = NULL;
@@ -10472,111 +10718,59 @@ int fixStormFiles(std::string inputPath) {
 	//filPrev2 = NULL;
 	//filNu2 = NULL;
 	int firstStorm = 0, firstStormNext = 0, nRowsNu, nInfoToday = 0, nInfoPrev = 0, posNu;
-	std::string namnStorm;
-	int startYear = 2020, endYear, monthNext, yearNext;
+	for (i = 0; i < nMonths; i++) { 
+		printf("saving storms for %d\n", monthYear[i]);
 
-	time_t rawtime;
-	time(&rawtime);
-	struct tm tmBas = *localtime(&rawtime);
-	time_t test = mktime(&tmBas);
-	if (test == -1) {
-		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
-			tmBas.tm_year,
-			tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
-		endYear = 2030;
-	}
-	endYear = tmBas.tm_year + 1900;
-	monthNu = tmBas.tm_mon + 1;
-
-	int monthLastFew = monthNu - 4, yearLastFew = endYear;
-	if (monthNu < 1) {
-		monthNu += 12;
-		yearLastFew--;
-	}
-	monthNu++;
-	if (monthNu > 12) {
-		endYear++;
-		monthNu = 1;
-	}
-
-
-	monthNu = 13;
-	for (year = startYear; year <= endYear; monthNu++) {
-		if (monthNu > 12) {
-			monthNu = 1;
-			year++;
-		}
-
-		if (monthNu < 10)
-			sprintf(namn, "%s%d-0%d.json", inputPath.c_str(), year, monthNu);
+		if (monthNr[i] < 10)
+			sprintf(namn, "%s%d-0%d.json", inputPath.c_str(), monthYear[i], monthNr[i]);
 		else
-			sprintf(namn, "%s%d-%d.json", inputPath.c_str(), year, monthNu);
-
-		if (!check_file_exist(namn))
-			continue; // no file to check, go to the next
-
-		if (filNu == NULL) {
-			if (monthNu < 10)
-				sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNu, year);
-			else
-				sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNu, year);
-
-			if (check_file_exist(namnNu) && (year < yearLastFew || (year == yearLastFew && monthNu < monthLastFew))) {
-				printf("skips %s as it already exists\n", namnNu);
-				filNu = NULL;
-			}
-			else {
-				filNu = fopen(namnNu, "w");
-				fprintf(filNext, "[\n");
-				printf("Saves %s\n", namnNu);
-			}
-		}
-
-		monthNext = monthNu + 1;
-		if (monthNext > 12) {
-			yearNext = year + 1;
-			monthNext = 1;
-		}
-		else
-			yearNext = year;
-
-		if (monthNext < 10)
-			sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNext, yearNext);
-		else
-			sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNext, yearNext);
-
-		if (check_file_exist(namnNu) && (yearNext < yearLastFew || (yearNext == yearLastFew && monthNext < monthLastFew))) {
-			printf("skips %s as it already exists\n", namnNu);
-			filNext = NULL;
-		}
-		else {
-			filNext = fopen(namnNu, "w");
-			fprintf(filNext, "[\n");
-			printf("Saves %s\n", namnNu);
-		}
-
-		if (filNext == NULL && filNu == NULL)
-			continue; // don't need to open this file as it already exists
-
+			sprintf(namn, "%s%d-%d.json", inputPath.c_str(), monthYear[i], monthNr[i]);
 		fil.open(namn);
 		fil >> data;
 
+		if (filNu == NULL) {
+			//sprintf(namnNu, "indataStorms/storms_%s_%d.json", monthText[i], monthYear[i]);
+			if (monthNr[i] < 10)
+				sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNr[i], monthYear[i]);
+			else
+				sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNr[i], monthYear[i]);
+			filNu = fopen(namnNu, "w");
+			//initGeoJsonFil(filNu, "storms");
+			fprintf(filNu, "[\n");
+			//sprintf(namnNu, "%sstormsVisuellt\\storms_%d_%d.geojson", inputPath.c_str(), monthText[i], monthYear[i]);
+			//filNu2 = fopen(namnNu, "w");
+			//initGeoJsonFil2(filNu2, "storms");
+		}
+		if (i + 1 < nMonths) {
+			//sprintf(namnNu, "indataStorms/storms_%s_%d.json", monthText[i + 1], monthYear[i + 1]);
+			if (monthNr[i + 1] < 10)
+				sprintf(namnNu, "%sstorms_0%d_%d.json", inputPath.c_str(), monthNr[i + 1], monthYear[i + 1]);
+			else
+				sprintf(namnNu, "%sstorms_%d_%d.json", inputPath.c_str(), monthNr[i + 1], monthYear[i + 1]);
+			filNext = fopen(namnNu, "w");
+			//initGeoJsonFil(filNext, "storms");
+			fprintf(filNext, "[\n");
+			//sprintf(namnNu, "%sstormsVisuellt\\storms_%s_%d.gejson", inputPath.c_str(), monthText[i + 1], monthYear[i + 1]);
+			//filNext2 = fopen(namnNu, "w");
+			//initGeoJsonFil2(filNext2, "storms");
+		}
+		else
+			filNext = NULL;
 		for (auto it = data.begin(); it != data.end(); ++it) {
 			json dataSpeed2 = it.value();
 			nextMonth = 0;
-			namnStorm = dataSpeed2["Name"];
 			data2 = dataSpeed2["StormForecast"];
 			stormPrev = "";
 			stormInfo = "";
-			//stormPrev2 = "";
-			//stormInfo2 = "";
+			stormPrev2 = "";
+			stormInfo2 = "";
 			nRowsNu = 0;
 			for (auto it2 = data2.begin(); it2 != data2.end(); ++it2) {
 				json dataSpeed3 = it2.value();
 				datum = dataSpeed3["ForecastDate"];
 				manadNu = getNrFromDate(datum, 5, 2);
 				dagNu = getNrFromDate(datum, 8, 2);
-				if (manadNu != monthNu) {
+				if (manadNu != monthNr[i]) {
 					nextMonth = 1;
 				}
 				maxWind = dataSpeed3["Wind"];
@@ -10588,23 +10782,23 @@ int fixStormFiles(std::string inputPath) {
 					continue;
 				if (abs(lon - 112.12) < 0.001)
 					lon = lon;
-				stormTmp = addDataToString(namnStorm, lat, lon, &posNu, stormNr, maxWind, datum, radius1, radius2, radius3);
-				//stormTmp2 = addDataToString2(lat, lon, posNu - 1, stormNr, maxWind, datum, radius1, radius2, radius3);
+				stormTmp = addDataToString(lat, lon, &posNu, stormNr, maxWind, datum, radius1, radius2, radius3);
+				stormTmp2 = addDataToString2(lat, lon, posNu - 1, stormNr, maxWind, datum, radius1, radius2, radius3);
 				//if (nInfoToday > 0 && nRowsNu > 0)
 				if (nRowsNu > 0) {
 					stormInfo += ",\n";
-					//stormInfo2 += ",\n";
+					stormInfo2 += ",\n";
 				}
 				stormInfo += stormTmp;
-				//stormInfo2 += stormTmp2;
+				stormInfo2 += stormTmp2;
 				nInfoToday++;
-				if (dagNu < 10 && manadNu == monthNu && filPrev != NULL) {
+				if (dagNu < 10 && manadNu == monthNr[i] && filPrev != NULL) {
 					if (nInfoPrev > 0) {
 						stormPrev += ",\n";
-						//stormPrev2 += ",\n";
+						stormPrev2 += ",\n";
 					}
 					stormPrev += stormTmp;
-					//stormPrev2 += stormTmp2;
+					stormPrev2 += stormTmp2;
 					nInfoPrev++;
 				}
 				nRowsNu++;
@@ -10614,13 +10808,12 @@ int fixStormFiles(std::string inputPath) {
 				//fprintf(filPrev2, "%s", stormPrev2.c_str());
 			}
 			if (nRowsNu > 0) {
-				if (firstStorm > 0 && filNu != NULL) {
+				if (firstStorm > 0) {
 					fprintf(filNu, ",\n");
 					//fprintf(filNu2, ",\n");
 				}
 				firstStorm++;
-				if (filNu != NULL)
-					fprintf(filNu, "%s", stormInfo.c_str());
+				fprintf(filNu, "%s", stormInfo.c_str());
 				//fprintf(filNu2, "%s", stormInfo2.c_str());
 				if (nextMonth == 1 && filNext != NULL) {
 					if (firstStormNext > 0) {
@@ -10662,6 +10855,7 @@ int fixStormFiles(std::string inputPath) {
 	}
 	return 0;
 }
+
 
 int redisSetKeys(std::string inputPath) {
 	int ii, i1, i2, i3, i4, i5, xPos1, yPos0, yPos1, nBands;
@@ -11832,7 +12026,7 @@ int loadDelayFactorScale_shipSize() {
 	char* namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/delay/delayFactorScale_shipSize.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
-	if (!(check_file_exist(namn))) {
+	if (!(exists_test3(namn))) {
 		errlog("ERROR! %s does not exist. I quit\n", namn);
 		printf("ERROR! %s does not exist. I quit\n", namn);
 		postRequest("ERROR! json file " + std::string(namn) + " does not exist.Fix it and run OptiNav again.", 1);
@@ -12074,11 +12268,27 @@ int loadCurrentAverageMaps() {
 	return 0;
 }
 
-int openPhysicalMapAB_local() {
+int openNeededRasterFilesNew(int alt)
+{
 	char* namn2;
-	Raster rasterPhysicalMapA, rasterPhysicalMapB;
 	namn2 = (char*)malloc2(256 * sizeof(char));
+	Raster rasterPhysicalMapA, rasterPhysicalMapB, rasterFuelMapA, rasterFuelMapB, rasterTimeDelay;
+	int i;
 
+	if (alt != -10) {
+		if (model.params.varyStartEndArcLength == 0)
+			calc_boundingBoxFromAllNodes(alt);
+		else
+			calc_boundingBoxFrompreferredPath(alt);
+		// calc_stormsNearby();
+	}
+	else {
+		calc_boundingBoxAutoRoute();
+	}
+//	loadMapsSQLite();
+
+	//printf("-- Time2a %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+	//model.physicalMapA.valueCell = openBinaryMap(1, &(model.physicalMapA), model.boundingBox);
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalAFileName.c_str());
 
 	auto tid1 = std::chrono::high_resolution_clock::now();
@@ -12090,13 +12300,12 @@ int openPhysicalMapAB_local() {
 	}
 	auto tid2 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> fp_ms2 = tid2 - tid1;
-	//if (SKRIV_UT_NOTHING == 0) {
-	//	printf("read rasterTest map took %.3lf\n", fp_ms2);
-	//	printf("-- Time after loading physicalMapA %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
-	//}
+	if (SKRIV_UT_NOTHING == 0) {
+		printf("read rasterTest map took %.3lf\n", fp_ms2);
+		printf("-- Time after loading physicalMapA %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+	}
 
 	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapPhysicalBFileName.c_str());
-
 	rasterPhysicalMapB.open(namn2);
 	//printf("-- Time2c %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	model.physicalMapB.valueCell = rasterPhysicalMapB.GetRasterBand_intArrTest(1, &(model.physicalMapB), model.boundingBox);
@@ -12104,142 +12313,83 @@ int openPhysicalMapAB_local() {
 		errlog("ERROR! Failed to load physical map %s. Must be datatype Byte. I quit\n", namn2);
 		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte", 1);
 	}
-	free(namn2);
-
-	return 0;
-}
-
-int openPhysicalMapAB_lessBuffer_local() {
-	char* namn2;
-	Raster rasterPhysical_lessBuffer_MapA, rasterPhysical_lessBuffer_MapB;
-	namn2 = (char*)malloc2(256 * sizeof(char));
-
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.mapAutoRoutePhysicalAFileName.c_str());
-	rasterPhysical_lessBuffer_MapA.open(namn2);
-	model.physical_lessBuffer_MapA.valueCell = rasterPhysical_lessBuffer_MapA.GetRasterBand_intArrTest(1, &(model.physical_lessBuffer_MapA), model.boundingBox);
-	if (model.physicalMapA.valueCell == NULL) {
-		errlog("ERROR! Failed to load physical map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.mapAutoRoutePhysicalBFileName.c_str());
-	rasterPhysical_lessBuffer_MapB.open(namn2);
-	//printf("-- Time2c %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
-	model.physical_lessBuffer_MapB.valueCell = rasterPhysical_lessBuffer_MapB.GetRasterBand_intArrTest(1, &(model.physical_lessBuffer_MapB), model.boundingBox);
-	if (model.physical_lessBuffer_MapB.valueCell == NULL) {
-		errlog("ERROR! Failed to load physical map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical map " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-
-	free(namn2);
-
-	return 0;
-}
-
-int openNoGoAreas_local(int i, char* namn2) {
-	printf("opens %s\n", namn2);
-	model.extraNoGoArea[i].rasterA.open(namn2);
-	model.extraNoGoArea[i].mapA.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapA), model.boundingBox);
-	if (model.extraNoGoArea[i].mapA.valueCell == NULL) {
-		errlog("ERROR! Failed to load extra noGo mapA %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical mapA " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-	if (i >= model.nExtraNoGoAreas)
-		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapLandSeaBFileName.c_str());
-	else
-		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].fileNameB);
-	model.extraNoGoArea[i].rasterB.open(namn2);
-	model.extraNoGoArea[i].mapB.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapB), model.boundingBox);
-	if (model.extraNoGoArea[i].mapB.valueCell == NULL) {
-		errlog("ERROR! Failed to load extra noGo mapB %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load physical mapB " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-
-	return 0;
-}
-
-int openFuelMaps_local() {
-	char* namn2;
-	Raster rasterFuelMapA, rasterFuelMapB;
-	namn2 = (char*)malloc2(256 * sizeof(char));
-
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyAFileName.c_str());
-	rasterFuelMapA.open(namn2);
-	model.fuelMapA.valueCell = rasterFuelMapA.GetRasterBand_intArrTest(1, &(model.fuelMapA), model.boundingBox);
-	if (model.fuelMapA.valueCell == NULL) {
-		errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-	//if (SKRIV_UT_NOTHING == 0) 
-	//	printf("-- Time after loading fuelMapA %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
-
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyBFileName.c_str());
-	rasterFuelMapB.open(namn2);
-	//printf("-- Time2g %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
-	//printGlobal = 1;
-	model.fuelMapB.valueCell = rasterFuelMapB.GetRasterBand_intArrTest(1, &(model.fuelMapB), model.boundingBox);
-	if (model.fuelMapA.valueCell == NULL) {
-		errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
-		postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
-	}
-
-	free(namn2);
-
-	return 0;
-}
-
-
-
-int openNeededRasterFilesNew(int alt)
-{
-	char* namn2;
-	namn2 = (char*)malloc2(256 * sizeof(char));
-	Raster rasterFuelMapA, rasterFuelMapB, rasterTimeDelay;
-	int i;
-
-	if (alt > -10) {
-		if (model.params.varyStartEndArcLength == 0)
-			calc_boundingBoxFromAllNodes(alt);
-		else
-			calc_boundingBoxFrompreferredPath(alt);
-		// calc_stormsNearby();
-	}
-	else {
-		if(alt == -10)
-			calc_boundingBoxAutoRoute(); // not needed anymore, calculating this from solution to searoute
-	}
-
-	openPhysicalMapAB_local();
-
-	if (alt == -11) {
-		openPhysicalMapAB_lessBuffer_local();
-	}
-	checkMinnesAnvandning(__LINE__);
-
-
 
 	int nExtra = model.nExtraNoGoAreas;
-	if (alt <= -10)
+	if (alt == -10)
 		nExtra++; // it's the land map
 
-	printf("nExtra %d\n", nExtra);
 	for (i = 0; i < nExtra; i++) {
-		printf("nExtra igen %d\n", nExtra);
-
-		if(i >= model.nExtraNoGoAreas)
+		if(nExtra >= model.nExtraNoGoAreas)
 			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapLandSeaAFileName.c_str());
 		else
 			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].fileNameA);
-
-		openNoGoAreas_local(i, namn2);
+		model.extraNoGoArea[i].rasterA.open(namn2);
+		model.extraNoGoArea[i].mapA.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapA), model.boundingBox);
+		if (model.extraNoGoArea[i].mapA.valueCell == NULL) {
+			errlog("ERROR! Failed to load extra noGo mapA %s. Must be datatype Byte. I quit\n", namn2);
+			postRequest("ERROR!Failed to load physical mapA " + std::string(namn2) + ". Must be datatype Byte", 1);
+		}
+		if (nExtra >= model.nExtraNoGoAreas)
+			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapLandSeaBFileName.c_str());
+		else
+			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].fileNameB);
+		model.extraNoGoArea[i].rasterB.open(namn2);
+		model.extraNoGoArea[i].mapB.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapB), model.boundingBox);
+		if (model.extraNoGoArea[i].mapB.valueCell == NULL) {
+			errlog("ERROR! Failed to load extra noGo mapB %s. Must be datatype Byte. I quit\n", namn2);
+			postRequest("ERROR!Failed to load physical mapB " + std::string(namn2) + ". Must be datatype Byte", 1);
+		}
 	}
+
+	//printf("-- Time2d %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+	//model.fuelGeographyMapRaster = (Raster*)malloc2(sizeof(Raster));
+	if (SKRIV_UT_NOTHING == 0) 
+		printf("-- Time2e %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 
 	if (alt == -10)
 		return 0;
 
-	openFuelMaps_local();
 
+	//if (alt == 0) {
+		//model.fuelMapA.valueCell = openBinaryMap(0, &(model.fuelMapA), model.boundingBox);
+		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyAFileName.c_str());
+		rasterFuelMapA.open(namn2);
+		model.fuelMapA.valueCell = rasterFuelMapA.GetRasterBand_intArrTest(1, &(model.fuelMapA), model.boundingBox);
+		if (model.fuelMapA.valueCell == NULL) {
+			errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
+			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
+		}
+		if (SKRIV_UT_NOTHING == 0) 
+			printf("-- Time after loading fuelMapA %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 
+		sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.params.mapFuelGeographyBFileName.c_str());
+		rasterFuelMapB.open(namn2);
+		//printf("-- Time2g %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+		//printGlobal = 1;
+		model.fuelMapB.valueCell = rasterFuelMapB.GetRasterBand_intArrTest(1, &(model.fuelMapB), model.boundingBox);
+		if (model.fuelMapA.valueCell == NULL) {
+			errlog("ERROR! Failed to load fuel map %s. Must be datatype Byte. I quit\n", namn2);
+			postRequest("ERROR!Failed to load fuel map " + std::string(namn2) + ". Must be datatype Byte", 1);
+		}
+	//}
+
+	//double distECA, distOther;
+	//get_fuelUseKvotECA(24.22,-96.84, 24.796, -95.219, 0, &distECA, &distOther);
+	//printf("distECA %.2lf distOther %.2lf\n", distECA, distOther);
+	//printGlobal = 0;
+	//printf("-- Time2h %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+
+	//int i1, i2;
+	//for (int i = 0; i < model.nWeatherFiles; i++) {
+	//	model.weather[i].rasterPos.open(model.weather[i].fileName);
+		//model.weather[i].valueCell = (float**)calloc2(model.weather[i].nTimeIntervals, sizeof(float*));
+		//for (i2 = 0; i2 < model.weather[i].nTimeIntervals; i2++) {
+		//	model.weather[i].valueCell[i2] = model.weather[i].rasterPos.GetRasterBand_realArr(i2 + 1, &(model.weather[i].raster), model.boundingBox);
+		//}
+	//}
+
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- Time after loading all raster maps %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	return 0;
 }
 
@@ -14181,7 +14331,7 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 {
-	int i, nInt, nPkterOrto = -1;
+	int i, nInt, nPkterOrto;
 	double dist, distTot, nIntDbl, distInt, distIntUse;
 	double ortoDist, bNy;
 	double distNu, startDistBad, endDistBad;
@@ -14745,7 +14895,7 @@ int testCoordValue(int weatherNr, double lon, double lat) {
 		model.weather[weatherNr].valueCell[tidp][0 * model.weather[weatherNr].nCols + 0],
 		model.weather[weatherNr].valueCell[tidp][1 * model.weather[weatherNr].nCols + 1]);
 
-	for (tidp = 0; tidp < 20 && tidp < model.weather[weatherNr].nTimeIntervals; tidp++)
+	for (tidp = 0; tidp < 10 && tidp < model.weather[weatherNr].nTimeIntervals; tidp++)
 		printf("lon/lat %.3lf %.3lf col/row %.2lf %.2lf tidint %d %lf %lf %lf %lf\n",
 			lon, lat,
 			colDbl, rowDbl, tidp,
@@ -14763,9 +14913,7 @@ int evalWeatherPosAlongLine(spherical::Point p1, spherical::Point p2, int* check
 	double rowDbl, colDbl;
 
 	spherical::Point pMid = p1;
-	double bearingRadians;
-	// bearingRadians = (90 - bearing) * M_PI / 180;
-	bearingRadians = bearing;
+	double bearingRadians = (90 - bearing) * M_PI / 180;
 
 	for (i = *checkPointNr;; i++) {
 		if (i >= 98)
@@ -16128,14 +16276,11 @@ double getStormValuePrecis(int t, double lat, double lon, int saveStormData)
 					"tidskvot %.2lf tRutt %d prevStormT %.2lf hoursToNextStormT %.2lf\n", i, innerCircleSize, dist, outerCircleSize,
 					lonStorm, latStorm, lon, lat, kvot, t, model.storms[i].feature[tidIndex].tidFromStart_h, model.storms[i].feature[tidIndex].hoursToNextPoint);
 			if (dist <= innerCircleSize) {
-				if (t < model.network.tidp_startHistoricDataOnly && model.network.tidp_startHistoricDataOnly < 999998)
+				if (t < model.network.tidp_startHistoricDataOnly)
 					varde += model.params.penalties.storm_costInsideInner * (1.0 + (model.network.tidp_startHistoricDataOnly - t) /
 						model.network.tidp_startHistoricDataOnly);
 				else
 					varde += model.params.penalties.storm_costInsideInner;
-				varde += (innerCircleSize - dist) * 100000;
-				if (varde > 2 * model.params.penalties.storm_costInsideInner)
-					varde = 2 * model.params.penalties.storm_costInsideInner;
 			}else
 				varde += model.params.penalties.storm_costInsideOuter_kvot * (outerCircleSize - dist) / (outerCircleSize - innerCircleSize);
 			if (saveStormData == 1) {
@@ -18879,7 +19024,7 @@ void loadWeatherFiles_redis() {
 	int xBlockNr, xBlockUse, yBlockNr, pos, latPos, lonPos, tidInt;
 	int nTimeIntervals_forecast_redis, nTimeIntervals_redis, forstaOverT, startT;
 	int nDefault, nNoll, nTot;
-	int nMaxTimeInt = 0, tidpHistoricalWeather, onBoardDef = 1;
+	int nMaxTimeInt = 0, tidpHistoricalWeather;
 
 	long long maxTid, sekNu, offset_x2;
 	double min_lon, max_lon, min_lat, max_lat, min_lonUse, max_lonUse;
@@ -18891,7 +19036,7 @@ void loadWeatherFiles_redis() {
 	//model.network.tidp_startHistoricDataOnly = 0;
 
 #ifndef ONBOARD
-	onBoardDef = 0;
+
 	//#ifndef WIN32_AAAAA
 	auto redis = Redis("tcp://127.0.0.1:6379/1");
 	std::string redisTest;
@@ -19507,11 +19652,6 @@ void loadWeatherFiles_redis() {
 	model.weather_nTimeIntervals_maxValue = nMaxTimeInt;
 
 #endif
-
-	if(onBoardDef == 1)
-		postRequest("ERROR! onBoard is defined but OptiNav forecast is used. I quit!\n", 1);
-
-
 	printf("-- Time after weather data loaded %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	printf("Time where only historic data is used: %d\n", model.network.tidp_startHistoricDataOnly);
 	errlog("Time where only historic data is used: %d\n", model.network.tidp_startHistoricDataOnly);
@@ -19608,7 +19748,7 @@ void loadWeatherFiles_grib() {
 	char* namn = (char*)malloc(2356 * sizeof(char));
 	int manad2, returnVal, first_i1;
 	double filKvot;
-	int* initFile = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
+
 
 	//errlog("test14\n");
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
@@ -19628,9 +19768,6 @@ void loadWeatherFiles_grib() {
 		manad2 = 0;
 		nBandsTooLate = 0;
 		first_i1 = 1;
-
-		for (int i10 = 0; i10 < model.params.nHindCastMonths; i10++)
-			initFile[i10] = 0;
 
 		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
 			posNu = 0;
@@ -19837,17 +19974,12 @@ void loadWeatherFiles_grib() {
 					ii = ii;
 
 				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
-				if (initFile[i10] == 0) {
-					for (posNu = savePosStart; posNu <= savePosStart + endPos[i10] - startPos[i10]; posNu++) {
-						model.weather[ii].valueCell[posNu] = (float*)malloc2(nAlloc * sizeof(float));
-						for (int i3 = 0; i3 < nAlloc; i3++)
-							model.weather[ii].valueCell[posNu][i3] = 9999;
-					}
-					initFile[i10] = 1;
+				for (posNu = savePosStart; posNu <= savePosStart + endPos[i10] - startPos[i10]; posNu++) {
+					model.weather[ii].valueCell[posNu] = (float*)malloc2(nAlloc * sizeof(float));
+					for (int i3 = 0; i3 < nAlloc; i3++)
+						model.weather[ii].valueCell[posNu][i3] = 9999;
 				}
 
-				if (ii == 2)
-					ii = ii;
 				model.weather[ii].rasterPos[i1].GetRasterValues_realHindCastBands(&(model.weather[ii]), startPos[i10], endPos[i10], savePosStart, filKvot);
 				savePosStart += endPos[i10] - startPos[i10] + 1;
 				//if (i1 < model.weather[ii].nFiles / 2.0)
@@ -19859,8 +19991,7 @@ void loadWeatherFiles_grib() {
 				first_i1 = 0;
 
 
-			//testCoordValue(ii, -41.43, -26.44);
-			//testCoordValue(ii, -40.77, -26.76);
+			// testCoordValue(ii, 86.14, 3.79);
 			// testCoordValue(ii, 93.84, 5.98);
 			//testCoordValue(ii, 167.6111, 81);
 			//testCoordValue(ii, 179.6111, 82);
@@ -19892,10 +20023,6 @@ void loadWeatherFiles_grib() {
 			//	model.weather[ii].minY, model.weather[ii].maxY);
 
 		}
-		if (ii == 2)
-			ii = ii;
-		// testCoordValue(ii, 25.675, -33.917);
-
 
 		nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
 		model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
@@ -19938,7 +20065,6 @@ void loadWeatherFiles_grib() {
 		//testCoordValue(ii, 149.315, -21.275);
 
 	}
-	free(initFile);
 
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
 		//printf("var %d maxVal %d\n", ii, model.weather[ii].nTimeIntervals_maxValue);
@@ -22650,100 +22776,3 @@ int solve_SP_delay() {
 	return 0;
 }
 
-
-double eval_vesselBearing(double y1, double x1, double y2, double x2) {
-	double bearing;
-
-	spherical::Point p1, p2;
-	
-	p1 = spherical::Point(y1, fix_lonPos(x1));
-	p2 = spherical::Point(y2, fix_lonPos(x2));
-
-	//bearing = (90 - p1.bearingTo(p2)) * M_PI / 180;
-	bearing = p1.bearingTo(p2);
-	double bearingRadians = (90 - bearing) * M_PI / 180;
-	if (bearingRadians < -M_PI)
-		bearingRadians += 2 * M_PI;
-
-	return bearingRadians;
-}
-
-double eval_calmWaterSpeed_fromRPM_base(double rpm){
-	int i;
-	double speed, kvot;
-
-	for (i = 0; i < model.functions.nShip_speedSettingsBase; i++) {
-		if (rpm <= model.functions.rpmBase[i])
-			break;
-	}
-	if (i < model.functions.nShip_speedSettingsBase) {
-		if (i == 0) {
-			if (rpm < model.functions.rpmBase[i])
-				errlog("ERROR! Too low rpm %.3lf. Lowest one given in speed setting is %.3lf which I use\n", rpm, model.functions.rpmBase[i]);
-			speed = model.functions.rpmSetting_gerCalmWaterSpeedBase[i];
-		}
-		else {
-			kvot = (rpm - model.functions.rpmBase[i - 1]) / (model.functions.rpmBase[i] - model.functions.rpmBase[i - 1]);
-			speed = (1 - kvot) * model.functions.rpmSetting_gerCalmWaterSpeedBase[i - 1] + kvot * model.functions.rpmSetting_gerCalmWaterSpeedBase[i];
-		}
-	}
-	else {
-		errlog("ERROR! Too high rpm %.3lf. Highest one given in speed setting is %.3lf which I use\n", rpm, model.functions.rpmBase[i - 1]);
-		speed = model.functions.rpmSetting_gerCalmWaterSpeedBase[i - 1];
-	}
-	return speed;
-}
-
-int evalKaoutarData(std::string inputPath) {
-	int i, antal, rad;
-	double x0, y0, x1, y1, sog, currentDirection, currentSpeed;
-	double wavePeriod = 10.0, rpm, windDirection, windSpeed, waveDirection, waveHeight;
-	double calmWaterSpeed, vesselBearing, baseGroundSpeed, rel_windSpeed, rel_waveDir;
-	double rel_windDir, speedDiffWind, speedDiffWave;
-
-	char* namn = (char*)malloc(256 * sizeof(char));
-
-	sprintf(namn, "%skaoutarData.txt", inputPath.c_str());
-	FILE* filpek = fopen(namn, "r");
-	sprintf(namn, "%sres_kaoutarData.txt", inputPath.c_str());
-	FILE* filut = fopen(namn, "w");
-
-	antal = fscanf(filpek, "%s\n", namn); // wind matrix
-	model.functions.windTableID = cleanString(std::string(namn));
-
-	antal = fscanf(filpek, "%s\n", namn); // wave matrix
-	model.functions.windTableID = cleanString(std::string(namn));
-
-	antal = fscanf(filpek, "%s\n", namn); // stability matrix
-	model.functions.stabilityTableID = cleanString(std::string(namn));
-
-	loadAllNeededTablesFromSQLite();
-
-	for (i = 0; i < 10000; i++) {
-		antal = fscanf(filpek, "%d\t%lf\t%lf\n", &rad, &x0, &y0, &x1, &y1, &rpm, &sog,
-			&windDirection, &windSpeed, &waveDirection, &waveHeight, &currentDirection, &currentSpeed);
-		if (antal <= 0)
-			break;
-
-
-		calmWaterSpeed = eval_calmWaterSpeed_fromRPM_base(rpm);
-		vesselBearing = eval_vesselBearing(y0, x0, y1, x1);
-		baseGroundSpeed = eval_baseGroundSpeedExact(calmWaterSpeed, vesselBearing,
-			currentDirection, currentSpeed);
-
-		rel_windSpeed = eval_relWindSpeedExact(baseGroundSpeed, vesselBearing,
-			windDirection, windSpeed, &rel_windDir);
-		rel_waveDir = M_PI + ((270 - waveDirection) * M_PI / 180 - vesselBearing); // / model.functions.nWaveDir;
-
-		speedDiffWind = lookup_speedDiffWindTable(baseGroundSpeed, rel_windSpeed, rel_windDir);
-		speedDiffWave = lookup_speedDiffWaveTable(calmWaterSpeed, waveHeight, wavePeriod, rel_waveDir);
-
-		fprintf(filut, "%d\t%.3lf\t%.3lf\t%.3lf\n", rad, speedDiffWind, speedDiffWave, baseGroundSpeed - calmWaterSpeed);
-	}
-
-	fclose(filut);
-	fclose(filpek);
-	free(namn);
-
-	return 0;
-}

@@ -20,6 +20,8 @@ typedef std::string String;
 
 class Raster;
 
+int roundDown(double varde);
+
 struct strBoundBox {
 	double xMin;
 	double yMin;
@@ -709,10 +711,10 @@ public:
 				//xUse = 0;
 				//iYBlock = 0;
 				if (printGlobal == 1)
-					printf("read block %d %I64d\n", xUse, iYBlock);
+					printf("read block %d %lld\n", xUse, iYBlock);
 				poBand->ReadBlock(xUse, iYBlock, pabyData);
 				if (printGlobal == 1)
-					printf(".. done iXBlock %I64d xMin %d pnXSize %d globPos %d to %d coord %.3lf to %.3lf (%.3lf to %.3lf)\n",
+					printf(".. done iXBlock %lld xMin %d pnXSize %d globPos %lld to %lld coord %.3lf to %.3lf (%.3lf to %.3lf)\n",
 						iXBlock, xMin, pnXSize, (iXBlock - xMin) * pnXSize, (iXBlock + 1 - xMin) * pnXSize - 1,
 						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col,
 						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col,
@@ -726,7 +728,7 @@ public:
 				poBand->GetActualBlockSize(xUse, iYBlock, &nXValid, &nYValid);
 				nNotValid += pnXSize - nXValid;
 				if (printGlobal == 1) {
-					printf("block xy %d %d nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
+					printf("block xy %d %lld nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
 				}
 				//nLoops1++;
 
@@ -859,7 +861,7 @@ public:
 	GByte* GetRasterBand_intArrTest(int z, strPhysRaster* rasterData, strBoundBox boundingBox) {
 
 		int pnXSize, pnYSize, nXValid, nYValid, xMin, yMin, xMax, yMax, xUse, bb_xMin, bb_xMax;
-		int nNotValid = 0, posTmp, posTmp2, nXnotValid;
+		int nNotValid = 0, posTmp, posTmp2, nXnotValid, nXnotValid0;
 		double xPosFrac1, yPosFrac1, xPosFrac2, yPosFrac2;
 		//unsigned short* valueCell;
 		GDALRasterBand* poBand = rasterDataset->GetRasterBand(z);
@@ -909,6 +911,13 @@ public:
 
 		xPosFrac1 = (bb_xMin - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
 		xPosFrac2 = (bb_xMax - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
+		if (bb_xMin < min_lon) {
+			nXnotValid0 = n_xBlocks * pnXSize - NCOLS;
+			xPosFrac1 -= nXnotValid0 / (double)pnXSize;
+		}
+		else
+			nXnotValid0 = 0;
+
 		if (bb_xMax > max_lon) {
 			nXnotValid = n_xBlocks * pnXSize - NCOLS;
 			xPosFrac2 += nXnotValid / (double)pnXSize;
@@ -924,8 +933,10 @@ public:
 			xMax = fix_minMaxFromFrac(xPosFrac2, 0, nXBlocks - 1);
 		}
 		else {
-			xMin = (int)xPosFrac1; // fix_minMaxFromFrac(xPosFrac1, 0, nXBlocks - 1);
-			xMax = (int)xPosFrac2; // fix_minMaxFromFrac(xPosFrac2, 0, nXBlocks - 1);
+			//xMin = (int)xPosFrac1; // fix_minMaxFromFrac(xPosFrac1, 0, nXBlocks - 1);
+			//xMax = (int)xPosFrac2; // fix_minMaxFromFrac(xPosFrac2, 0, nXBlocks - 1);
+			xMin = roundDown(xPosFrac1); // fix_minMaxFromFrac(xPosFrac1, 0, nXBlocks - 1);
+			xMax = roundDown(xPosFrac2); // fix_minMaxFromFrac(xPosFrac2, 0, nXBlocks - 1);
 		}
 		yMin = fix_minMaxFromFrac(yPosFrac1, 0, nYBlocks - 1);
 		yMax = fix_minMaxFromFrac(yPosFrac2, 0, nYBlocks - 1);
@@ -934,7 +945,7 @@ public:
 
 
 		//printf("blocks to open for physical map x %d %d y %d %d\n", xMin, xMax, yMin, yMax);
-		rasterData->minLongitude = min_lon + (double)xMin * pnXSize * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
+		rasterData->minLongitude = min_lon + (double)(xMin * pnXSize + nXnotValid0) * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
 		rasterData->minLatitude = max_lat - (double)(yMax + 1) * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
 		rasterData->maxLongitude = min_lon + (double)((xMax + 1) * pnXSize - nXnotValid) * size_col; // pnXSize / NCOLS * (max_lon - min_lon);
 		rasterData->maxLatitude = max_lat - (double)yMin * pnYSize * size_row; // pnYSize / NROWS * (max_lat - min_lat);
@@ -946,7 +957,7 @@ public:
 		GByte* pabyData = (GByte*)CPLMalloc(pnXSize * pnYSize);
 
 		//printf("alloc pabyData size %d x %d = %d\n", pnXSize, pnYSize, pnXSize * pnYSize);
-		rasterData->nCols = (xMax - xMin + 1) * pnXSize - nXnotValid;
+		rasterData->nCols = (xMax - xMin + 1) * pnXSize - nXnotValid - nXnotValid0;
 		rasterData->nRows = (yMax - yMin + 1) * pnYSize;
 		rasterData->size_col = size_col;
 		rasterData->size_row = size_row;
@@ -978,16 +989,16 @@ public:
 				}
 				//xUse = 0;
 				//iYBlock = 0;
-				if(printGlobal == 1)
-					printf("read block %d %I64d\n", xUse, iYBlock);
+				if (printGlobal == 1)
+					printf("read block %d %lld\n", xUse, iYBlock);
 				poBand->ReadBlock(xUse, iYBlock, pabyData);
-				if(printGlobal == 1)
-					printf(".. done iXBlock %I64d xMin %d pnXSize %d globPos %d to %d coord %.3lf to %.3lf (%.3lf to %.3lf)\n", 
-						iXBlock, xMin, pnXSize, (iXBlock - xMin) * pnXSize, (iXBlock + 1 - xMin) * pnXSize - 1, 
+				if (printGlobal == 1)
+					printf(".. done iXBlock %lld xMin %d pnXSize %d globPos %lld to %lld coord %.3lf to %.3lf (%.3lf to %.3lf)\n",
+						iXBlock, xMin, pnXSize, (iXBlock - xMin) * pnXSize, (iXBlock + 1 - xMin) * pnXSize - 1,
 						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col,
 						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col,
-						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col-360,
-						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col-360);
+						rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5) * rasterData->size_col - 360,
+						rasterData->minLongitude + (double)((iXBlock + 1 - xMin) * pnXSize - nNotValid - 1 + 0.5) * rasterData->size_col - 360);
 
 				xPosNu = (iXBlock - xMin) * pnXSize - nNotValid;
 
@@ -996,10 +1007,10 @@ public:
 				poBand->GetActualBlockSize(xUse, iYBlock, &nXValid, &nYValid);
 				nNotValid += pnXSize - nXValid;
 				if (printGlobal == 1) {
-					printf("block xy %d %d nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
+					printf("block xy %d %lld nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
 				}
 				//nLoops1++;
-				
+
 				for (iY = 0; iY < nYValid; iY++) {
 					posTmp = xPosNu + rasterData->nCols * (iY + yPosNu);
 					posTmp2 = iY * pnXSize;
@@ -1026,11 +1037,11 @@ public:
 						}
 						else
 							valueCell[iX + posTmp] = 3;
-					
+
 					}
 					*/
 				}
-		
+
 			}
 		}
 
@@ -1125,8 +1136,62 @@ public:
 		*/
 		// printf("nLoops1 %d nLoops2 %d\n", nLoops1, nLoops2);
 
-		
+
 		return valueCell;
+	}
+
+	int GetRasterValues_intArray(int z, int nElement, double* x, double* y, int* returnArr) {
+
+		int pnXSize, pnYSize, xUse;
+		int xPos, yPos, iYBlock;
+		double xPosFrac1, yPosFrac1;
+		GDALRasterBand* poBand = rasterDataset->GetRasterBand(z);
+
+		if (strcmp(GDALGetDataTypeName(poBand->GetRasterDataType()), "Byte") != 0) {
+			printf("### ERROR! data type is %s but must be Byte or the speed reading of the raster map won't work\n", GDALGetDataTypeName(poBand->GetRasterDataType()));
+			return NULL;
+		}
+
+		poBand->GetBlockSize(&pnXSize, &pnYSize);
+
+		int n_xBlocks, n_yBlocks, nXValid, nYValid;
+
+		n_xBlocks = (int)((double)NCOLS / pnXSize);
+		if (n_xBlocks * pnXSize < NCOLS)
+			n_xBlocks++;
+		n_yBlocks = (int)((double)NCOLS / pnXSize);
+		if (n_yBlocks * pnXSize < NCOLS)
+			n_yBlocks++;
+
+		GByte* pabyData = (GByte*)CPLMalloc(pnXSize * pnYSize);
+
+		for (int i0 = 0; i0 < nElement; i0++) {
+			if (x[i0] < min_lon)
+				x[i0] += 360.0;
+			if (x[i0] > max_lon)
+				x[i0] -= 360.0;
+			xPosFrac1 = (x[i0] - min_lon) * NCOLS / pnXSize / (max_lon - min_lon);
+			yPosFrac1 = (max_lat - y[i0]) * NROWS / pnYSize / (max_lat - min_lat);
+
+			xUse = roundDown(xPosFrac1); // fix_minMaxFromFrac(xPosFrac1, 0, nXBlocks - 1);
+			iYBlock = roundDown(yPosFrac1);
+			if (xUse < 0 || xUse >= n_xBlocks || iYBlock < 0 || iYBlock >= n_yBlocks) {
+				returnArr[i0] = 0;
+			}
+			else {
+				poBand->ReadBlock(xUse, iYBlock, pabyData);
+				poBand->GetActualBlockSize(xUse, iYBlock, &nXValid, &nYValid);
+
+				xPos = (xPosFrac1 - xUse) * pnXSize;
+				yPos = (yPosFrac1 - iYBlock) * pnYSize;
+				if(xPos < nXValid && yPos < nYValid)
+					returnArr[i0] = pabyData[xPos + yPos * pnXSize];
+				else
+					returnArr[i0] = 0;
+			}
+		}
+
+		return 0;
 	}
 
 	float* GetRasterBand_realArr(int z, strWeatherRaster* rasterData, strBoundBox boundingBox) {
@@ -2270,6 +2335,8 @@ public:
 							x2 = weatherData->nCols - xPosNu2;
 						}
 					}
+					if (iYBlock == 987 + 562)
+						y0 = y0;
 					for (iY = y0; iY < y1; iY++) {
 						for (iX = x0; iX < x1; iX++) {
 							pos2 = iX + iY * pnXSize;
@@ -2282,7 +2349,7 @@ public:
 							}
 							if (iY < nYValid && iX < nXValid) {
 								if (pabyData[iX + iY * pnXSize] < 9998)
-									weatherData->valueCell[zNu][pos] = pabyData[pos2];
+									weatherData->valueCell[zNu][pos] = pabyData[pos2] * filKvot;
 							}
 							else
 								weatherData->valueCell[zNu][pos] = 0;

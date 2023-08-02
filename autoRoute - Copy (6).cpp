@@ -13,17 +13,13 @@ extern std::string resultPath;
 extern int SKRIV_UT_NOTHING;
 double DIST_SPLIT = 250.0;
 
-int nMAX_ITER = 3;
-int nMAX_ADD_NODES;
-
-
 strModel modelSea;
 
 int loadParams_autoRoute(strParamsAutoRoute* params)
 {
-	int i, closestI, pos2, minLon, maxLon;
+	int i, closestI, pos2;
 	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
-	double fuelMain, fuelAux, minLat;
+	double fuelMain, fuelAux;
 
 
 	std::ifstream fil;
@@ -52,39 +48,92 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	params->nCellLevels = 2;
 	params->discretizationSizeLevel = (double*)malloc(params->nCellLevels * sizeof(double));
 	params->nDiscreteSizeLevel = (int*)malloc(params->nCellLevels * sizeof(int));
-	params->discretizationSizeLevel[0] = 2.0; //  1.5; // 3.0; // degrees
-	params->nDiscreteSizeLevel[1] = 15; // km 12;
+	params->discretizationSizeLevel[0] = 1.5; // 3.0; // degrees
+	params->nDiscreteSizeLevel[1] = 12; // km
 	params->discretizationSizeLevel[1] = params->discretizationSizeLevel[0] / params->nDiscreteSizeLevel[1]; // degrees
 	params->factorExtraCover = 6;// 10; //  2;
 	params->maxBaseFeasibleCost = 1000;
 	params->mapAutoRoutePhysicalAFileName = std::string();
 	params->mapAutoRoutePhysicalBFileName = std::string();
 	params->tssName = std::string();
-	params->zonesFileName = std::string();
-	params->zoneConnectionsFileName = std::string();
+
+	if (!data["viaSections"].is_null()) {
+		dataIt = data["viaSections"];
+		params->nStartSlut = dataIt.size() + 1;
+
+		params->startPoint_lon = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->startPoint_lat = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->endPoint_lon = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->endPoint_lat = (double*)malloc(params->nStartSlut * sizeof(double));
+
+		for (i1 = 0; i1 < params->nStartSlut; i1++) {
+			params->startPoint_lon[i1] = -9999;
+			params->startPoint_lat[i1] = -9999;
+			params->endPoint_lon[i1] = -9999;
+			params->endPoint_lat[i1] = -9999;
+		}
+		pos = 0;
+		for (auto it = dataIt.begin(); it != dataIt.end(); ++it) {
+			json dataIt2 = it.value();
+			if (!dataIt2["position"].is_null())
+				pos = dataIt2["position"];
+			else
+				errlog("ERROR! position is missing for viaSection. I assume it is the next one %d\n", pos);
+			if (pos >= params->nStartSlut - 1) {
+				errlog("Error! Too high pos in viaSections, is %d but max is %d\n", pos, params->nStartSlut - 2);
+				pos = params->nStartSlut - 2;
+			}
+
+			if (!dataIt2["point"].is_null()) {
+				dataIt3 = dataIt2["point"];
+				params->viaPositions[pos].nPoints = 1;
+				params->viaPositions[pos].x = (double*)malloc(params->viaPositions[pos].nPoints * sizeof(double));
+				params->viaPositions[pos].y = (double*)malloc(params->viaPositions[pos].nPoints * sizeof(double));
+				params->viaPositions[pos].x[0] = dataIt3["x"];
+				params->viaPositions[pos].y[0] = dataIt3["y"];
+			}
+			else {
+				dataIt3 = dataIt2["lineString"];
+				params->viaPositions[pos].nPoints = dataIt3.size();
+				params->viaPositions[pos].x = (double*)malloc(params->viaPositions[pos].nPoints * sizeof(double));
+				params->viaPositions[pos].y = (double*)malloc(params->viaPositions[pos].nPoints * sizeof(double));
+				pos2 = 0;
+				for (auto it2 = dataIt3.begin(); it != dataIt3.end(); ++it) {
+					json dataIt4 = it.value();
+					params->viaPositions[pos].x[pos2] = dataIt4["x"];
+					params->viaPositions[pos].y[pos2] = dataIt4["y"];
+					pos2++;
+				}
+			}
+			params->startPoint_lon[pos + 1] = -9999;
+			params->startPoint_lat[pos + 1] = -9999;
+			params->endPoint_lon[pos] = -9999;
+			params->endPoint_lat[pos] = -9999;
+			pos++;
+		}
+	}
+	else {
+		params->nStartSlut = 1;
+
+		params->startPoint_lon = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->startPoint_lat = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->endPoint_lon = (double*)malloc(params->nStartSlut * sizeof(double));
+		params->endPoint_lat = (double*)malloc(params->nStartSlut * sizeof(double));
+
+		params->startPoint_lon[0] = -9999;
+		params->startPoint_lat[0] = -9999;
+		params->endPoint_lon[0] = -9999;
+		params->endPoint_lat[0] = -9999;
+	}
 
 	if (!data["startPoint_lon"].is_null())
-		params->startBas_lon = data["startPoint_lon"];
+		params->startPoint_lon[0] = data["startPoint_lon"];
 	if (!data["startPoint_lat"].is_null())
-		params->startBas_lat = data["startPoint_lat"];
+		params->startPoint_lat[0] = data["startPoint_lat"];
 	if (!data["endPoint_lon"].is_null())
-		params->endBas_lon = data["endPoint_lon"];
+		params->endPoint_lon[params->nStartSlut - 1] = data["endPoint_lon"];
 	if (!data["endPoint_lat"].is_null())
-		params->endBas_lat = data["endPoint_lat"];
-
-	if (!data["altRouteZones"].is_null())
-		params->zonesFileName = data["altRouteZones"];
-	else {
-		postRequest("ERROR! No altRouteZones in input file, no alternative routes will be used.", 0);
-		params->zonesFileName = "";
-	}
-	if (!data["zoneConnections"].is_null())
-		params->zoneConnectionsFileName = data["zoneConnections"];
-	else {
-		postRequest("ERROR! No zoneConnections in input file, no alternative routes will be used.", 0);
-		params->zoneConnectionsFileName = "";
-	}
-
+		params->endPoint_lat[params->nStartSlut - 1] = data["endPoint_lat"];
 	if (!data["searoutePathFile"].is_null())
 		params->searoutePathsName = data["searoutePathFile"];
 	else {
@@ -115,28 +164,6 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		params->tssName = "-";
 	}
 
-	model.paramsAutoRoute.minLat_lonIndex = (double*)malloc(360 * sizeof(double));
-	for (i1 = 0; i1 < 360; i1++)
-		model.paramsAutoRoute.minLat_lonIndex[0] = -90;
-	if (!data["limitSouth"].is_null()) {
-		json dataExtra = data["limitSouth"];
-		pos = 0;
-		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
-			json dataNu = it.value();
-			minLat = dataNu["minLat"];
-			minLon = roundDown(dataNu["minLon"]) + 180;
-			maxLon = roundDown(dataNu["maxLon"]) + 180;
-			if (minLon < 0)
-				minLon = 0;
-			if (maxLon > 359)
-				maxLon = 359;
-			for (i1 = minLon; i1 <= maxLon; i1++) {
-				model.paramsAutoRoute.minLat_lonIndex[i1] = minLat;
-			}
-			pos++;
-		}
-	}
-
 
 	if (!data["optionalExtraNoGoAreas"].is_null()) {
 		json dataExtra = data["optionalExtraNoGoAreas"];
@@ -165,13 +192,11 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 
 	fil.close();
 
-	for (i1 = 0; i1 < params->nStartSlut; i1++) {
-		if (params->startPoint_lon[i1] < -9998 || params->startPoint_lat[i1] < -9998) {
-			postRequest("ERROR! startCoord not given correctly in " + std::string(namn) + " for pos " + std::to_string(i1) + ".Fix it and run OptiNav - autoRoute again.\n", 1);
-		}
-		if (params->endPoint_lon[i1] < -9998 || params->endPoint_lat[i1] < -9998) {
-			postRequest("ERROR! endCoord not given correctly in " + std::string(namn) + " for pos " + std::to_string(i1) + ".Fix it and run OptiNav - autoRoute again.\n", 1);
-		}
+	if (params->startPoint_lon < -9998 || params->startPoint_lat < -9998) {
+		postRequest("ERROR! startCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n", 1);
+	}
+	if (params->endPoint_lon < -9998 || params->endPoint_lat < -9998) {
+		postRequest("ERROR! endCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav-autoRoute again.\n", 1);
 	}
 	return 0;
 }
@@ -185,26 +210,26 @@ void get_xy_fromModelSeaBVArcsPos(int i, double* y1, double* x1) {
 	int arcNr, nod;
 	if (i <= 0) {
 		if (i == -1) {
-			*x1 = model.paramsAutoRoute.startPoint_lon[0];
-			*y1 = model.paramsAutoRoute.startPoint_lat[0];
+			*x1 = model.paramsAutoRoute.startPoint_lon;
+			*y1 = model.paramsAutoRoute.startPoint_lat;
 		}
 		else {
-		arcNr = modelSea.BVArcUse[i];
+		arcNr = modelSea.BVArc[i];
 		nod = modelSea.arc[arcNr].fromPointNr;
 		*y1 = modelSea.seaRoute.nod_y[nod];
 		*x1 = modelSea.seaRoute.nod_x[nod];
 		}
 	}
 	else {
-	if (i < modelSea.nBVArcsUse) {
-		arcNr = modelSea.BVArcUse[i];
+	if (i < modelSea.nBVArcs) {
+		arcNr = modelSea.BVArc[i];
 		nod = modelSea.arc[arcNr].toPointNr;
 		*y1 = modelSea.seaRoute.nod_y[nod];
 		*x1 = modelSea.seaRoute.nod_x[nod];
 	}
 	else {
-		*x1 = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
-		*y1 = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+		*x1 = model.paramsAutoRoute.endPoint_lon;
+		*y1 = model.paramsAutoRoute.endPoint_lat;
 	}
 	}
 
@@ -252,7 +277,7 @@ int getClosestPathPos(int pos1, int pos2, double y, double x, double* kvot) {
 		if (factor2 > 0 && factor2 < 1) {
 			xTmp2 = x1 + factor2 * (x2 - x1);
 			yTmp2 = y1 + factor2 * (y2 - y1);
-			//dist2 = estimateLargeCircleDistance_km(y, x, yTmp2, xTmp2);
+			//dist2 = estimateLargeCircleDistance_km(x, y, xTmp2, yTmp2);
 			dist2 = getDist_flat(x, y, xTmp2, yTmp2);
 		}
 	}
@@ -392,7 +417,6 @@ int load_tss()
 	std::ifstream fil;
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	double kvotCost, default_kvotCost = 0.01;
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.tssName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -405,7 +429,7 @@ int load_tss()
 	fil.open(namn);
 
 	int nTss, pos2, useTss;
-	json data, geom, coords, dataIt2, prop;
+	json data, geom, coords, dataIt2;
 	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase;
 	try {
 		fil >> data;
@@ -463,20 +487,9 @@ int load_tss()
 
 		if (pos == 6)
 			pos = pos;
-		if (abs(model.tss[nTss].xCoord[0] - 11.3) < 0.1 && abs(model.tss[nTss].yCoord[0] - 37.35) < 0.1)
-			pos = pos;
 		useTss = checkIfTssInUsedCells(nTss);
-		if (useTss == 1) {
-			if (!(dataNu["properties"].is_null())) {
-				prop = dataNu["properties"];
-				if (!(prop["kvotCost"].is_null()))
-					kvotCost = prop["kvotCost"];
-				else
-					kvotCost = default_kvotCost;
-			}
-			model.tss[nTss].kvotCost = kvotCost;
+		if(useTss == 1)
 			nTss++;
-		}
 		else {
 			free(model.tss[nTss].xCoord);
 			free(model.tss[nTss].yCoord);
@@ -488,36 +501,8 @@ int load_tss()
 	return 0;
 }
 
-double getCostFactorArea(double y1, double x1, double y2, double x2) {
-	double factor = 1.0;
-	int xIndex = roundDown(x1 + 180);
-	if (xIndex < 0)
-		xIndex += 360;
-	if (xIndex > 359)
-		xIndex -= 360;
-	if (y1 < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
-		factor *= 1.1 + (model.paramsAutoRoute.minLat_lonIndex[xIndex] - y1) * 0.02;
-	}
-	xIndex = roundDown(x2 + 180);
-	if (xIndex < 0)
-		xIndex += 360;
-	if (xIndex > 359)
-		xIndex -= 360;
-	if (y2 < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
-		if(factor > 1.01)
-			factor *= 1.2 + (model.paramsAutoRoute.minLat_lonIndex[xIndex] - y2) * 0.02;
-		else
-			factor *= 1.1 + (model.paramsAutoRoute.minLat_lonIndex[xIndex] - y2) * 0.02;
-		if (factor > 2)
-			factor = 2.0;
-	}
-	return factor;
-}
-
-
 int addArcBetweenNodes(int nod1, int nod2, double dist) {
 	int i, i0;
-	double costFactorArea;
 	if (nod1 == 273 && nod2 == 272)
 		nod1 = nod1;
 	for (i = 0; i < modelSea.Noder[nod1].nUtNoder; i++) {
@@ -549,12 +534,7 @@ int addArcBetweenNodes(int nod1, int nod2, double dist) {
 		}
 		modelSea.arc[modelSea.nArcs].fromPointNr = nod1;
 		modelSea.arc[modelSea.nArcs].toPointNr = nod2;
-
-		if (modelSea.nArcs == 15877 || modelSea.nArcs == 15875)
-			nod2 = nod2;
-		costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
-			modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2]);
-		modelSea.arc[modelSea.nArcs].totCost = dist * costFactorArea;
+		modelSea.arc[modelSea.nArcs].totCost = dist;
 		modelSea.arc[modelSea.nArcs].distance = dist;
 		(modelSea.nArcs)++;
 	}
@@ -712,9 +692,9 @@ int load_searoutes()
 				p2 = spherical::Point(model.seaRoute.seaRoutePath[posUse].yCoord[nCoords], fix_lonPos(xNu));
 				nCoords++;
 				if (nCoords >= 2) {
-					dist = estimateLargeCircleDistance_km(modelSea.seaRoute.nod_y[nodPrev], modelSea.seaRoute.nod_x[nodPrev],
-					 	modelSea.seaRoute.nod_y[nodNu], modelSea.seaRoute.nod_x[nodNu]);
-					//dist = p1.distanceTo(p2) / 1000.0;
+					//dist = estimateLargeCircleDistance_km(modelSea.seaRoute.nod_y[nodPrev], modelSea.seaRoute.nod_x[nodPrev],
+					// 	modelSea.seaRoute.nod_y[nodNu], modelSea.seaRoute.nod_x[nodNu]);
+					dist = p1.distanceTo(p2) / 1000.0;
 					addArcBetweenNodes(nodPrev, nodNu, dist);
 					addArcBetweenNodes(nodNu, nodPrev, dist);
 				}
@@ -763,7 +743,6 @@ int load_saved_searoutes() {
 	int i, iTmp, antal, nod1, nod2;
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	double costFactorArea;
 
 	sprintf(namn, "%s/autoRoute/seaRoute_nodes.txt", model.params.indataPath.c_str());
 	filpek = fopen(namn, "r");
@@ -803,10 +782,6 @@ int load_saved_searoutes() {
 	for (i = 0; i < modelSea.nArcs; i++) {
 		antal = fscanf(filpek, "%d %d %d %lf %lf\n", &iTmp, &(nod1),
 			&(nod2), &(modelSea.arc[i].totCost), &(modelSea.arc[i].distance));
-
-		costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
-			modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2]);
-		modelSea.arc[i].totCost = modelSea.arc[i].distance * costFactorArea;
 		if (antal != 5) {
 			postRequest("ERROR! failed to read from seaRoute_arcs.txt. i " + std::to_string(i) + " antal " + std::to_string(antal), 1);
 		}
@@ -829,21 +804,21 @@ int load_saved_searoutes() {
 int calc_boundingBoxAutoRoute() { // not needed anymore
 	double minX, minY, maxX, maxY, kvot;
 
-	if (model.paramsAutoRoute.startPoint_lon[0] < model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]) {
-		minX = model.paramsAutoRoute.startPoint_lon[0];
-		maxX = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+	if (model.paramsAutoRoute.startPoint_lon < model.paramsAutoRoute.endPoint_lon) {
+		minX = model.paramsAutoRoute.startPoint_lon;
+		maxX = model.paramsAutoRoute.endPoint_lon;
 	}
 	else {
-		maxX = model.paramsAutoRoute.startPoint_lon[0];
-		minX = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+		maxX = model.paramsAutoRoute.startPoint_lon;
+		minX = model.paramsAutoRoute.endPoint_lon;
 	}
-	if (model.paramsAutoRoute.startPoint_lat[0] < model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1]) {
-		minY = model.paramsAutoRoute.startPoint_lat[0];
-		maxY = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+	if (model.paramsAutoRoute.startPoint_lat < model.paramsAutoRoute.endPoint_lat) {
+		minY = model.paramsAutoRoute.startPoint_lat;
+		maxY = model.paramsAutoRoute.endPoint_lat;
 	}
 	else {
-		maxY = model.paramsAutoRoute.startPoint_lat[0];
-		minY = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+		maxY = model.paramsAutoRoute.startPoint_lat;
+		minY = model.paramsAutoRoute.endPoint_lat;
 	}
 	minX -= model.paramsAutoRoute.discretizationSizeLevel[0] / 2;
 	kvot = (maxX - minX) / model.paramsAutoRoute.discretizationSizeLevel[0];
@@ -868,21 +843,17 @@ int calc_boundingBoxAutoRoute() { // not needed anymore
 	double distGrader = model.paramsAutoRoute.discretizationSizeLevel[0]; // / 81;
 	model.paramsAutoRoute.x_min = minX - model.paramsAutoRoute.factorExtraCover * distGrader;
 	model.paramsAutoRoute.y_min = minY - model.paramsAutoRoute.factorExtraCover * distGrader;
-	//int intTmp = (int)(model.paramsAutoRoute.x_min * 10);
-	//double floatTmp = (double)intTmp / 10;
-	int intTmp = (int)(model.paramsAutoRoute.x_min / model.paramsAutoRoute.discretizationSizeLevel[0]);
-	double floatTmp = (double)intTmp * model.paramsAutoRoute.discretizationSizeLevel[0];
+	int intTmp = (int)(model.paramsAutoRoute.x_min * 10);
+	double floatTmp = (double)intTmp / 10;
 	if (model.paramsAutoRoute.x_min < floatTmp)
-		model.paramsAutoRoute.x_min = floatTmp - model.paramsAutoRoute.discretizationSizeLevel[0]; // 0.1;
+		model.paramsAutoRoute.x_min = floatTmp - 0.1;
 	else
 		model.paramsAutoRoute.x_min = floatTmp;
 
-	//intTmp = (int)(model.paramsAutoRoute.y_min * 10);
-	//floatTmp = (double)intTmp / 10;
-	intTmp = (int)(model.paramsAutoRoute.y_min / model.paramsAutoRoute.discretizationSizeLevel[0]);
-	floatTmp = (double)intTmp * model.paramsAutoRoute.discretizationSizeLevel[0];
+	intTmp = (int)(model.paramsAutoRoute.y_min * 10);
+	floatTmp = (double)intTmp / 10;
 	if (model.paramsAutoRoute.y_min < floatTmp)
-		model.paramsAutoRoute.y_min = floatTmp - model.paramsAutoRoute.discretizationSizeLevel[0]; // 0.1;
+		model.paramsAutoRoute.y_min = floatTmp - 0.1;
 	else
 		model.paramsAutoRoute.y_min = floatTmp;
 
@@ -908,25 +879,25 @@ int check_isLandOnly_auto(double lat1, double lon1, double lat2, double lon2) {
 	double x1, y1, x2, y2, colForeg;
 	int row, col, i, isOK, colUse;
 
-	getRowColDblFromPhysicalMap(model.physical_lessBuffer_MapB, lat1, lon1, &row1Dbl, &col1Dbl);
-	getRowColDblFromPhysicalMap(model.physical_lessBuffer_MapB, lat2, lon2, &row2Dbl, &col2Dbl);
+	getRowColDblFromPhysicalMap(model.physicalMapB, lat1, lon1, &row1Dbl, &col1Dbl);
+	getRowColDblFromPhysicalMap(model.physicalMapB, lat2, lon2, &row2Dbl, &col2Dbl);
 
 	delta_row = row2Dbl - row1Dbl;
-	if (delta_row > model.physical_lessBuffer_MapB.nRows / 2) {
-		delta_row = model.physical_lessBuffer_MapB.nRows - delta_row;
+	if (delta_row > model.physicalMapB.nRows / 2) {
+		delta_row = model.physicalMapB.nRows - delta_row;
 	}
 	else {
-		if (delta_row < -model.physical_lessBuffer_MapB.nRows / 2) {
-			delta_row = -model.physical_lessBuffer_MapB.nRows - delta_row;
+		if (delta_row < -model.physicalMapB.nRows / 2) {
+			delta_row = -model.physicalMapB.nRows - delta_row;
 		}
 	}
 	delta_col = col2Dbl - col1Dbl;
-	if (delta_col > model.physical_lessBuffer_MapB.nCols / 2) {
-		delta_col = delta_col - model.physical_lessBuffer_MapB.nCols;
+	if (delta_col > model.physicalMapB.nCols / 2) {
+		delta_col = delta_col - model.physicalMapB.nCols;
 	}
 	else {
-		if (delta_col < -model.physical_lessBuffer_MapB.nCols / 2) {
-			delta_col = model.physical_lessBuffer_MapB.nCols + delta_col;
+		if (delta_col < -model.physicalMapB.nCols / 2) {
+			delta_col = model.physicalMapB.nCols + delta_col;
 		}
 	}
 
@@ -940,15 +911,15 @@ int check_isLandOnly_auto(double lat1, double lon1, double lat2, double lon2) {
 
 	a0 = 0;
 	for (i = 0; i < 10000; i++) {
-		if (col >= model.physical_lessBuffer_MapB.nCols)
-			colUse = col - model.physical_lessBuffer_MapB.nCols;
+		if (col >= model.physicalMapB.nCols)
+			colUse = col - model.physicalMapB.nCols;
 		else {
 			if (col < 0)
-				colUse = col + model.physical_lessBuffer_MapB.nCols;
+				colUse = col + model.physicalMapB.nCols;
 			else
 				colUse = col;
 		}
-		if (model.physical_lessBuffer_MapB.valueCell[row * model.physical_lessBuffer_MapB.nCols + colUse] != 0)
+		if (model.physicalMapB.valueCell[row * model.physicalMapB.nCols + colUse] != 0)
 			return 0; // arc is not only on land
 
 		if (delta_col > 0)
@@ -1037,18 +1008,10 @@ double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2
 			physicalMap = model.extraNoGoArea[pos_noGoMap].mapA;
 	}
 	else {
-		if (pos_noGoMap == -1) {
-			if (mapAlt == 0)
-				physicalMap = model.physicalMapB;
-			else
-				physicalMap = model.physicalMapA;
-		}
-		else {
-			if (mapAlt == 0)
-				physicalMap = model.physical_lessBuffer_MapB;
-			else
-				physicalMap = model.physical_lessBuffer_MapA;
-		}
+		if (mapAlt == 0)
+			physicalMap = model.physicalMapB;
+		else
+			physicalMap = model.physicalMapA;
 	}
 
 	if (pos_noGoMap == -1) {
@@ -1228,37 +1191,9 @@ int evalCostArc_old(strAutoCells* cell, int pos1, double y1, double x1, double y
 	return 0;
 }
 
-double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2) {
-	double kvotBad, kvotBad2, costKvot;
-
-	double kvotBad0 = check_map_badKvot_auto(y1, x1, y2, x2, 0, -1); // physical map 12nm buffer
-	if (kvotBad0 > 0)
-		kvotBad = check_map_badKvot_auto(y1, x1, y2, x2, 0, -2); // physical map 2nm buffer
-	else
-		kvotBad = 0;
-	if (kvotBad < 1) {
-		for (int i = 0; i < model.nExtraNoGoAreas; i++) {
-			kvotBad += check_map_badKvot_auto(y1, x1, y2, x2, 0, i);
-			if (kvotBad >= 1)
-				break;
-		}
-	}
-
-	if (kvotBad0 > 0) {
-		if (kvotBad > 0)
-			kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas); // the last extra map is for land!!!
-		else
-			kvotBad2 = 0;
-		costKvot = (1 + kvotBad0 + 1000 * kvotBad + 100000 * kvotBad2);
-	}
-	else
-		costKvot = 1.0;
-	return costKvot;
-}
-
 double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distRes) {
-	double cost, dist, kvotBad2, totCost = 0, totDist, costFactorArea;
-	double kvotBad, x1, y1, x2, y2, splitDist, costKvot, totDist2;
+	double cost, dist, kvotBad2, totCost = 0, totDist;
+	double kvotBad, x1, y1, x2, y2, splitDist;
 	totDist = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
 	int nInt, i;
 	spherical::Point p1, p2, p3;
@@ -1270,17 +1205,16 @@ double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distR
 	// split the arc as it is too long
 	nInt = roundUp(totDist / DIST_SPLIT);
 	if (nInt > 1) {
-		p1 = spherical::Point(y1, fix_lonPos(x1));
+		p3 = spherical::Point(y1, fix_lonPos(x1));
 		p2 = spherical::Point(y2, fix_lonPos(x2));
-		totDist = p1.distanceTo(p2) / 1000.0;
 		splitDist = totDist / nInt * 1000.0;
 	}
 
-	totDist2 = 0;
+
 	for (i = 0; i < nInt; i++) {
 		if (nInt > 1) {
 			if (i < nInt - 1) {
-				p3 = p1.destinationPoint(splitDist * (i + 1), p1.bearingTo(p2));
+				p3 = p3.destinationPoint(splitDist, p3.bearingTo(p2));
 				y2 = p3.latitude().degrees();
 				x2 = p3.longitude().degrees();
 			}
@@ -1290,21 +1224,28 @@ double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distR
 			}
 		}
 		dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
-		costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y2, x2);
-		costFactorArea = getCostFactorArea(y1, x1, y2, x2);
-		totCost += dist * costKvot * costFactorArea;
-		totDist2 += dist;
+		kvotBad = check_map_badKvot_auto(y1, x1, y2, x2, 0, -1);
+		if (kvotBad < 1) {
+			for (int i = 0; i < model.nExtraNoGoAreas; i++) {
+				kvotBad += check_map_badKvot_auto(y1, x1, y2, x2, 0, i);
+				if (kvotBad >= 1)
+					break;
+			}
+		}
 
+		if (kvotBad > 0) {
+			kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas); // the last extra map is for land!!!
+			cost = dist * (1 + 1000 * kvotBad + 100000 * kvotBad2);
+		}
+		else
+			cost = dist;
+		totCost += cost;
 		// totDist += dist;
 		x1 = x2;
 		y1 = y2;
 	}
 
-	//if (totDist2 != totDist && totDist > 2) {
-	//	totCost *= totDist / totDist2;
-	//}
-
-	*distRes = totDist2;
+	*distRes = totDist;
 	return totCost;
 }
 
@@ -1319,13 +1260,25 @@ int evalCostArc_cells(strAutoCells* cell, int pos1, double y1, double x1, double
 }
 
 int evalCostArc2(double y1, double x1, double y2, double x2, double* cost, double* dist) {
-	double costFactorArea, costKvot;
+	double kvotBad2;
 
+	double kvotBad = check_map_badKvot_auto(y1, x1, y2, x2, 0, -1);
+
+	if (kvotBad < 1) {
+		for (int i = 0; i < model.nExtraNoGoAreas; i++) {
+			kvotBad += check_map_badKvot_auto(y1, x1, y2, x2, 0, i);
+			if (kvotBad >= 1)
+				break;
+		}
+	}
 	*dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
-	costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y2, x2);
-	costFactorArea = getCostFactorArea(y1, x1, y2, x2);
-	*cost = *dist * costKvot * costFactorArea;
 
+	if (kvotBad > 0) {
+		kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas); // the last extra map is for land!!!
+		*cost = *dist * (1 + 1000 * kvotBad + 100000 * kvotBad2);
+	}
+	else
+		*cost = *dist;
 	return 0;
 }
 
@@ -1336,16 +1289,12 @@ strAutoCells* addSmallerCells(strAutoCells* thisCell, double xBas, double yBas, 
 	// check if already smaller level then do nothing
 	if (thisCell->smallerCells != NULL)
 		return thisCell->smallerCells;
-
 	strAutoCells* cells = thisCell->smallerCells;
 	nAlloc = model.paramsAutoRoute.nDiscreteSizeLevel[levelTo] * model.paramsAutoRoute.nDiscreteSizeLevel[levelTo];
-	if (cells == NULL) {
-		cells = (strAutoCells*)malloc(nAlloc * sizeof(strAutoCells));
-		for (i = 0; i < nAlloc; i++) {
-			cells[i].smallerCells = NULL;
-			cells[i].smallerCellsType = 0;
-			cells[i].use = 0;
-		}
+	cells = (strAutoCells*)malloc(nAlloc * sizeof(strAutoCells));
+	for (i = 0; i < nAlloc; i++) {
+		cells[i].smallerCells = NULL;
+		cells[i].smallerCellsType = 0;
 	}
 
 	pos = 0;
@@ -1422,7 +1371,7 @@ int writeAllAutoNodesToGeojson(int iter)
 	filpekG = fopen(namn, "w");
 	initGeoJsonFil(filpekG, "allPhysicalNodesBig");
 
-	int i, i1, pos = 0, level, small;
+	int i, i1, pos = 0, level;
 	double x, y, xNy, yNy;
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
 		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
@@ -1454,7 +1403,6 @@ int writeAllAutoNodesToGeojson(int iter)
 			if (model.autoRoute[pos].smallerCellsType > 0) {
 				cells = model.autoRoute[pos].smallerCells;
 				level = 1;
-				small = 0;
 				for (i3 = 0; i3 < model.autoRoute[pos].nYsmall; i3++) {
 					for (i4 = 0; i4 < model.autoRoute[pos].nXsmall; i4++) {
 						//if (i3 == 0 && i4 == 0)
@@ -1465,13 +1413,12 @@ int writeAllAutoNodesToGeojson(int iter)
 							fprintf(filpekG, ", ");
 						else
 							forsta = 0;
-						fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"level\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"cellPos2\":%d, \"xPos\":%d, \"yPos\":%d, \"use\":%d},\n",
+						fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"level\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"cellPos2\":%d, \"xPos\":%d, \"yPos\":%d},\n",
 							level, model.autoRoute[pos].smallerCells[i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3].nodeNr[0],
-							pos, i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3, i4, i3, model.autoRoute[pos].smallerCells[small].use);
+							pos, i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3, i4, i3);
 						xNy = x + i4 * model.paramsAutoRoute.discretizationSizeLevel[level];
 						yNy = y + i3 * model.paramsAutoRoute.discretizationSizeLevel[level];
 						fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", xNy, yNy);
-						small++;
 					}
 				}
 
@@ -1480,50 +1427,13 @@ int writeAllAutoNodesToGeojson(int iter)
 		}
 	}
 
-	for (i = 0; i < model.nAutoPaths; i++) {
-		for (i1 = 0; i1 < model.autoPath[i].nNoder; i1++) {
+	for (i = 0; i < model.nTss; i++) {
+		for (i1 = 0; i1 < model.tss[i].nNoder; i1++) {
 			fprintf(filpekG, ", ");
-			fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"level\":%d, \"type\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"cellPos2\":%d, \"xPos\":%d, \"yPos\":%d},\n",
-				2, model.autoPath[i].type, model.autoPath[i].nodNr[i1], i, i1, -1, -1);
-			xNy = model.autoPath[i].nodCoord_x[i1];
-			yNy = model.autoPath[i].nodCoord_y[i1];
-			fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", xNy, yNy);
-
-		}
-	}
-
-	fprintf(filpekG, "]}\n");
-	fclose(filpekG);
-
-
-	return 0;
-}
-
-int writeAllPathNodesToGeojson(int nPaths)
-{
-	int forsta = 1, pos1, i3, i4;
-	strAutoCells* cells;
-	FILE* filpekG;
-	char* namn;
-	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/pathNodes.geojson", model.params.indataPath.c_str());
-	filpekG = fopen(namn, "w");
-	initGeoJsonFil(filpekG, "pathNodes");
-
-	int i, i1, pos = 0, level;
-	double x, y, xNy, yNy;
-	//for (i = 0; i < model.nAutoPaths; i++) {
-	for (i = 0; i < nPaths; i++) {
-		// printf("i %d av %d nNoder %d\n", i, nPaths, model.autoPath[i].nNoder);
-		for (i1 = 0; i1 < model.autoPath[i].nNoder; i1++) {
-			if (forsta != 1)
-				fprintf(filpekG, ", ");
-			else
-				forsta = 0;
-			fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"level\":%d, \"type\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"cellPos2\":%d, \"xPos\":%d, \"yPos\":%d},\n",
-				2, model.autoPath[i].type, model.autoPath[i].nodNr[i1], i, i1, -1, -1);
-			xNy = model.autoPath[i].nodCoord_x[i1];
-			yNy = model.autoPath[i].nodCoord_y[i1];
+			fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"level\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"cellPos2\":%d, \"xPos\":%d, \"yPos\":%d},\n",
+				2, model.tss[i].nodNr[i1], i, i1, -1, -1);
+			xNy = model.tss[i].nodCoord_x[i1];
+			yNy = model.tss[i].nodCoord_y[i1];
 			fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", xNy, yNy);
 
 		}
@@ -1552,12 +1462,12 @@ void getCoordFromTss(int nr, int pos, double kvot, double* y, double* x) {
 	}
 }
 
-int generate_nodes_along_pathSegment(int pathNr, int initStart, int coordPos, double y1, double x1, double y2, double x2) {
+int generate_nodes_along_tssSegment(int tssNr, int coordPos, double y1, double x1, double y2, double x2) {
 	double dist, distRef, nIntDbl, dx, dy, x, y, prevX, prevY;
 	int nInt, i, startI, prevNodNr, nodNr;
 
-	dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
-	distRef = estimateLargeCircleDistance_km(y1, x1, y1, x1 + model.paramsAutoRoute.discretizationSizeLevel[1]);
+	dist = estimateLargeCircleDistance_km(x1, y1, x2, y2);
+	distRef = estimateLargeCircleDistance_km(x1, y1, x1 + model.paramsAutoRoute.discretizationSizeLevel[1], y1);
 	nIntDbl = dist / distRef;
 	if (nIntDbl < 0.001)
 		return 0; // too close points, don't add any nodes
@@ -1565,29 +1475,28 @@ int generate_nodes_along_pathSegment(int pathNr, int initStart, int coordPos, do
 	dx = x2 - x1;
 	dy = y2 - y1;
 
-	if (initStart == 1) {
-		// if (coordPos == path.firstTraffCoord) {
+	if (coordPos == model.tss[tssNr].firstTraffCoord) {
 		startI = 0;
 		prevNodNr = -1;
 		dist = -1;
 	}
 	else {
 		startI = 1;
-		prevNodNr = model.autoPath[pathNr].nodNr[model.autoPath[pathNr].nNoder];
+		prevNodNr = model.tss[tssNr].nodNr[model.tss[tssNr].nNoder];
 	}
 	for (i = 0; i <= nInt; i++) {
 		x = x1 + dx * i / nInt;
 		y = y1 + dy * i / nInt;
 		if (i < startI) {
-			nodNr = model.autoPath[pathNr].nodNr[model.autoPath[pathNr].nNoder - 1];
+			nodNr = model.tss[tssNr].nodNr[model.tss[tssNr].nNoder - 1];
 		}
 		else {
-			nodNr = addAutoNodePath(pathNr, y, x); // pos, 3, posSmall);
+			nodNr = addAutoNodeTss(tssNr, y, x); // pos, 3, posSmall);
 			if (prevNodNr >= 0)
-				dist = estimateLargeCircleDistance_km(prevY, prevX, y, x);
+				dist = estimateLargeCircleDistance_km(prevX, prevY, x, y);
 			else
 				dist = 0;
-			addArcsInOutFromPathNode(nodNr, pathNr, prevNodNr, dist); // nodNr, pos, i, i1, i3, i4, posSmall);
+			addArcsInOutFromTssNode(nodNr, tssNr, prevNodNr, dist); // nodNr, pos, i, i1, i3, i4, posSmall);
 		}
 		prevNodNr = nodNr;
 		prevX = x;
@@ -1599,20 +1508,15 @@ int generate_nodes_along_pathSegment(int pathNr, int initStart, int coordPos, do
 }
 
 int addArcs_tss() {
-	int i, i1, pathNr = 0;
+	int i, i1;
 	double x1 = -1, y1 = -1, x2, y2;
 
-	model.autoPath = (strAutoPath*)malloc((model.nTss + model.paramsAutoRoute.nStartSlut - 1) * sizeof(strAutoPath));
-
 	for (i = 0; i < model.nTss; i++) {
-		model.tss[i].autoPathNr = pathNr;
-		model.autoPath[pathNr].nAllocNoder = 100;
-		model.autoPath[pathNr].nodNr = (int*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(int));
-		model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-		model.autoPath[pathNr].nNoder = 0;
-		model.autoPath[pathNr].type = 0;
-		model.autoPath[pathNr].kvotCost = model.tss[i].kvotCost; // 0.01;
+		model.tss[i].nAllocNoder = 100;
+		model.tss[i].nodNr = (int*)malloc(model.tss[i].nAllocNoder * sizeof(int));
+		model.tss[i].nodCoord_y = (double*)malloc(model.tss[i].nAllocNoder * sizeof(double));
+		model.tss[i].nodCoord_x = (double*)malloc(model.tss[i].nAllocNoder * sizeof(double));
+		model.tss[i].nNoder = 0;
 
 		if (i == 11)
 			i = i;
@@ -1626,170 +1530,19 @@ int addArcs_tss() {
 					getCoordFromTss(i, i1, 0.0, &y2, &x2);
 			}
 			if (i1 >= model.tss[i].firstTraffCoord) {
-				if (i1 == model.tss[i].firstTraffCoord)
-					generate_nodes_along_pathSegment(model.tss[i].autoPathNr, 1, i1, y1, x1, y2, x2);
-				else
-					generate_nodes_along_pathSegment(model.tss[i].autoPathNr, 0, i1, y1, x1, y2, x2);
+				generate_nodes_along_tssSegment(i, i1, y1, x1, y2, x2);
 			}
 			x1 = x2;
 			y1 = y2;
 
 		}
-		pathNr++;
-	}
-	model.nAutoPaths = pathNr;
-
-	return 0;
-}
-
-int addArcs_viaPaths(int ruttAlt) {
-	int i, i1, pathNr = model.nAutoPaths;
-	double x1 = -1, y1 = -1, x2, y2;
-
-	for (i = 0; i < model.paramsAutoRoute.nStartSlut - 1; i++) {
-		if (model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints < 2)
-			continue; // not a path
-
-		model.tss[i].autoPathNr = pathNr;
-		model.autoPath[pathNr].nAllocNoder = 100;
-		model.autoPath[pathNr].nodNr = (int*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(int));
-		model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-		model.autoPath[pathNr].nNoder = 0;
-		model.autoPath[pathNr].type = 1;
-		model.autoPath[pathNr].kvotCost = 0.5;
-
-		for (i1 = 0; i1 < model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints; i1++) {
-			x2 = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[i1];
-			y2 = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].y[i1];
-			if (i1 > 0) {
-				if (i1 < 2)
-					generate_nodes_along_pathSegment(pathNr, 1, i1, y1, x1, y2, x2);
-				else
-					generate_nodes_along_pathSegment(pathNr, 0, i1, y1, x1, y2, x2);
-			}
-			x1 = x2;
-			y1 = y2;
-		}
-		pathNr++;
-	}
-	model.nAutoPaths = pathNr;
-
-	return 0;
-}
-
-double getMinGradRectangles(double a1, double a2, double b1, double b2) {
-	double min1 = a1, max1 = a1, min2 = b1, max2 = b1, minGrad;
-
-	if (min1 > a2)
-		min1 = a2;
-	else
-		max1 = a2;
-	if (min2 > b2)
-		min2 = b2;
-	else
-		max2 = b2;
-	if (max2 <= min1)
-		minGrad = min1 - max2;
-	else{
-		if (min2 >= max1)
-			minGrad = min2 - max1;
-		else
-			minGrad = 0.0;
-	}
-	return minGrad;
-}
-
-double getClosestPossibleDistStartSlutPaths(int path1, int path2){
-	double minGrad_x, minGrad_y;
-	int pos1, pos2, minGrad;
-
-	pos1 = model.autoPath[path1].nNoder - 1;
-	pos2 = model.autoPath[path2].nNoder - 1;
-	minGrad_x = getMinGradRectangles(model.autoPath[path1].nodCoord_x[0], model.autoPath[path1].nodCoord_x[pos1],
-		model.autoPath[path2].nodCoord_x[0], model.autoPath[path2].nodCoord_x[pos2]);
-	minGrad_y = getMinGradRectangles(model.autoPath[path1].nodCoord_y[0], model.autoPath[path1].nodCoord_y[pos1],
-		model.autoPath[path2].nodCoord_y[0], model.autoPath[path2].nodCoord_y[pos2]);
-	if (minGrad_x > minGrad_y)
-		return minGrad_x;
-	else
-		return minGrad_y;
-}
-
-int addArcs_betweenPaths() {
-	int i, i1, i2, i3, last_i2;
-	double distGrad, bastDist, bastDistNu, dist, x1, y1;
-
-	for (i = 0; i < model.nAutoPaths; i++) {
-		if (model.autoPath[i].type >= 1) {
-			for (i1 = 0; i1 < i; i1++) {
-				distGrad = getClosestPossibleDistStartSlutPaths(i, i1);
-				if (distGrad < 0.25) { // close enough
-					bastDist = 1e10;
-					for (i2 = 0; i2 < model.autoPath[i].nNoder; i2++) {
-						x1 = model.autoPath[i].nodCoord_x[i2];
-						y1 = model.autoPath[i].nodCoord_y[i2];
-						bastDistNu = 1e10;
-						for (i3 = model.autoPath[i1].nNoder - 1; i3 >= 0; i3--) {
-							dist = getDistSeaRoute(y1, x1, model.autoPath[i1].nodCoord_y[i3], model.autoPath[i1].nodCoord_x[i3]);
-							if (dist < bastDistNu) {
-								bastDistNu = dist;
-							}
-							if (dist < bastDist) {
-								bastDist = dist;
-							}
-							if (dist < 0.25) {
-								// add arc as it is close enough...
-								addAutoArcBetweenPaths(i, i2, i1, i3);
-								addAutoArcBetweenPaths(i1, i3, i, i2);
-							}
-							else {
-								if (dist > bastDistNu * 1.5)
-									break;
-							}
-						}
-						if (bastDistNu > bastDist * 1.5 && bastDistNu > 0.25)
-							break;
-					}
-					last_i2 = i2;
-
-					bastDist = 1e10;
-					for (i2 = model.autoPath[i].nNoder - 1; i2 > last_i2; i2--) {
-						x1 = model.autoPath[i].nodCoord_x[i2];
-						y1 = model.autoPath[i].nodCoord_y[i2];
-						bastDistNu = 1e10;
-						for (i3 = 0; i3 < model.autoPath[i1].nNoder; i3++) {
-							dist = getDistSeaRoute(y1, x1, model.autoPath[i1].nodCoord_y[i3], model.autoPath[i1].nodCoord_x[i3]);
-							if (dist < bastDistNu) {
-								bastDistNu = dist;
-							}
-							if (dist < bastDist) {
-								bastDist = dist;
-							}
-							if (dist < 0.25) {
-								// add arc as it is close enough...
-								addAutoArcBetweenPaths(i, i2, i1, i3);
-								addAutoArcBetweenPaths(i1, i3, i, i2);
-							}
-							else {
-								if (dist > bastDistNu * 1.5)
-									break;
-							}
-						}
-						if (bastDistNu > bastDist * 1.5 && bastDistNu > 0.25)
-							break;
-					}
-
-				}
-			}
-		}
 	}
 
 	return 0;
 }
 
-int save_tss_geojson(int ruttAlt) {
-	int i, i1, forsta = 1;
+int save_tss_geojson() {
+	int i, i1;
 	FILE* filpekG;
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
@@ -1801,10 +1554,8 @@ int save_tss_geojson(int ruttAlt) {
 	double x, y, kvot;
 
 	for (i = 0; i < model.nTss; i++) {
-		if (forsta == 0)
+		if(i > 0)
 			fprintf(filpekG, ", ");
-		else
-			forsta = 0;
 		fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
 		for (i1 = model.tss[i].firstTraffCoord - 1; i1 <= model.tss[i].lastTraffCoord; i1++) {
 			if (i1 == model.tss[i].firstTraffCoord - 1)
@@ -1819,42 +1570,10 @@ int save_tss_geojson(int ruttAlt) {
 			fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x), y);
 		}
 		fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-		fprintf(filpekG, "\"type\": 0, \"tssNr\": %d, \"pos1\": %d,\"kvot1\": %.3lf,\n\"pos2\": %d, \"kvot2\": %.3lf,\"posCell1\": %d,\n\"posCell2\": %d}}\n",
+		fprintf(filpekG, "\"tssNr\": %d, \"pos1\": %d,\"kvot1\": %.3lf,\n\"pos2\": %d, \"kvot2\": %.3lf,\"posCell1\": %d,\n\"posCell2\": %d}}\n",
 			i, model.tss[i].firstTraffCoord, model.tss[i].firstTraffCoordKvot, model.tss[i].lastTraffCoord,
 			model.tss[i].lastTraffCoordKvot, model.tss[i].firstTraffPos, model.tss[i].lastTraffPos);
 	}
-
-	for (i = 0; i < model.paramsAutoRoute.nStartSlut - 1; i++) {
-		if (forsta == 0)
-			fprintf(filpekG, ", ");
-		else
-			forsta = 0;
-		if (model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints > 1) {
-			fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
-
-			for (i1 = 0; i1 < model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints; i1++){
-				if(i1 > 0)
-					fprintf(filpekG, ", ");
-				x = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[i1];
-				y = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].y[i1];
-				fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x), y);
-			}
-			fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-			fprintf(filpekG, "\"type\": 1, \"tssNr\": %d, \"pos1\": %d, \"pos2\": %d}}\n",
-				-i - 1, i, model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints);
-		}
-		else {
-			fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"Point\",\n\"coordinates\": \n");
-			i1 = 0;
-			x = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[i1];
-			y = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].y[i1];
-			fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x), y);
-			fprintf(filpekG, "\n},\n\"properties\": {\n");
-			fprintf(filpekG, "\"type\": 2, \"tssNr\": %d, \"pos1\": %d, \"pos2\": %d}}\n",
-				-i - 1, i, model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints);
-		}
-	}
-
 	fprintf(filpekG, "]}\n");
 	fclose(filpekG);
 
@@ -1947,70 +1666,6 @@ int writeAllAutoArcsToGeojson(int iter)
 	return 0;
 }
 
-int isArcConnectedToPath(int arcNr) {
-	if (model.arc[arcNr].fromTime >= 0 && model.arc[arcNr].fromLevel < 0)
-		return 1;
-	if (model.arc[arcNr].toTime >= 0 && model.arc[arcNr].toLevel < 0)
-		return 1;
-
-	return 0;
-}
-
-int writeAllPathArcsToGeojson()
-{
-	int i, i1, arcNr, forsta = 1;
-	strAutoCells* cells;
-	FILE* filpekG;
-	char* namn;
-	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/pathArcs.geojson", model.params.indataPath.c_str());
-	filpekG = fopen(namn, "w");
-	initGeoJsonFil(filpekG, "pathArcs");
-
-	double x, y;
-	model.network.last_x = -1000;
-
-	forsta = 1;
-	for (i = 0; i < model.nNoder; i++) {
-		if (i == 10859)
-			i = i;
-		if (model.Noder[i].nUtNoder > 8)
-			i = i;
-		for (i1 = 0; i1 < model.Noder[i].nUtNoder; i1++) {
-			if (i1 > 8)
-				i1 = i1;
-			arcNr = model.Noder[i].outArcNr[i1];
-
-			if (isArcConnectedToPath(arcNr) == 0)
-				continue; 
-
-
-			if (forsta == 1)
-				forsta = 0;
-			else
-				fprintf(filpekG, ", ");
-			fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
-			if (arcNr == 133910)
-				arcNr = arcNr;
-			if (model.Noder[i].UtNod[i1] == 18322)
-				i = i;
-			getCoordFromAutoArc(arcNr, 0, &y, &x);
-			fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x), y);
-			getCoordFromAutoArc(arcNr, 1, &y, &x);
-			fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(x), y);
-			fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-			fprintf(filpekG, "\"fromNode\": %d, \"toNode\": %d,\"arcNr\": %d,\n\"fromLevel\": %d, \"fromPointNr\": %d,\"fromTime\": %d,\n\"toLevel\": %d, \"toPointNr\": %d,\"toTime\": %d,\n\"cost\": %lf,\n\"distance\": %lf}}\n",
-				i, model.Noder[i].UtNod[i1],
-				arcNr, model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr, model.arc[arcNr].fromTime,
-				model.arc[arcNr].toLevel, model.arc[arcNr].toPointNr, model.arc[arcNr].toTime, model.arc[arcNr].totCost, model.arc[arcNr].distance);
-		}
-	}
-	fprintf(filpekG, "]}\n");
-	fclose(filpekG);
-
-	return 0;
-}
-
 int set_nXY_smallCells(strAutoCells* cell) {
 
 	if (cell->smallerCellsType == 1 || cell->smallerCellsType == 4) {
@@ -2028,6 +1683,118 @@ int set_nXY_smallCells(strAutoCells* cell) {
 	return 0;
 }
 
+
+int createCells() {
+	openNeededRasterFilesNew(-10);
+
+	model.paramsAutoRoute.x_min = model.boundingBox.xMin;
+	model.paramsAutoRoute.nXbasLevel = roundUp((model.boundingBox.xMax - model.paramsAutoRoute.x_min + model.paramsAutoRoute.discretizationSizeLevel[0] * 0.5) / model.paramsAutoRoute.discretizationSizeLevel[0]);
+	model.paramsAutoRoute.y_min = model.boundingBox.yMin;
+	model.paramsAutoRoute.nYbasLevel = roundUp((model.boundingBox.yMax - model.paramsAutoRoute.y_min + model.paramsAutoRoute.discretizationSizeLevel[0] * 0.5) / model.paramsAutoRoute.discretizationSizeLevel[0]);
+
+	int i, i1, pos, i2, posTmp, posCellStart, posCellEnd, yPos, xPos, level, isLand;
+	double x, y, xTmp, yTmp;
+
+	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon, &yPos, &xPos, &level);
+	posCellStart = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
+	identifyCellFromPoint(model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon, &yPos, &xPos, &level);
+	posCellEnd = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
+
+	model.autoRoute = (strAutoCells*)malloc((model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2) * sizeof(strAutoCells)); // +2 since start and end node as well
+	pos = 0;
+	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
+		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
+			model.autoRoute[pos].smallerCells = NULL;
+			model.autoRoute[pos].smallerCellsType = 0;
+			x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
+			y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
+			model.autoRoute[pos].x = x;
+			model.autoRoute[pos].y = y;
+			if (pos == 20)
+				pos = pos;
+			isLand = checkIsCompleteLand(y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x + model.paramsAutoRoute.discretizationSizeLevel[0]);
+			model.autoRoute[pos].isLand = isLand;
+			evalCostArc_cells(&(model.autoRoute[pos]), 0, y, x, y, x + model.paramsAutoRoute.discretizationSizeLevel[0]); // horizontal
+			evalCostArc_cells(&(model.autoRoute[pos]), 1, y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x + model.paramsAutoRoute.discretizationSizeLevel[0]); // diagonal up
+			evalCostArc_cells(&(model.autoRoute[pos]), 2, y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // vertical
+			evalCostArc_cells(&(model.autoRoute[pos]), 3, y, x + model.paramsAutoRoute.discretizationSizeLevel[0], y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // diagonal down
+
+			if (pos == 21)
+				pos = pos;
+			if (isLand == 0) {
+				if (0 < model.paramsAutoRoute.nCellLevels - 1) {
+					for (i2 = 0; i2 < 4; i2++) {
+						if (model.autoRoute[pos].arcCost[i2] > model.paramsAutoRoute.maxBaseFeasibleCost) {
+							break;
+						}
+					}
+					if (i2 < 4 || posCellStart == pos || posCellEnd == pos) {
+						model.autoRoute[pos].smallerCellsType = 1;
+						set_nXY_smallCells(&(model.autoRoute[pos]));
+						model.autoRoute[pos].smallerCells = addSmallerCells(&(model.autoRoute[pos]), x, y, 1);
+						//if (model.autoRoute[pos].arcCost[0] > model.paramsAutoRoute.maxBaseFeasibleCost) {
+						//	yTmp = y - model.paramsAutoRoute.discretizationSizeLevel[0];
+						//	posTmp = i1 + model.paramsAutoRoute.nXbasLevel * (i - 1);
+						//	if (posTmp == 11)
+						//		pos = pos;
+						//	if (yTmp > model.paramsAutoRoute.y_min - model.paramsAutoRoute.discretizationSizeLevel[0] * 0.1) {
+						//		if(model.autoRoute[posTmp].isLand == 0)
+						//			model.autoRoute[posTmp].smallerCells = addSmallerCells(model.autoRoute[posTmp].smallerCells, x, yTmp, 1);
+						//	}
+						//}
+						//if (model.autoRoute[pos].arcCost[2] > model.paramsAutoRoute.maxBaseFeasibleCost) {
+						//	xTmp = x - model.paramsAutoRoute.discretizationSizeLevel[0];
+						//	if (xTmp > model.paramsAutoRoute.x_min - model.paramsAutoRoute.discretizationSizeLevel[0] * 0.1) {
+						//		if (model.autoRoute[pos - 1].isLand == 0)
+						//			model.autoRoute[pos - 1].smallerCells = addSmallerCells(model.autoRoute[pos - 1].smallerCells, xTmp, y, 1);
+						//	}
+						//}
+					}
+				}
+			}
+			pos++;
+		}
+	}
+
+	pos = 0;
+	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
+		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
+			if (pos == 9)
+				pos = pos;
+			if (model.autoRoute[pos].smallerCellsType == 0) {
+				if (i1 > 0) {
+					posTmp = pos - 1;
+					if (model.autoRoute[posTmp].smallerCellsType == 1)
+						model.autoRoute[pos].smallerCellsType = 3;
+				}
+				if (i > 0) {
+					posTmp = pos - model.paramsAutoRoute.nXbasLevel;
+					if (model.autoRoute[posTmp].smallerCellsType == 1) {
+						if (model.autoRoute[pos].smallerCellsType == 3)
+							model.autoRoute[pos].smallerCellsType = 4;
+						else
+							model.autoRoute[pos].smallerCellsType = 2;
+					}
+				}
+				if (i1 > 0 && i > 0 && model.autoRoute[pos].smallerCellsType == 0) {
+					posTmp = pos - 1 - model.paramsAutoRoute.nXbasLevel;
+					if (model.autoRoute[posTmp].smallerCellsType == 1)
+						model.autoRoute[pos].smallerCellsType = 5;
+				}
+				if (model.autoRoute[pos].smallerCellsType > 1) {
+					set_nXY_smallCells(&(model.autoRoute[pos]));
+					x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
+					y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
+					model.autoRoute[pos].smallerCells = addSmallerCells(&(model.autoRoute[pos]), x, y, 1);
+				}
+			}
+			pos++;
+		}
+	}
+
+
+	return 0;
+}
 
 int get_nextHeltal(double x, double dx) {
 	int heltal;
@@ -2049,194 +1816,6 @@ double get_nextKvotHeltal(double x, double xBas, double dx) {
 	return kvot;
 }
 
-void addSmallCellToSearchSet(int cell, int cellSmall, int posTmp) {
-	int pos = model.paramsAutoRoute.nInSet[posTmp];
-	model.paramsAutoRoute.setCell[posTmp][pos] = cell;
-	model.paramsAutoRoute.setSmallCell[posTmp][pos] = cellSmall;
-	(model.paramsAutoRoute.nInSet[posTmp])++;
-}
-
-int addNeighboursToCell(int cell, int cellSmall, int valNu, int posTmp) {
-	int i, i1, yNu, xNu, cellBas, cellNu, cellSmallNu;
-	int yPos0 = cell / model.paramsAutoRoute.nXbasLevel;
-	int xPos0 = cell - yPos0 * model.paramsAutoRoute.nXbasLevel;
-
-	int yPos = cellSmall / model.autoRoute[cell].nXsmall;
-	int xPos = cellSmall - yPos * model.autoRoute[cell].nXsmall;
-	for (i = -1; i <= 1; i++) {
-		yNu = yPos + i;
-		cellBas = cell;
-		if (yNu < 0) {
-			if (yPos0 == 0)
-				continue; // outside area
-			yNu += model.autoRoute[cell].nYsmall;
-			cellBas -= model.paramsAutoRoute.nXbasLevel;
-		}
-		else {
-			if (yNu >= model.autoRoute[cell].nYsmall) {
-				if (yPos0 >= model.paramsAutoRoute.nYbasLevel - 1)
-					continue; // outside area
-				yNu -= model.autoRoute[cell].nYsmall;
-				cellBas += model.paramsAutoRoute.nXbasLevel;
-			}
-		}
-		for (i1 = -1; i1 <= 1; i1++) {
-			if (i == 0 && i1 == 0)
-				continue;
-			xNu = xPos + i1;
-			cellNu = cellBas;
-			if (xNu < 0) {
-				if (xPos0 == 0)
-					continue; // outside area
-				xNu += model.autoRoute[cell].nXsmall;
-				cellNu--;
-			}
-			else {
-				if (xNu >= model.autoRoute[cell].nXsmall) {
-					if (xPos0 >= model.paramsAutoRoute.nXbasLevel - 1)
-						continue; // outside area
-					xNu -= model.autoRoute[cell].nXsmall;
-					cellNu++;
-				}
-			}
-			if (model.autoRoute[cellNu].use == 1 && model.autoRoute[cellNu].isLand == 0) {
-				cellSmallNu = xNu + model.autoRoute[cell].nXsmall * yNu;
-				if (model.autoRoute[cellNu].smallerCells[cellSmallNu].use == 0) {
-					model.autoRoute[cellNu].smallerCells[cellSmallNu].use = valNu;
-					addSmallCellToSearchSet(cellNu, cellSmallNu, posTmp);
-				}
-			}
-		}
-	}
-	return 0;
-}
-
-
-
-int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, double y1, double x1) {
-	double xNu, yNu, dx, dy, kvot = 0.0, next_xKvot, next_yKvot;
-	int i, xPos, yPos, cellUse, cellSmall;
-
-	y0 *= model.autoRoute[cell].nYsmall;
-	y1 *= model.autoRoute[cell].nYsmall;
-	x0 *= model.autoRoute[cell].nXsmall;
-	x1 *= model.autoRoute[cell].nXsmall;
-
-	dx = x1 - x0;
-	dy = y1 - y0;
-	xNu = x0;
-	yNu = y0;
-
-	for (i = 0;; i++) {
-		xPos = round(xNu);
-		yPos = round(yNu);
-		cellUse = cell;
-		if (xPos < 0 || yPos < 0 || xPos >= model.autoRoute[cell].nXsmall ||
-			yPos >= model.autoRoute[cell].nYsmall)
-		{
-			if (xPos < 0) {
-				cellUse--;
-				xPos += model.autoRoute[cell].nXsmall;
-				if (xPos < 0)
-					xPos = 0;
-			}
-			else {
-				if (xPos >= model.autoRoute[cell].nXsmall) {
-					cellUse++;
-					xPos -= model.autoRoute[cell].nXsmall;
-					if(xPos >= model.autoRoute[cell].nXsmall)
-						xPos = model.autoRoute[cell].nXsmall - 1;
-				}
-			}
-			if (yPos < 0) {
-				cellUse -= model.paramsAutoRoute.nXbasLevel;
-				yPos += model.autoRoute[cell].nYsmall;
-				if (yPos < 0)
-					yPos = 0;
-			}
-			else {
-				if (yPos >= model.autoRoute[cell].nYsmall) {
-					cellUse += model.paramsAutoRoute.nXbasLevel;
-					yPos -= model.autoRoute[cell].nYsmall;
-					if (yPos >= model.autoRoute[cell].nYsmall)
-						yPos = model.autoRoute[cell].nYsmall - 1;
-				}
-			}
-		}
-
-		if (model.autoRoute[cellUse].use == 1) {
-			cellSmall = xPos + model.autoRoute[cell].nXsmall * yPos;
-			if (cellUse == 26 && cellSmall == 108)
-				xPos = xPos;
-			if (model.autoRoute[cellUse].smallerCells[cellSmall].use == 0) {
-				model.autoRoute[cellUse].smallerCells[cellSmall].use = 1;
-				addSmallCellToSearchSet(cellUse, cellSmall, 0);
-			}
-		}
-		else
-			errlog("Skipping cell %d, not used yet...\n", cellUse);
-		if (kvot > 0.9995)
-			break;
-
-		next_xKvot = get_nextKvotHeltal(xNu, x0, dx);
-		next_yKvot = get_nextKvotHeltal(yNu, y0, dy);
-		if (next_xKvot < next_yKvot)
-			kvot = next_xKvot;
-		else
-			kvot = next_yKvot;
-		kvot += 0.001;
-		if (kvot > 1)
-			kvot = 1;
-		xNu = x0 + kvot * dx;
-		yNu = y0 + kvot * dy;
-
-	}
-	return 0;
-}
-
-int addSmallerCellsToCell(int pos, int i, int i1) {
-	int isLand, i2;
-	double x, y;
-
-	if (pos == 3523)
-		pos = pos;
-	model.autoRoute[pos].smallerCells = NULL;
-	model.autoRoute[pos].smallerCellsType = 0;
-	if (model.autoRoute[pos].use == 1) {
-		x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
-		y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
-		model.autoRoute[pos].x = x;
-		model.autoRoute[pos].y = y;
-		if (pos == 20)
-			pos = pos;
-		isLand = checkIsCompleteLand(y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x + model.paramsAutoRoute.discretizationSizeLevel[0]);
-		model.autoRoute[pos].isLand = isLand;
-		evalCostArc_cells(&(model.autoRoute[pos]), 0, y, x, y, x + model.paramsAutoRoute.discretizationSizeLevel[0]); // horizontal
-		evalCostArc_cells(&(model.autoRoute[pos]), 1, y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x + model.paramsAutoRoute.discretizationSizeLevel[0]); // diagonal up
-		evalCostArc_cells(&(model.autoRoute[pos]), 2, y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // vertical
-		evalCostArc_cells(&(model.autoRoute[pos]), 3, y, x + model.paramsAutoRoute.discretizationSizeLevel[0], y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // diagonal down
-
-		if (pos == 23)
-			pos = pos;
-		if (isLand == 0) {
-			if (0 < model.paramsAutoRoute.nCellLevels - 1) {
-				for (i2 = 0; i2 < 4; i2++) {
-					if (model.autoRoute[pos].arcCost[i2] > model.paramsAutoRoute.maxBaseFeasibleCost) {
-						break;
-					}
-				}
-				//if (i2 < 4 || posCellStart == pos || posCellEnd == pos) {
-				model.autoRoute[pos].smallerCellsType = 1;
-				set_nXY_smallCells(&(model.autoRoute[pos]));
-				model.autoRoute[pos].smallerCells = addSmallerCells(&(model.autoRoute[pos]), x, y, 1);
-				//}
-			}
-		}
-	}
-
-	return 0;
-}
-
 int createCells_new() {
 	openNeededRasterFilesNew(-11);
 
@@ -2248,52 +1827,29 @@ int createCells_new() {
 	int iPos, arcNr, nod, i, i1, pos, i2, posTmp, posCellStart, posCellEnd, yPos, xPos, level, isLand;
 	double x, y, xTmp, yTmp, yPosDbl, xPosDbl, dx, dy, xNu, yNu, kvot, next_xKvot, next_yKvot, yPosDbl_prev, xPosDbl_prev;
 	int nAlloc = (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2);
-	int lastPos, nCellsUsed = 0;
-	double yPosDbl_prev0, xPosDbl_prev0;
 	model.autoRoute = (strAutoCells*)malloc(nAlloc * sizeof(strAutoCells)); // +2 since start and end node as well
-	for (i = 0; i < nAlloc; i++) {
+	for (i = 0; i < nAlloc; i++)
 		model.autoRoute[i].use = 0;
-		model.autoRoute[i].smallerCells = NULL;
-	}
 
-	nAlloc = modelSea.Dijkstra.OptCost / model.paramsAutoRoute.discretizationSizeLevel[0] * 3;
-	i = 0;
-	if (nAlloc > model.paramsAutoRoute.nAllocSet[i]) {
-		if (model.paramsAutoRoute.nAllocSet[i] == 0) {
-			model.paramsAutoRoute.nAllocSet[i] = nAlloc;
-			model.paramsAutoRoute.setCell[i] = (int*)malloc(nAlloc * sizeof(int));
-			model.paramsAutoRoute.setSmallCell[i] = (int*)malloc(nAlloc * sizeof(int));
-		}
-		else {
-			model.paramsAutoRoute.nAllocSet[i] = nAlloc;
-			model.paramsAutoRoute.setCell[i] = (int*)realloc(model.paramsAutoRoute.setCell[i], nAlloc * sizeof(int));
-			model.paramsAutoRoute.setSmallCell[i] = (int*)realloc(model.paramsAutoRoute.setSmallCell[i], nAlloc * sizeof(int));
-		}
-	}
-	model.paramsAutoRoute.nInSet[i] = 0;
-
-
-	lastPos = -1;
-	for (iPos = -1; iPos <= modelSea.nBVArcsUse; iPos++)
+	for (iPos = -1; iPos <= modelSea.nBVArcs; iPos++)
 	{
 		if (iPos < 0) {
-			x = model.paramsAutoRoute.startPoint_lon[0];
-			y = model.paramsAutoRoute.startPoint_lat[0];
+			x = model.paramsAutoRoute.startPoint_lon;
+			y = model.paramsAutoRoute.startPoint_lat;
 		}
 		else {
-			if (iPos < modelSea.nBVArcsUse) {
-				arcNr = modelSea.BVArcUse[iPos];
+			if (iPos < modelSea.nBVArcs) {
+				arcNr = modelSea.BVArc[iPos];
 				nod = modelSea.arc[arcNr].toPointNr;
 				y = modelSea.seaRoute.nod_y[nod];
 				x = modelSea.seaRoute.nod_x[nod];
 			}
 			else {
-				x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
-				y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+				x = model.paramsAutoRoute.endPoint_lon;
+				y = model.paramsAutoRoute.endPoint_lat;
 			}
 		}
-		if (x < 13)
-			x = x;
+
 		yPosDbl = (y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
 		x = getUsable_x(x);
 		xPosDbl = (x - model.paramsAutoRoute.x_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
@@ -2303,8 +1859,6 @@ int createCells_new() {
 
 			xNu = xPosDbl_prev;
 			yNu = yPosDbl_prev;
-			yPosDbl_prev0 = yNu;
-			xPosDbl_prev0 = xNu;
 			kvot = 0;
 			if (iPos == 18)
 				y = y;
@@ -2312,51 +1866,33 @@ int createCells_new() {
 				xPos = (int)xNu;
 				yPos = (int)yNu;
 				pos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
-				if (model.autoRoute[pos].use == 0) {
+				if (model.autoRoute[pos].use == 0)
 					model.autoRoute[pos].firstUsePathPos = iPos;
-					model.autoRoute[pos].use = 1;
-					nCellsUsed++;
-					addSmallerCellsToCell(pos, yPos, xPos);
-				}
 				model.autoRoute[pos].lastUsePathPos = iPos;
-
-				addSmallCellsClosestToSeaRoute(lastPos, yPosDbl_prev0 - yPos, xPosDbl_prev0 - xPos, pos, yNu - yPos, xNu - xPos);
-				lastPos = pos;
-				yPosDbl_prev0 = yNu;
-				xPosDbl_prev0 = xNu;
-
+				model.autoRoute[pos].use = 1;
 				if (xNu - xPos < 0.5 && xPos > 0) {
 					pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * yPos;
-					if (model.autoRoute[pos].use == 0) {
+					if (model.autoRoute[pos].use == 0)
 						model.autoRoute[pos].firstUsePathPos = iPos;
-						model.autoRoute[pos].use = 1;
-						nCellsUsed++;
-						addSmallerCellsToCell(pos, yPos, xPos - 1);
-					}
 					model.autoRoute[pos].lastUsePathPos = iPos;
+					model.autoRoute[pos].use = 1;
 
 					if (yNu - yPos < 0.5 && yPos > 0) {
 						// diagonally below left
 						pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
-						if (model.autoRoute[pos].use == 0) {
+						if (model.autoRoute[pos].use == 0)
 							model.autoRoute[pos].firstUsePathPos = iPos;
-							model.autoRoute[pos].use = 1;
-							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos - 1, xPos - 1);
-						}
 						model.autoRoute[pos].lastUsePathPos = iPos;
+						model.autoRoute[pos].use = 1;
 					}
 					else {
 						// diagonally above left
 						if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
 							pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
-							if (model.autoRoute[pos].use == 0) {
+							if (model.autoRoute[pos].use == 0)
 								model.autoRoute[pos].firstUsePathPos = iPos;
-								model.autoRoute[pos].use = 1;
-								nCellsUsed++;
-								addSmallerCellsToCell(pos, yPos + 1, xPos - 1);
-							}
 							model.autoRoute[pos].lastUsePathPos = iPos;
+							model.autoRoute[pos].use = 1;
 						}
 					}
 
@@ -2364,60 +1900,45 @@ int createCells_new() {
 				else {
 					if (xNu - xPos > 0.5 && xPos < model.paramsAutoRoute.nXbasLevel - 1) {
 						pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * yPos;
-						if (model.autoRoute[pos].use == 0) {
+						if (model.autoRoute[pos].use == 0)
 							model.autoRoute[pos].firstUsePathPos = iPos;
-							model.autoRoute[pos].use = 1;
-							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos, xPos + 1);
-						}
 						model.autoRoute[pos].lastUsePathPos = iPos;
+						model.autoRoute[pos].use = 1;
 
 						if (yNu - yPos < 0.5 && yPos > 0) {
 							// diagonally below right
 							pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
-							if (model.autoRoute[pos].use == 0) {
+							if (model.autoRoute[pos].use == 0)
 								model.autoRoute[pos].firstUsePathPos = iPos;
-								model.autoRoute[pos].use = 1;
-								nCellsUsed++;
-								addSmallerCellsToCell(pos, yPos - 1, xPos + 1);
-							}
 							model.autoRoute[pos].lastUsePathPos = iPos;
+							model.autoRoute[pos].use = 1;
 						}
 						else {
 							// diagonally above right
 							if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
 								pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
-								if (model.autoRoute[pos].use == 0) {
+								if (model.autoRoute[pos].use == 0)
 									model.autoRoute[pos].firstUsePathPos = iPos;
-									model.autoRoute[pos].use = 1;
-									nCellsUsed++;
-									addSmallerCellsToCell(pos, yPos + 1, xPos + 1);
-								}
 								model.autoRoute[pos].lastUsePathPos = iPos;
+								model.autoRoute[pos].use = 1;
 							}
 						}
 					}
 				}
 				if (yNu - yPos < 0.5 && yPos > 0) {
 					pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
-					if (model.autoRoute[pos].use == 0) {
+					if (model.autoRoute[pos].use == 0)
 						model.autoRoute[pos].firstUsePathPos = iPos;
-						model.autoRoute[pos].use = 1;
-						nCellsUsed++;
-						addSmallerCellsToCell(pos, yPos - 1, xPos);
-					}
 					model.autoRoute[pos].lastUsePathPos = iPos;
+					model.autoRoute[pos].use = 1;
 				}
 				else {
 					if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
 						pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
-						if (model.autoRoute[pos].use == 0) {
+						if (model.autoRoute[pos].use == 0)
 							model.autoRoute[pos].firstUsePathPos = iPos;
-							model.autoRoute[pos].use = 1;
-							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos + 1, xPos);
-						}
 						model.autoRoute[pos].lastUsePathPos = iPos;
+						model.autoRoute[pos].use = 1;
 					}
 				}
 
@@ -2443,43 +1964,6 @@ int createCells_new() {
 		xPosDbl_prev = xPosDbl;
 	}
 
-	nAlloc = nCellsUsed * model.paramsAutoRoute.nDiscreteSizeLevel[1] * model.paramsAutoRoute.nDiscreteSizeLevel[1];
-	for (i = 0; i < 2; i++) {
-		if (nAlloc > model.paramsAutoRoute.nAllocSet[i]) {
-			if (model.paramsAutoRoute.nAllocSet[i] == 0) {
-				model.paramsAutoRoute.nAllocSet[i] = nAlloc;
-				model.paramsAutoRoute.setCell[i] = (int*)malloc(nAlloc * sizeof(int));
-				model.paramsAutoRoute.setSmallCell[i] = (int*)malloc(nAlloc * sizeof(int));
-			}
-			else {
-				model.paramsAutoRoute.nAllocSet[i] = nAlloc;
-				model.paramsAutoRoute.setCell[i] = (int*)realloc(model.paramsAutoRoute.setCell[i], nAlloc * sizeof(int));
-				model.paramsAutoRoute.setSmallCell[i] = (int*)realloc(model.paramsAutoRoute.setSmallCell[i], nAlloc * sizeof(int));
-			}
-		}
-	}
-
-	int posNu, posNext;
-	posNu = 0;
-	for (i = 2; i < 1000; i++) {
-		if (posNu == 0)
-			posNext = 1;
-		else
-			posNext = 0;
-		model.paramsAutoRoute.nInSet[posNext] = 0;
-		for (i1 = 0; i1 < model.paramsAutoRoute.nInSet[posNu]; i1++) {
-			addNeighboursToCell(model.paramsAutoRoute.setCell[posNu][i1],
-				model.paramsAutoRoute.setSmallCell[posNu][i1], i, posNext);
-		}
-		if (model.paramsAutoRoute.nInSet[posNext] == 0)
-			break;
-		if (posNu == 0)
-			posNu = 1;
-		else
-			posNu = 0;
-	}
-
-	/*
 	pos = 0;
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
 		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
@@ -2514,14 +1998,13 @@ int createCells_new() {
 							model.autoRoute[pos].smallerCellsType = 1;
 							set_nXY_smallCells(&(model.autoRoute[pos]));
 							model.autoRoute[pos].smallerCells = addSmallerCells(&(model.autoRoute[pos]), x, y, 1);
-							//}
+						//}
 					}
 				}
 			}
 			pos++;
 		}
 	}
-	*/
 
 
 	return 0;
@@ -2548,31 +2031,31 @@ int addAutoNode(int cellNr, int posIcell, int cellNr2) {
 	return model.nNoder - 1;
 }
 
-int addAutoNodePath(int pathNr, double y, double x) {
-	int posIpath;
+int addAutoNodeTss(int tssNr, double y, double x) {
+	int posItss;
 	if (model.nNoder >= model.nAllocNoder) {
 		model.nAllocNoder += 100000;
 		model.Noder = (strNoder*)realloc(model.Noder, model.nAllocNoder * sizeof(strNoder));
 	}
 
-	posIpath = model.autoPath[pathNr].nNoder;
-	if (posIpath>= model.autoPath[pathNr].nAllocNoder) {
-		model.autoPath[pathNr].nAllocNoder += 100;
-		model.autoPath[pathNr].nodNr = (int*)realloc(model.autoPath[pathNr].nodNr, model.autoPath[pathNr].nAllocNoder * sizeof(int));
-		model.autoPath[pathNr].nodCoord_y = (double*)realloc(model.autoPath[pathNr].nodCoord_y, model.autoPath[pathNr].nAllocNoder * sizeof(double));
-		model.autoPath[pathNr].nodCoord_x = (double*)realloc(model.autoPath[pathNr].nodCoord_x, model.autoPath[pathNr].nAllocNoder * sizeof(double));
+	posItss = model.tss[tssNr].nNoder;
+	if (posItss >= model.tss[tssNr].nAllocNoder) {
+		model.tss[tssNr].nAllocNoder += 100;
+		model.tss[tssNr].nodNr = (int*)realloc(model.tss[tssNr].nodNr, model.tss[tssNr].nAllocNoder * sizeof(int));
+		model.tss[tssNr].nodCoord_y = (double*)realloc(model.tss[tssNr].nodCoord_y, model.tss[tssNr].nAllocNoder * sizeof(double));
+		model.tss[tssNr].nodCoord_x = (double*)realloc(model.tss[tssNr].nodCoord_x, model.tss[tssNr].nAllocNoder * sizeof(double));
 	}
 	model.Noder[model.nNoder].physicalLevel = -1;
-	model.Noder[model.nNoder].pointNr = pathNr;
-	model.Noder[model.nNoder].timeInterval = posIpath;
+	model.Noder[model.nNoder].pointNr = tssNr;
+	model.Noder[model.nNoder].timeInterval = posItss;
 	model.Noder[model.nNoder].nAllocUtNoder = 0;
 	model.Noder[model.nNoder].nUtNoder = 0;
-	model.autoPath[pathNr].nodNr[posIpath] = model.nNoder;
+	model.tss[tssNr].nodNr[posItss] = model.nNoder;
 
-	model.autoPath[pathNr].nodCoord_y[posIpath] = y;
-	model.autoPath[pathNr].nodCoord_x[posIpath] = x;
+	model.tss[tssNr].nodCoord_y[posItss] = y;
+	model.tss[tssNr].nodCoord_x[posItss] = x;
 
-	(model.autoPath[pathNr].nNoder)++;
+	(model.tss[tssNr].nNoder)++;
 
 	(model.nNoder)++;
 	return model.nNoder - 1;
@@ -2655,9 +2138,6 @@ double addAutoArcSmall(int cellPos1, int cellSmall1, int posTmp1, int cellPos2, 
 		dist = model.autoRoute[cellUse].smallerCells[cellSmallUse].arcDistance[posUse];
 		cost = 1.001 * model.autoRoute[cellUse].smallerCells[cellSmallUse].arcCost[posUse];
 	}
-	if (model.nArcs == 354521 || model.nArcs == 368139)
-		cellUse = cellUse;
-	cost += model.autoRoute[cellPos2].smallerCells[cellSmall2].use * 0.1; // 10.0; //  0.0001;
 	model.arc[model.nArcs].fromLevel = cellPos1;
 	model.arc[model.nArcs].fromPointNr = posTmp1;
 	model.arc[model.nArcs].fromTime = cellSmall1;
@@ -2677,33 +2157,22 @@ double addAutoArcSmall(int cellPos1, int cellSmall1, int posTmp1, int cellPos2, 
 	return cost;
 }
 
-double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPos, int cellSmall, int posTmp, double dist, int direction, double costBas) {
-	double cost, kvotCost = 1.0, costFactorArea, x2, y2, x1, y1;
+double addAutoArcSmallTss(int tssNr, int posItss, int prev_posItss, int cellPos, int cellSmall, int posTmp, double dist, int direction) {
+	double cost, kvotCost = 1.0;
 	if (model.nArcs >= model.nAllocArcs) {
 		model.nAllocArcs += 1000000;
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs == 108942)
+	if (model.nArcs == 15472)
 		model.nArcs = model.nArcs;
 
 	if (direction == -1) { // in to tss
 		if (prev_posItss >= 0) {
 			model.arc[model.nArcs].fromLevel = -1;
-			model.arc[model.nArcs].fromPointNr = pathNr;
+			model.arc[model.nArcs].fromPointNr = tssNr;
 			model.arc[model.nArcs].fromTime = prev_posItss;
-			if (cellPos == -1)
-				kvotCost = model.autoPath[pathNr].kvotCost;
-			else
-				kvotCost = 1.0;
-			//if (model.autoPath[pathNr].type == 0)
-			//	kvotCost = 0.01;
-			//else {
-			//	if (model.autoPath[pathNr].type == 1)
-			//		kvotCost = 0.5;
-			//	else
-			//		kvotCost = 1.0;
-			//}
+			kvotCost = 0.01;
 		}
 		else {
 			model.arc[model.nArcs].fromLevel = cellPos;
@@ -2711,92 +2180,25 @@ double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPo
 			model.arc[model.nArcs].fromTime = cellSmall;
 		}
 		model.arc[model.nArcs].toLevel = -1;
-		model.arc[model.nArcs].toPointNr = pathNr;
+		model.arc[model.nArcs].toPointNr = tssNr;
 		model.arc[model.nArcs].toTime = posItss;
 	}
 	else {
 		model.arc[model.nArcs].fromLevel = -1;
-		model.arc[model.nArcs].fromPointNr = pathNr;
+		model.arc[model.nArcs].fromPointNr = tssNr;
 		model.arc[model.nArcs].fromTime = posItss;
 		model.arc[model.nArcs].toLevel = cellPos;
 		model.arc[model.nArcs].toTime = cellSmall;
 		model.arc[model.nArcs].toPointNr = posTmp;
 	}
 	model.arc[model.nArcs].distance = dist;
-	cost = kvotCost * costBas;
-	getCoordFromAutoArc(model.nArcs, 0, &y1, &x1);
-	getCoordFromAutoArc(model.nArcs, 1, &y2, &x2);
-	if (model.autoPath[pathNr].type != 2)
-		costFactorArea = getCostFactorArea(y1, x1, y2, x2);
-	else
-		costFactorArea = 1;
-	model.arc[model.nArcs].totCost = cost * costFactorArea;
+	cost = kvotCost * dist;
+	model.arc[model.nArcs].totCost = cost;
 
 	(model.nArcs)++;
 	if (model.nArcs == 373)
 		model.nArcs = model.nArcs;
 	return cost;
-}
-
-double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
-	double cost, kvotCost = 1.0, costFactorArea, x2, y2, x1, y1;
-	if (model.nArcs >= model.nAllocArcs) {
-		model.nAllocArcs += 1000000;
-		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
-	}
-
-	int nodNr = model.autoPath[path1].nodNr[posPath1];
-	int nodNr2 = model.autoPath[path2].nodNr[posPath2];
-	int nodPos = model.Noder[nodNr].nUtNoder;
-	checkAllocNode(nodNr);
-	model.Noder[nodNr].UtNod[nodPos] = nodNr2;
-	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
-
-	if (model.nArcs >= model.nAllocArcs) {
-		model.nAllocArcs += 1000000;
-		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
-	}
-
-	model.arc[model.nArcs].fromLevel = -1;
-	model.arc[model.nArcs].fromPointNr = path1;
-	model.arc[model.nArcs].fromTime = posPath1;
-	model.arc[model.nArcs].toLevel = -1;
-	model.arc[model.nArcs].toPointNr = path2;
-	model.arc[model.nArcs].toTime = posPath2;
-
-	if(model.autoPath[path1].kvotCost < model.autoPath[path2].kvotCost)
-		kvotCost = model.autoPath[path2].kvotCost;
-	else
-		kvotCost = model.autoPath[path1].kvotCost;
-	if (model.nArcs == 108942)
-		path1 = path1;
-	//if (model.autoPath[path2].type == 0)
-	//	kvotCost = 0.01;
-	//else {
-	//	if (model.autoPath[path2].type == 1)
-	//		kvotCost = 0.5;
-	//	else
-	//		kvotCost = 1.0;
-	//}
-
-	double dist;
-	y1 = model.autoPath[path1].nodCoord_y[posPath1];
-	x1 = model.autoPath[path1].nodCoord_x[posPath1];
-	y2 = model.autoPath[path2].nodCoord_y[posPath2];
-	x2 = model.autoPath[path2].nodCoord_x[posPath2];
-	if (model.nArcs == 83502 || model.nArcs == 83501)
-		path1 = path1;
-	cost = evalCostArc(y1, x1, y2, x2, &dist);
-	model.arc[model.nArcs].distance = dist;
-	cost *= kvotCost;
-	model.arc[model.nArcs].totCost = cost;
-
-	model.Noder[nodNr].UtNodCost[nodPos++] = cost;
-	model.Noder[nodNr].nUtNoder = nodPos;
-
-	(model.nArcs)++;
-
-	return 0;
 }
 
 int checkAllocNode(int nodNr) {
@@ -2824,7 +2226,7 @@ int addAutoArcExtra(int arcNr1, int arcNr2, int nod1, int nod2, double dist, dou
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs >= 123614)
+	if (model.nArcs == 15472)
 		model.nArcs = model.nArcs;
 
 	model.arc[model.nArcs].fromLevel = model.arc[arcNr1].fromLevel;
@@ -2842,9 +2244,6 @@ int addAutoArcExtra(int arcNr1, int arcNr2, int nod1, int nod2, double dist, dou
 	model.Noder[nod1].outArcNr[nodPos] = model.nArcs;
 	model.Noder[nod1].UtNodCost[nodPos++] = cost;
 	model.Noder[nod1].nUtNoder = nodPos;
-
-	if (model.nArcs == 83502 || model.nArcs == 83501)
-		nod1 = nod1;
 
 	(model.nArcs)++;
 	if (model.nArcs == 373)
@@ -3155,8 +2554,6 @@ int addArcsOutFromNodeSmall(int nodNr, int cellPos, int iBas, int i1Bas, int i, 
 	if (nodNr == 78)
 		nodNr = nodNr;
 	// right
-	if (model.nArcs >= 18044)
-		nodPos = nodPos;
 	if (model.autoRoute[cellPos].smallerCellsType == 1 || (model.autoRoute[cellPos].smallerCellsType == 2 || model.autoRoute[cellPos].smallerCellsType == 4) && i == 0) {
 		model.Noder[nodNr].UtNod[nodPos] = cells->nodeNr[1];
 		model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
@@ -3309,20 +2706,20 @@ int addArcsOutFromNodeSmall(int nodNr, int cellPos, int iBas, int i1Bas, int i, 
 	return 0;
 }
 
-int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPrev) {
-	int nodPos = 0, posIpath, yPos, xPos, yPos2, xPos2, cellPos, cellSmall, i, nodNr2, nodPos2;
-	double cost, y, x, y0, x0, y1, x1, yLocal, xLocal, dist, costKvot, cost2;
+int addArcsInOutFromTssNode(int nodNr, int tssNr, int prevNodNr, double distPrev) {
+	int nodPos, posItss, yPos, xPos, yPos2, xPos2, cellPos, cellSmall, i, nodNr2, nodPos2;
+	double cost, y, x, y0, x0, y1, x1, yLocal, xLocal, kvotBad, dist;
 
 	if (nodNr == 1929)
 		nodNr = nodNr;
 
-	posIpath = model.autoPath[pathNr].nNoder - 1;
+	posItss = model.tss[tssNr].nNoder - 1;
 
 	if (prevNodNr >= 0) {
 		nodPos = model.Noder[prevNodNr].nUtNoder;
 		model.Noder[prevNodNr].UtNod[nodPos] = nodNr;
 		model.Noder[prevNodNr].outArcNr[nodPos] = model.nArcs;
-		cost = addAutoArcSmallPath(pathNr, posIpath, posIpath - 1, -1, -1, -1, distPrev, -1, distPrev);
+		cost = addAutoArcSmallTss(tssNr, posItss, posItss - 1, -1, -1, -1, distPrev, -1);
 		model.Noder[prevNodNr].UtNodCost[nodPos++] = cost;
 		model.Noder[prevNodNr].nUtNoder = nodPos;
 
@@ -3344,8 +2741,8 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 	}
 
 	nodPos = model.Noder[nodNr].nUtNoder;
-	y = model.autoPath[pathNr].nodCoord_y[posIpath];
-	x = model.autoPath[pathNr].nodCoord_x[posIpath];
+	y = model.tss[tssNr].nodCoord_y[posItss];
+	x = model.tss[tssNr].nodCoord_x[posItss];
 	yPos = (int)((y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0]);
 	x = getUsable_x(x);
 	xPos = (int)((x - model.paramsAutoRoute.x_min) / model.paramsAutoRoute.discretizationSizeLevel[0]);
@@ -3378,25 +2775,23 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 			x1 = x0 + model.paramsAutoRoute.discretizationSizeLevel[1];
 		}
 
-
-		costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y, x);
-		if (costKvot < 2.001 || model.autoPath[pathNr].type >= 1) { // only add allowed arcs
+		kvotBad = check_map_badKvot_auto(y1, x1, y, x, 0, -1);
+		if (kvotBad < 0.001) { // only add allowed arcs
 			dist = estimateLargeCircleDistance_km(y1, x1, y, x);
-			cost = dist * costKvot;
 
 			nodNr2 = model.autoRoute[cellPos].smallerCells[cellSmall].nodeNr[i];
 			nodPos2 = model.Noder[nodNr2].nUtNoder;
 			checkAllocNode(nodNr2);
 			model.Noder[nodNr2].UtNod[nodPos2] = nodNr;
 			model.Noder[nodNr2].outArcNr[nodPos2] = model.nArcs;
-			cost2 = addAutoArcSmallPath(pathNr, posIpath, -1, cellPos, cellSmall, i, dist, -1, cost);
-			model.Noder[nodNr2].UtNodCost[nodPos2++] = cost2;
+			cost = addAutoArcSmallTss(tssNr, posItss, -1, cellPos, cellSmall, i, dist, -1);
+			model.Noder[nodNr2].UtNodCost[nodPos2++] = cost;
 			model.Noder[nodNr2].nUtNoder = nodPos2;
 
 			model.Noder[nodNr].UtNod[nodPos] = nodNr2;
 			model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
-			cost2 = addAutoArcSmallPath(pathNr, posIpath, -1, cellPos, cellSmall, i, dist, 1, cost);
-			model.Noder[nodNr].UtNodCost[nodPos++] = cost2;
+			cost = addAutoArcSmallTss(tssNr, posItss, -1, cellPos, cellSmall, i, dist, 1);
+			model.Noder[nodNr].UtNodCost[nodPos++] = cost;
 		}
 	}
 	model.Noder[nodNr].nUtNoder = nodPos;
@@ -3475,13 +2870,13 @@ int addArcsFromStartNode(int yPos, int xPos, int level) {
 
 
 	posEnd = model.paramsAutoRoute.nCellsBase;
-	model.autoRoute[posEnd].y = model.paramsAutoRoute.startPoint_lat[0];
-	model.autoRoute[posEnd].x = model.paramsAutoRoute.startPoint_lon[0];
+	model.autoRoute[posEnd].y = model.paramsAutoRoute.startPoint_lat;
+	model.autoRoute[posEnd].x = model.paramsAutoRoute.startPoint_lon;
 	posTmp = 0;// 0, down left
 	y = model.paramsAutoRoute.y_min + yPos * model.paramsAutoRoute.discretizationSizeLevel[0];
 	x = model.paramsAutoRoute.x_min + xPos * model.paramsAutoRoute.discretizationSizeLevel[0];
 	model.Noder[nodNr].UtNod[nodPos] = model.autoRoute[cellPos].nodeNr[posTmp];
-	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
+	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon,
 		y, x);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(posEnd, 0, cellPos, 0, posTmp);
@@ -3489,7 +2884,7 @@ int addArcsFromStartNode(int yPos, int xPos, int level) {
 
 	// 1, down right
 	model.Noder[nodNr].UtNod[nodPos] = model.autoRoute[cellPos].nodeNr[posTmp];
-	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
+	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon,
 		y, x + model.paramsAutoRoute.discretizationSizeLevel[0]);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(posEnd, 0, cellPos, 1, posTmp);
@@ -3497,7 +2892,7 @@ int addArcsFromStartNode(int yPos, int xPos, int level) {
 
 	// 2, up left
 	model.Noder[nodNr].UtNod[nodPos] = model.autoRoute[cellPos].nodeNr[posTmp];
-	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
+	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon,
 		y + model.paramsAutoRoute.discretizationSizeLevel[0], x);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(posEnd, 0, cellPos, 2, posTmp);
@@ -3505,7 +2900,7 @@ int addArcsFromStartNode(int yPos, int xPos, int level) {
 
 	// 3, up right
 	model.Noder[nodNr].UtNod[nodPos] = model.autoRoute[cellPos].nodeNr[posTmp];
-	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
+	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon,
 		y + model.paramsAutoRoute.discretizationSizeLevel[0], x);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(posEnd, 0, cellPos, 3, posTmp);
@@ -3520,8 +2915,8 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level) {
 	double y, x, cost, x1, y1, dist;
 
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
-	yPos2 = (model.paramsAutoRoute.startPoint_lat[0] - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
-	x = getUsable_x(model.paramsAutoRoute.startPoint_lon[0]);
+	yPos2 = (model.paramsAutoRoute.startPoint_lat - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
+	x = getUsable_x(model.paramsAutoRoute.startPoint_lon);
 	xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 	//cellPos2 = xPos2 + model.paramsAutoRoute.nDiscreteSizeLevel[1] * yPos2;
 
@@ -3536,8 +2931,8 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level) {
 
 
 	posEnd = model.paramsAutoRoute.nCellsBase;
-	model.autoRoute[posEnd].y = model.paramsAutoRoute.startPoint_lat[0];
-	model.autoRoute[posEnd].x = model.paramsAutoRoute.startPoint_lon[0];
+	model.autoRoute[posEnd].y = model.paramsAutoRoute.startPoint_lat;
+	model.autoRoute[posEnd].x = model.paramsAutoRoute.startPoint_lon;
 	//y = model.paramsAutoRoute.y_min + yPos * model.paramsAutoRoute.discretizationSizeLevel[0] + yPos2 * model.paramsAutoRoute.discretizationSizeLevel[1];
 	//x = model.paramsAutoRoute.x_min + xPos * model.paramsAutoRoute.discretizationSizeLevel[0] + xPos2 * model.paramsAutoRoute.discretizationSizeLevel[1];
 
@@ -3580,7 +2975,7 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level) {
 			y1 = model.paramsAutoRoute.y_min + yPos * model.paramsAutoRoute.discretizationSizeLevel[0] + i * model.paramsAutoRoute.discretizationSizeLevel[1];
 			x1 = model.paramsAutoRoute.x_min + xPos * model.paramsAutoRoute.discretizationSizeLevel[0] + i1 * model.paramsAutoRoute.discretizationSizeLevel[1];
 			model.Noder[nodNr].UtNod[pos] = model.autoRoute[cellPos].smallerCells[cellPos2].nodeNr[posNod];
-			evalCostArc2(model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
+			evalCostArc2(model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon,
 				y1, x1, &cost, &dist);
 			model.Noder[nodNr].outArcNr[pos] = model.nArcs;
 			cost = addAutoArcSmall2(posEnd, -1, 0, cellPos, cellPos2, posNod, cost, dist);
@@ -3628,8 +3023,8 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 	model.Noder[nodEnd].nUtNoder = 0;
 
 	posEnd = model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 1;
-	model.autoRoute[posEnd].y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
-	model.autoRoute[posEnd].x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+	model.autoRoute[posEnd].y = model.paramsAutoRoute.endPoint_lat;
+	model.autoRoute[posEnd].x = model.paramsAutoRoute.endPoint_lon;
 
 	nodPos = 0;
 	// connect to all four corners of the cell
@@ -3641,9 +3036,7 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 	nodPos = model.Noder[nodNr].nUtNoder;
 	checkAllocNode(nodNr);
 	model.Noder[nodNr].UtNod[nodPos] = nodEnd;
-	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, y, x, 
-		model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
+	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp, y, x, model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(cellPos, 0, posEnd, 0, posTmp);
 	model.Noder[nodNr].UtNodCost[nodPos++] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
@@ -3655,9 +3048,7 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 	checkAllocNode(nodNr);
 	model.Noder[nodNr].UtNod[nodPos] = nodEnd;
 	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp,
-		y, x + model.paramsAutoRoute.discretizationSizeLevel[0], 
-		model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
+		y, x + model.paramsAutoRoute.discretizationSizeLevel[0], model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(cellPos, 1, posEnd, 0, posTmp);
 	model.Noder[nodNr].UtNodCost[nodPos++] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
@@ -3669,9 +3060,7 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 	checkAllocNode(nodNr);
 	model.Noder[nodNr].UtNod[nodPos] = nodEnd;
 	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp,
-		y + model.paramsAutoRoute.discretizationSizeLevel[0], x, 
-		model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
+		y + model.paramsAutoRoute.discretizationSizeLevel[0], x, model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(cellPos, 2, posEnd, 0, posTmp);
 	model.Noder[nodNr].UtNodCost[nodPos++] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
@@ -3683,9 +3072,7 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 	checkAllocNode(nodNr);
 	model.Noder[nodNr].UtNod[nodPos] = nodEnd;
 	evalCostArc_cells(&(model.autoRoute[posEnd]), posTmp,
-		y + model.paramsAutoRoute.discretizationSizeLevel[0], x, 
-		model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
+		y + model.paramsAutoRoute.discretizationSizeLevel[0], x, model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon);
 	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 	cost = addAutoArc(cellPos, 3, posEnd, 0, posTmp);
 	model.Noder[nodNr].UtNodCost[nodPos++] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
@@ -3698,8 +3085,8 @@ int addArcsSmallToEndNode(int yPos, int xPos, int level) {
 	double y, x, cost, x1, y1, dist;
 
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
-	yPos2 = (model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1] - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
-	x = getUsable_x(model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
+	yPos2 = (model.paramsAutoRoute.endPoint_lat - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
+	x = getUsable_x(model.paramsAutoRoute.endPoint_lon);
 	xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 	//cellPos2 = xPos2 + model.paramsAutoRoute.nDiscreteSizeLevel[1] * yPos2;
 
@@ -3707,8 +3094,8 @@ int addArcsSmallToEndNode(int yPos, int xPos, int level) {
 	model.Noder[nodEnd].nUtNoder = 0;
 
 	posEnd = model.paramsAutoRoute.nCellsBase + 1;
-	model.autoRoute[posEnd].y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
-	model.autoRoute[posEnd].x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+	model.autoRoute[posEnd].y = model.paramsAutoRoute.endPoint_lat;
+	model.autoRoute[posEnd].x = model.paramsAutoRoute.endPoint_lon;
 	model.autoRoute[posEnd].nodeNr[0] = nodEnd;
 
 	int startY, startX, i1Use, iUse;
@@ -3752,8 +3139,7 @@ int addArcsSmallToEndNode(int yPos, int xPos, int level) {
 			checkAllocNode(nodNr);
 			nodPos = model.Noder[nodNr].nUtNoder;
 			model.Noder[nodNr].UtNod[nodPos] = nodEnd; //  model.autoRoute[cellPos].smallerCells[cellPos2].nodeNr[posNod];
-			evalCostArc2(y1, x1, model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-				model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1], &cost, &dist);
+			evalCostArc2(y1, x1, model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon, &cost, &dist);
 			model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
 			cost = addAutoArcSmall2(cellPos, cellPos2, posNod, posEnd, -1, 0, cost, dist);
 			model.Noder[nodNr].UtNodCost[nodPos] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
@@ -3801,7 +3187,7 @@ int createCellNetwork() {
 	pos = 0;
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
 		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
-			if (pos == 9)
+			if (pos == 55)
 				pos = pos;
 			if (model.autoRoute[pos].use == 1) {
 				//if (model.nNoder >= model.nAllocNoder - 4) {
@@ -3852,8 +3238,6 @@ int createCellNetwork() {
 							if (model.autoRoute[pos].smallerCellsType == 4 && i3 != 0 && i4 != 0)
 								continue;
 							posSmall = i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3;
-							if (posSmall == 132)
-								i3 = i3;
 							if (pos == 11 && i3 == 5)
 								i3 = i3;
 
@@ -3925,7 +3309,7 @@ int createCellNetwork() {
 	}
 
 	// add nod and arcs for the start of the route
-	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0], &yPos, &xPos, &level);
+	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon, &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
 	addAutoNode(cellPos, -level - 1, -1);
@@ -3937,8 +3321,7 @@ int createCellNetwork() {
 	// connect to all four corners of the cell
 
 	// add nod and arcs for the end of the route
-	identifyCellFromPoint(model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1], &yPos, &xPos, &level);
+	identifyCellFromPoint(model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon, &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
 
@@ -4128,7 +3511,7 @@ int createCellNetwork2() {
 
 
 	// add nod and arcs for the start of the route
-	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0], &yPos, &xPos, &level);
+	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat, model.paramsAutoRoute.startPoint_lon, &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
 	addAutoNode(cellPos, -level - 1, -1);
@@ -4140,8 +3523,7 @@ int createCellNetwork2() {
 	// connect to all four corners of the cell
 
 	// add nod and arcs for the end of the route
-	identifyCellFromPoint(model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
-		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1], &yPos, &xPos, &level);
+	identifyCellFromPoint(model.paramsAutoRoute.endPoint_lat, model.paramsAutoRoute.endPoint_lon, &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
 
@@ -4204,8 +3586,8 @@ int getCoordFromAutoArc(int arcNr, int fromTo, double* y, double* x) {
 			}
 		}
 		else {
-			*y = model.autoPath[posTmp].nodCoord_y[level];
-			*x = model.autoPath[posTmp].nodCoord_x[level];
+			*y = model.tss[posTmp].nodCoord_y[level];
+			*x = model.tss[posTmp].nodCoord_x[level];
 		}
 	}
 
@@ -4226,7 +3608,7 @@ int getNodFromArcNr(int arcNr, int fromTo, int* tssNod) {
 	}
 
 	if (posCell < 0) {
-		nodNr = model.autoPath[posTmp].nodNr[level];
+		nodNr = model.tss[posTmp].nodNr[level];
 		*tssNod = 1;
 	}
 	else {
@@ -4239,7 +3621,7 @@ int getNodFromArcNr(int arcNr, int fromTo, int* tssNod) {
 	return nodNr;
 }
 
-int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
+int writeSolutionToJson_autoRoute(std::string filename, int iter)
 {
 	FILE* filpekG, *filpekG2, *filpekG3 = NULL;
 
@@ -4251,28 +3633,20 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 		sprintf(namn, "%s/autoPath_%d.txt", model.params.indataPath.c_str(), iter);
 		filPek2 = fopen(namn, "w");
 		fprintf(filPek2, "pos;arcNr;fromCellNr;fromSmallCell1;fromPosIcell;toCellPos2;toSmallCell2;toPosIcell2;distance;cost\n");
-		if ((model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] < model.paramsAutoRoute.x_min || 
-			model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] > model.boundingBox.xMax) && iter != 0 ) {
+		if (model.paramsAutoRoute.endPoint_lon < model.paramsAutoRoute.x_min || model.paramsAutoRoute.endPoint_lon > model.boundingBox.xMax) {
 			sprintf(namn, "%s/res_autoIterLonFix.json", model.params.indataPath.c_str());
-			if (altRutt == 0)
-				filpekG3 = fopen(namn, "w");
-			else
-				filpekG3 = fopen(namn, "a+");
+			filpekG3 = fopen(namn, "w");
 
 		}
 	}
 
-	if (iter < nMAX_ITER - 1) {
-		sprintf(namn, "%s/res_autoIter%d.json", model.params.indataPath.c_str(), iter);
+	if (iter == 0) {
+		sprintf(namn, "%s/res_autoIter0.json", model.params.indataPath.c_str());
 		filpekG = fopen(namn, "w");
 	}
 	else {
 		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), filename.c_str());
-		if(altRutt == 0)
-			filpekG = fopen(filename.c_str(), "w");
-		else
-			filpekG = fopen(filename.c_str(), "a+");
-
+		filpekG = fopen(filename.c_str(), "w");
 	}
 	if (filpekG == NULL)
 	{
@@ -4281,48 +3655,28 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 	}
 	sprintf(namn, "%s/res_autoIter_arc%d.json", model.params.indataPath.c_str(), iter);
-	if (altRutt == 0)
-		filpekG2 = fopen(namn, "w");
-	else
-		filpekG2 = fopen(namn, "a+");
+	filpekG2 = fopen(namn, "w");
 	if (filpekG2 == NULL)
 	{
 		printf("Faile to open file %s for writing.\n", namn);
 		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 	}
 
-	if (altRutt == 0 || iter == 0) {
-		initGeoJsonFil(filpekG, "result_path");
-	}
-	else {
-		fprintf(filpekG, ",\n\n");
-	}
 
+	initGeoJsonFil(filpekG, "result_path");
 	if (filpekG3 != NULL) {
-		if(altRutt == 0)
-			initGeoJsonFil(filpekG3, "result_path");
-		else
-			fprintf(filpekG3, ",\n\n");
+		initGeoJsonFil(filpekG3, "result_path");
 		fprintf(filpekG3, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
 	}
-	if (altRutt == 0)
-		initGeoJsonFil(filpekG2, "result_arcs");
-	else
-		fprintf(filpekG2, ",\n\n");
+	initGeoJsonFil(filpekG2, "result_arcs");
 
-	model.network.last_x = -1000;
 	fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
-
 	int iPos, arcNr, nInt, i;
 	double totCost = 0, totDist = 0, y, x, y0, x0, splitDist, y1, x1;
 	spherical::Point p2, p3;
 	for (iPos = 1; iPos < model.nBVArcs; iPos++)
 	{
 		arcNr = model.BVArc[iPos];
-		if (arcNr == 85187)
-			arcNr = arcNr;
-		if (iPos == 81)
-			iPos = iPos;
 
 		totCost += model.arc[arcNr].totCost;
 		totDist += model.arc[arcNr].distance;
@@ -4336,7 +3690,7 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 				if (x < model.paramsAutoRoute.x_min - 3 || x > model.boundingBox.xMax + 3)
 					fprintf(filpekG3, "[%lf, %lf, 0.0]", x, y);
 				else {
-					if (model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] < model.paramsAutoRoute.x_min)
+					if (model.paramsAutoRoute.endPoint_lon < model.paramsAutoRoute.x_min)
 						fprintf(filpekG3, "[%lf, %lf, 0.0]", x - 360, y);
 					else
 						fprintf(filpekG3, "[%lf, %lf, 0.0]", x + 360, y);
@@ -4378,15 +3732,15 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 				if (x < model.paramsAutoRoute.x_min - 3 || x > model.boundingBox.xMax + 3)
 					fprintf(filpekG3, ", [%lf, %lf, 0.0]", x, y);
 				else {
-					if (model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] < model.paramsAutoRoute.x_min)
+					if (model.paramsAutoRoute.endPoint_lon < model.paramsAutoRoute.x_min)
 						fprintf(filpekG3, ", [%lf, %lf, 0.0]", x - 360, y);
 					else
 						fprintf(filpekG3, ", [%lf, %lf, 0.0]", x + 360, y);
 				}
 			}
 		}
-		fprintf(filpekG2, "]}\n,\n\"properties\": {\"routeAlt\": %d, \"iPos\":%d, \"arcNr\":%d, \"cost\": %lf,\n\"dist\": %lf, \"accumCost\": %lf,\n\"accumDist\": %lf}}\n",
-			altRutt, iPos, arcNr, model.arc[arcNr].totCost, model.arc[arcNr].distance, totCost, totDist);
+		fprintf(filpekG2, "]}\n,\n\"properties\": {\"iPos\":%d, \"arcNr\":%d, \"cost\": %lf,\n\"dist\": %lf, \"accumCost\": %lf,\n\"accumDist\": %lf}}\n",
+			iPos, arcNr, model.arc[arcNr].totCost, model.arc[arcNr].distance, totCost, totDist);
 
 		fprintf(filPek2, "%d;%d;%d;%d;%d;%d;%d;%d;%lf;%lf\n", iPos, arcNr, model.arc[arcNr].fromLevel, model.arc[arcNr].fromTime, model.arc[arcNr].fromPointNr,
 			model.arc[arcNr].toLevel, model.arc[arcNr].toTime, model.arc[arcNr].toPointNr, model.arc[arcNr].distance, model.arc[arcNr].totCost);
@@ -4395,20 +3749,14 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 	}
 
 	fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-	fprintf(filpekG, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
-	if (altRutt == model.paramsAutoRoute.nAltRutter - 1 && iter == nMAX_ITER - 1 || iter < nMAX_ITER - 1)
-		fprintf(filpekG, "]}\n");
-
+	fprintf(filpekG, "\"totCost\": %lf,\n\"totDistance\": %lf}}\n]}\n", totCost, totDist);
 	fclose(filpekG);
 	fclose(filPek2);
-	if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
-		fprintf(filpekG2, "\n]}\n");
+	fprintf(filpekG2, "\n]}\n");
 	fclose(filpekG2);
 	if (filpekG3 != NULL) {
 		fprintf(filpekG3, "\n]]},\n\"properties\": {\n");
-		fprintf(filpekG3, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
-		if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
-			fprintf(filpekG3, "]}\n");
+		fprintf(filpekG3, "\"totCost\": %lf,\n\"totDistance\": %lf}}\n]}\n", totCost, totDist);
 		fclose(filpekG3);
 	}
 
@@ -4424,13 +3772,12 @@ int addArcsAroundSolution()
 	// stop after one or two nodes after attaching to tss
 	// skip tss and only start at the last few nodes of tss
 
-	int iPos, arcNr, nEjBattre, i1, arcNr1, nod1, nod2, tssNod1, tssNod2, nTssNodes, sameDir;
+	int iPos, arcNr, nEjBattre, i1, arcNr1, nod1, nod2, tssNod1, tssNod2, nTssNodes;
 	double totCost = 0, totDist = 0, y, x, y1, x1, costNod1, costDiff, kvotBad, dist, cost;
-	double dX, dY, dX2, dY2, x0, y0;
 	for (iPos = 1; iPos < model.nBVArcs; iPos++)
 	{
 		arcNr = model.BVArc[iPos];
-		if (iPos == 140)
+		if (iPos == 11)
 			iPos = iPos;
 		nod1 = getNodFromArcNr(arcNr, 0, &tssNod1);
 		costNod1 = (model.Dijkstra.nodes - model.Dijkstra.node_min + nod1)->dist / model.Dijkstra.FAKTOR_NATVERK;
@@ -4439,30 +3786,15 @@ int addArcsAroundSolution()
 		totDist += model.arc[arcNr].distance;
 
 		getCoordFromAutoArc(arcNr, 0, &y, &x);
-		getCoordFromAutoArc(arcNr, 1, &y1, &x1);
-		dX2 = x1 - x;
-		dY2 = y1 - y;
 		nEjBattre = 0;
 		nTssNodes = 0;
 		if (iPos == 1315)
 			iPos = iPos;
-		sameDir = 1;
 		for (i1 = iPos + 1; i1 < model.nBVArcs; i1++) {
 			arcNr1 = model.BVArc[i1];
 			getCoordFromAutoArc(arcNr1, 1, &y1, &x1);
-			if (sameDir == 1) {
-				getCoordFromAutoArc(arcNr1, 0, &y0, &x0);
-				dX = x1 - x0;
-				dY = y1 - y0;
-				sameDir = checkSameDir(dY, dX, dY2, dX2);
-				if (sameDir == 1)
-					continue;
-
-			}
 
 			nod2 = getNodFromArcNr(arcNr1, 1, &tssNod2);
-			if (i1 == 248)
-				i1 = i1;
 			costDiff = (model.Dijkstra.nodes - model.Dijkstra.node_min + nod2)->dist / model.Dijkstra.FAKTOR_NATVERK - costNod1;
 			cost = evalCostArc(y, x, y1, x1, &dist);
 			// dist = estimateLargeCircleDistance_km(y, x, y1, x1);
@@ -4474,564 +3806,29 @@ int addArcsAroundSolution()
 					nTssNodes++;
 				else
 					nTssNodes = 0;
-			}
-			else
+			}else
 				nEjBattre++;
-			if (nEjBattre > 15 || nTssNodes >= 2)
+			if (nEjBattre > 10 || nTssNodes >= 2)
 				break;
 		}
 
-		//if (iPos == 1) {
-		//	getCoordFromAutoArc(arcNr, 0, &y, &x);
-		//}
-		//getCoordFromAutoArc(arcNr, 1, &y, &x);
+		if (iPos == 1) {
+			getCoordFromAutoArc(arcNr, 0, &y, &x);
+		}
+		getCoordFromAutoArc(arcNr, 1, &y, &x);
 	}
 
 	return 0;
 }
 
-
-int addNodesAlongArc(int arcNr, int iPos, int* nod1a, int* nod1mitt, int* nod1b) {
-	double dist, splitDist, x1, y1, x2, y2;
-	spherical::Point p1, p2, p3;
-
-	getCoordFromAutoArc(arcNr, 0, &y1, &x1);
-	getCoordFromAutoArc(arcNr, 1, &y2, &x2);
-	p1 = spherical::Point(y1, fix_lonPos(x1));
-	p2 = spherical::Point(y2, fix_lonPos(x2));
-	dist = p1.distanceTo(p2) / 1000.0;
-
-	int nExtraNodes = roundDown(dist / 10.0), i, nod, pathNr;
-	if (nExtraNodes == 0) {
-		if (dist >= 2.0)
-			nExtraNodes = 1;
-	}
-	splitDist = dist / (nExtraNodes + 1) * 1000;
-
-	pathNr = model.nAutoPaths + iPos;
-	model.autoPath[pathNr].nAllocNoder = nExtraNodes;
-	//model.autoPath[pathNr].nAllocNoder += 100;
-	model.autoPath[pathNr].nodNr = (int*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(int));
-	model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-	model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
-	model.autoPath[pathNr].nNoder = 0;
-	model.autoPath[pathNr].type = 2;
-	model.autoPath[pathNr].kvotCost = 1.0;
-
-	if (model.nNoder >= 42923)
-		pathNr = pathNr;
-
-	*nod1a = -1;
-	*nod1b = -1;
-	*nod1mitt = -1;
-	int pos = 0;
-	for (i = 0; i < nExtraNodes; i++) {
-		p3 = p1.destinationPoint(splitDist * (i + 1), p1.bearingTo(p2));
-		if(i < nMAX_ADD_NODES || i >= nExtraNodes - nMAX_ADD_NODES){
-			if (i == nMAX_ADD_NODES - 1)
-				i = i;
-			if (i == nExtraNodes - 1)
-				i = i;
-			if (i > 600)
-				i = i;
-			model.autoPath[pathNr].nodCoord_y[pos] = p3.latitude().degrees();
-			model.autoPath[pathNr].nodCoord_x[pos] = p3.longitude().degrees();
-			nod = addAutoNodePath(pathNr, model.autoPath[pathNr].nodCoord_y[pos],
-				model.autoPath[pathNr].nodCoord_x[pos]);
-			if (i == 0)
-				*nod1a = nod;
-			if (i == nExtraNodes - 1)
-				*nod1b = nod;
-			if (*nod1mitt == -2)
-				*nod1mitt = nod;
-			pos++;
-		}
-		else {
-			*nod1mitt = -2;
-		}
-	}
-	return 0;
-}
-
-int addUtNodToNod(int nodNr, int nodNr2, double cost) {
-
-	if (nodNr == 779 && nodNr2 == 469)
-		nodNr = nodNr;
-	checkAllocNode(nodNr);
-	int nodPos = model.Noder[nodNr].nUtNoder;
-	model.Noder[nodNr].UtNod[nodPos] = nodNr2;
-	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
-	model.Noder[nodNr].UtNodCost[nodPos++] = cost;
-	model.Noder[nodNr].nUtNoder = nodPos;
-	return nodPos;
-
-}
-
-int fixaSameDirArcs(int iFirst, int iPos, double dist, double cost) {
-	int arcNr1, arcNr2, nod1, nod2, tssNod1, tssNod2, i1;
-
-	arcNr1 = model.BVArc[iFirst];
-	arcNr2 = model.BVArc[iPos - 1];
-	nod1 = getNodFromArcNr(arcNr1, 0, &tssNod1);
-	nod2 = getNodFromArcNr(arcNr2, 1, &tssNod2);
-
-	addAutoArcExtra(arcNr1, arcNr2, nod1, nod2, dist, cost);
-	model.BVArc[iFirst] = model.nArcs - 1;
-	for (i1 = iFirst + 1; i1 < iPos; i1++)
-		model.BVArc[i1] = -1;
-
-	return 0;
-}
-
-int checkSameDir(double dY, double dX, double dY2, double dX2) {
-	double kvot;
-	if (abs(dX - dX2) < 0.0001 && abs(dY - dY2) < 0.0001)
-		return 1;
-
-	if (abs(dY2) < 0.0001 && abs(dX2) < 0.0001)
-		return 0;
-
-	if (abs(dX) > 0.0001) {
-		kvot = dX2 / dX;
-		if (abs(kvot * dY - dY2) < 0.0001)
-			return 1;
-	}
-	else {
-		if (abs(dY) > 0.0001) {
-			kvot = dY2 / dY;
-			if (abs(kvot * dX - dX2) < 0.0001)
-				return 1;
-		}
-		else
-			return 0;
-	}
-	return 0;
-}
-
-int aggregateArcs() {
-	int iPos, firstSameDir = -1, arcNr, nFixedArcs = 0, posNy, sameDir;
-	double dX, dY, y1, x1, y2 = 0, x2 = 0, dXlast = 1e10, dYlast = 1e10;
-	double dist, cost;
-
-	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++) {
-		arcNr = model.BVArc[iPos];
-		if(iPos == 0)
-			getCoordFromAutoArc(arcNr, 0, &y1, &x1);
-		else {
-			y1 = y2;
-			x1 = x2;
-		}
-		getCoordFromAutoArc(arcNr, 1, &y2, &x2);
-		dX = x2 - x1;
-		dY = y1 - y2;
-		if (y2 < -35)
-			y2 = y2;
-		sameDir = checkSameDir(dY, dX, dYlast, dXlast);
-		if(sameDir == 1){
-			// if (abs(dX - dXlast) < 0.0001 && abs(dY - dYlast) < 0.0001) {
-			if (firstSameDir == -1) {
-				firstSameDir = iPos - 1;
-			}
-			dist += model.arc[arcNr].distance;
-			cost += model.arc[arcNr].totCost;
-		}
-		else {
-			if (firstSameDir >= 0) {
-				fixaSameDirArcs(firstSameDir, iPos, dist, cost);
-				firstSameDir = -1;
-				nFixedArcs++;
-			}
-			dXlast = dX;
-			dYlast = dY;
-			dist = model.arc[arcNr].distance;
-			cost = model.arc[arcNr].totCost;
-		}
-	}
-	if (firstSameDir >= 0) {
-		fixaSameDirArcs(firstSameDir, iPos, dist, cost);
-		nFixedArcs++;
-	}
-
-	if (nFixedArcs > 0) {
-		posNy = 0;
-		for (iPos = 0; iPos < model.nBVArcs - 1; iPos++) {
-			if (model.BVArc[iPos] >= 0)
-				model.BVArc[posNy++] = model.BVArc[iPos];
-		}
-		model.nBVArcs = posNy;
-	}
-
-	return 0;
-}
-
-void changeNodeCost(int nod, int nodUt, double costDiff) {
-	int i;
-	for (i = 0; i < model.Noder[nod].nUtNoder; i++) {
-		if (model.Noder[nod].UtNod[i] == nodUt)
-			model.Noder[nod].UtNodCost[i] += costDiff;
-	}
-}
-
-int arcIsPathNr(int arc, int* startEnd) {
-	int path1 = -1, path2 = -1;
-	if (model.arc[arc].fromTime >= 0 && model.arc[arc].fromLevel < 0) 
-		path1 = model.arc[arc].fromPointNr;
-	if (model.arc[arc].toTime >= 0 && model.arc[arc].toLevel < 0)
-		path2 =  model.arc[arc].toPointNr;
-
-	if (path1 == -1) {
-		if (path2 == -1) {
-			*startEnd = -1;
-			return -1;
-		}
-		else {
-			*startEnd = 2;
-			return path2;
-		}
-	}
-	else {
-		if (path2 == -1)
-			*startEnd = 1;
-		else
-			*startEnd = 3;
-		return path1;
-	}
-	return -1;
-}
-
-int modifyCostArcs(double costDiff, double costTot, int nElement, int* arcs, int* nodes) {
-	int i, i1;
-	double costFix = 0, cost, costDelta, kvot;
-
-	for (i = 0; i < nElement - 1; i++) {
-		cost = model.arc[arcs[i]].totCost;
-		kvot = cost / costTot;
-		costDelta = kvot * costDiff;
-		if (i == nElement - 2)
-			costDelta = costDiff - costFix;
-
-		if (cost + costDelta < 1.0) {
-			printf("ERROR! can't decrease the arccost this much... to %.3lf from %.3lf. I skip this one\n", cost + costDelta, cost);
-		}
-		else {
-			cost += costDelta;
-			costFix += costDelta;
-			model.arc[arcs[i]].totCost = cost;
-			changeNodeCost(nodes[i], nodes[i + 1], costDelta);
-		}
-	}
-
-
-	return 0;
-}
-
-int addArcsAroundSolution2()
-{
-
-	// from each nod, go forward to nodes along the solution path looking for feasible arcs.
-	// add nodes along the arc before and after the node with slightly shorter distance and connect them with arcs.
-	// only along first and last arc of paths
-	// not longer along an arc then xx km
-
-	//printf("aggregateArcs\n");
-	aggregateArcs();
-
-
-	model.autoPath = (strAutoPath*)realloc(model.autoPath, (model.nAutoPaths + model.nBVArcs) * sizeof(strAutoPath));
-
-	int iPos, arcNr, nEjBattre, i1, nod1, nod2, tssNod1, startEnd1 = 0, startEnd2 = 0;
-	double totCost = 0, totDist = 0, y2 = 0.0, x2, y1, x1, costNod1, costDiff, kvotBad, dist, cost, cost2;
-	int posNu = 0;
-	int addedNod2a = -1, addedNod2b, arcNrNext, i, nod3;
-	int addedNod1a = -1, addedNod1b, addedNod0a = -1, addedNod0b, starti, endi1;
-	int pathBas = model.nAutoPaths, addedNodMitt0, addedNodMitt1, addedNodMitt2;
-	int arcMitt, nodFix, pathNr1, pathNr2;
-	double costTot;
-	int* modCost_arc, * modCost_nod;
-
-	nMAX_ADD_NODES = 50;// 100;
-	modCost_arc = (int*)malloc((2 * nMAX_ADD_NODES + 2) * sizeof(int));
-	modCost_nod = (int*)malloc((2 * nMAX_ADD_NODES + 2) * sizeof(int));
-
-	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
-		model.autoPath[model.nAutoPaths + iPos].nNoder = 0;
-
-	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
-		{
-		if (iPos >= 6)
-			iPos = iPos;
-		if (y2 >= 20.7 && iPos > 30)
-			y2 = y2;
-		arcNr = model.BVArc[iPos];
-		arcNrNext = model.BVArc[iPos + 1];
-		if (model.arc[arcNr].distance <= 2 || model.arc[arcNrNext].distance < 2) {
-			addedNod2a = -1;
-			continue; // arc is too short, don't add nodes along it
-		}
-		pathNr1 = arcIsPathNr(arcNr, &startEnd1);
-		if (pathNr1 >= 0) {
-			if (model.autoPath[pathNr1].type <= 1) {
-				addedNod2a = -1;
-				//continue; // arc is tss path or corridor, don't add arcs to the middle of it
-			}
-		}
-		pathNr2 = arcIsPathNr(arcNrNext, &startEnd2);
-		if (pathNr2 >= 0) {
-			if (model.autoPath[pathNr2].type <= 1 && startEnd2 != 2) { // end in path is okay
-				addedNod2a = -1;
-				continue; // arc is tss path or corridor, don't add arcs to the middle of it
-			}
-		}
-		
-		nod1 = getNodFromArcNr(arcNr, 0, &tssNod1);
-		nod2 = getNodFromArcNr(arcNr, 1, &tssNod1);
-		if (nod2 == 9456)
-			nod1 = nod1;
-
-		if (addedNod1a >= 0) {
-			addedNod0a = addedNod1a;
-			addedNod0b = addedNod1b;
-			addedNodMitt0 = addedNodMitt1;
-		}
-		else {
-			addedNod0a = -1;
-		}
-
-		if (addedNod2a >= 0) {
-			addedNod1a = addedNod2a;
-			addedNod1b = addedNod2b;
-			addedNodMitt1 = addedNodMitt2;
-		}
-		else {
-			addedNod1a = -2;
-			if (pathNr1 >= 0) {
-				if (model.autoPath[pathNr1].type <= 1 && startEnd1 != 1) {
-					addedNod1a = -1;
-				}
-			}
-			if (addedNod1a == -2) {
-				addNodesAlongArc(arcNr, iPos, &addedNod1a, &addedNodMitt1, &addedNod1b);
-				getCoordFromAutoArc(arcNr, 0, &y1, &x1);
-				y2 = model.autoPath[pathBas + iPos].nodCoord_y[0];
-				x2 = model.autoPath[pathBas + iPos].nodCoord_x[0];
-				cost = evalCostArc(y1, x1, y2, x2, &dist);
-				addUtNodToNod(nod1, addedNod1a, cost);
-				cost2 = addAutoArcSmallPath(pathBas + iPos, 0, -1, model.arc[arcNr].fromLevel, model.arc[arcNr].fromTime,
-					model.arc[arcNr].fromPointNr, dist, -1, cost);
-				posNu = 0;
-				modCost_arc[posNu] = model.nArcs - 1;
-				modCost_nod[posNu++] = nod1;
-				costTot = cost2;
-				for (i = addedNod1a; i < addedNod1b; i++) {
-					y1 = y2;
-					x1 = x2;
-					y2 = model.autoPath[pathBas + iPos].nodCoord_y[i - addedNod1a + 1];
-					x2 = model.autoPath[pathBas + iPos].nodCoord_x[i - addedNod1a + 1];
-					cost = evalCostArc(y1, x1, y2, x2, &dist);
-					addUtNodToNod(i, i + 1, cost);
-					cost2 = addAutoArcSmallPath(pathBas + iPos, i - addedNod1a + 1, i - addedNod1a, -1, -1, -1, dist, -1, cost);
-					modCost_arc[posNu] = model.nArcs - 1;
-					modCost_nod[posNu++] = i;
-					costTot += cost2;
-				}
-				y1 = y2;
-				x1 = x2;
-				getCoordFromAutoArc(arcNr, 1, &y2, &x2);
-				cost = evalCostArc(y1, x1, y2, x2, &dist);
-				addUtNodToNod(addedNod1b, nod2, cost);
-				cost2 = addAutoArcSmallPath(pathBas + iPos, addedNod1b - addedNod1a, addedNod1b - addedNod1a - 1, 
-					model.arc[arcNr].toLevel, model.arc[arcNr].toTime,
-					model.arc[arcNr].toPointNr, dist, 1, cost);
-				modCost_arc[posNu] = model.nArcs - 1;
-				modCost_nod[posNu++] = addedNod1b;
-				modCost_nod[posNu++] = nod2;
-				costTot += cost2;
-				if (abs(costTot - model.arc[arcNr].totCost) > 0.00001) {
-					costDiff = model.arc[arcNr].totCost - costTot;
-					modifyCostArcs(costDiff, costTot, posNu, modCost_arc, modCost_nod);
-					//if (addedNodMitt1 < 0) {
-					//	arcMitt = model.nArcs - (addedNod1b - addedNod1a) / 2 - 1;
-					//	nodFix = (addedNod1b + addedNod1a) / 2;
-					//}else
-					//	nodFix = addedNodMitt1;
-
-					//	model.arc[arcMitt].totCost += costMittDiff;
-					//	changeNodeCost(nodFix - 1, nodFix, costMittDiff);
-				}
-
-			}
-			addedNod0a = -1;
-		}
-		addNodesAlongArc(arcNrNext, iPos + 1, &addedNod2a, &addedNodMitt2, &addedNod2b);
-		getCoordFromAutoArc(arcNrNext, 0, &y1, &x1);
-		y2 = model.autoPath[pathBas + iPos + 1].nodCoord_y[0];
-		x2 = model.autoPath[pathBas + iPos + 1].nodCoord_x[0];
-		cost = evalCostArc(y1, x1, y2, x2, &dist);
-		addUtNodToNod(nod2, addedNod2a, cost);
-		cost2 = addAutoArcSmallPath(pathBas + iPos + 1, 0, -1, model.arc[arcNrNext].fromLevel, model.arc[arcNrNext].fromTime,
-			model.arc[arcNrNext].fromPointNr, dist, -1, cost);
-		posNu = 0;
-		modCost_arc[posNu] = model.nArcs - 1;
-		modCost_nod[posNu++] = nod2;
-		costTot = cost2;
-		// addAutoArcExtra(arcNrNext, arcNrNext, nod2, addedNod2a, dist, cost);
-		for (i = addedNod2a; i < addedNod2b; i++) {
-			y1 = y2;
-			x1 = x2;
-			y2 = model.autoPath[pathBas + iPos + 1].nodCoord_y[i - addedNod2a + 1];
-			x2 = model.autoPath[pathBas + iPos + 1].nodCoord_x[i - addedNod2a + 1];
-			cost = evalCostArc(y1, x1, y2, x2, &dist);
-			addUtNodToNod(i, i + 1, cost);
-			cost2 = addAutoArcSmallPath(pathBas + iPos + 1, i - addedNod2a + 1, i - addedNod2a, -1, -1, -1, dist, -1, cost);
-			modCost_arc[posNu] = model.nArcs - 1;
-			modCost_nod[posNu++] = i;
-			costTot += cost2;
-		}
-		y1 = y2;
-		x1 = x2;
-		nod3 = getNodFromArcNr(arcNrNext, 1, &tssNod1);
-		getCoordFromAutoArc(arcNrNext, 1, &y2, &x2);
-		cost = evalCostArc(y1, x1, y2, x2, &dist);
-		addUtNodToNod(addedNod2b, nod3, cost);
-		if (iPos == 20)
-			iPos = iPos;
-		cost2 = addAutoArcSmallPath(pathBas + iPos + 1, addedNod2b - addedNod2a, addedNod2b - addedNod2a - 1, model.arc[arcNrNext].toLevel, model.arc[arcNrNext].toTime,
-			model.arc[arcNrNext].toPointNr, dist, 1, cost);
-		modCost_arc[posNu] = model.nArcs - 1;
-		modCost_nod[posNu++] = addedNod2b;
-		modCost_nod[posNu++] = nod3;
-		costTot += cost2;
-		if (abs(costTot - model.arc[arcNrNext].totCost) > 0.00001) {
-			costDiff = model.arc[arcNrNext].totCost - costTot;
-			modifyCostArcs(costDiff, costTot, posNu, modCost_arc, modCost_nod);
-			//if (addedNodMitt2 < 0) {
-			//	arcMitt = model.nArcs - (addedNod2b - addedNod2a)/2 - 1;
-			//	nodFix = (addedNod2b + addedNod2a) / 2;
-			//}
-			//else
-			//	nodFix = addedNodMitt2;
-			//model.arc[arcMitt].totCost += costMittDiff;
-			//changeNodeCost(nodFix - 1, nodFix, costMittDiff);
-		}
-
-		if (addedNod1a >= 0) {
-			if (addedNodMitt1 >= 0)
-				starti = addedNodMitt1;
-			else
-				starti = addedNod1a;
-			if (addedNodMitt2 >= 0)
-				endi1 = addedNodMitt2 - 1;
-			else
-				endi1 = addedNod2b;
-			getCoordFromAutoArc(arcNrNext, 1, &y2, &x2);
-			for (i = starti; i <= addedNod1b; i++) {
-				for (i1 = addedNod2a; i1 <= endi1; i1++) {
-					addAutoArcBetweenPaths(pathBas + iPos, i - addedNod1a, pathBas + iPos + 1, i1 - addedNod2a);
-					// addAutoArcExtra(arcNr, arcNrNext, i, i1, dist, cost);
-				}
-
-				y1 = model.autoPath[pathBas + iPos].nodCoord_y[i - addedNod1a];
-				x1 = model.autoPath[pathBas + iPos].nodCoord_x[i - addedNod1a];
-				cost = evalCostArc(y1, x1, y2, x2, &dist);
-				addUtNodToNod(i, nod3, cost);
-				cost2 = addAutoArcSmallPath(pathBas + iPos, i - addedNod1a, i - addedNod1a - 1, 
-					model.arc[arcNrNext].toLevel, model.arc[arcNrNext].toTime,
-					model.arc[arcNrNext].toPointNr, dist, 1, cost);
-			}
-		}
-		if (addedNod0a >= 0 && addedNodMitt1 < 0) {
-			if (addedNodMitt0 >= 0)
-				starti = addedNodMitt0;
-			else
-				starti = addedNod0a;
-			if (addedNodMitt2 >= 0)
-				endi1 = addedNodMitt2 - 1;
-			else
-				endi1 = addedNod2b;
-			getCoordFromAutoArc(arcNrNext, 1, &y2, &x2);
-			for (i = starti; i <= addedNod0b; i++) {
-				for (i1 = addedNod2a; i1 <= endi1; i1++) {
-					addAutoArcBetweenPaths(pathBas + iPos - 1, i - addedNod0a, pathBas + iPos + 1, i1 - addedNod2a);
-					// addAutoArcExtra(arcNr, arcNrNext, i, i1, dist, cost);
-				}
-
-				y1 = model.autoPath[pathBas + iPos - 1].nodCoord_y[i - addedNod0a];
-				x1 = model.autoPath[pathBas + iPos - 1].nodCoord_x[i - addedNod0a];
-				cost = evalCostArc(y1, x1, y2, x2, &dist);
-				addUtNodToNod(i, nod3, cost);
-				cost2 = addAutoArcSmallPath(pathBas + iPos - 1, i - addedNod0a, i - addedNod0a - 1,
-					model.arc[arcNrNext].toLevel, model.arc[arcNrNext].toTime,
-					model.arc[arcNrNext].toPointNr, dist, 1, cost);
-			}
-
-		}
-	}
-
-	FILE* filpek;
-	char* namn;
-	int toFileArcs = 0;
-	if (toFileArcs == 1) {
-		namn = (char*)malloc2(256 * sizeof(char));
-		sprintf(namn, "%s/allOutArcs.txt", model.params.indataPath.c_str());
-		filpek = fopen(namn, "w");
-		for (i = 0; i < model.nNoder; i++) {
-			for (i1 = 0; i1 < model.Noder[i].nUtNoder; i1++)
-				fprintf(filpek, "nod %d utNr %d utNod %d utArc %d cost %.3lf\n", i, i1,
-					model.Noder[i].UtNod[i1], model.Noder[i].outArcNr[i1], model.Noder[i].UtNodCost[i1]);
-		}
-		fclose(filpek);
-	}
-
-	return 0;
-}
-
-int sparaSeaRoutePart(int pos) {
-	int iPos, posNu, arcNr, nod1, nod2;
-	double dist;
-	spherical::Point p1, p2;
-
-	if (pos == 0) {
-		posNu = 0;
-	}
-	else {
-		posNu = modelSea.nBVArcsUse;
-		if (posNu > 0 && modelSea.nBVArcs > 0) {
-			//if (model.paramsAutoRoute.viaPositions[pos].nPoints == 1) {
-				// a via point, so connect the node before with the node after...
-			//}
-			//else {
-				// a path/corridor, add an arc representing the corridor...
-				arcNr = modelSea.BVArcUse[posNu - 1];
-				nod1 = modelSea.arc[arcNr].toPointNr;
-				arcNr = modelSea.BVArc[0];
-				nod2 = modelSea.arc[arcNr].fromPointNr;
-				if (nod1 != nod2) {
-					p1 = spherical::Point(modelSea.seaRoute.nod_y[nod1], fix_lonPos(modelSea.seaRoute.nod_x[nod1]));
-					p2 = spherical::Point(modelSea.seaRoute.nod_y[nod2], fix_lonPos(modelSea.seaRoute.nod_x[nod2]));
-					dist = p1.distanceTo(p2) / 1000.0;
-					addArcBetweenNodes(nod1, nod2, dist);
-					modelSea.BVArcUse[posNu++] = modelSea.nArcs - 1;
-				}
-			//}
-		}
-	}
-
-	for (iPos = 0; iPos < modelSea.nBVArcs; iPos++) {
-		modelSea.BVArcUse[posNu++] = modelSea.BVArc[iPos];
-	}
-	modelSea.nBVArcsUse = posNu;
-
-	return 0;
-}
-
-int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
+int writeSolutionToJson_seaRoute(std::string filename)
 {
 	FILE* filpekG;
 	double minX, maxX, minY, maxY;
 
-	minX = model.paramsAutoRoute.startPoint_lon[0];
+	minX = model.paramsAutoRoute.startPoint_lon;
 	maxX = minX;
-	minY = model.paramsAutoRoute.startPoint_lat[0];
+	minY = model.paramsAutoRoute.startPoint_lat;
 	maxY = minY;
 
 	FILE* filPek2 = NULL;
@@ -5046,37 +3843,30 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 	std::string linePath = "";
 
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), filename.c_str());
-	if (altRutt == 0)
-		filpekG = fopen(namn, "w");
-	else
-		filpekG = fopen(namn, "a+");
+	filpekG = fopen(namn, "w");
 	if (filpekG == NULL)
 	{
 		printf("Faile to open file %s for writing.\n", namn);
 		errlog("Faile to open file %s for writing.\n", namn);
 		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 	}
-	if (altRutt == 0)
-		initGeoJsonFil(filpekG, "result_path");
-	else
-		fprintf(filpekG, ",\n\n");
-
+	initGeoJsonFil(filpekG, "result_path");
 	linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
 	model.network.last_x = -1000;
 	fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
 	int iPos, arcNr, nod;
 	double totCost = 0, totDist = 0, y, x, last_x = minX;
-	for (iPos = -1; iPos <= modelSea.nBVArcsUse; iPos++)
+	for (iPos = -1; iPos <= modelSea.nBVArcs; iPos++)
 	{
 		if (iPos < 0) {
-			x = model.paramsAutoRoute.startPoint_lon[0];
-			y = model.paramsAutoRoute.startPoint_lat[0];
+			x = model.paramsAutoRoute.startPoint_lon;
+			y = model.paramsAutoRoute.startPoint_lat;
 			x = getCorrect_longitude(x);
 			fprintf(filpekG, "[%lf, %lf, 0.0]", x, y);
 		}
 		else {
-			if (iPos < modelSea.nBVArcsUse) {
-				arcNr = modelSea.BVArcUse[iPos];
+			if (iPos < modelSea.nBVArcs) {
+				arcNr = modelSea.BVArc[iPos];
 				nod = modelSea.arc[arcNr].toPointNr;
 				y = modelSea.seaRoute.nod_y[nod];
 				x = modelSea.seaRoute.nod_x[nod];
@@ -5084,14 +3874,14 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 				totDist += modelSea.arc[arcNr].distance;
 			}
 			else {
-				x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
-				y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+				x = model.paramsAutoRoute.endPoint_lon;
+				y = model.paramsAutoRoute.endPoint_lat;
 			}
 		}
 		x = getCorrect_longitude(x);
 		if(iPos >= 0){
 			fprintf(filpekG, ", [%lf, %lf, 0.0]", x, y);
-			if(iPos < modelSea.nBVArcsUse)
+			if(iPos < modelSea.nBVArcs)
 				fprintf(filPek2, "%d;%d;%d;%d;%lf;%lf\n", iPos, arcNr, modelSea.arc[arcNr].fromPointNr,
 					modelSea.arc[arcNr].toPointNr, modelSea.arc[arcNr].distance, modelSea.arc[arcNr].totCost);
 			else
@@ -5110,9 +3900,7 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 	}
 
 	fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-	fprintf(filpekG, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
-	if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
-		fprintf(filpekG, "]}\n");
+	fprintf(filpekG, "\"totCost\": %lf,\n\"totDistance\": %lf}}\n]}\n", totCost, totDist);
 	fclose(filpekG);
 	fclose(filPek2);
 
@@ -5120,11 +3908,6 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 	minX -= model.paramsAutoRoute.discretizationSizeLevel[0];
 	maxY += 2 * model.paramsAutoRoute.discretizationSizeLevel[0]; // to make room for full cells
 	maxX += 2 * model.paramsAutoRoute.discretizationSizeLevel[0]; // to make room for full cells
-
-	int heltal = roundDown((minX + 180) / model.paramsAutoRoute.discretizationSizeLevel[0]);
-	minX = -180 + heltal * model.paramsAutoRoute.discretizationSizeLevel[0];
-	heltal = roundDown((minY + 90) / model.paramsAutoRoute.discretizationSizeLevel[0]);
-	minY = -90 + heltal * model.paramsAutoRoute.discretizationSizeLevel[0];
 
 	if (minY < -90)
 		minY = 90;
@@ -5265,240 +4048,8 @@ int saveGoodCells() {
 
 }
 
-int releaseMemoryIter() {
-	int i;
-
-	free(model.physicalMapA.valueCell);
-	free(model.physicalMapB.valueCell);
-	free(model.physical_lessBuffer_MapA.valueCell);
-	free(model.physical_lessBuffer_MapB.valueCell);
-	free(model.fuelMapA.valueCell);
-	free(model.fuelMapB.valueCell);
-
-	int nExtra = model.nExtraNoGoAreas + 1;
-	for (i = 0; i < nExtra; i++) {
-		free(model.extraNoGoArea[i].mapA.valueCell);
-		free(model.extraNoGoArea[i].mapB.valueCell);
-	}
-
-	int nAlloc = (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2);
-	for (i = 0; i < nAlloc; i++) {
-		if (model.autoRoute[i].use == 1) {
-			free(model.autoRoute[i].smallerCells);
-		}
-	}
-	free(model.autoRoute);
-
-	for (i = 0; i < model.nNoder; i++) {
-		if (model.Noder[i].nAllocUtNoder > 0) {
-			free(model.Noder[i].UtNod);
-			free(model.Noder[i].UtNodCost);
-			free(model.Noder[i].outArcNr);
-		}
-	}
-	free(model.Noder);
-	free(model.arc);
-
-	return 0;
-}
-
-int setUpViaPartsForAltRoute(strAltRutt* altRutt, int ruttNr, json data) {
-	json dataIt, dataGeom, dataCoord, dataIt0, dataIt2;
-	int posNu, nCoords, i2, antal;
-
-	posNu = 0;
-	antal = data.size();
-	altRutt[ruttNr].sekvens = (strViaPos*)malloc(antal * sizeof(strViaPos));
-	for (auto it = data.begin(); it != data.end(); ++it) {
-		dataIt0 = it.value();
-		dataGeom = dataIt0["geometry"];
-		dataCoord = dataGeom["coordinates"];
-		if (dataGeom["type"] != "LineString" && dataGeom["type"] != "Point") {
-			postRequest("ERROR! in zoneConnections, the viaParts have to be either LineString or Point but is " + std::string(dataGeom["type"]) + ". I use no viaparts in this alt in OptiNav - autoRoute.", 0);
-			altRutt[ruttNr].nParts = 0;
-			return 0;
-		}
-
-		if (dataGeom["type"] == "LineString") {
-			altRutt[ruttNr].sekvens[posNu].nPoints = dataCoord.size();
-			altRutt[ruttNr].sekvens[posNu].x = (double*)malloc((altRutt[ruttNr].sekvens[posNu].nPoints) * sizeof(double));
-			altRutt[ruttNr].sekvens[posNu].y = (double*)malloc((altRutt[ruttNr].sekvens[posNu].nPoints) * sizeof(double));
-			nCoords = 0;
-			for (auto it2 = dataCoord.begin(); it2 != dataCoord.end(); ++it2) {
-				dataIt2 = it2.value();
-				i2 = 0;
-				for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
-					if (i2 == 0) {
-						altRutt[ruttNr].sekvens[posNu].x[nCoords] = it3.value();
-					}
-					else if (i2 == 1)
-						altRutt[ruttNr].sekvens[posNu].y[nCoords] = it3.value();
-					i2++;
-				}
-				nCoords++;
-			}
-		}
-		else {
-			altRutt[ruttNr].sekvens[posNu].nPoints = 1;
-			altRutt[ruttNr].sekvens[posNu].x = (double*)malloc((altRutt[ruttNr].sekvens[posNu].nPoints) * sizeof(double));
-			altRutt[ruttNr].sekvens[posNu].y = (double*)malloc((altRutt[ruttNr].sekvens[posNu].nPoints) * sizeof(double));
-			nCoords = 0;
-			i2 = 0;
-			for (auto it3 = dataCoord.begin(); it3 != dataCoord.end(); ++it3) {
-				if (i2 == 0) {
-					altRutt[ruttNr].sekvens[posNu].x[nCoords] = it3.value();
-				}
-				else if (i2 == 1)
-					altRutt[ruttNr].sekvens[posNu].y[nCoords] = it3.value();
-				i2++;
-			}
-		}
-		posNu++;
-	}
-	altRutt[ruttNr].nParts = posNu;
-
-	return 0;
-}
-
-
-int identifyAltRutter() {
-
-	int pos;
-	std::ifstream fil;
-	char* namn;
-	json data, dataGeo, dataGeo2, dataFeature, dataProp, dataGeo3, dataCoord;
-	json dataIt, dataIt2, dataIt3, dataIt4, dataIt5;
-
-	if (model.paramsAutoRoute.startZone <= 0 || model.paramsAutoRoute.endZone <= 0 || model.paramsAutoRoute.zoneConnectionsFileName == "") {
-		model.paramsAutoRoute.nAltRutter = 1;
-		model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
-		model.paramsAutoRoute.altRutt[0].nParts = 0;
-	}
-	else {
-		namn = (char*)malloc2(256 * sizeof(char));
-		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.zoneConnectionsFileName.c_str());
-		errlog("trying to open %s\n", namn);
-		if (!(check_file_exist(namn))) {
-			postRequest(std::string(namn) + " does not exist but given as input data to OptiNav-autoRoute.I quit\n", 1);
-		}
-		printf("opens %s\n", namn);
-		fil.open(namn);
-		try {
-			fil >> data;
-		}
-		catch (...) {
-			postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
-		}
-		fil.close();
-
-
-		model.paramsAutoRoute.nAltRutter = 0;
-		if (!data["zoneConnections"].is_null()) {
-			dataIt = data["zoneConnections"];
-			for (auto it = dataIt.begin(); it != dataIt.end(); ++it) {
-				dataIt2 = it.value();
-				if (dataIt2["startZone"] == model.paramsAutoRoute.startZone && dataIt2["endZone"] == model.paramsAutoRoute.endZone) {
-					dataIt3 = dataIt2["alternatives"];
-					model.paramsAutoRoute.nAltRutter = dataIt3.size();
-					if (model.paramsAutoRoute.nAltRutter <= 0) {
-						postRequest("ERROR! json file " + std::string(namn) + ", no given alt routes. I don't use any alternative routes in OptiNav-autoRoute.", 0);
-						model.paramsAutoRoute.nAltRutter = 1;
-						model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
-						model.paramsAutoRoute.altRutt[0].nParts = 0;
-						return 0;
-					}
-					model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(model.paramsAutoRoute.nAltRutter * sizeof(strAltRutt));
-					pos = 0;
-					for (auto it2 = dataIt3.begin(); it2 != dataIt3.end(); ++it2) {
-						dataIt4 = it2.value();
-						setUpViaPartsForAltRoute(model.paramsAutoRoute.altRutt, pos, dataIt4["viaSections"]);
-						pos++;
-					}
-				}
-			}
-		}
-		if(model.paramsAutoRoute.nAltRutter <= 0){
-			errlog("ERROR! json file %s is not valid or don't have the zone combination of start/end. I don't use any alternative routes in OptiNav-autoRoute.\n", 
-				namn);
-			model.paramsAutoRoute.nAltRutter = 1;
-			model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
-			model.paramsAutoRoute.altRutt[0].nParts = 0;
-		}
-		free(namn);
-		
-	}
-
-	return 0;
-}
-
-int setStartSlutCoords(int ruttAlt) {
-	int i, nAlloc, nPkter;
-	if (ruttAlt == 0) {
-		nAlloc = 0;
-		for (i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
-			if (nAlloc < model.paramsAutoRoute.altRutt[i].nParts)
-				nAlloc = model.paramsAutoRoute.altRutt[i].nParts;
-		}
-		nAlloc++;
-
-		model.paramsAutoRoute.startPoint_lat = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.startPoint_lon = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.endPoint_lat = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.endPoint_lon = (double*)malloc(nAlloc * sizeof(double));
-
-	}
-
-	model.paramsAutoRoute.nStartSlut = model.paramsAutoRoute.altRutt[ruttAlt].nParts + 1;
-	model.paramsAutoRoute.startPoint_lon[0] = model.paramsAutoRoute.startBas_lon;
-	model.paramsAutoRoute.startPoint_lat[0] = model.paramsAutoRoute.startBas_lat;
-	model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] = model.paramsAutoRoute.endBas_lon;
-	model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1] = model.paramsAutoRoute.endBas_lat;
-
-	for (i = 0; i < model.paramsAutoRoute.altRutt[ruttAlt].nParts; i++){
-		nPkter = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints;
-		model.paramsAutoRoute.startPoint_lon[i + 1] = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[nPkter - 1];
-		model.paramsAutoRoute.startPoint_lat[i + 1] = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].y[nPkter - 1];
-		model.paramsAutoRoute.endPoint_lon[i] = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[0];
-		model.paramsAutoRoute.endPoint_lat[i] = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].y[0];
-	}
-
-	return 0;
-}
-
-int identifyZonesStartEnd() {
-	int nElement, *returnArr;
-	double* x, * y;
-	char* namn2;
-	Raster raster;
-
-	nElement = 2;
-	x = (double*)malloc(nElement * sizeof(double));
-	y = (double*)malloc(nElement * sizeof(double));
-	returnArr = (int*)malloc(nElement * sizeof(int));
-
-	x[0] = model.paramsAutoRoute.startBas_lon;
-	y[0] = model.paramsAutoRoute.startBas_lat;
-	x[1] = model.paramsAutoRoute.endBas_lon;
-	y[1] = model.paramsAutoRoute.endBas_lat;
-
-	namn2 = (char*)malloc(256 * sizeof(char));
-	sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.zonesFileName.c_str());
-	raster.open(namn2);
-	raster.GetRasterValues_intArray(1, nElement, x, y, returnArr);
-	model.paramsAutoRoute.startZone = returnArr[0];
-	model.paramsAutoRoute.endZone = returnArr[1];
-
-	// model.extraNoGoArea[i].mapA.valueCell = model.extraNoGoArea[i].rasterA.GetRasterBand_intArrTest(1, &(model.extraNoGoArea[i].mapA), model.boundingBox);
-	free(x);
-	free(y);
-	free(namn2);
-	free(returnArr);
-
-	return 0;
-}
-
 int genAutoRoute(std::string inputPath, std::string resultName) {
-	int nod1, nod2, i0, ii0;
+	int nod1, nod2, i0;
 	double dist, dist1, dist2;
 	long long Cost;
 	bool Reached;
@@ -5515,33 +4066,23 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 	loadParams_theRestOld(&(model.params));
 	loadParams_autoRoute(&(model.paramsAutoRoute));
 
-	identifyZonesStartEnd();
-	identifyAltRutter();
 
-	modelSea.Dijkstra.nodes = NULL;
+	int solveHere = 1;
+	if (solveHere == 1) {
+		modelSea.Dijkstra.nodes = NULL;
 
-	checkMinnesAnvandning(__LINE__);
-	if (model.paramsAutoRoute.newSeaRoutePathData == 1)
-		load_searoutes();
-	else
-		load_saved_searoutes();
-
-	checkMinnesAnvandning(__LINE__);
-	SattUppDijkstraNatverk3(&modelSea);
-
-	modelSea.BVArc = (int*)malloc2(modelSea.nNoder * sizeof(int));
-	modelSea.BVtempNodOrder = (int*)malloc2(modelSea.nNoder * sizeof(int));
-	modelSea.BVArcUse = (int*)malloc(modelSea.nNoder * sizeof(int));
-	model.paramsAutoRoute.nAllocSet[0] == 0;
-	model.paramsAutoRoute.nAllocSet[1] == 0;
-
-
-
-	for (ii0 = 0; ii0 < model.paramsAutoRoute.nAltRutter; ii0++) {
-		setStartSlutCoords(ii0);
 		checkMinnesAnvandning(__LINE__);
-		if (ii0 > 0)
-			releaseMemoryIter();
+		if (model.paramsAutoRoute.newSeaRoutePathData == 1)
+			load_searoutes();
+		else
+			load_saved_searoutes();
+
+		checkMinnesAnvandning(__LINE__);
+		SattUppDijkstraNatverk3(&modelSea);
+		checkMinnesAnvandning(__LINE__);
+
+		modelSea.BVArc = (int*)malloc2(modelSea.nNoder * sizeof(int));
+		modelSea.BVtempNodOrder = (int*)malloc2(modelSea.nNoder * sizeof(int));
 
 		for (i0 = 0; i0 < model.paramsAutoRoute.nStartSlut; i0++) {
 			nod1 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.startPoint_lat[i0], model.paramsAutoRoute.startPoint_lon[i0], &dist1);
@@ -5564,95 +4105,94 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 				printf("\nERROR! Did not manage to find a route from start to finish for seaRoute...\n");
 			}
 		}
+	}
+	writeSolutionToJson_seaRoute("seaRoute.geojson");//  model.params.resultPath + "/resAutoRoute.json");
 
-		writeSolutionToJson_seaRoute("seaRoute.geojson", ii0);//  model.params.resultPath + "/resAutoRoute.json");
+	//createCells();
+	createCells_new();
+	checkMinnesAnvandning(__LINE__);
 
-		createCells_new(); 
+	createCellNetwork();
+	checkMinnesAnvandning(__LINE__);
+	load_tss();
+	save_tss_geojson();
+	addArcs_tss();
+
+	int saveNodes = 0;
+	if (saveNodes == 1)
+		writeAllAutoNodesToGeojson(1);
+
+	int saveArcs = 0;
+	if (saveArcs == 1)
+		writeAllAutoArcsToGeojson(1);
+	checkMinnesAnvandning(__LINE__);
+
+	model.Dijkstra.nodes = NULL;
+	for (int iter = 0; iter < 2; iter++) {
+		
+
+		checkMinnesAnvandning(__LINE__);
+		SattUppDijkstraNatverk3(&model);
 		checkMinnesAnvandning(__LINE__);
 
-		createCellNetwork();
-		checkMinnesAnvandning(__LINE__);
-		load_tss();
-		save_tss_geojson(ii0);
-		addArcs_tss();
-		addArcs_viaPaths(ii0);
-		addArcs_betweenPaths();
+		nod1 = model.autoRoute_startNod;
+		nod2 = model.autoRoute_endNod; 
 
-		int saveNodes = 0;
-		if (saveNodes == 1)
-			writeAllAutoNodesToGeojson(1);
+		model.BVArc = (int*)malloc2(model.nNoder * sizeof(int));
+		model.BVtempNodOrder = (int*)malloc2(model.nNoder * sizeof(int));
 
-		int saveArcs = 0;
-		if (saveArcs == 1)
-			writeAllAutoArcsToGeojson(1);
-		checkMinnesAnvandning(__LINE__);
+		printf("\nsolving dijkstra's algorithm..");
 
-		model.Dijkstra.nodes = NULL;
-		for (int iter = 0; iter < nMAX_ITER; iter++) {
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+		/*
+		nod1 = 8096;
+		nod2 = model.autoRoute_endNod;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+		nod1 = 9979;
+		nod2 = model.autoRoute_endNod;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
 
 
+		nod1 = model.autoRoute_startNod;
+		nod2 = 3210;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+		nod1 = model.autoRoute_startNod;
+		nod2 = 3061;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+		nod1 = 3061;
+		nod2 = model.autoRoute_endNod;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+		nod1 = 3210;
+		nod2 = model.autoRoute_endNod;
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+		*/
+
+		printf("..done. Obj %lld\n", model.Dijkstra.OptCost);
+		if (Reached == true) {
+			dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
+			if (model.nBVArcs < 2) {
+				errlog("ERROR! Too few arcs %d in Dijkstra solution\n", model.nBVArcs);
+			}
+			else
+				writeSolutionToJson_autoRoute(resultName, iter);//  model.params.resultPath + "/resAutoRoute.json");
 			checkMinnesAnvandning(__LINE__);
-			SattUppDijkstraNatverk3(&model);
-			checkMinnesAnvandning(__LINE__);
-
-			nod1 = model.autoRoute_startNod;
-			nod2 = model.autoRoute_endNod;
-
-			if (ii0 == 0) {
-				model.BVArc = (int*)malloc2(model.nNoder * sizeof(int));
-				model.BVtempNodOrder = (int*)malloc2(model.nNoder * sizeof(int));
-			}
-
-			printf("\nsolving dijkstra's algorithm ii0 %d iter %d ..", ii0, iter);
-
-			AnropDijkstra2(nod1, nod2, &model, &Reached);
-
-			if (iter == nMAX_ITER - 1000) {
-				nod1 = 16468;
-				nod2 = 779;
-				AnropDijkstra2(nod1, nod2, &model, &Reached);
-				nod1 = 779;
-				nod2 = 469;
-				AnropDijkstra2(nod1, nod2, &model, &Reached);
-				dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
-				nod1 = 16468;
-				nod2 = 16470;
-				AnropDijkstra2(nod1, nod2, &model, &Reached);
-				nod1 = 16470;
-				nod2 = 16471;
-				AnropDijkstra2(nod1, nod2, &model, &Reached);
-				nod1 = 16471;
-				nod2 = 469;
-				AnropDijkstra2(nod1, nod2, &model, &Reached);
-			}
-
-			printf("..done. Obj %lld\n", model.Dijkstra.OptCost);
-			if (Reached == true) {
-				dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
-				if (model.nBVArcs < 2) {
-					errlog("ERROR! Too few arcs %d in Dijkstra solution\n", model.nBVArcs);
-				}
-				else
-					writeSolutionToJson_autoRoute(resultName, iter, ii0);//  model.params.resultPath + "/resAutoRoute.json");
-				checkMinnesAnvandning(__LINE__);
-			}
-			else {
-				errlog("ERROR! Did not manage to find a route from start to finish...\n");
-				printf("\nERROR! Did not manage to find a route from start to finish...\n");
-			}
-			if (iter == 0) {
-				// saveGoodCells();
-				// createCellNetwork2();
-				addArcsAroundSolution();
-			}
-			if (iter == 1) {
-				addArcsAroundSolution2();
-				//writeAllPathNodesToGeojson(model.nAutoPaths + model.nBVArcs);
-				//writeAllPathArcsToGeojson();
-
-			}
+		}
+		else {
+			errlog("ERROR! Did not manage to find a route from start to finish...\n");
+			printf("\nERROR! Did not manage to find a route from start to finish...\n");
+		}
+		if (iter == 0) {
+			// saveGoodCells();
+			// createCellNetwork2();
+			addArcsAroundSolution();
 		}
 	}
+
 
 
 	return 0;

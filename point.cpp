@@ -23,6 +23,7 @@
 ***********************************************************************************/
 
 #include "point.h"
+#include <stdlib.h>
 
 namespace erkir
 {
@@ -59,8 +60,8 @@ bool Point::isValid() const
 bool Point::operator==(const Point &other) const
 {
   static const double epsilon = 0.0001;
-  return std::abs(latitude().degrees() - other.latitude().degrees()) < epsilon &&
-         std::abs(longitude().degrees() - other.longitude().degrees()) < epsilon;
+  return abs(latitude().degrees() - other.latitude().degrees()) < epsilon &&
+         abs(longitude().degrees() - other.longitude().degrees()) < epsilon;
 }
 
 bool Point::operator!=(const Point &other) const

@@ -1012,37 +1012,11 @@ struct strExtraNoGo {
 	Raster::strPhysRaster mapB;
 };
 
-struct strViaPos {
-	int nPoints;
-	double* x;
-	double* y;
-};
-
-struct strAltRutt {
-	int nParts;
-	strViaPos* sekvens;
-};
-
 struct strParamsAutoRoute {
-	int nInSet[2];
-	int nAllocSet[2];
-	int* setCell[2];
-	int* setSmallCell[2];
-
-	double startBas_lon;
-	double startBas_lat;
-	double endBas_lon;
-	double endBas_lat;
-
-	std::string zonesFileName;
-	std::string zoneConnectionsFileName;
-	int startZone;
-	int endZone;
-
-	double* startPoint_lon;
-	double* startPoint_lat;
-	double* endPoint_lon;
-	double* endPoint_lat;
+	double startPoint_lon;
+	double startPoint_lat;
+	double endPoint_lon;
+	double endPoint_lat;
 
 	std::string searoutePathsName;
 	int newSeaRoutePathData;
@@ -1063,11 +1037,6 @@ struct strParamsAutoRoute {
 	std::string mapAutoRoutePhysicalAFileName;
 	std::string tssName;
 
-	int nStartSlut;
-	strAltRutt* altRutt;
-	int nAltRutter;
-
-	double* minLat_lonIndex;
 };
 
 struct strAutoCells {
@@ -1110,32 +1079,19 @@ struct strTss {
 	int lastTraffPos;
 	double firstTraffCoordKvot;
 	double lastTraffCoordKvot;
-	int autoPathNr;
-	double kvotCost;
-};
 
-struct strAutoPath {
 	int* nodNr;
 	double* nodCoord_y;
 	double* nodCoord_x;
 	int nNoder;
 	int nAllocNoder;
-	int type;
-	double kvotCost;
-
 };
 
 struct strModel
 {
-	int nBVArcsUse;
-	int* BVArcUse;
-
 	strParamsAutoRoute paramsAutoRoute;
 	strAutoCells* autoRoute;
 	strSeaRoute seaRoute;
-
-	int nAutoPaths;
-	strAutoPath* autoPath;
 
 	int nTss;
 	strTss* tss;
@@ -1192,8 +1148,6 @@ struct strModel
 	//Raster physicalMapRaster;
 	Raster::strPhysRaster physicalMapA;
 	Raster::strPhysRaster physicalMapB;
-	Raster::strPhysRaster physical_lessBuffer_MapA;
-	Raster::strPhysRaster physical_lessBuffer_MapB;
 	//Raster rasterPhysicalMapA;
 	//Raster rasterPhysicalMapB;
 
@@ -1270,8 +1224,7 @@ char *str_alloc_cpy(const char *data);
 char* str_alloc_cpyString(std::string data);
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
-int SattUppDijkstraNatverk3(strModel* model);
-int SattUppDijkstraNatverk3tmp(strModel* model);
+int SattUppDijkstraNatverk3(strModel *model);
 int ChangeArcCosts3(strModel* model);
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);
 double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost);
@@ -1365,7 +1318,7 @@ int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver
 long long getSecondsFromUTC(const char* time);
 
 int testCallWeatherFile();
-//int roundDown(double varde);
+int roundDown(double varde);
 
 void* malloc2(size_t size);
 void* calloc2(size_t count, size_t size);
@@ -1410,12 +1363,9 @@ void getRowColDblFromPhysicalMap(Raster::strPhysRaster physicalMap, double lat1,
 void getRowColDblFromNoGoMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl);
 int fixStormFiles(std::string inputPath);
 double get_nextKvotHeltal(double x, double xBas, double dx);
-int addAutoNodePath(int tssNr, double y, double x);
-int addArcsInOutFromPathNode(int nodNr, int tssNr, int prevNodNr, double distPrev);
-double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2);
+int addAutoNodeTss(int tssNr, double y, double x);
+int checkAllocNode(int nodNr) {
+int addArcsInOutFromTssNode(int nodNr, int tssNr, int prevNodNr, double distPrev);
 int checkAllocNode(int nodNr);
-int checkSameDir(double dY, double dX, double dY2, double dX2);
-int evalKaoutarData(std::string inputPath);
-
 
 #endif //PCH_H
