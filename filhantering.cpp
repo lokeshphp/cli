@@ -849,7 +849,7 @@ int char_to_intSpec(char *object)
 
 int reset_errlog()
 {
-	if (SKRIV_UT_NOTHING == 0) {
+	if (SKRIV_UT_NOTHING < 2) {
 		FILE* log;
 		std::string namn = resultPath + "/" + LOGFILE;// "/logfile.txt";
 		log = fopen(namn.c_str(), "w");
@@ -881,7 +881,7 @@ int errlog0(const char* format, ...)
 
 int errlog (const char *format, ...)
 {
-	if (SKRIV_UT_NOTHING == 0) {
+	if (SKRIV_UT_NOTHING <= 1) {
 		va_list args;
 		std::string namn;
 

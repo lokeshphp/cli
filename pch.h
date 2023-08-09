@@ -250,6 +250,9 @@ struct strParams
 	double eta_cost_early;
 	double eta_cost_late;
 
+	double calmWaterSpeedCompare;
+	double fuelCompare;
+
 	double maxDeviationPreferred_km;
 
 	double shipDraft;
@@ -400,6 +403,7 @@ struct strChannel {
 	double* distanceFromStart;
 
 	int nodDelay[2];
+	int nodDelay_prefPath[2];
 	//double* polygon_x[2];
 	//double* polygon_y[2];
 	//strBoundBox polygon_boundingBox[2];
@@ -449,6 +453,7 @@ struct strNodeSeq
 	int restrictedLevel;
 
 	int* nodDelay;
+	int* nodDelay_prefPath;
 };
 
 struct strNetwork
@@ -706,6 +711,23 @@ struct strValuesNow {
 	double WaveFArc;
 	double CurrentFArc;
 	double DelayFArc;
+
+	double compare_route_endTime_h;
+	double compare_fuelConsumption_ton;
+	double compare_fuelEcaMain;
+	double compare_fuelEcaAux;
+	double compare_fuelNotEcaMain;
+	double compare_fuelNotEcaAux;
+	double compare_emission;
+	double compare_emissionEcaMain;
+	double compare_emissionEcaAux;
+	double compare_emissionNotEcaMain;
+	double compare_emissionNotEcaAux;
+	double compare_averSpeed;
+	double compare_totalDistance_kts;
+	double compare_totalTime_h;
+	double compare_dollar_cost;
+
 
 };
 
@@ -1059,9 +1081,13 @@ struct strParamsAutoRoute {
 	double factorExtraCover;
 	double maxBaseFeasibleCost;
 
+	int usePenalty_ECA;
+	double eca_penalty;
+
 	std::string mapAutoRoutePhysicalBFileName;
 	std::string mapAutoRoutePhysicalAFileName;
 	std::string tssName;
+	std::string corridorsName;
 
 	int nStartSlut;
 	strAltRutt* altRutt;
@@ -1120,7 +1146,9 @@ struct strAutoPath {
 	double* nodCoord_x;
 	int nNoder;
 	int nAllocNoder;
-	int type;
+	int type; // 0 - tss, 1 - corridor, 
+			  // 2 - connector to tss/corridor, 
+			  // 3 - new connectors to nodes along SP
 	double kvotCost;
 
 };
@@ -1139,6 +1167,8 @@ struct strModel
 
 	int nTss;
 	strTss* tss;
+	int nAutoCorridors;
+	strTss* autoCorridors;
 	int autoRoute_startNod;
 	int autoRoute_endNod;
 
@@ -1152,6 +1182,10 @@ struct strModel
 	FILE* filpek;
 	strDelayToEnd** delayRouteToEnd;
 	strDelayToEnd** delayRouteToEnd_channel;
+
+	strDelayToEnd** delayRouteToEnd_prefPath;
+	strDelayToEnd** delayRouteToEnd_channel_prefPath;
+
 
 	int nErrorCoordBB;
 
@@ -1357,8 +1391,8 @@ int check_useRaster_longitude(int weatherNr, int filNr);
 int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
 int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting);
-int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot);
-int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName);
+int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, int runAlt = 0);
+int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName, int useFixCalmWaterSpeed = 0, int iter = 0);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
 int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
@@ -1384,6 +1418,8 @@ std::string stringDateFromUTCSeconds(long long seconds);
 double get_colDblFromWeatherFile(int weatherNr, double lon);
 
 int solve_SP_delay();
+int solve_SP_delayPrefPath();
+
 int testAnrop(strModel* modelDelay, int nod2);
 double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int delayNr, double bearing, double lat, double lon, double calmWaterSpeed = -1.0);
 double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, double calmWaterSpeed = -1.0, double fuelFactorMain = -1.0);

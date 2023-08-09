@@ -26,7 +26,7 @@ std::string weatherDataPath;
 
 std::string resultPath;
 std::string LOGFILE;
-int SKRIV_UT_NOTHING = 1;
+int SKRIV_UT_NOTHING = 2;
 int SEND_POST_REQUEST = 1;
 
 extern strModel model;
@@ -296,7 +296,7 @@ void postRequest(std::string errorMessage, int endProgram) {
 	}
 
 	errorMessage.append(" hindcast: " + std::to_string(model.params.hindCast));
-	if(SKRIV_UT_NOTHING == 0)
+	if(SKRIV_UT_NOTHING <= 1)
 		errlog("postRequest: %s", errorMessage.c_str());
 	printf("postRequest: %s\n", errorMessage.c_str());
 

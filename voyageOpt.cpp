@@ -40,6 +40,7 @@ using std::chrono::system_clock;
 
 strModel model;
 strModel modelDelay;
+strModel modelDelay_prefPath;
 
 extern std::string resultPath;
 extern long long MAXVARDE_NATVERK;
@@ -567,7 +568,8 @@ int writeAllArcsToGeojson(char* pszFilename)
 
 				if (nextLevel > 0) {
 					if (i1 == model.params.preferredPathOrtoPos[i] &&
-						nod2 == model.params.preferredPathOrtoPos[nextLevel] && i == nextLevel - 1 && model.params.preferredPathStraightLineFeasibleFrom[i] == 0)
+						nod2 == model.params.preferredPathOrtoPos[nextLevel] && i == nextLevel - 1 && 
+						(model.params.preferredPathStraightLineFeasibleFrom[i] == 0 || model.params.max_changeDirection == 0))
 						prefPath = 1;
 					else
 						prefPath = 0;
@@ -1194,7 +1196,7 @@ void fixDirectionLetters(double dir, char* namn, int alt) {
 
 }
 
-double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvot, int startSlutArc, double timeExact, double delayFactor) {
+double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvot, int startSlutArc, double timeExact, double delayFactor, int useFixCalmWaterSpeed) {
 	int i, cNr, tidInt, delayNr;
 	double checkFactor, speedNu, calcDelayFactor, checkSpeedDiffCurrent, tidNu, tidCalmWater;
 	double windSpeed_x, windSpeed_y, waveDir_y, waveDir_x, dist, tidTot, distNu;
@@ -1291,8 +1293,12 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 		if (fixTime > 0) {
 			if(fixTime < 9999)
 				calmWaterSpeed = model.network.channel[cNr].distance_km * (endKvot - startKvot) / fixTime;
-			else
-				calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
+			else {
+				if (useFixCalmWaterSpeed == 0)
+					calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
+				else
+					calmWaterSpeed = model.params.calmWaterSpeedCompare;
+			}
 
 			//printf("\narcNr %d levels %d %d pointPos %d %d cNr %d dist %.3lf arcDist %.3lf fixTime %.3lf\n", arcNr, 
 			//	model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, model.arc[arcNr].fromPointNr, 
@@ -1300,9 +1306,10 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 			//	model.network.channel[cNr].distance_km, model.arc[arcNr].distance, fixTime);
 		}
 		else {
-			calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
-			//if (arcNr == 96)
-			//	printf("calmWaterSpeed %.3lf\n", calmWaterSpeed);
+			if (useFixCalmWaterSpeed == 0)
+				calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
+			else
+				calmWaterSpeed = model.params.calmWaterSpeedCompare;
 		}
 		model.functions.valuesNow.calmWaterSpeed = calmWaterSpeed;
 		if (printGlobal == 1) {
@@ -1480,7 +1487,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					model.functions.valuesNow.CurrentFArc += (baseGroundSpeed - calmWaterSpeed) * timeArcSTW;
 
 					//if (SKRIV_UT_NOTHING == 0) {
-					//	errlog("%d %lf %.2lf %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf"
+					//	errlog("aaa %d %lf %.2lf %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf"
 					//		" %lf %lf %lf %lf\n",
 					//		arcNr, startKvot, endKvot, i, tidTot, delayFactor, calmWaterSpeed / model.params.knots_to_km, speedOverGround / model.params.knots_to_km,
 					//		distNu / model.params.knots_to_km * useKvotNu, timeArcSTW, timeArc, -speedDiffWind* timeArcSTW / model.params.knots_to_km,
@@ -1518,7 +1525,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					//model.functions.valuesNow.DelayFArc += calmWaterSpeed * (1 / delayFactor - 1) * timeArcSTW;
 					
 					//if (SKRIV_UT_NOTHING == 0) {
-					//	errlog("%d %lf %.2lf %d %lf %lf %lf %lf"
+					//	errlog("bbb %d %lf %.2lf %d %lf %lf %lf %lf"
 					//		" %lf %lf %lf %lf %lf %lf %lf %lf %lf"
 					//		" %lf %lf %lf %lf\n",
 					//		arcNr, startKvot, endKvot, i, tidTot, delayFactor, calmWaterSpeed / model.params.knots_to_km, speedOverGround / model.params.knots_to_km,
@@ -2875,7 +2882,7 @@ int plotPathTimeVisuellt(int arcNr, double time1, double time2) {
 	return 0;
 }
 
-int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName) {
+int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName, int useFixCalmWaterSpeed, int iter) {
 	int lev1, lev2, pointNr1, pointNr2, timmar, minuter, sekunder;
 	int nChangeBearingBetween, nChange_lessXdegrees;
 	struct tm tmBas = { 0 };
@@ -2894,20 +2901,24 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 	//printf("arcNr %d levels %d %d pointNr %d %d nPhysicalLevels %d\n", arcNr, lev1, lev2, pointNr1, pointNr2, model.network.nPhysicalLevels);
 	
 	int prefPath = 0;
+	if (arcNr == 26)
+		arcNr = arcNr;
 	if (lev1 >= 0 && lev2 >= 0) {
 		if (pointNr1 == model.params.preferredPathOrtoPos[lev1] && pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1
-			&& model.params.preferredPathStraightLineFeasibleFrom[lev1] == 0) {
+			&& (model.params.preferredPathStraightLineFeasibleFrom[lev1] == 0 || model.params.max_changeDirection == 0 || iter == 1)) {
 			prefPath = 1;
 		}
 
 	}
 	else {
 		if (lev1 >= 0) {
-			if (model.network.channel[-lev2 - 1].straightArcFeasible_toChannelFromPrefPath == 0 && pointNr1 == model.params.preferredPathOrtoPos[lev1])
+			if ((model.network.channel[-lev2 - 1].straightArcFeasible_toChannelFromPrefPath == 0 || model.params.max_changeDirection == 0 || iter == 1) &&
+				pointNr1 == model.params.preferredPathOrtoPos[lev1])
 				prefPath = 1;
 		}
 		if (lev2 >= 0) {
-			if (model.network.channel[-lev1 - 1].straightArcFeasible_fromChannelToPrefPath == 0 && pointNr2 == model.params.preferredPathOrtoPos[lev2])
+			if ((model.network.channel[-lev1 - 1].straightArcFeasible_fromChannelToPrefPath == 0 || model.params.max_changeDirection == 0 || iter == 1) &&
+				pointNr2 == model.params.preferredPathOrtoPos[lev2])
 				prefPath = 1;
 		}
 	}
@@ -3013,6 +3024,8 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 		arcNr = arcNr;
 	if (lev2 < model.network.nPhysicalLevels) {
 		// nSplit = genSplitsArc(arcNr, p1, p2, prefPath);
+		if (arcNr == 3)
+			arcNr = arcNr;
 		nSplit = genSplitsArcNew2(arcNr, p1, p2, prefPath);
 	}
 	else { // last arc or a channel
@@ -3085,7 +3098,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 		//if (model.arc[arcNr].time > 0.001 || model.arc[arcNr].distance > 0.001)
 		if (model.arc[arcNr].fromLevel == 87 && ii == 1)
 			arcNr = arcNr;
-		timeCheck = evalWeatherDataAlongArcSection(arcNr, startKvot, endKvot, startSlutArc, *timeExact, delayFactor) - (*timeExact);
+		timeCheck = evalWeatherDataAlongArcSection(arcNr, startKvot, endKvot, startSlutArc, *timeExact, delayFactor, useFixCalmWaterSpeed) - (*timeExact);
 		if (timeCheck < 0.001)
 			continue;
 
@@ -3107,7 +3120,7 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 		accumTime += timeCheck;
 		*timeExact += timeCheck;
 
-		if (filpekG == NULL)
+		if (filpekG == NULL && solName == "-")
 			return 0;
 
 		if(timeCheck > 0.01)
@@ -3116,338 +3129,340 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 			speedOnGround = 0;
 
 
-		if (ii > 0) {
-			time_t test = mktime(&tmBas);
-			if (test == -1) {
-				printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
-					tmBas.tm_year,
-					tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
-				postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+		if (filpekG != NULL) {
+			if (ii > 0) {
+				time_t test = mktime(&tmBas);
+				if (test == -1) {
+					printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+						tmBas.tm_year,
+						tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+					postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+				}
 			}
-		}
-		fixReportDate(tmBas, startTime);
-		tmBas.tm_min += timeCheck * 60;
-		if (*posReport > 0)
-			fprintf(filpekG, ",\n");
-		(*posReport)++;
-		fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"dateUTC\":\"%s\",\n",
-			startTime);
-		fprintf(filpekG, "\"solutionID\":\"%s\",\n",
-			solName.c_str());
-		fprintf(filpekG, "    \"arcNr\":%d,\n", arcNr);
-		fprintf(filpekG, "    \"splitPos\":%d,\n", ii);
-		fprintf(filpekG, "    \"arc obj cost\":%.2lf,\n", model.arc[arcNr].totCost * (endKvot - startKvot));
-		fprintf(filpekG, "    \"level from\":%d,\n", model.arc[arcNr].fromLevel);
-		fprintf(filpekG, "    \"posNodefrom\":%d,\n", model.arc[arcNr].fromPointNr);
+			fixReportDate(tmBas, startTime);
+			tmBas.tm_min += timeCheck * 60;
+			if (*posReport > 0)
+				fprintf(filpekG, ",\n");
+			(*posReport)++;
+			fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"dateUTC\":\"%s\",\n",
+				startTime);
+			fprintf(filpekG, "\"solutionID\":\"%s\",\n",
+				solName.c_str());
+			fprintf(filpekG, "    \"arcNr\":%d,\n", arcNr);
+			fprintf(filpekG, "    \"splitPos\":%d,\n", ii);
+			fprintf(filpekG, "    \"arc obj cost\":%.2lf,\n", model.arc[arcNr].totCost * (endKvot - startKvot));
+			fprintf(filpekG, "    \"level from\":%d,\n", model.arc[arcNr].fromLevel);
+			fprintf(filpekG, "    \"posNodefrom\":%d,\n", model.arc[arcNr].fromPointNr);
 
-		fprintf(filpekG, "    \"arcStart\":%d,\n", model.arc[arcNr].fromTime);
-		fprintf(filpekG, "    \"accumTimeStart_h\":%.2lf,\n", timeOld);
-		if (model.arc[arcNr].fromLevel >= 0 && ii == 0) {
-			diffTime = timeOld - model.network.physicalLev[model.arc[arcNr].fromLevel].midTimeArrive;
-			fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":%.2lf,\n", diffTime);
-			if (diffTime > model.functions.valuesNow.maxDiffTime) {
-				model.functions.valuesNow.maxDiffTime = diffTime;
-				model.functions.valuesNow.maxDiffTime_level = model.arc[arcNr].fromLevel;
-			}
-			if (diffTime < model.functions.valuesNow.minDiffTime) {
-				model.functions.valuesNow.minDiffTime = diffTime;
-				model.functions.valuesNow.minDiffTime_level = model.arc[arcNr].fromLevel;
-			}
-		}
-		else {
-			fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":-99999, \n");
-			diffTime = 0;
-		}
-		fprintf(filpekG, "    \"level to\":%d,\n", model.arc[arcNr].toLevel);
-		fprintf(filpekG, "    \"posNodeTo\":%d,\n", model.arc[arcNr].toPointNr);
-		if(ii == nSplit - 1)
-			fprintf(filpekG, "    \"toTime\":%d,\n", model.arc[arcNr].toTime);
-		else
-			fprintf(filpekG, "    \"toTime\":-1,\n");
-
-		if (startSlutArc == 0) {
-			fprintf(filpekG, "    \"hours\":%.2lf, \"checkHours\":%.3lf, \"distance_nm\":%.1lf,\n",
-				model.arc[arcNr].time * (endKvot - startKvot), timeCheck, 
-				model.arc[arcNr].distance * (endKvot - startKvot) / model.params.knots_to_km);
-			model.functions.valuesNow.accumDistance += model.arc[arcNr].distance * (endKvot - startKvot);
-
-			fprintf(filpekG, "    \"WindF\":%.3lf, \"WaveF\":%.3lf, \"CurrentF\":%.3lf, \"DelayF\":%.3lf, \"allWeatherFactors\": %.3lf,\n", 
-				model.functions.valuesNow.WindF / model.params.knots_to_km,
-				model.functions.valuesNow.WaveF / model.params.knots_to_km,
-				model.functions.valuesNow.CurrentF / model.params.knots_to_km,
-				model.functions.valuesNow.DelayF / model.params.knots_to_km,
-				(model.functions.valuesNow.WindF + model.functions.valuesNow.WaveF +
-					model.functions.valuesNow.CurrentF + model.functions.valuesNow.DelayF) / model.params.knots_to_km);
-
-			fprintf(filpekG, "    \"accumDistance_km\":%.2lf, \"distanceLeft_nm\":%.1lf,\n", model.functions.valuesNow.accumDistance,
-				(model.functions.valuesNow.totDistance - model.functions.valuesNow.accumDistance) / model.params.knots_to_km);
-			if (ii < nSplit - 1) {
-				bearing = calcBearingFromToCoords(model.network.yCoord[model.network.posSplitCoord[ii]],
-					model.network.xCoord[model.network.posSplitCoord[ii]],
-					model.network.yCoord[model.network.posSplitCoord[ii + 1]],
-					model.network.xCoord[model.network.posSplitCoord[ii + 1]]);
-				nChangeBearingBetween = model.network.posSplitCoord[ii + 1] - model.network.posSplitCoord[ii] - 1;
-				if(nChangeBearingBetween == 0)
-					nChange_lessXdegrees = 0;
-				else
-					nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.posSplitCoord[ii + 1]);
+			fprintf(filpekG, "    \"arcStart\":%d,\n", model.arc[arcNr].fromTime);
+			fprintf(filpekG, "    \"accumTimeStart_h\":%.2lf,\n", timeOld);
+			if (model.arc[arcNr].fromLevel >= 0 && ii == 0) {
+				diffTime = timeOld - model.network.physicalLev[model.arc[arcNr].fromLevel].midTimeArrive;
+				fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":%.2lf,\n", diffTime);
+				if (diffTime > model.functions.valuesNow.maxDiffTime) {
+					model.functions.valuesNow.maxDiffTime = diffTime;
+					model.functions.valuesNow.maxDiffTime_level = model.arc[arcNr].fromLevel;
+				}
+				if (diffTime < model.functions.valuesNow.minDiffTime) {
+					model.functions.valuesNow.minDiffTime = diffTime;
+					model.functions.valuesNow.minDiffTime_level = model.arc[arcNr].fromLevel;
+				}
 			}
 			else {
-				if (ii > 0) {
+				fprintf(filpekG, "    \"arrive-midTimeArriveDiff_h\":-99999, \n");
+				diffTime = 0;
+			}
+			fprintf(filpekG, "    \"level to\":%d,\n", model.arc[arcNr].toLevel);
+			fprintf(filpekG, "    \"posNodeTo\":%d,\n", model.arc[arcNr].toPointNr);
+			if (ii == nSplit - 1)
+				fprintf(filpekG, "    \"toTime\":%d,\n", model.arc[arcNr].toTime);
+			else
+				fprintf(filpekG, "    \"toTime\":-1,\n");
+
+			if (startSlutArc == 0) {
+				fprintf(filpekG, "    \"hours\":%.2lf, \"checkHours\":%.3lf, \"distance_nm\":%.1lf,\n",
+					model.arc[arcNr].time * (endKvot - startKvot), timeCheck,
+					model.arc[arcNr].distance * (endKvot - startKvot) / model.params.knots_to_km);
+				model.functions.valuesNow.accumDistance += model.arc[arcNr].distance * (endKvot - startKvot);
+
+				fprintf(filpekG, "    \"WindF\":%.3lf, \"WaveF\":%.3lf, \"CurrentF\":%.3lf, \"DelayF\":%.3lf, \"allWeatherFactors\": %.3lf,\n",
+					model.functions.valuesNow.WindF / model.params.knots_to_km,
+					model.functions.valuesNow.WaveF / model.params.knots_to_km,
+					model.functions.valuesNow.CurrentF / model.params.knots_to_km,
+					model.functions.valuesNow.DelayF / model.params.knots_to_km,
+					(model.functions.valuesNow.WindF + model.functions.valuesNow.WaveF +
+						model.functions.valuesNow.CurrentF + model.functions.valuesNow.DelayF) / model.params.knots_to_km);
+
+				fprintf(filpekG, "    \"accumDistance_km\":%.2lf, \"distanceLeft_nm\":%.1lf,\n", model.functions.valuesNow.accumDistance,
+					(model.functions.valuesNow.totDistance - model.functions.valuesNow.accumDistance) / model.params.knots_to_km);
+				if (ii < nSplit - 1) {
 					bearing = calcBearingFromToCoords(model.network.yCoord[model.network.posSplitCoord[ii]],
 						model.network.xCoord[model.network.posSplitCoord[ii]],
-						p2.latitude().degrees(), p2.longitude().degrees());
-					nChangeBearingBetween = model.network.nCoords - model.network.posSplitCoord[ii] - 1;
+						model.network.yCoord[model.network.posSplitCoord[ii + 1]],
+						model.network.xCoord[model.network.posSplitCoord[ii + 1]]);
+					nChangeBearingBetween = model.network.posSplitCoord[ii + 1] - model.network.posSplitCoord[ii] - 1;
 					if (nChangeBearingBetween == 0)
 						nChange_lessXdegrees = 0;
 					else
-						nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.nCoords - 1);
+						nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.posSplitCoord[ii + 1]);
 				}
 				else {
-					bearing = p1.bearingTo(p2);
-					nChangeBearingBetween = model.network.nCoords - model.network.posSplitCoord[ii] - 1;
-					nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.nCoords - 1);
+					if (ii > 0) {
+						bearing = calcBearingFromToCoords(model.network.yCoord[model.network.posSplitCoord[ii]],
+							model.network.xCoord[model.network.posSplitCoord[ii]],
+							p2.latitude().degrees(), p2.longitude().degrees());
+						nChangeBearingBetween = model.network.nCoords - model.network.posSplitCoord[ii] - 1;
+						if (nChangeBearingBetween == 0)
+							nChange_lessXdegrees = 0;
+						else
+							nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.nCoords - 1);
+					}
+					else {
+						bearing = p1.bearingTo(p2);
+						nChangeBearingBetween = model.network.nCoords - model.network.posSplitCoord[ii] - 1;
+						nChange_lessXdegrees = identify_nChanges_lessXdegrees(model.network.posSplitCoord[ii], model.network.nCoords - 1);
+					}
 				}
-			}
 
-			fixPositionString_latLon(model.network.yCoord[model.network.posSplitCoord[ii]],
-				model.network.xCoord[model.network.posSplitCoord[ii]], startTime);
-			fprintf(filpekG, "    \"Position_lat_lon\":\"%s\", \"bearing\":%.0lf,\n", startTime, bearing);
-			//fprintf(filpekG, "    \"Position_lat_lon\":\"%.3lf, %.3lf\", \"bearing\":%.0lf,\n",
-			//	model.network.yCoord[model.network.posSplitCoord[ii]],
-			//	model.network.xCoord[model.network.posSplitCoord[ii]], bearing);
+				fixPositionString_latLon(model.network.yCoord[model.network.posSplitCoord[ii]],
+					model.network.xCoord[model.network.posSplitCoord[ii]], startTime);
+				fprintf(filpekG, "    \"Position_lat_lon\":\"%s\", \"bearing\":%.0lf,\n", startTime, bearing);
+				//fprintf(filpekG, "    \"Position_lat_lon\":\"%.3lf, %.3lf\", \"bearing\":%.0lf,\n",
+				//	model.network.yCoord[model.network.posSplitCoord[ii]],
+				//	model.network.xCoord[model.network.posSplitCoord[ii]], bearing);
 
 
-			diff = getDiff_anglesDegrees(bearing, model.functions.valuesNow.bearingOldWpt);
-			//printf("bearing %.1lf oldBearing %.1lf diff %.1lf limit %.2lf\n", bearing, model.functions.valuesNow.bearingOldWpt,
-			//	diff, model.params.report_minBearingDiffWpt);
-			if (diff >= model.params.report_minBearingDiffWpt || lev1 < 0) {
-				(model.functions.valuesNow.Wpt)++;
-				fprintf(filpekG, "    \"Wpt\":%d,\n", model.functions.valuesNow.Wpt);
-				model.functions.valuesNow.bearingOldWpt = bearing;
-			}
-			//else {
-			//	fprintf(filpekG, "    \"Wpt\":,\n");
-			//}
+				diff = getDiff_anglesDegrees(bearing, model.functions.valuesNow.bearingOldWpt);
+				//printf("bearing %.1lf oldBearing %.1lf diff %.1lf limit %.2lf\n", bearing, model.functions.valuesNow.bearingOldWpt,
+				//	diff, model.params.report_minBearingDiffWpt);
+				if (diff >= model.params.report_minBearingDiffWpt || lev1 < 0) {
+					(model.functions.valuesNow.Wpt)++;
+					fprintf(filpekG, "    \"Wpt\":%d,\n", model.functions.valuesNow.Wpt);
+					model.functions.valuesNow.bearingOldWpt = bearing;
+				}
+				//else {
+				//	fprintf(filpekG, "    \"Wpt\":,\n");
+				//}
 
-			fprintf(filpekG, "    \"nChangeBearingInbetweenNodes\":%d,\n", nChangeBearingBetween);
-			fprintf(filpekG, "    \"nChangeBearing_lessThanXdegrees\":%d,\n", nChange_lessXdegrees);
-			//}
-			if (arcNr == 22)
-				arcNr = arcNr; // checkpfg
-			if (lev1 < 0 && lev2 < 0) {
+				fprintf(filpekG, "    \"nChangeBearingInbetweenNodes\":%d,\n", nChangeBearingBetween);
+				fprintf(filpekG, "    \"nChangeBearing_lessThanXdegrees\":%d,\n", nChange_lessXdegrees);
+				//}
+				if (arcNr == 22)
+					arcNr = arcNr; // checkpfg
+				if (lev1 < 0 && lev2 < 0) {
 
-				fuel_day = (model.functions.valuesNow.fuel_main) * 24 / (timeCheck - model.network.channel[-lev1 - 1].waitingTime);
+					fuel_day = (model.functions.valuesNow.fuel_main) * 24 / (timeCheck - model.network.channel[-lev1 - 1].waitingTime);
+				}
+				else {
+					if (timeCheck > 0.001) {
+						//	fuel_day = (model.arc[arcNr].fuel_aux * (endKvot - startKvot) + model.arc[arcNr].fuel_auxEca * (endKvot - startKvot)
+						//		+ model.arc[arcNr].fuel_eca * (endKvot - startKvot) + model.arc[arcNr].fuel_noEca * (endKvot - startKvot)) * 24 / timeCheck;
+						//fuel_day = (model.arc[arcNr].fuel_eca * (endKvot - startKvot) + model.arc[arcNr].fuel_noEca * (endKvot - startKvot)) * 24 / timeCheck;
+						fuel_day = (model.functions.valuesNow.fuel_main) * 24 / timeCheck;
+						//fuel_dayCheck = (model.functions.valuesNow.fuel_main * (endKvot - startKvot)) * 24 / timeCheck;
+					}
+					else {
+						fuel_day = 0;
+						//fuel_dayCheck = 0;
+					}
+				}
+				fprintf(filpekG, "    \"fuelConsumptionMain_ton_day\":%.5lf, \"fuelECA_ton\":%.3lf\n",
+					fuel_day,
+					(1 - model.arc[arcNr].fuelQualityKvot) * (model.functions.valuesNow.fuel_main + model.functions.valuesNow.fuel_aux));
+
+				//fprintf(filpekG, "    ,\"fuelConsumptionMain_ton_dayCheck\":%.1lf, \"fuelECA_tonCheck\":%.3lf\n",
+				//	fuel_dayCheck,
+				//	(model.functions.valuesNow.fuel_aux + model.functions.valuesNow.fuel_main) * (endKvot - startKvot) * (1 - fuelQualityKvot));
+
+				if (filpek10 != NULL) {
+					if (ii > 0)
+						fprintf(filpek10, "\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
+
+					fprintf(filpek10, "%.3lf\t%.3lf\t%.3lf\t%.3lf\t%s\t%.3lf\t%.3lf\t%.3lf",
+						timeCheck, *timeExact, diffTime, model.functions.valuesNow.accumDistance,
+						startTime, bearing, fuel_day, model.functions.valuesNow.worstStormValue);
+				}
+
+
+
+				if ((lev1 >= 0 || lev2 >= 0) && model.arc[arcNr].speedSetting >= 0) {
+					fprintf(filpekG, ", \"current_kts\":%.1lf\n",
+						model.functions.valuesNow.current / model.params.knots_to_km);
+					fprintf(filpekG, ", \"speedSetting\":%d, \"speedCalmWater_kts\":%.1lf, \"speedOnGround_kts\":%.1lf, \"rpm\":%.2lf,\n",
+						model.arc[arcNr].speedSetting, model.functions.valuesNow.calmWaterSpeed / model.params.knots_to_km,
+						speedOnGround / model.params.knots_to_km,
+						speedSetting.rpm[model.arc[arcNr].speedSetting]);
+					fprintf(filpekG, "    \"windSpeed_km_h\":%.3lf, \"relativeWindDirection_degrees\":%.0lf,\n",
+						model.functions.valuesNow.windSpeed, model.functions.valuesNow.relWindDir);
+					fprintf(filpekG, "    \"waveHeight_m\":%.3lf, \"wavePeriod_s\":%.3lf,\n    \"relativeWaveDirection_degrees\":%.0lf,\n",
+						model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
+						model.functions.valuesNow.relWaveDir);
+					if (model.functions.valuesNow.waveHeight < model.functions.maxWaveHeight_warning)
+						fprintf(filpekG, "    \"waveHeight_level\":\"normal\",\n");
+					else
+						fprintf(filpekG, "    \"waveHeight_level\":\"high\",\n");
+
+					if (model.functions.valuesNow.waveHeight > model.functions.valuesNow.maxWaveHeight) {
+						model.functions.valuesNow.maxWaveHeight = model.functions.valuesNow.waveHeight;
+						model.functions.valuesNow.maxWaveHeight_tp = *timeExact - timeCheck;
+					}
+
+					model.functions.valuesNow.totFuel_mainMovingNoCorridors += model.functions.valuesNow.fuel_main;
+					model.functions.valuesNow.totTime_movingNoCorridors += timeCheck;
+					model.functions.valuesNow.sumSpeedOnWater += model.functions.valuesNow.speedOnWater * timeCheck;
+
+					model.functions.valuesNow.totDistance_movingNoCorridors += model.arc[arcNr].distance * (endKvot - startKvot);
+
+
+					if (model.functions.valuesNow.windReal < 1000 || model.functions.valuesNow.windDirReal_lastKnown < 1000) {
+						if (model.functions.valuesNow.windReal < 1000) {
+							model.functions.valuesNow.windDirReal_lastKnown = model.functions.valuesNow.windDirReal;
+							model.functions.valuesNow.windReal_lastKnown = model.functions.valuesNow.windReal;
+						}
+						fixDirectionLetters(model.functions.valuesNow.windDirReal_lastKnown, startTime, 1);
+						if (model.functions.valuesNow.windReal > 1000)
+							model.functions.valuesNow.windReal = model.functions.valuesNow.windReal;
+						fprintf(filpekG, "    \"windSpeedReal_knots\":%.1lf, \"windDirection_degrees\":%.0lf, \"windDir_letters\":\"%s\",\n",
+							model.functions.valuesNow.windReal_lastKnown / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
+					}
+					if (model.functions.valuesNow.currentReal < 1000 || model.functions.valuesNow.currentReal_lastKnown < 1000) {
+						if (model.functions.valuesNow.currentReal < 1000)
+							model.functions.valuesNow.currentReal_lastKnown = model.functions.valuesNow.currentReal;
+						fprintf(filpekG, "    \"currentReal_knots\":%.3lf, \"currentDirection_degrees\":%.0lf,\n",
+							model.functions.valuesNow.currentReal_lastKnown / model.params.knots_to_km, model.functions.valuesNow.currentDirReal);
+					}
+					if (model.functions.valuesNow.waveDirReal < 1000 || model.functions.valuesNow.waveDirReal_lastKnown < 1000) {
+						if (model.functions.valuesNow.waveDirReal < 1000)
+							model.functions.valuesNow.waveDirReal_lastKnown = model.functions.valuesNow.waveDirReal;
+						fixDirectionLetters(model.functions.valuesNow.waveDirReal_lastKnown, startTime, 1);
+						fprintf(filpekG, "    \"waveDirection_degrees\":%.0lf,\"waveDir_letters\":\"%s\",\n",
+							model.functions.valuesNow.waveDirReal, startTime);
+					}
+					if (printGlobal == 1)
+						printf("arcNr %d levels %d %d wavePeriod %.3lf dist %.3lf time %.3lf speedOnGround %.3lf\n",
+							arcNr, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, model.functions.valuesNow.wavePeriod,
+							model.arc[arcNr].distance * (endKvot - startKvot), model.arc[arcNr].time * (endKvot - startKvot), speedOnGround);
+
+					fprintf(filpekG, "    \"max bow slamming p\":%.3lf, \"max green water p\":%.3lf,\n    \"max dynamic instability\":%.3lf,\n",
+						model.functions.valuesNow.bowSlamming_max, model.functions.valuesNow.greenWater_max,
+						model.functions.valuesNow.dynamicStability_max);
+					fprintf(filpekG, "    \"max iceCover\":%.3lf",
+						model.functions.valuesNow.iceCover_max);
+					if (model.functions.valuesNow.forecastType > 0.5) {
+						if (model.params.hindCast == 0)
+							fprintf(filpekG, ", \"forecastType\":\"Ext. Hist\"");
+						else
+							fprintf(filpekG, ", \"forecastType\":\"Past Hist %.5lf\"", model.functions.valuesNow.forecastType);
+					}
+					else {
+						if (model.params.hindCast == 0)
+							fprintf(filpekG, ", \"forecastType\":\"Fcst\"");
+						else {
+							if (model.functions.valuesNow.forecastType > 0.05)
+								fprintf(filpekG, ", \"forecastType\":\"Missing Hist %.5lf\"", model.functions.valuesNow.forecastType);
+							else
+								fprintf(filpekG, ", \"forecastType\":\"Hist %.5lf\"", model.functions.valuesNow.forecastType);
+						}
+					}
+
+					if (filpek10 != NULL) {
+						fprintf(filpek10, "\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t"
+							"%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf",
+							model.functions.valuesNow.currentReal, model.functions.valuesNow.current,
+							model.functions.valuesNow.calmWaterSpeed,
+							model.functions.valuesNow.baseGroundSpeed, speedOnGround,
+							speedSetting.rpm[model.arc[arcNr].speedSetting],
+							model.functions.valuesNow.windSpeed, model.functions.valuesNow.relWindDir,
+							model.functions.valuesNow.speedDiffWind,
+							model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
+							model.functions.valuesNow.relWaveDir, model.functions.valuesNow.speedDiffWave,
+							model.functions.valuesNow.windReal,
+							model.functions.valuesNow.windDirReal, model.functions.valuesNow.currentReal,
+							model.functions.valuesNow.currentDirReal, model.functions.valuesNow.waveDirReal,
+							model.functions.valuesNow.bowSlamming_max,
+							model.functions.valuesNow.greenWater_max,
+							model.functions.valuesNow.dynamicStability_max,
+							model.functions.valuesNow.iceCover_max,
+							model.functions.valuesNow.forecastType);
+					}
+
+				}
+				else {
+					if (lev1 < 0 && lev2 < 0) {
+						fprintf(filpekG, ", \"corridorID\":\"%s\"",
+							model.network.channel[-lev1 - 1].ID);
+						fprintf(filpekG, ",\n\"fuelTransit_main\":%.3lf", model.functions.valuesNow.fuel_main - model.network.channel[-lev1 - 1].waiting_consumption_main);
+						fprintf(filpekG, ", \"fuelTransit_aux\":%.3lf", model.functions.valuesNow.fuel_aux - model.network.channel[-lev1 - 1].waiting_consumption_aux);
+						fprintf(filpekG, ",\n\"fuelWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main);
+						fprintf(filpekG, ", \"fuelWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux);
+
+						if (model.arc[arcNr].fuelQualityKvot > 0.9) {
+							// not eca
+							model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA += model.network.channel[-lev1 - 1].waiting_consumption_main;
+							model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA += model.network.channel[-lev1 - 1].waiting_consumption_aux;
+							fprintf(filpekG, ",\n\"emissionWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main * model.params.fuel.main_noEca.emissionFactor);
+							fprintf(filpekG, ", \"emissionWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux * model.params.fuel.aux_noEca.emissionFactor);
+						}
+						else {
+							model.functions.valuesNow.totCorridorWaitingFuel_mainECA += model.network.channel[-lev1 - 1].waiting_consumption_main;
+							model.functions.valuesNow.totCorridorWaitingFuel_auxECA += model.network.channel[-lev1 - 1].waiting_consumption_aux;
+							fprintf(filpekG, ",\n\"emissionWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main * model.params.fuel.main_eca.emissionFactor);
+							fprintf(filpekG, ", \"emissionWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux * model.params.fuel.aux_eca.emissionFactor);
+						}
+						model.functions.valuesNow.totCorridorWaitingTime += model.network.channel[-lev1 - 1].waitingTime;
+
+						fprintf(filpekG, ",\n\"transitTime\":%.3lf", timeCheck - model.network.channel[-lev1 - 1].waitingTime);
+						fprintf(filpekG, ", \"waitingTime\":%.3lf", model.network.channel[-lev1 - 1].waitingTime);
+					}
+					else
+						fprintf(filpekG, ", \"corridorID\":\"extension of corridor since not physically feasible area around the corridor\"");
+				}
+				fprintf(filpekG, ", \"worstStormValue\":%.3lf",
+					model.functions.valuesNow.worstStormValue);
 			}
 			else {
-				if (timeCheck > 0.001) {
-					//	fuel_day = (model.arc[arcNr].fuel_aux * (endKvot - startKvot) + model.arc[arcNr].fuel_auxEca * (endKvot - startKvot)
-					//		+ model.arc[arcNr].fuel_eca * (endKvot - startKvot) + model.arc[arcNr].fuel_noEca * (endKvot - startKvot)) * 24 / timeCheck;
-					//fuel_day = (model.arc[arcNr].fuel_eca * (endKvot - startKvot) + model.arc[arcNr].fuel_noEca * (endKvot - startKvot)) * 24 / timeCheck;
-					fuel_day = (model.functions.valuesNow.fuel_main) * 24 / timeCheck;
-					//fuel_dayCheck = (model.functions.valuesNow.fuel_main * (endKvot - startKvot)) * 24 / timeCheck;
-				}
-				else {
-					fuel_day = 0;
-					//fuel_dayCheck = 0;
-				}
-			}
-			fprintf(filpekG, "    \"fuelConsumptionMain_ton_day\":%.5lf, \"fuelECA_ton\":%.3lf\n",
-				fuel_day,
-				(1 - model.arc[arcNr].fuelQualityKvot)* (model.functions.valuesNow.fuel_main + model.functions.valuesNow.fuel_aux));
-
-			//fprintf(filpekG, "    ,\"fuelConsumptionMain_ton_dayCheck\":%.1lf, \"fuelECA_tonCheck\":%.3lf\n",
-			//	fuel_dayCheck,
-			//	(model.functions.valuesNow.fuel_aux + model.functions.valuesNow.fuel_main) * (endKvot - startKvot) * (1 - fuelQualityKvot));
-
-			if (filpek10 != NULL) {
-				if (ii > 0)
-					fprintf(filpek10, "\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t");
-
-				fprintf(filpek10, "%.3lf\t%.3lf\t%.3lf\t%.3lf\t%s\t%.3lf\t%.3lf\t%.3lf",
-					timeCheck, *timeExact, diffTime, model.functions.valuesNow.accumDistance,
-					startTime, bearing, fuel_day, model.functions.valuesNow.worstStormValue);
-			}
-
-
-
-			if ((lev1 >= 0 || lev2 >= 0) && model.arc[arcNr].speedSetting >= 0){
-				fprintf(filpekG, ", \"current_kts\":%.1lf\n",
-					model.functions.valuesNow.current / model.params.knots_to_km);
-				fprintf(filpekG, ", \"speedSetting\":%d, \"speedCalmWater_kts\":%.1lf, \"speedOnGround_kts\":%.1lf, \"rpm\":%.2lf,\n",
-					model.arc[arcNr].speedSetting, model.functions.valuesNow.calmWaterSpeed / model.params.knots_to_km,
-					speedOnGround / model.params.knots_to_km,
-					speedSetting.rpm[model.arc[arcNr].speedSetting]);
+				fprintf(filpekG, "    \"hours\":%.2lf, \"checkHours\":%.3lf, \"distance_nm\":%.1lf,\n", 0.0, 0.0, 0.0);
+				fprintf(filpekG, "    \"accumDistance_km\":%.2lf, \"distanceLeft_nm\":%.1lf,\n", model.functions.valuesNow.accumDistance, 0.0);
+				x = p2.longitude().degrees();
+				y = p2.latitude().degrees();
+				fprintf(filpekG, "    \"Position_lat_lon\":\"%.3lf, %.3lf\", \"bearing\":%.0lf,\n",
+					y, x, bearing);
+				fprintf(filpekG, "    \"nChangeBearingInbetweenNodes\":%d,\n", 0);
+				fprintf(filpekG, "    \"nChangeBearing_lessThanXdegrees\":%d,\n", 0);
+				fprintf(filpekG, "    \"speedSetting\":%d, \"speedCalmWater_kts\":%.1lf, \"speedOnGround_kts\":%.1lf, \"rpm\":%.2lf,\n",
+					-1, 0, 0, 0);
+				fprintf(filpekG, "    \"fuelConsumptionMain_ton_day\":%.5lf, \"fuelECA_ton\":%.3lf, \"current_kts\":%.1lf,\n",
+					0, 0, model.functions.valuesNow.current / model.params.knots_to_km);
 				fprintf(filpekG, "    \"windSpeed_km_h\":%.3lf, \"relativeWindDirection_degrees\":%.0lf,\n",
 					model.functions.valuesNow.windSpeed, model.functions.valuesNow.relWindDir);
 				fprintf(filpekG, "    \"waveHeight_m\":%.3lf, \"wavePeriod_s\":%.3lf,\n    \"relativeWaveDirection_degrees\":%.0lf,\n",
 					model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
 					model.functions.valuesNow.relWaveDir);
-				if(model.functions.valuesNow.waveHeight < model.functions.maxWaveHeight_warning)
-					fprintf(filpekG, "    \"waveHeight_level\":\"normal\",\n");
-				else
-					fprintf(filpekG, "    \"waveHeight_level\":\"high\",\n");
-
 				if (model.functions.valuesNow.waveHeight > model.functions.valuesNow.maxWaveHeight) {
 					model.functions.valuesNow.maxWaveHeight = model.functions.valuesNow.waveHeight;
 					model.functions.valuesNow.maxWaveHeight_tp = *timeExact - timeCheck;
 				}
 
-				model.functions.valuesNow.totFuel_mainMovingNoCorridors += model.functions.valuesNow.fuel_main;
-				model.functions.valuesNow.totTime_movingNoCorridors += timeCheck;
-				model.functions.valuesNow.sumSpeedOnWater += model.functions.valuesNow.speedOnWater * timeCheck;
-
-				model.functions.valuesNow.totDistance_movingNoCorridors += model.arc[arcNr].distance * (endKvot - startKvot);
-
-
-				if (model.functions.valuesNow.windReal < 1000 || model.functions.valuesNow.windDirReal_lastKnown < 1000) {
-					if (model.functions.valuesNow.windReal < 1000) {
-						model.functions.valuesNow.windDirReal_lastKnown = model.functions.valuesNow.windDirReal;
-						model.functions.valuesNow.windReal_lastKnown = model.functions.valuesNow.windReal;
-					}
-					fixDirectionLetters(model.functions.valuesNow.windDirReal_lastKnown, startTime, 1);
-					if (model.functions.valuesNow.windReal > 1000)
-						model.functions.valuesNow.windReal = model.functions.valuesNow.windReal;
-					fprintf(filpekG, "    \"windSpeedReal_knots\":%.1lf, \"windDirection_degrees\":%.0lf, \"windDir_letters\":\"%s\",\n",
-						model.functions.valuesNow.windReal_lastKnown / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
-				}
-				if (model.functions.valuesNow.currentReal < 1000 || model.functions.valuesNow.currentReal_lastKnown < 1000) {
-					if (model.functions.valuesNow.currentReal < 1000)
-						model.functions.valuesNow.currentReal_lastKnown = model.functions.valuesNow.currentReal;
-						fprintf(filpekG, "    \"currentReal_knots\":%.3lf, \"currentDirection_degrees\":%.0lf,\n",
-						model.functions.valuesNow.currentReal_lastKnown / model.params.knots_to_km, model.functions.valuesNow.currentDirReal);
-				}
-				if (model.functions.valuesNow.waveDirReal < 1000 || model.functions.valuesNow.waveDirReal_lastKnown < 1000) {
-					if (model.functions.valuesNow.waveDirReal < 1000)
-						model.functions.valuesNow.waveDirReal_lastKnown = model.functions.valuesNow.waveDirReal;
-					fixDirectionLetters(model.functions.valuesNow.waveDirReal_lastKnown, startTime, 1);
-					fprintf(filpekG, "    \"waveDirection_degrees\":%.0lf,\"waveDir_letters\":\"%s\",\n",
-						model.functions.valuesNow.waveDirReal, startTime);
-				}
-				if (printGlobal == 1)
-					printf("arcNr %d levels %d %d wavePeriod %.3lf dist %.3lf time %.3lf speedOnGround %.3lf\n",
-						arcNr, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, model.functions.valuesNow.wavePeriod,
-						model.arc[arcNr].distance * (endKvot - startKvot), model.arc[arcNr].time * (endKvot - startKvot), speedOnGround);
+				fixDirectionLetters(model.functions.valuesNow.windDirReal, startTime, 1);
+				fprintf(filpekG, "    \"windSpeedReal_knots\":%.1lf, \"windDirection_degrees\":%.0lf, \"windDir_letters\":\"%s\",\n",
+					model.functions.valuesNow.windReal / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
+				fprintf(filpekG, "    \"currentReal_knots\":%.3lf, \"currentDirection_degrees\":%.0lf,\n",
+					model.functions.valuesNow.currentReal / model.params.knots_to_km, model.functions.valuesNow.currentDirReal);
+				fixDirectionLetters(model.functions.valuesNow.waveDirReal, startTime, 1);
+				fprintf(filpekG, "    \"waveDirection_degrees\":%.0lf,\"waveDir_letters\":\"%s\",\n",
+					model.functions.valuesNow.waveDirReal, startTime);
 
 				fprintf(filpekG, "    \"max bow slamming p\":%.3lf, \"max green water p\":%.3lf,\n    \"max dynamic instability\":%.3lf,\n",
-					model.functions.valuesNow.bowSlamming_max, model.functions.valuesNow.greenWater_max,
-					model.functions.valuesNow.dynamicStability_max);
-				fprintf(filpekG, "    \"max iceCover\":%.3lf",
-					model.functions.valuesNow.iceCover_max);
-				if (model.functions.valuesNow.forecastType > 0.5) {
-					if (model.params.hindCast == 0)
-						fprintf(filpekG, ", \"forecastType\":\"Ext. Hist\"");
-					else
-						fprintf(filpekG, ", \"forecastType\":\"Past Hist %.5lf\"", model.functions.valuesNow.forecastType);
-				}
-				else {
-					if (model.params.hindCast == 0)
-						fprintf(filpekG, ", \"forecastType\":\"Fcst\"");
-					else {
-						if (model.functions.valuesNow.forecastType > 0.05)
-							fprintf(filpekG, ", \"forecastType\":\"Missing Hist %.5lf\"", model.functions.valuesNow.forecastType);
-						else
-							fprintf(filpekG, ", \"forecastType\":\"Hist %.5lf\"", model.functions.valuesNow.forecastType);
-					}
-				}
-
-				if (filpek10 != NULL) {
-					fprintf(filpek10, "\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t"
-						"%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf",
-						model.functions.valuesNow.currentReal, model.functions.valuesNow.current,
-						model.functions.valuesNow.calmWaterSpeed,
-						model.functions.valuesNow.baseGroundSpeed, speedOnGround,
-						speedSetting.rpm[model.arc[arcNr].speedSetting],
-						model.functions.valuesNow.windSpeed, model.functions.valuesNow.relWindDir,
-						model.functions.valuesNow.speedDiffWind,
-						model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
-						model.functions.valuesNow.relWaveDir, model.functions.valuesNow.speedDiffWave,
-						model.functions.valuesNow.windReal,
-						model.functions.valuesNow.windDirReal, model.functions.valuesNow.currentReal,
-						model.functions.valuesNow.currentDirReal, model.functions.valuesNow.waveDirReal,
-						model.functions.valuesNow.bowSlamming_max,
-						model.functions.valuesNow.greenWater_max,
-						model.functions.valuesNow.dynamicStability_max,
-						model.functions.valuesNow.iceCover_max,
-						model.functions.valuesNow.forecastType);
-				}
-
+					0.0, 0.0, 0.0);
+				fprintf(filpekG, "    \"max iceCover\":%.3lf,  \"worstStormValue\":%.3lf, \"forecastType\":\"\"",
+					0.0, 0.0);
 			}
-			else {
-				if (lev1 < 0 && lev2 < 0) {
-					fprintf(filpekG, ", \"corridorID\":\"%s\"",
-						model.network.channel[-lev1 - 1].ID);
-					fprintf(filpekG, ",\n\"fuelTransit_main\":%.3lf", model.functions.valuesNow.fuel_main - model.network.channel[-lev1 - 1].waiting_consumption_main);
-					fprintf(filpekG, ", \"fuelTransit_aux\":%.3lf", model.functions.valuesNow.fuel_aux - model.network.channel[-lev1 - 1].waiting_consumption_aux);
-					fprintf(filpekG, ",\n\"fuelWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main);
-					fprintf(filpekG, ", \"fuelWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux);
+			fprintf(filpekG, "},\n");
 
-					if (model.arc[arcNr].fuelQualityKvot > 0.9) {
-						// not eca
-						model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA += model.network.channel[-lev1 - 1].waiting_consumption_main;
-						model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA += model.network.channel[-lev1 - 1].waiting_consumption_aux;
-						fprintf(filpekG, ",\n\"emissionWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main* model.params.fuel.main_noEca.emissionFactor);
-						fprintf(filpekG, ", \"emissionWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux* model.params.fuel.aux_noEca.emissionFactor);
-					}
-					else {
-						model.functions.valuesNow.totCorridorWaitingFuel_mainECA += model.network.channel[-lev1 - 1].waiting_consumption_main;
-						model.functions.valuesNow.totCorridorWaitingFuel_auxECA += model.network.channel[-lev1 - 1].waiting_consumption_aux;
-						fprintf(filpekG, ",\n\"emissionWaiting_main\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_main* model.params.fuel.main_eca.emissionFactor);
-						fprintf(filpekG, ", \"emissionWaiting_aux\":%.3lf", model.network.channel[-lev1 - 1].waiting_consumption_aux* model.params.fuel.aux_eca.emissionFactor);
-					}
-					model.functions.valuesNow.totCorridorWaitingTime += model.network.channel[-lev1 - 1].waitingTime;
-
-					fprintf(filpekG, ",\n\"transitTime\":%.3lf", timeCheck - model.network.channel[-lev1 - 1].waitingTime);
-					fprintf(filpekG, ", \"waitingTime\":%.3lf", model.network.channel[-lev1 - 1].waitingTime);
-				}
-				else
-					fprintf(filpekG, ", \"corridorID\":\"extension of corridor since not physically feasible area around the corridor\"");
-			}
-			fprintf(filpekG, ", \"worstStormValue\":%.3lf",
-				model.functions.valuesNow.worstStormValue);
+			fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n",
+				getCorrect_longitude(model.network.xCoord[model.network.posSplitCoord[ii]]),
+				model.network.yCoord[model.network.posSplitCoord[ii]]);
 		}
-		else {
-			fprintf(filpekG, "    \"hours\":%.2lf, \"checkHours\":%.3lf, \"distance_nm\":%.1lf,\n", 0.0, 0.0, 0.0);
-			fprintf(filpekG, "    \"accumDistance_km\":%.2lf, \"distanceLeft_nm\":%.1lf,\n", model.functions.valuesNow.accumDistance, 0.0);
-			x = p2.longitude().degrees();
-			y = p2.latitude().degrees();
-			fprintf(filpekG, "    \"Position_lat_lon\":\"%.3lf, %.3lf\", \"bearing\":%.0lf,\n",
-				y, x, bearing);
-			fprintf(filpekG, "    \"nChangeBearingInbetweenNodes\":%d,\n", 0);
-			fprintf(filpekG, "    \"nChangeBearing_lessThanXdegrees\":%d,\n", 0);
-			fprintf(filpekG, "    \"speedSetting\":%d, \"speedCalmWater_kts\":%.1lf, \"speedOnGround_kts\":%.1lf, \"rpm\":%.2lf,\n",
-				-1, 0, 0, 0);
-			fprintf(filpekG, "    \"fuelConsumptionMain_ton_day\":%.5lf, \"fuelECA_ton\":%.3lf, \"current_kts\":%.1lf,\n",
-				0, 0, model.functions.valuesNow.current / model.params.knots_to_km);
-			fprintf(filpekG, "    \"windSpeed_km_h\":%.3lf, \"relativeWindDirection_degrees\":%.0lf,\n",
-				model.functions.valuesNow.windSpeed, model.functions.valuesNow.relWindDir);
-			fprintf(filpekG, "    \"waveHeight_m\":%.3lf, \"wavePeriod_s\":%.3lf,\n    \"relativeWaveDirection_degrees\":%.0lf,\n",
-				model.functions.valuesNow.waveHeight, model.functions.valuesNow.wavePeriod,
-				model.functions.valuesNow.relWaveDir);
-			if (model.functions.valuesNow.waveHeight > model.functions.valuesNow.maxWaveHeight) {
-				model.functions.valuesNow.maxWaveHeight = model.functions.valuesNow.waveHeight;
-				model.functions.valuesNow.maxWaveHeight_tp = *timeExact - timeCheck;
-			}
-
-			fixDirectionLetters(model.functions.valuesNow.windDirReal, startTime, 1);
-			fprintf(filpekG, "    \"windSpeedReal_knots\":%.1lf, \"windDirection_degrees\":%.0lf, \"windDir_letters\":\"%s\",\n",
-				model.functions.valuesNow.windReal / model.params.knots_to_km, model.functions.valuesNow.windDirReal, startTime);
-			fprintf(filpekG, "    \"currentReal_knots\":%.3lf, \"currentDirection_degrees\":%.0lf,\n",
-				model.functions.valuesNow.currentReal / model.params.knots_to_km, model.functions.valuesNow.currentDirReal);
-			fixDirectionLetters(model.functions.valuesNow.waveDirReal, startTime, 1);
-			fprintf(filpekG, "    \"waveDirection_degrees\":%.0lf,\"waveDir_letters\":\"%s\",\n",
-				model.functions.valuesNow.waveDirReal, startTime);
-
-			fprintf(filpekG, "    \"max bow slamming p\":%.3lf, \"max green water p\":%.3lf,\n    \"max dynamic instability\":%.3lf,\n",
-				0.0, 0.0, 0.0);
-			fprintf(filpekG, "    \"max iceCover\":%.3lf,  \"worstStormValue\":%.3lf, \"forecastType\":\"\"",
-				0.0, 0.0);
-		}
-		fprintf(filpekG, "},\n");
-
-		fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", 
-			getCorrect_longitude(model.network.xCoord[model.network.posSplitCoord[ii]]),
-			model.network.yCoord[model.network.posSplitCoord[ii]]);
 	}
 
 	if (filpek10 != NULL) {
@@ -3463,18 +3478,19 @@ int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startS
 	}
 
 
-	if (abs(model.arc[arcNr].time - accumTime) > 1.0) {
-		(model.delay.nDiffTimeSol)++;
-		errlog("ERROR! Diff between arcTime and time computed in addPositionDataToReport for arc %d, %.3lf vs %.3lf, might be okay since the check points are different?\n"
-			"especially if it is a corridor with a certain starting time from midnight\n",
-			arcNr, accumTime, model.arc[arcNr].time);
-		printf("\n\n\n\n\n########################################################\n");
-		printf("ERROR! Diff between arcTime and time computed in addPositionDataToReport for arc %d, %.3lf vs %.3lf, might be okay since the check points are different?\n"
-			"especially if it is a corridor with a certain starting time from midnight\n",
-			arcNr, accumTime, model.arc[arcNr].time);
-		//(*timeExact) += model.arc[arcNr].time - accumTime;
+	if (filpekG != NULL) {
+		if (abs(model.arc[arcNr].time - accumTime) > 1.0) {
+			(model.delay.nDiffTimeSol)++;
+			errlog("ERROR! Diff between arcTime and time computed in addPositionDataToReport for arc %d, %.3lf vs %.3lf, might be okay since the check points are different?\n"
+				"especially if it is a corridor with a certain starting time from midnight\n",
+				arcNr, accumTime, model.arc[arcNr].time);
+			printf("\n\n\n\n\n########################################################\n");
+			printf("ERROR! Diff between arcTime and time computed in addPositionDataToReport for arc %d, %.3lf vs %.3lf, might be okay since the check points are different?\n"
+				"especially if it is a corridor with a certain starting time from midnight\n",
+				arcNr, accumTime, model.arc[arcNr].time);
+			//(*timeExact) += model.arc[arcNr].time - accumTime;
+		}
 	}
-
 	if (SKRIV_UT_NOTHING == 0) {
 		if (arcNr == 29303)
 			arcNr = arcNr;
@@ -3507,7 +3523,7 @@ int makeSure_eta_inTime() {
 		arcNr = model.BVArc[iPos];
 		timeOld = timeExact;
 		if (model.arc[arcNr].speedSetting != -2)
-			addPositionDataToReport(NULL, &posIreport, arcNr, 0, &timeExact, "");
+			addPositionDataToReport(NULL, &posIreport, arcNr, 0, &timeExact, "-");
 		else
 			timeExact += model.arc[arcNr].time;
 		timeArc[iPos] = timeExact - timeOld;
@@ -3618,8 +3634,29 @@ double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu, in
 	return timeArcCheck;
 }
 
+double calcNewTime_changeSpeedSetting_delay_prefPath(int arcDelay, int speedSettingNu, int tidInt) {
+	//double calcSpeed = modelDelay.arc[arcDelay].distance / modelDelay.arc[arcDelay].time;
+	//double calmWaterSpeed = eval_calmWaterSpeed(modelDelay.arc[arcDelay].speedSetting, -1, -100);
+	//double factor = calmWaterSpeed / calcSpeed;
+	double calmWaterSpeedNy = model.params.calmWaterSpeedCompare; // eval_calmWaterSpeed(speedSettingNu,
+		// modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel);
+	//double timeArc = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
 
-int copyToArcFromDelay(int posDelay, int arcNr, double timeExact) {
+	double factorDelay, speedDiffCurrent = 0;
+	factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(modelDelay_prefPath.arc[arcDelay].fromLevel, modelDelay_prefPath.arc[arcDelay].fromPointNr,
+		modelDelay_prefPath.arc[arcDelay].toLevel, modelDelay_prefPath.arc[arcDelay].toPointNr, tidInt, &speedDiffCurrent, calmWaterSpeedNy);
+	double speedNow = calmWaterSpeedNy / factorDelay + speedDiffCurrent;
+	// double timeArcCheck = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
+	double timeArcCheck = modelDelay_prefPath.arc[arcDelay].distance / speedNow;
+
+
+
+
+	return timeArcCheck;
+}
+
+
+int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter) {
 	int arcNu = model.nArcs, arcDelay, thisLevel, pos1, speedSetting, cNr;
 	double emission, newTime;
 	double fuelConsumption_main, fuelConsumption_aux, fuelUsage_main, fuelUsage_aux;
@@ -3627,20 +3664,36 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact) {
 
 	thisLevel = model.arc[arcNr].fromLevel;
 	pos1 = model.arc[arcNr].fromPointNr;
-	if(thisLevel >= 0)
-		arcDelay = model.delayRouteToEnd[thisLevel][pos1].BVArc[posDelay];
-	else
-		arcDelay = model.delayRouteToEnd_channel[-thisLevel - 1][pos1].BVArc[posDelay];
-	model.arc[arcNu].fromLevel = modelDelay.arc[arcDelay].fromLevel;
-	model.arc[arcNu].toLevel = modelDelay.arc[arcDelay].toLevel;
-	model.arc[arcNu].fromPointNr = modelDelay.arc[arcDelay].fromPointNr;
-	model.arc[arcNu].toPointNr = modelDelay.arc[arcDelay].toPointNr;
-	//model.arc[arcNu].speedSetting = modelDelay.arc[arcDelay].speedSetting + model.delay.changedSpeed[posDelay];
-	speedSetting = getClosestSetting_fromBase(modelDelay.arc[arcDelay].speedSetting,
-		modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel) + model.delay.changedSpeed[posDelay];
+	if (iter != 1) {
+		if (thisLevel >= 0)
+			arcDelay = model.delayRouteToEnd[thisLevel][pos1].BVArc[posDelay];
+		else
+			arcDelay = model.delayRouteToEnd_channel[-thisLevel - 1][pos1].BVArc[posDelay];
+		model.arc[arcNu].fromLevel = modelDelay.arc[arcDelay].fromLevel;
+		model.arc[arcNu].toLevel = modelDelay.arc[arcDelay].toLevel;
+		model.arc[arcNu].fromPointNr = modelDelay.arc[arcDelay].fromPointNr;
+		model.arc[arcNu].toPointNr = modelDelay.arc[arcDelay].toPointNr;
+		//model.arc[arcNu].speedSetting = modelDelay.arc[arcDelay].speedSetting + model.delay.changedSpeed[posDelay];
+		speedSetting = getClosestSetting_fromBase(modelDelay.arc[arcDelay].speedSetting,
+			modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel) + model.delay.changedSpeed[posDelay];
+		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)));
+	}
+	else {
+		if (thisLevel >= 0)
+			arcDelay = model.delayRouteToEnd_prefPath[thisLevel][pos1].BVArc[posDelay];
+		else
+			arcDelay = model.delayRouteToEnd_channel_prefPath[-thisLevel - 1][pos1].BVArc[posDelay];
+		model.arc[arcNu].fromLevel = modelDelay_prefPath.arc[arcDelay].fromLevel;
+		model.arc[arcNu].toLevel = modelDelay_prefPath.arc[arcDelay].toLevel;
+		model.arc[arcNu].fromPointNr = modelDelay_prefPath.arc[arcDelay].fromPointNr;
+		model.arc[arcNu].toPointNr = modelDelay_prefPath.arc[arcDelay].toPointNr;
+		//model.arc[arcNu].speedSetting = modelDelay.arc[arcDelay].speedSetting + model.delay.changedSpeed[posDelay];
+		speedSetting = 0;
+		newTime = calcNewTime_changeSpeedSetting_delay_prefPath(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)));
+	}
+
 	model.arc[arcNu].speedSetting = speedSetting;
 //	if (model.delay.changedSpeed[posDelay] != 0) {
-		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)));
 		model.arc[arcNu].time = newTime;
 
 		//speedSetting = getClosestSetting_fromBase(modelDelay.arc[arcDelay].speedSetting,
@@ -3663,7 +3716,16 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact) {
 		}else
 			fuelUsage_main = fuelConsumption_main * newTime;
 
-		fuelQualityKvot = modelDelay.arc[arcDelay].fuelQualityKvot;
+		if (iter != 1) {
+			fuelQualityKvot = modelDelay.arc[arcDelay].fuelQualityKvot;
+			model.arc[arcNu].distance = modelDelay.arc[arcDelay].distance;
+			model.arc[arcNu].fuelQualityKvot = modelDelay.arc[arcDelay].fuelQualityKvot;
+		}
+		else {
+			fuelQualityKvot = modelDelay_prefPath.arc[arcDelay].fuelQualityKvot;
+			model.arc[arcNu].distance = modelDelay_prefPath.arc[arcDelay].distance;
+			model.arc[arcNu].fuelQualityKvot = modelDelay_prefPath.arc[arcDelay].fuelQualityKvot;
+		}
 		fuel_eca = fuelUsage_main * (1 - fuelQualityKvot);
 		fuel_noEca = fuelUsage_main * fuelQualityKvot;
 		fuel_aux = fuelUsage_aux * fuelQualityKvot;
@@ -3696,8 +3758,6 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact) {
 	//	emission = model.arc[arcNu].fuel_aux * model.params.fuel.aux_noEca.emissionFactor + model.arc[arcNu].fuel_auxEca * model.params.fuel.aux_eca.emissionFactor +
 	//		model.arc[arcNu].fuel_eca * model.params.fuel.main_eca.emissionFactor + model.arc[arcNu].fuel_noEca * model.params.fuel.main_noEca.emissionFactor;
 	//}
-	model.arc[arcNu].distance = modelDelay.arc[arcDelay].distance;
-	model.arc[arcNu].fuelQualityKvot = modelDelay.arc[arcDelay].fuelQualityKvot;
 	if (arcNu == 272303)
 		arcNu = arcNu;
 
@@ -3722,6 +3782,140 @@ int determineBastSpeedDelay_routeToEnd_eta_arc(int arcNr, double tidp) {
 	return 0;
 }
 
+int evalCompareSolution() {
+
+	int i, arcNr, posReport = 0, pointNr1, pointNr2, i3, nodNr1;
+	int nodNu, i1, keepGoing = 1, arcNrBas;
+	double timeExact, timeOld, timeNu, time = 0, emission = 0, emissionWaiting;
+	double fuel_aux = 0, fuel_auxEca = 0, fuel_eca = 0, fuel_noEca = 0, distance = 0;
+	double fuelCostDollar, dollarCost, channelCost = -100000;
+
+	timeExact = 0;
+	int posDelay = 0;
+	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		pointNr1 = model.params.preferredPathOrtoPos[i];
+		if (pointNr1 < 0)
+			pointNr1 = (int)(model.network.physicalLev[i].nPoints / 2);
+		pointNr2 = model.params.preferredPathOrtoPos[i + 1];
+		if (pointNr2 < 0)
+			pointNr2 = (int)(model.network.physicalLev[i + 1].nPoints / 2);
+		if (i == 23)
+			i = i;
+		if (posDelay == 0) {
+			for (i3 = 0; i3 < model.network.physicalLev[i].nTimeIntervals[pointNr1]; i3++) {
+				nodNr1 = model.network.physicalLev[i].nodNr_from_pt[pointNr1][i3];
+				for (i1 = 0; i1 < model.Noder[nodNr1].nUtNoder; i1++) {
+					nodNu = model.Noder[nodNr1].UtNod[i1];
+					if (model.Noder[nodNu].physicalLevel == i + 1 && model.Noder[nodNu].pointNr == pointNr2) {
+						arcNr = model.Noder[nodNr1].outArcNr[i1];
+						break;
+					}
+					if (model.Noder[nodNu].physicalLevel == model.network.nPhysicalLevels - 1) {
+						arcNr = model.Noder[nodNr1].outArcNr[i1];
+						arcNrBas = arcNr;
+						copyToArcFromDelay(posDelay, arcNr, timeExact, 1);
+						posDelay++;
+						arcNr = model.nArcs;
+						break;
+					}
+				}
+				if (i1 < model.Noder[nodNr1].nUtNoder)
+					break;
+			}
+			if (i3 >= model.network.physicalLev[i].nTimeIntervals[pointNr1]) {
+				errlog("ERROR! Could not find an arc between levels %d and %d, I skip the comparison which otherwise will be wrong!\n", i, i + 1);
+				break;
+			}
+		}
+		else {
+			arcNr = arcNrBas;
+			copyToArcFromDelay(posDelay, arcNr, timeExact, 1);
+			posDelay++;
+			keepGoing = 0;
+			if (model.arc[arcNr].fromLevel >= 0) {
+				if (posDelay < model.delayRouteToEnd_prefPath[model.arc[arcNr].fromLevel][model.arc[arcNr].fromPointNr].nBVArcs)
+					keepGoing = 1;
+			}
+			else {
+				if (posDelay < model.delayRouteToEnd_channel_prefPath[-model.arc[arcNr].fromLevel - 1][model.arc[arcNr].fromPointNr].nBVArcs)
+					keepGoing = 1;
+			}
+			arcNr = model.nArcs;
+		}
+
+		model.functions.valuesNow.totFuel_aux = 0;
+		model.functions.valuesNow.totFuel_main = 0;
+
+		timeOld = timeExact;
+		addPositionDataToReport(NULL, &posReport, arcNr, 0, &timeExact, "", 1);
+		timeNu = timeExact - timeOld;
+		emission += model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.aux_eca.emissionFactor +
+			model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot * model.params.fuel.aux_noEca.emissionFactor +
+			model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.main_eca.emissionFactor +
+			model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot * model.params.fuel.main_noEca.emissionFactor;
+		fuel_aux += model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot;
+		fuel_auxEca += model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot);
+		fuel_eca += model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot);
+		fuel_noEca += model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot;
+
+		distance += model.arc[arcNr].distance;
+		time += timeNu; // model.arc[arcNr].time;
+
+
+		errlog("compareTime i %d timeExact %lf\n", i, timeExact);
+		if (keepGoing == 0)
+			break;
+	}
+	if (i < model.network.nPhysicalLevels - 2) {
+		// set values to not found...
+		model.functions.valuesNow.compare_route_endTime_h = -1;
+	}
+	else {
+		model.functions.valuesNow.compare_fuelConsumption_ton =
+			fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca
+			- model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA
+			- model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA
+			- model.functions.valuesNow.totCorridorWaitingFuel_mainECA
+			- model.functions.valuesNow.totCorridorWaitingFuel_auxECA;
+		model.functions.valuesNow.compare_fuelEcaMain =
+			fuel_eca - model.functions.valuesNow.totCorridorWaitingFuel_mainECA;
+		model.functions.valuesNow.compare_fuelEcaAux =
+			fuel_auxEca - model.functions.valuesNow.totCorridorWaitingFuel_auxECA;
+		model.functions.valuesNow.compare_fuelNotEcaMain =
+			fuel_noEca - model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA;
+			model.functions.valuesNow.compare_fuelNotEcaAux =
+			fuel_aux - model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA;
+
+		emissionWaiting = model.functions.valuesNow.totCorridorWaitingFuel_auxECA * model.params.fuel.aux_eca.emissionFactor +
+			model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA * model.params.fuel.aux_noEca.emissionFactor +
+			model.functions.valuesNow.totCorridorWaitingFuel_mainECA * model.params.fuel.main_eca.emissionFactor +
+			model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA * model.params.fuel.main_noEca.emissionFactor;
+
+		model.functions.valuesNow.compare_emission = emission - emissionWaiting;
+		model.functions.valuesNow.compare_emissionEcaMain = (fuel_eca - model.functions.valuesNow.totCorridorWaitingFuel_mainECA) * model.params.fuel.main_eca.emissionFactor;
+		model.functions.valuesNow.compare_emissionEcaAux = (fuel_auxEca - model.functions.valuesNow.totCorridorWaitingFuel_auxECA) * model.params.fuel.aux_eca.emissionFactor;
+		model.functions.valuesNow.compare_emissionNotEcaMain = (fuel_noEca - model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA) * model.params.fuel.main_noEca.emissionFactor;
+		model.functions.valuesNow.compare_emissionNotEcaAux = (fuel_aux - model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA)* model.params.fuel.aux_noEca.emissionFactor;
+
+		if (time > 0)
+			model.functions.valuesNow.compare_averSpeed = distance / time / model.params.knots_to_km;
+		else
+			model.functions.valuesNow.compare_averSpeed = 0;
+
+		model.functions.valuesNow.compare_totalDistance_kts = distance / model.params.knots_to_km;
+		model.functions.valuesNow.compare_totalTime_h = time;
+
+		fuelCostDollar = fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price +
+			fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price;
+		dollarCost = fuelCostDollar + time * model.params.priceTime + channelCost;
+
+		model.functions.valuesNow.compare_dollar_cost = dollarCost + model.params.fuel.extra_fuel.quantity * model.params.fuel.extra_fuel.price;
+		model.functions.valuesNow.compare_route_endTime_h = time;
+	}
+
+	return 0;
+}
+
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int iter)
 {
 	int nAllocPkter, i, iPos, nPkter, nArcs, ii3, forsta, speedSetting;
@@ -3739,7 +3933,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	}
 
 
-	if (model.params.eta_h > -0.01 && iter == 1) {
+	if (model.params.eta_h > -0.01 && iter == 2) {
 		makeSure_eta_inTime();
 	}
 
@@ -3772,7 +3966,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 
 	int nAlloc = model.network.nMaxNodesInPath * model.nBVArcs, prefPath;
 
-	if (resAlt == 0) {
+	if (resAlt == 0 && iter != 1) {
 		for(lev1 = 0; lev1 < model.network.nPhysicalLevels; lev1++){
 			model.optPath.level[lev1].timeArrive = -1;
 			model.optPath.level[lev1].pointNr = -1;
@@ -3900,6 +4094,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 
 	//for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 
+	channelCost = 0;
 	int posDelay = 0;
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 	{
@@ -3915,19 +4110,33 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		arcNr = model.BVArc[iPos];
 
 		if (model.arc[arcNr].speedSetting == -2) {
-			if (posDelay == 0 && model.params.eta_h > 0)
+			if (posDelay == 0 && model.params.eta_h > 0 && iter != 1)
 				determineBastSpeedDelay_routeToEnd_eta_arc(arcNr, timeExact);
-			if (posDelay == 66)
+			if (posDelay == 18)
 				posDelay = posDelay;
-			copyToArcFromDelay(posDelay, arcNr, timeExact);
+			copyToArcFromDelay(posDelay, arcNr, timeExact, iter);
 			posDelay++;
-			if (model.arc[arcNr].fromLevel >= 0) {
-				if (posDelay < model.delayRouteToEnd[model.arc[arcNr].fromLevel][model.arc[arcNr].fromPointNr].nBVArcs)
-					iPos--;
+			if (model.arc[model.nArcs].fromLevel == 47)
+				arcNr = arcNr;
+			if (iter != 1) {
+				if (model.arc[arcNr].fromLevel >= 0) {
+					if (posDelay < model.delayRouteToEnd[model.arc[arcNr].fromLevel][model.arc[arcNr].fromPointNr].nBVArcs)
+						iPos--;
+				}
+				else {
+					if (posDelay < model.delayRouteToEnd_channel[-model.arc[arcNr].fromLevel - 1][model.arc[arcNr].fromPointNr].nBVArcs)
+						iPos--;
+				}
 			}
 			else {
-				if (posDelay < model.delayRouteToEnd_channel[-model.arc[arcNr].fromLevel - 1][model.arc[arcNr].fromPointNr].nBVArcs)
-					iPos--;
+				if (model.arc[arcNr].fromLevel >= 0) {
+					if (posDelay < model.delayRouteToEnd_prefPath[model.arc[arcNr].fromLevel][model.arc[arcNr].fromPointNr].nBVArcs)
+						iPos--;
+				}
+				else {
+					if (posDelay < model.delayRouteToEnd_channel_prefPath[-model.arc[arcNr].fromLevel - 1][model.arc[arcNr].fromPointNr].nBVArcs)
+						iPos--;
+				}
 			}
 			arcNr = model.nArcs;
 		}
@@ -3945,7 +4154,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		if (arcNr >= 2000)
 			arcNr = arcNr;
 		if (SKRIV_UT_NOTHING == 0) {
-			channelCost = 0;
 			if (model.arc[arcNr].fromLevel >= 0) {
 				x1 = model.network.physicalLev[model.arc[arcNr].fromLevel].point_x[model.arc[arcNr].fromPointNr];
 				y1 = model.network.physicalLev[model.arc[arcNr].fromLevel].point_y[model.arc[arcNr].fromPointNr];
@@ -3970,7 +4178,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 					y1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_y[0];
 					x2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_x[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints-1];
 					y2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_y[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints-1];
-					channelCost = model.network.channel[-model.arc[arcNr].toLevel - 1].extraCostChannel;
+					channelCost += model.network.channel[-model.arc[arcNr].toLevel - 1].extraCostChannel;
 				}
 				else {
 					x1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_x[model.network.channel[-model.arc[arcNr].fromLevel - 1].nPoints-1];
@@ -4037,7 +4245,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		//	addPositionDataToReport(filpekG, posIreport++, arcNr, 0, &timeExact, "base");
 		//else
 
-		if (resAlt == 0) {
+		if (resAlt == 0 && iter != 1) {
 			// speedSetting = getClosestSetting_fromBase(model.arc[arcNr].speedSetting, lev1, lev2);
 			speedSetting = getBaseSpeedSetting(model.arc[arcNr].speedSetting, lev1, lev2);
 			if (lev1 >= 0) {
@@ -4060,8 +4268,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		}
 
 
-		addPositionDataToReport(filpekG, &posIreport, arcNr, 0, &timeExact, namnSol);
-		
+		addPositionDataToReport(filpekG, &posIreport, arcNr, 0, &timeExact, namnSol, 0, iter);
 		if (SKRIV_UT_NOTHING == 0) {
 			if (model.functions.valuesNow.totTimeArcSTW < 0.0001)
 				model.functions.valuesNow.totTimeArcSTW = 0.1;
@@ -4184,7 +4391,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 				if (lev2 < model.network.nPhysicalLevels) {
 					if (pointNr1 == model.params.preferredPathOrtoPos[lev1] &&
 						pointNr2 == model.params.preferredPathOrtoPos[lev2] && lev1 == lev2 - 1
-						&& model.params.preferredPathStraightLineFeasibleFrom[lev1] == 0) {
+						&& (model.params.preferredPathStraightLineFeasibleFrom[lev1] == 0 || model.params.max_changeDirection == 0 || iter == 1)) {
 						if (nPkter == 0) {
 							y[nPkter] = model.network.physicalLev[lev1].point[pointNr1].latitude().degrees();
 							x[nPkter] = model.network.physicalLev[lev1].point[pointNr1].longitude().degrees();
@@ -4555,11 +4762,71 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	fprintf(filpekG, "\"totalSteamingTime_h\": %.1lf, \"totalAdditionalTime_h\": %.1lf,\n", time - model.functions.valuesNow.totCorridorWaitingTime,
 		model.functions.valuesNow.totCorridorWaitingTime); // time);
 	if (model.functions.valuesNow.totTime_movingNoCorridors > 0.001)
-		fprintf(filpekG, "\"consumptionTransit_average\": %.1lf, \"speedTransit_average\": %.1lf}}\n",
+		fprintf(filpekG, "\"consumptionTransit_average\": %.1lf, \"speedTransit_average\": %.1lf\n",
 			model.functions.valuesNow.totFuel_mainMovingNoCorridors * 24 / model.functions.valuesNow.totTime_movingNoCorridors,
 			model.functions.valuesNow.totDistance_movingNoCorridors / model.functions.valuesNow.totTime_movingNoCorridors / model.params.knots_to_km);
 	else
-		fprintf(filpekG, "\"consumptionTransit_average\": %.1lf, \"speedTransit_average\": %.1lf}}\n", 0.0, 0.0);
+		fprintf(filpekG, "\"consumptionTransit_average\": %.1lf, \"speedTransit_average\": %.1lf\n", 0.0, 0.0);
+
+	if (iter == 1) {
+		if (time > 0) {
+			model.functions.valuesNow.compare_fuelConsumption_ton = fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca
+				- model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA
+				- model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA
+				- model.functions.valuesNow.totCorridorWaitingFuel_mainECA
+				- model.functions.valuesNow.totCorridorWaitingFuel_auxECA;
+			model.functions.valuesNow.compare_fuelEcaMain = fuel_eca - model.functions.valuesNow.totCorridorWaitingFuel_mainECA;
+			model.functions.valuesNow.compare_fuelEcaAux = fuel_auxEca - model.functions.valuesNow.totCorridorWaitingFuel_auxECA;
+			model.functions.valuesNow.compare_fuelNotEcaMain = fuel_noEca - model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA;
+			model.functions.valuesNow.compare_fuelNotEcaAux = fuel_aux - model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA;
+			model.functions.valuesNow.compare_emission = emission - emissionWaiting;
+			model.functions.valuesNow.compare_emissionEcaMain = (fuel_eca - model.functions.valuesNow.totCorridorWaitingFuel_mainECA) * model.params.fuel.main_eca.emissionFactor;
+			model.functions.valuesNow.compare_emissionEcaAux = (fuel_auxEca - model.functions.valuesNow.totCorridorWaitingFuel_auxECA) * model.params.fuel.aux_eca.emissionFactor;
+			model.functions.valuesNow.compare_emissionNotEcaMain = (fuel_noEca - model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA) * model.params.fuel.main_noEca.emissionFactor;
+			model.functions.valuesNow.compare_emissionNotEcaAux = (fuel_aux - model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA) * model.params.fuel.aux_noEca.emissionFactor;
+			model.functions.valuesNow.compare_averSpeed = averSpeed;
+			model.functions.valuesNow.compare_totalDistance_kts = distance / model.params.knots_to_km;
+			model.functions.valuesNow.compare_totalTime_h = time;
+			model.functions.valuesNow.compare_dollar_cost = dollarCost + model.params.fuel.extra_fuel.quantity * model.params.fuel.extra_fuel.price;
+		}
+		else
+			model.functions.valuesNow.compare_totalTime_h = -1;
+	}else{
+		if (model.functions.valuesNow.compare_totalTime_h > 0) {
+			fprintf(filpekG, ", \"compare_fuelConsumption_ton\": %.2lf\n", model.functions.valuesNow.compare_fuelConsumption_ton);
+			fprintf(filpekG, ", \"compare_fuelEcaMain\": %.2lf\n", model.functions.valuesNow.compare_fuelEcaMain);
+			fprintf(filpekG, ", \"compare_fuelEcaAux\": %.2lf\n", model.functions.valuesNow.compare_fuelEcaAux);
+			fprintf(filpekG, ", \"compare_fuelNotEcaMain\": %.2lf\n", model.functions.valuesNow.compare_fuelNotEcaMain);
+			fprintf(filpekG, ", \"compare_fuelNotEcaAux\": %.2lf\n", model.functions.valuesNow.compare_fuelNotEcaAux);
+			fprintf(filpekG, ", \"compare_emission\": %.2lf\n", model.functions.valuesNow.compare_emission);
+			fprintf(filpekG, ", \"compare_emissionEcaMain\": %.2lf\n", model.functions.valuesNow.compare_emissionEcaMain);
+			fprintf(filpekG, ", \"compare_emissionEcaAux\": %.2lf\n", model.functions.valuesNow.compare_emissionEcaAux);
+			fprintf(filpekG, ", \"compare_emissionNotEcaMain\": %.2lf\n", model.functions.valuesNow.compare_emissionNotEcaMain);
+			fprintf(filpekG, ", \"compare_emissionNotEcaAux\": %.2lf\n", model.functions.valuesNow.compare_emissionNotEcaAux);
+			fprintf(filpekG, ", \"compare_average speed\": %.1lf\n", model.functions.valuesNow.compare_averSpeed);
+			fprintf(filpekG, ", \"compare_totalDistance_kts\": %.1lf\n", model.functions.valuesNow.compare_totalDistance_kts);
+			fprintf(filpekG, ", \"compare_totalTime_h\": %.1lf\n", model.functions.valuesNow.compare_totalTime_h);
+			fprintf(filpekG, ", \"compare_dollar_cost\": %.0lf\n", model.functions.valuesNow.compare_dollar_cost);
+
+			tmBas.tm_min += (-time + model.functions.valuesNow.compare_totalTime_h) * 60;
+			test = mktime(&tmBas);
+			if (test == -1) {
+				printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
+					tmBas.tm_year,
+					tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
+				postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
+			}
+			fixReadableDate(tmBas, endTime);
+
+			fprintf(filpekG, ", \"compare_route_endTime\":\"%s\"\n", endTime);
+		}
+	}
+	fprintf(filpekG, "}}\n");
+
+	fprintf(filpekG, "]}\n");
+
+
+
 
 	//fprintf(filpekG, "]\n}");
 	
@@ -6450,6 +6717,13 @@ int loadParams_theRestOld(strParams* params)
 		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 
+	if (!data["SKRIV_UT_NOTHING"].is_null()) {
+		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
+		if (SKRIV_UT_NOTHING < 2) {
+			reset_errlog();
+		}
+	}
+
 	if (!data["delayVersion"].is_null()) {
 		// loadSet_startDateTime(data["startDateTime", params]);
 		delayVersion = data["delayVersion"];
@@ -6969,7 +7243,7 @@ int loadParams_new(strParams* params)
 
 	if (!data["SKRIV_UT_NOTHING"].is_null()) {
 		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
-		if (SKRIV_UT_NOTHING == 0)
+		if (SKRIV_UT_NOTHING < 2)
 			reset_errlog();
 	}
 
@@ -7024,6 +7298,27 @@ int loadParams_new(strParams* params)
 	else
 		params->eta_h = -1;
 
+	if (!data["calmWaterSpeedCompare"].is_null()) {
+		params->calmWaterSpeedCompare = data["calmWaterSpeedCompare"];
+		params->calmWaterSpeedCompare *= params->knots_to_km;
+	}
+	else
+		params->calmWaterSpeedCompare = -1;
+	if (!data["fuelCompare"].is_null()) {
+		params->fuelCompare = data["fuelCompare"];
+	}
+	else
+		params->fuelCompare = -1;
+
+	if (!data["max_changeDirection"].is_null()) {
+		params->max_changeDirection = data["max_changeDirection"];
+		if (params->max_changeDirection == 0) {
+
+			// any use to change nPkterOrto???
+		}
+	}
+
+
 	if (params->hindCast != 1) {
 		if (!data["startHistoricalDataOnly"].is_null())
 			model.network.tidp_startHistoricDataOnly = data["startHistoricalDataOnly"];
@@ -7040,8 +7335,8 @@ int loadParams_new(strParams* params)
 		params->commercialAllowedVariation = -1;
 	}
 
-	if (!data["optionalExtraNoGoAreas"].is_null()) {
-		json dataExtra = data["optionalExtraNoGoAreas"];
+	if (!data["useOptionalExtraNoGoAreas"].is_null()) {
+		json dataExtra = data["useOptionalExtraNoGoAreas"];
 		model.nExtraNoGoAreas = dataExtra.size();
 		model.extraNoGoArea = (strExtraNoGo*)malloc(model.nExtraNoGoAreas * sizeof(strExtraNoGo));
 		pos = 0;
@@ -9212,11 +9507,28 @@ void setupUsableSpeedSettings() {
 			maxSpeed = model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i];
 	}
 
-	model.params.preferredSpeed_calmWater = averSpeed / model.functions.speedLevel[0].nShip_speedSettings;
+	if (model.params.calmWaterSpeedCompare > 0) {
+		if (minSpeed > model.params.calmWaterSpeedCompare) {
+			errlog("ERROR! calmWaterSpeedCompared is %.3lf but minSpeed given in shipSpeedSettings is %.3lf, I use the later one\n",
+				model.params.calmWaterSpeedCompare / model.params.knots_to_km, minSpeed / model.params.knots_to_km);
+			model.params.calmWaterSpeedCompare = minSpeed;
+		}
+		if (maxSpeed < model.params.calmWaterSpeedCompare) {
+			errlog("ERROR! calmWaterSpeedCompared is %.3lf but maxSpeed given in shipSpeedSettings is %.3lf, I use the later one\n",
+				model.params.calmWaterSpeedCompare / model.params.knots_to_km, maxSpeed / model.params.knots_to_km);
+			model.params.calmWaterSpeedCompare = maxSpeed;
+		}
+		model.params.preferredSpeed_calmWater = model.params.calmWaterSpeedCompare;
+		errlog("OBS! Setting preferred speed to calmWaterSpeedCompared: %.2lf knots (it is modified if eta is given)\n",
+			model.params.preferredSpeed_calmWater / model.params.knots_to_km);
+	}
+	else {
+		model.params.preferredSpeed_calmWater = averSpeed / model.functions.speedLevel[0].nShip_speedSettings;
+		errlog("OBS! Setting preferred speed to average of all speed settings right now: %.2lf knots (it is modified if eta is given)\n",
+			model.params.preferredSpeed_calmWater / model.params.knots_to_km);
+	}
 	model.params.calmWaterSpeedMin = minSpeed;
 	model.params.calmWaterSpeedMax = maxSpeed;
-	errlog("OBS! Setting preferred speed to average of all speed settings right now: %.2lf knots (it is modified if eta is given)\n",
-		model.params.preferredSpeed_calmWater / model.params.knots_to_km);
 	//errlog("ERROR! ERROR! Modify so the rpeferredSpeed_calmWater uses the objective when calculated, ie min time -> high speed, min emission -> most economical speed aso\n");
 
 
@@ -9830,8 +10142,7 @@ int loadVariables(int alt)
 	std::ifstream fil(namn);
 
 	if (!fil.is_open()) {
-		errlog("ERROR! Could not open the file %s//weather_parameters.json with information about the weather parameters. I quit.\n", model.params.indataPath.c_str());
-		exit(0);
+		postRequest("ERROR! Could not open the file " + model.params.indataPath + "//weather_parameters.json with information about the weather parameters. I quit.\n", 1);
 	}
 	fil >> data;
 
@@ -12211,17 +12522,11 @@ int openNeededRasterFilesNew(int alt)
 
 	openPhysicalMapAB_local();
 
-	if (alt == -11) {
-		openPhysicalMapAB_lessBuffer_local();
-	}
-	checkMinnesAnvandning(__LINE__);
-
-
-
 	int nExtra = model.nExtraNoGoAreas;
 	if (alt <= -10)
 		nExtra++; // it's the land map
 
+	checkMinnesAnvandning(__LINE__);
 	printf("nExtra %d\n", nExtra);
 	for (i = 0; i < nExtra; i++) {
 		printf("nExtra igen %d\n", nExtra);
@@ -12231,8 +12536,16 @@ int openNeededRasterFilesNew(int alt)
 		else
 			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].fileNameA);
 
+		checkMinnesAnvandning(__LINE__);
 		openNoGoAreas_local(i, namn2);
 	}
+
+	if (alt == -11) {
+		openPhysicalMapAB_lessBuffer_local();
+	}
+	checkMinnesAnvandning(__LINE__);
+
+
 
 	if (alt == -10)
 		return 0;
@@ -14535,6 +14848,33 @@ int adderaNodDelay(int physicalLevel, int pointNr, int timeInterval)
 	return modelDelay.nNoder - 1;
 }
 
+int adderaNodDelay_prefPath(int physicalLevel, int pointNr, int timeInterval)
+{
+	int nAlloc;
+	if (modelDelay_prefPath.nNoder == 66)
+		modelDelay_prefPath.nNoder = modelDelay_prefPath.nNoder;
+	if (modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].UtNod == NULL) {
+		if (physicalLevel >= 0)
+			nAlloc = model.network.physicalLev[physicalLevel].nInNodes[pointNr] + 1; // .nOutNodes[pointNr] + 1;
+		else
+			nAlloc = model.params.nPkterOrto + 1;
+		modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].UtNod = (int*)malloc2(nAlloc * sizeof(int));
+		modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].UtNodCost = (double*)malloc2(nAlloc * sizeof(double));
+		modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].outArcNr = (int*)malloc2(nAlloc * sizeof(int));
+	}
+	modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].nUtNoder = 0;
+	modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].physicalLevel = physicalLevel;
+	modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].pointNr = pointNr;
+	modelDelay_prefPath.Noder[modelDelay_prefPath.nNoder].timeInterval = timeInterval;
+	if (physicalLevel >= 0)
+		model.network.physicalLev[physicalLevel].nodDelay_prefPath[pointNr] = modelDelay_prefPath.nNoder;
+	else
+		model.network.channel[-physicalLevel - 1].nodDelay_prefPath[pointNr] = modelDelay_prefPath.nNoder;
+
+	(modelDelay_prefPath.nNoder)++;
+	return modelDelay_prefPath.nNoder - 1;
+}
+
 int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting)
 {
 	int i;
@@ -14663,6 +15003,43 @@ int adderaArcDelay(int nodNr1, int nodNr2, double cost, int speedSetting)
 		modelDelay.nArcs = modelDelay.nArcs;
 	modelDelay.Noder[nodNr2].outArcNr[modelDelay.Noder[nodNr2].nUtNoder] = modelDelay.nArcs;
 	(modelDelay.Noder[nodNr2].nUtNoder)++;
+	return -1;
+}
+
+int adderaArcDelay_prefPath(int nodNr1, int nodNr2, double cost, int speedSetting)
+{
+	int i;
+	if (nodNr2 == 3461)
+		nodNr2 = nodNr2;
+	if (nodNr1 > 4000)
+		nodNr1 = nodNr1;
+	/*
+	for (i = modelDelay.Noder[nodNr2].nUtNoder - 1; i >= 0; i--) {
+		if (modelDelay.Noder[nodNr2].UtNod[i] == nodNr1) {
+			if (cost < modelDelay.Noder[nodNr2].UtNodCost[i]) {
+				// this speed setting is cheaper than the old one...
+				modelDelay.Noder[nodNr2].UtNodCost[i] = cost;
+				if (cost < 0)
+					printf("ERROR cost negative %.2lf\n", cost);
+				return modelDelay.Noder[nodNr2].outArcNr[i];
+			}
+			else {
+				return -2;
+			}
+		}
+		//if (modelDelay.Noder[modelDelay.Noder[nodNr2].UtNod[i]].pointNr != modelDelay.Noder[nodNr1].pointNr)
+		//	break;
+	}
+	*/
+
+	modelDelay_prefPath.Noder[nodNr2].UtNod[modelDelay_prefPath.Noder[nodNr2].nUtNoder] = nodNr1;
+	modelDelay_prefPath.Noder[nodNr2].UtNodCost[modelDelay_prefPath.Noder[nodNr2].nUtNoder] = cost;
+	if (cost < 0)
+		printf("ERROR negative cost %.2lf\n", cost);
+	if (modelDelay_prefPath.nArcs == 41034)
+		modelDelay_prefPath.nArcs = modelDelay_prefPath.nArcs;
+	modelDelay_prefPath.Noder[nodNr2].outArcNr[modelDelay_prefPath.Noder[nodNr2].nUtNoder] = modelDelay_prefPath.nArcs;
+	(modelDelay_prefPath.Noder[nodNr2].nUtNoder)++;
 	return -1;
 }
 
@@ -15332,7 +15709,7 @@ int calcWeatherPosAlongpreferredPathArc_connectChannel(spherical::Point p1, int 
 		if(posEnd < 1)
 			totDist = model.network.physicalLev[level].point[model.params.preferredPathOrtoPos[level]].distanceTo(p2) / 1000;
 		else
-		totDist = model.network.physicalLev[level].preferredPathPoint[posEnd - 1].distanceTo(p2) / 1000;
+			totDist = model.network.physicalLev[level].preferredPathPoint[posEnd - 1].distanceTo(p2) / 1000;
 		totDist2 = totDist;
 	}
 	else {
@@ -15477,7 +15854,10 @@ int evalDistanceBetweenPrefPathAndChannel(int level1, int level2)
 		posLast = -1;
 		posEnd = model.network.channel[-level2 - 1].preferredPathPoint_posConnectTo + 1;
 		pMid = model.network.physicalLev[level].point[model.params.preferredPathOrtoPos[level]];
-		totDist = model.network.physicalLev[level].preferredPathPoint[posEnd - 1].distanceTo(model.network.channel[-level2 - 1].point[0]) / 1000;
+		if (posEnd < 1)
+			totDist = model.network.physicalLev[level].point[model.params.preferredPathOrtoPos[level]].distanceTo(model.network.channel[-level2 - 1].point[0]) / 1000;
+		else
+			totDist = model.network.physicalLev[level].preferredPathPoint[posEnd - 1].distanceTo(model.network.channel[-level2 - 1].point[0]) / 1000;
 	}
 	else {
 		level = level2 - 1;
@@ -15521,9 +15901,9 @@ int set_tidp_ger_delayPos() {
 	model.delay.tidpHistorical_ger_delayMapNr = (int*)malloc(nAlloc * sizeof(int));
 	for (i = 0; i < model.delay.nDelayed_months; i++) {
 		lastHour = getHoursAfterStart_monthEnd(model.delay.delayed_monthNr[i]);
-		if (lastHour >= nAlloc) {
-			errlog("ERROR! lastHour too big, is %d but cannot be more than %d, monthPos %d\n", lastHour, nAlloc - 1, i);
-			lastHour = nAlloc - 1;
+		if (lastHour - model.network.tidp_startHistoricDataOnly >= nAlloc) {
+			errlog("ERROR! lastHour too big, is %d but cannot be more than %d, monthPos %d\n", lastHour, nAlloc - 1 + model.network.tidp_startHistoricDataOnly, i);
+			lastHour = nAlloc - 1 + model.network.tidp_startHistoricDataOnly;
 		}
 		for (i1 = startPos; i1 <= lastHour; i1++)
 			model.delay.tidpHistorical_ger_delayMapNr[i1 - model.network.tidp_startHistoricDataOnly] = i;
@@ -17531,7 +17911,7 @@ int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2){
 }
 
 
-int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int i4, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot)
+int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int i4, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, int runAlt)
 {
 	// i = thisLevel, i1 = pointPos, i+1 = nextLevel, i2 = outNodePos, i3 = tPos
 	int tidInt, nArcsNu = 0, nodNr1, nodNr2, posNy, arcNr, prefPath = 0;
@@ -17551,11 +17931,12 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 		if (pos1 == model.params.preferredPathOrtoPos[thisLevel]) {
 			if (nextLevel >= 0) {
 				if (pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1 &&
-					model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0)
+					(model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0 || model.params.max_changeDirection == 0 || runAlt == 1))
 					prefPath = 1;
 			}
 			else {
-				if (model.network.channel[-nextLevel - 1].straightArcFeasible_toChannelFromPrefPath == 0 && pos1 == model.params.preferredPathOrtoPos[thisLevel])
+				if ((model.network.channel[-nextLevel - 1].straightArcFeasible_toChannelFromPrefPath == 0 || model.params.max_changeDirection == 0 || runAlt == 1) &&
+					pos1 == model.params.preferredPathOrtoPos[thisLevel])
 					prefPath = 1;
 			}
 			//if (model.params.preferredPathUseChannelSpeed[thisLevel] > 0) {
@@ -17568,7 +17949,8 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 	else {
 		if (nextLevel >= 0) {
 			nSpeedSettings = model.functions.speedChannelOut[-thisLevel-1].nShip_speedSettings;
-			if (model.network.channel[-thisLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 && pos2 == model.params.preferredPathOrtoPos[nextLevel])
+			if ((model.network.channel[-thisLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 || model.params.max_changeDirection == 0 || runAlt == 1) &&
+				pos2 == model.params.preferredPathOrtoPos[nextLevel])
 				prefPath = 1;
 		//if (pos2 == model.params.preferredPathOrtoPos[nextLevel]) {
 			//	if (model.params.preferredPathUseChannelSpeed[nextLevel - 1] > 0) {
@@ -17871,7 +18253,7 @@ int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos
 		if (pos1 == model.params.preferredPathOrtoPos[thisLevel]) {
 			if (nextLevel >= 0) {
 				if (pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1 &&
-					model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0)
+					(model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0 || model.params.max_changeDirection == 0))
 					prefPath = 1;
 			}
 			//if (model.params.preferredPathUseChannelSpeed[thisLevel] > 0) {
@@ -18533,9 +18915,157 @@ int genArcsToEnd_delayed(int thisLevel, int pos1, int nextLevel, int pos2, int t
 	return nArcsNu;
 }
 
+int genArcsToEnd_delayed_prefPath(int thisLevel, int pos1, int nextLevel, int pos2, int tPos)
+{
+	// thisLevel can be negative (ending of channel) and next position could be a corridor start so handle these here too
+	// from this point to end of route
+	int tidInt, nodNr1, nodNr2, posNy, arcNr, endLevel, posEnd;
+	int nArcsNu = 0, i, nod1, nod2, Reached, tidIntStart;
+	double time = 0, fuel_main_noEca = 0, fuel_main_eca = 0, fuel_aux_noEca = 0, fuel_aux_eca = 0;
+	double tid, fuel_eca, fuel_noEca, fuel_aux, fuel_auxEca, fuelBase, emission;
+	double totCost = 0, dist;
+	long long Cost;
+	strDelayToEnd* routeToEnd;
+
+	if (model.nArcs >= 61846)
+		model.nArcs = model.nArcs;
+
+	posEnd = 0;
+	endLevel = model.network.nPhysicalLevels - 1;
+
+	if (model.nArcs == 42)
+		model.nArcs = model.nArcs;
+	if (thisLevel == 6)
+		thisLevel = thisLevel;
+
+	int posUse = model.params.preferredPathOrtoPos[thisLevel];
+	if (thisLevel >= 0) {
+		if (model.delayRouteToEnd_prefPath[thisLevel] == NULL) {
+			model.delayRouteToEnd_prefPath[thisLevel] = (strDelayToEnd*)malloc(model.network.physicalLev[thisLevel].nPoints * sizeof(strDelayToEnd));
+			model.delayRouteToEnd_prefPath[thisLevel][posUse].time = -1;
+		}
+		routeToEnd = &(model.delayRouteToEnd_prefPath[thisLevel][pos1]);
+		nod1 = model.network.physicalLev[thisLevel].nodDelay_prefPath[pos1];
+		nodNr1 = model.network.physicalLev[thisLevel].nodNr_from_pt[pos1][tPos];
+	}
+	else {
+		if (model.delayRouteToEnd_channel_prefPath[-thisLevel - 1] == NULL) {
+			model.delayRouteToEnd_channel_prefPath[-thisLevel - 1] = (strDelayToEnd*)malloc(2 * sizeof(strDelayToEnd));
+			for (i = 0; i < 2; i++)
+				model.delayRouteToEnd_channel_prefPath[-thisLevel - 1][i].time = -1;
+		}
+		routeToEnd = &(model.delayRouteToEnd_channel_prefPath[-thisLevel - 1][pos1]);
+		nod1 = model.network.channel[-thisLevel - 1].nodDelay_prefPath[pos1];
+		nodNr1 = model.network.channel[-thisLevel - 1].nodNr_from_pt[pos1][tPos];
+	}
 
 
-int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot) {
+	//if (model.delayRouteToEnd[thisLevel][pos1].time < 0) {
+	if (routeToEnd->time < 0) {
+		if (routeToEnd->time < -1.1)
+			return 0; // no feasible path exists
+
+		nod2 = model.network.physicalLev[model.network.nPhysicalLevels - 1].nodDelay_prefPath[0];
+		dist = NystaUppBV_MassTest(&modelDelay_prefPath, 1, nod2, nod1, &Cost);
+		if (modelDelay_prefPath.nBVArcs < 1) {
+			routeToEnd->time = -2; // no feasible path exists
+			return 0;
+		}
+
+		routeToEnd->BVArc = (int*)malloc(modelDelay_prefPath.nBVArcs * sizeof(int));
+		routeToEnd->time = 0;
+		dist = 0;
+		for (i = 0; i < modelDelay_prefPath.nBVArcs; i++) {
+			arcNr = modelDelay_prefPath.BVArc[i];
+			routeToEnd->BVArc[modelDelay_prefPath.nBVArcs - i - 1] = arcNr;
+			time += modelDelay_prefPath.arc[arcNr].time;
+			fuel_main_noEca += modelDelay_prefPath.arc[arcNr].fuel_noEca;
+			fuel_main_eca += modelDelay_prefPath.arc[arcNr].fuel_eca;
+			fuel_aux_noEca += modelDelay_prefPath.arc[arcNr].fuel_aux;
+			fuel_aux_eca += modelDelay_prefPath.arc[arcNr].fuel_auxEca;
+			dist += modelDelay_prefPath.arc[arcNr].distance;
+			//if (thisLevel == 38 && pos1 == 29)
+			//	printf("i %d arcNr %d tid %.2lf %.2lf fuelBase %.2lf fuel_aux %.4lf fuel_noEca %.4lf arcDist %.3lf\n", i, arcNr, modelDelay.arc[arcNr].time, time,
+			//		modelDelay.arc[arcNr].fuel_aux * model.params.fuel.aux_noEca.price + modelDelay.arc[arcNr].fuel_auxEca * model.params.fuel.aux_eca.price +
+			//		modelDelay.arc[arcNr].fuel_eca * model.params.fuel.main_eca.price + modelDelay.arc[arcNr].fuel_noEca * model.params.fuel.main_noEca.price,
+			//		modelDelay.arc[arcNr].fuel_aux, modelDelay.arc[arcNr].fuel_noEca, modelDelay.arc[arcNr].distance / 1.852);
+		}
+		routeToEnd->nBVArcs = i;
+		routeToEnd->time = time;
+		routeToEnd->fuel_main_noEca = fuel_main_noEca;
+		routeToEnd->fuel_main_eca = fuel_main_eca;
+		routeToEnd->fuel_aux_noEca = fuel_aux_noEca;
+		routeToEnd->fuel_aux_eca = fuel_aux_eca;
+		routeToEnd->distance = dist;
+	}
+
+	if (thisLevel >= 0)
+		tidIntStart = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
+	else
+		tidIntStart = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos];
+
+	tid = routeToEnd->time;
+	tidInt = tidIntStart + (int)round(tid * model.params.nTidsperioder_perH);
+
+	nodNr2 = addTimeTo_timeInterval(thisLevel, endLevel, posEnd, tidInt);
+
+	fuel_noEca = routeToEnd->fuel_main_noEca;
+	fuel_eca = routeToEnd->fuel_main_eca;
+	fuel_aux = routeToEnd->fuel_aux_noEca;
+	fuel_auxEca = routeToEnd->fuel_aux_eca;
+	fuelBase = (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
+		fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price);
+	emission = fuel_aux * model.params.fuel.aux_noEca.emissionFactor + fuel_auxEca * model.params.fuel.aux_eca.emissionFactor +
+		fuel_eca * model.params.fuel.main_eca.emissionFactor + fuel_noEca * model.params.fuel.main_noEca.emissionFactor;
+
+	totCost += model.params.weightTime * model.params.priceTime * tid +
+		model.params.weightFuel * fuelBase + emission * model.params.weightEmission * model.params.scaleObjEmission;
+	//if (thisLevel == 38 && pos1 == 29)
+	//	printf("\ttotCost %.3lf tid %.3lf fuelBase %.3lf emission %.3lf\n", totCost,
+	//		tid, fuelBase, emission);
+
+	posNy = adderaArc(nodNr1, nodNr2, totCost, -1);
+
+	arcNr = model.nArcs;
+	if (model.nArcs == 272303)
+		model.nArcs = model.nArcs;
+	if (arcNr >= model.nAllocArcs) {
+		model.nAllocArcs += 1000000;
+		model.arc = (strArcInfo*)realloc(model.arc,
+			model.nAllocArcs * sizeof(strArcInfo));
+	}
+	model.arc[arcNr].fromLevel = thisLevel;
+	model.arc[arcNr].toLevel = endLevel;
+	model.arc[arcNr].fromPointNr = pos1;
+	model.arc[arcNr].toPointNr = posEnd;
+	(model.network.physicalLev[endLevel].nArcsToPoint[posEnd])++;
+	if (thisLevel >= 0)
+		model.arc[arcNr].fromTime = model.network.physicalLev[thisLevel].timeInterval[pos1][tPos];
+	else
+		model.arc[arcNr].fromTime = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos];
+	model.arc[arcNr].toTime = tidInt;
+	model.arc[arcNr].speedSetting = -2;
+	model.arc[arcNr].time = tid;
+	model.arc[arcNr].distance = routeToEnd->distance; // model.functions.valuesNow.distance;
+	model.arc[arcNr].emission = emission;
+	model.arc[arcNr].fuelBase = fuelBase;
+	model.arc[arcNr].fuel_aux = fuel_aux;
+	model.arc[arcNr].fuel_auxEca = fuel_auxEca;
+	model.arc[arcNr].fuel_eca = fuel_eca;
+	model.arc[arcNr].fuel_noEca = fuel_noEca;
+	model.arc[arcNr].fuelQualityKvot = -1;
+	model.arc[arcNr].safetyHurricane = 0;
+	model.arc[arcNr].safetyBase = 0;
+	model.arc[arcNr].totCost = totCost;
+	model.nArcs++;
+	nArcsNu++;
+
+	return nArcsNu;
+}
+
+
+
+int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, int runAlt) {
 	int nSpeedSettings, prefPath, i4, i3, arcNr;
 	int nArcsNu = 0;
 	double calmWaterSpeed = -1.0, distArc = -1, delayFactor = 0;
@@ -18547,7 +19077,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 		if (pos1 == model.params.preferredPathOrtoPos[thisLevel]) {
 			if (nextLevel >= 0) {
 				if (pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1 &&
-					model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0)
+					(model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0 || model.params.max_changeDirection == 0 || runAlt == 1))
 					prefPath = 1;
 			}
 			//if (model.params.preferredPathUseChannelSpeed[thisLevel] > 0) {
@@ -18585,13 +19115,17 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 		for (i3 = 0; i3 < model.network.physicalLev[thisLevel].nTimeIntervals[pos1]; i3++) {
 			if (model.network.physicalLev[thisLevel].timeInterval[pos1][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
 				for (i4 = 0; i4 < nSpeedSettings; i4++)
-					arcNr = addEnBage_AB(thisLevel, pos1, nextLevel, pos2, i3, i4, setupCheckPoints, min_t, max_t, fuelQualityKvot);
+					arcNr = addEnBage_AB(thisLevel, pos1, nextLevel, pos2, i3, i4, setupCheckPoints, min_t, max_t, fuelQualityKvot, runAlt);
 			}
 			else {
 				if (delayVersion < 3)
 					arcNr = genArcsTo_delayedPreferredPath(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings, fuelQualityKvot, &delayFactor, &distArc);
-				else
-					arcNr = genArcsToEnd_delayed(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings);
+				else {
+					if (runAlt != 1)
+						arcNr = genArcsToEnd_delayed(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings);
+					else
+						arcNr = genArcsToEnd_delayed_prefPath(thisLevel, pos1, nextLevel, pos2, i3);
+				}
 			}
 		}
 	}
@@ -18599,15 +19133,19 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 		for (i3 = 0; i3 < model.network.channel[-thisLevel - 1].nTimeIntervals[1]; i3++) {
 			if (model.network.channel[-thisLevel - 1].timeInterval[pos1][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
 				for (i4 = 0; i4 < nSpeedSettings; i4++)
-					arcNr = addEnBage_AB(thisLevel, pos1, nextLevel, pos2, i3, i4, setupCheckPoints, min_t, max_t, fuelQualityKvot);
+					arcNr = addEnBage_AB(thisLevel, pos1, nextLevel, pos2, i3, i4, setupCheckPoints, min_t, max_t, fuelQualityKvot, runAlt);
 			}
 			else {
 				if (nextLevel == 102)
 					nextLevel = nextLevel;
 				if (delayVersion < 3)
 					arcNr = genArcsTo_delayedPreferredPath(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings, fuelQualityKvot, &delayFactor, &distArc);
-				else
-					arcNr = genArcsToEnd_delayed(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings);
+				else {
+					if (runAlt != 1)
+						arcNr = genArcsToEnd_delayed(thisLevel, pos1, nextLevel, pos2, i3, nSpeedSettings);
+					else
+						arcNr = genArcsToEnd_delayed_prefPath(thisLevel, pos1, nextLevel, pos2, i3);
+				}
 			}
 		}
 	}
@@ -18624,7 +19162,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 		for (i3 = 0; i3 < model.network.channel[-nextLevel - 1].nTimeIntervals[0]; i3++) {
 			if (model.network.channel[-nextLevel - 1].timeInterval[0][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
 				for (i4 = 0; i4 < nSpeedSettings; i4++)
-					arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, i3, i4, setupCheckPoints, 0, 99999, fuelQualityKvot);
+					arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, i3, i4, setupCheckPoints, 0, 99999, fuelQualityKvot, runAlt);
 			}
 			else {
 				if (delayVersion < 3) {
@@ -18639,7 +19177,10 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int*
 					}
 				}
 				else {
-					arcNr = genArcsToEnd_delayed(nextLevel, 0, nextLevel, 1, i3, nSpeedSettings);
+					if (runAlt != 1)
+						arcNr = genArcsToEnd_delayed(nextLevel, 0, nextLevel, 1, i3, nSpeedSettings);
+					else
+						arcNr = genArcsToEnd_delayed_prefPath(nextLevel, 0, nextLevel, 1, i3);
 				}
 			}
 		}
@@ -18659,10 +19200,10 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 	double fixTime = -1, waitingTime = 0, fuelWaitCorridor = 0;
 	double fuelWaitCorridor_main = 0, fuelWaitCorridor_aux = 0, totCostCompare;
 
-	if (modelDelay.nArcs == 6111)
+	if (modelDelay.nArcs == 7974)
 		modelDelay.nArcs = modelDelay.nArcs;
 	// factorDelay = eval_factorDelayedAlongPath(thisLevel, tidInt);
-	if(delayVersion < 4)
+	if (delayVersion < 4)
 		factorDelay = eval_factorDelayedAlongArc(thisLevel, pos1, nextLevel, pos2, tidInt); // model.network.physicalLev[thisLevel].timeInterval[pos1][tidInt]);
 	else {
 		if (delayVersion == 4)
@@ -18683,7 +19224,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 			}
 		}
 		else {
-			if (model.network.channel[-thisLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 && pos2 == model.params.preferredPathOrtoPos[nextLevel])
+			if ((model.network.channel[-thisLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 || model.params.max_changeDirection == 0) &&
+				pos2 == model.params.preferredPathOrtoPos[nextLevel])
 				dist = evalDistanceBetweenPrefPathAndChannel(thisLevel, nextLevel);
 			else {
 				if (pos1 == 1)
@@ -18700,7 +19242,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 	}
 	else {
 		if (thisLevel >= 0) {
-			if (model.network.channel[-nextLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 && pos1 == model.params.preferredPathOrtoPos[thisLevel])
+			if ((model.network.channel[-nextLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 || model.params.max_changeDirection == 0) &&
+				pos1 == model.params.preferredPathOrtoPos[thisLevel])
 				dist = evalDistanceBetweenPrefPathAndChannel(thisLevel, nextLevel);
 			else {
 				x1 = model.network.physicalLev[thisLevel].point_x[pos1];
@@ -18759,11 +19302,11 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 
 		totCost += model.params.weightTime * model.params.priceTime * timeArc +
 			model.params.weightFuel * fuelBase + emission * model.params.weightEmission * model.params.scaleObjEmission;
-		
+
 		if (thisLevel == 0)
 			totCost /= 2; // this to make sure there is a bigger difference between the cheapest and most expensive arc or there might be problems when solving Dijkstra
 
-		if(model.params.etaFocus_speed == 0)
+		if (model.params.etaFocus_speed == 0)
 			totCostCompare = totCost;
 		else {
 			if (model.params.etaFocus_speed == -1)
@@ -18787,7 +19330,7 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 		nodNr1 = model.network.physicalLev[thisLevel].nodDelay[pos1];
 	else
 		nodNr1 = model.network.channel[-thisLevel - 1].nodDelay[pos1];
-	if(nextLevel >= 0)
+	if (nextLevel >= 0)
 		nodNr2 = model.network.physicalLev[nextLevel].nodDelay[pos2];
 	else
 		nodNr2 = model.network.channel[-nextLevel - 1].nodDelay[pos2];
@@ -18814,6 +19357,153 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 	return 0;
 }
 
+int addBastSpeed_arcDelayed_prefPath(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, double fuelQualityKvot) {
+	// loop over all speedsettings, find lowest cost with delay factor
+	int i4, minPos, posTmp;
+	double minCost = 1e20, totCost, channelCost, calmWaterSpeed, timeArc;
+	double fuelConsumption_main, fuelConsumption_aux, fuelUsage_main, fuelUsage_aux;
+	double fuel_eca, fuel_noEca, fuel_aux, fuel_auxEca, fuelBase, emission, factorDelay, dist;
+	double x1, y1, x2, y2, speedNow;
+	int arcNr, nodNr1, nodNr2;
+	double minTime, minBase, minAux, minAuxEca, minEca, minNoEca, speedDiffCurrent = 0;
+	double fixTime = -1, waitingTime = 0, fuelWaitCorridor = 0;
+	double fuelWaitCorridor_main = 0, fuelWaitCorridor_aux = 0, totCostCompare;
+
+	if (modelDelay_prefPath.nArcs == 6111)
+		modelDelay_prefPath.nArcs = modelDelay_prefPath.nArcs;
+	// factorDelay = eval_factorDelayedAlongPath(thisLevel, tidInt);
+	factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(thisLevel, pos1, nextLevel, pos2, tidInt, &speedDiffCurrent,
+		model.params.calmWaterSpeedCompare);
+	if (nextLevel >= 0) {
+		if (thisLevel >= 0) {
+			if (model.params.preferredPathOrtoPos[thisLevel] == pos1 && model.params.preferredPathOrtoPos[nextLevel] == pos2)
+				dist = model.network.physicalLev[thisLevel + 1].distanceFromStartPosMid - model.network.physicalLev[thisLevel].distanceFromStartPosMid;
+			else {
+				x1 = model.network.physicalLev[thisLevel].point_x[pos1];
+				y1 = model.network.physicalLev[thisLevel].point_y[pos1];
+				x2 = model.network.physicalLev[nextLevel].point_x[pos2];
+				y2 = model.network.physicalLev[nextLevel].point_y[pos2];
+				dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+			}
+		}
+		else {
+			if (pos2 == model.params.preferredPathOrtoPos[nextLevel])
+				dist = evalDistanceBetweenPrefPathAndChannel(thisLevel, nextLevel);
+			else {
+				if (pos1 == 1)
+					posTmp = model.network.channel[-thisLevel - 1].nPoints - 1;
+				else
+					posTmp = 0;
+				x1 = model.network.channel[-thisLevel - 1].point_x[posTmp];
+				y1 = model.network.channel[-thisLevel - 1].point_y[posTmp];
+				x2 = model.network.physicalLev[nextLevel].point_x[pos2];
+				y2 = model.network.physicalLev[nextLevel].point_y[pos2];
+				dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+			}
+		}
+	}
+	else {
+		if (thisLevel >= 0) {
+			if (pos1 == model.params.preferredPathOrtoPos[thisLevel])
+				dist = evalDistanceBetweenPrefPathAndChannel(thisLevel, nextLevel);
+			else {
+				x1 = model.network.physicalLev[thisLevel].point_x[pos1];
+				y1 = model.network.physicalLev[thisLevel].point_y[pos1];
+				if (pos2 == 1)
+					posTmp = model.network.channel[-nextLevel - 1].nPoints - 1;
+				else
+					posTmp = 0;
+				x2 = model.network.channel[-nextLevel - 1].point_x[posTmp];
+				y2 = model.network.channel[-nextLevel - 1].point_y[posTmp];
+				dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+			}
+		}
+		else {
+			dist = model.network.channel[-thisLevel - 1].distance_km;
+			fixTime = model.network.channel[-thisLevel - 1].timeThroughChannel;
+			waitingTime = model.network.channel[-thisLevel - 1].waitingTime;
+			fuelWaitCorridor_main = model.network.channel[-thisLevel - 1].waiting_consumption_main;
+			fuelWaitCorridor_aux = model.network.channel[-thisLevel - 1].waiting_consumption_aux;
+		}
+	}
+
+	channelCost = 0;
+	i4 = 0;
+	totCost = channelCost;
+	if (fixTime < -0.5) {
+		calmWaterSpeed = model.params.calmWaterSpeedCompare; // eval_calmWaterSpeed(i4, -1, -100);
+		speedNow = calmWaterSpeed / factorDelay + speedDiffCurrent;
+		if (speedNow < 0.1)
+			speedNow = 0.1;
+		timeArc = dist / speedNow + waitingTime; // in hours
+	}
+	else {
+		timeArc = fixTime + waitingTime; // in hours
+	}
+
+	fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -100);
+	fuelConsumption_main += fuelWaitCorridor_main;
+	fuelConsumption_aux += fuelWaitCorridor_aux;
+
+	fuelUsage_main = fuelConsumption_main * timeArc;
+	fuelUsage_aux = fuelConsumption_aux * timeArc;
+
+	fuel_eca = fuelUsage_main * (1 - fuelQualityKvot);
+	fuel_noEca = fuelUsage_main * fuelQualityKvot;
+	fuel_aux = fuelUsage_aux * fuelQualityKvot;
+	fuel_auxEca = fuelUsage_aux * (1 - fuelQualityKvot);
+	fuelBase = (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
+		fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price) + fuelWaitCorridor;
+	emission = fuel_aux * model.params.fuel.aux_noEca.emissionFactor + fuel_auxEca * model.params.fuel.aux_eca.emissionFactor +
+		fuel_eca * model.params.fuel.main_eca.emissionFactor + fuel_noEca * model.params.fuel.main_noEca.emissionFactor;
+
+	totCost += model.params.weightTime * model.params.priceTime * timeArc +
+		model.params.weightFuel * fuelBase + emission * model.params.weightEmission * model.params.scaleObjEmission;
+		
+	if (thisLevel == 0)
+		totCost /= 2; // this to make sure there is a bigger difference between the cheapest and most expensive arc or there might be problems when solving Dijkstra
+
+	totCostCompare = totCost;
+	minCost = totCost;
+	minPos = i4;
+	minTime = timeArc;
+	minBase = fuelBase;
+	minAux = fuel_aux;
+	minAuxEca = fuel_auxEca;
+	minEca = fuel_eca;
+	minNoEca = fuel_noEca;
+	
+	if (thisLevel >= 0)
+		nodNr1 = model.network.physicalLev[thisLevel].nodDelay_prefPath[pos1];
+	else
+		nodNr1 = model.network.channel[-thisLevel - 1].nodDelay_prefPath[pos1];
+	if(nextLevel >= 0)
+		nodNr2 = model.network.physicalLev[nextLevel].nodDelay_prefPath[pos2];
+	else
+		nodNr2 = model.network.channel[-nextLevel - 1].nodDelay_prefPath[pos2];
+	adderaArcDelay_prefPath(nodNr1, nodNr2, minCost, minPos);
+
+	arcNr = modelDelay_prefPath.nArcs;
+	modelDelay_prefPath.arc[arcNr].fromLevel = thisLevel;
+	modelDelay_prefPath.arc[arcNr].toLevel = nextLevel;
+	modelDelay_prefPath.arc[arcNr].fromPointNr = pos1;
+	modelDelay_prefPath.arc[arcNr].toPointNr = pos2;
+	modelDelay_prefPath.arc[arcNr].speedSetting = minPos;
+	modelDelay_prefPath.arc[arcNr].time = minTime;
+	modelDelay_prefPath.arc[arcNr].distance = dist;
+	modelDelay_prefPath.arc[arcNr].fuelBase = minBase;
+	modelDelay_prefPath.arc[arcNr].fuel_aux = minAux;
+	modelDelay_prefPath.arc[arcNr].fuel_auxEca = minAuxEca;
+	modelDelay_prefPath.arc[arcNr].fuel_eca = minEca;
+	modelDelay_prefPath.arc[arcNr].fuel_noEca = minNoEca;
+	modelDelay_prefPath.arc[arcNr].fuelQualityKvot = fuelQualityKvot;
+	modelDelay_prefPath.arc[arcNr].totCost = minCost;
+	modelDelay_prefPath.nArcs++;
+
+
+	return 0;
+}
+
 int addBage_AB_delayFysiskt(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, double fuelQualityKvot) {
 	int nSpeedSettings, prefPath, i4, i3, arcNr;
 	int nArcsNu = 0;
@@ -18825,7 +19515,7 @@ int addBage_AB_delayFysiskt(int thisLevel, int pos1, int nextLevel, int pos2, in
 		if (pos1 == model.params.preferredPathOrtoPos[thisLevel]) {
 			if (nextLevel >= 0) {
 				if (pos2 == model.params.preferredPathOrtoPos[nextLevel] && thisLevel == nextLevel - 1 &&
-					model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0)
+					(model.params.preferredPathStraightLineFeasibleFrom[thisLevel] == 0 || model.params.max_changeDirection == 0))
 					prefPath = 1;
 			}
 		}
@@ -18844,7 +19534,7 @@ int addBage_AB_delayFysiskt(int thisLevel, int pos1, int nextLevel, int pos2, in
 
 	arcNr = addBastSpeed_arcDelayed(thisLevel, pos1, nextLevel, pos2, tidInt, nSpeedSettings, fuelQualityKvot);
 	// loop over all speedsettings, find lowest cost with delay factor
-	
+
 	//if (nextLevel < 0) { // add arcs for the channel path
 	//	model.functions.valuesNow.prefPathArc = 2;
 	//	if (model.network.channel[-nextLevel - 1].timeThroughChannel > -0.5)
@@ -19979,6 +20669,8 @@ int estimate_nDaysNeededHistory(int weatherNr, long long lastSecondUTC_needed, l
 	*nSecondsHistory_firstStartDay = getFirstSecondOfDay(*nSecondsHistory_first);
 
 	long long nExtraSecondsNeeded = lastSecondUTC_needed - (*nSecondsHistory_first);
+	if (nExtraSecondsNeeded < 0)
+		nExtraSecondsNeeded = 0;
 	nDaysNeeded = (int)(nExtraSecondsNeeded / 3600 / 24) + 1;
 	
 	return nDaysNeeded;
@@ -20005,8 +20697,6 @@ void loadWeatherFiles_onboard_grib() {
 	double factorExtraTime = 1.3;
 	double endTime = model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater; // * delayFactor;
 	
-	errlog("ERROR! Fix loadWeatherFiles_onboard_grib\n");
-
 	arrFloat = NULL;
 
 	char* namn = (char*)malloc(2356 * sizeof(char));
@@ -20116,9 +20806,9 @@ void loadWeatherFiles_onboard_grib() {
 					}
 					else {
 						errlog("ERROR! Start planning a route at UTC second %I64d but last weather data for parameter %d is %I64d, diff %.2lf hours \n",
-							model.params.UTC_secondsStart, ii, model.weather[ii].secondsUTC[pos - 1],
-							(model.params.UTC_secondsStart - model.weather[ii].secondsUTC[pos - 1]) / 3600.0);
-						startT = pos - 1;
+							model.params.UTC_secondsStart, ii, model.weather[ii].secondsUTC[i2 - 1],
+							(model.params.UTC_secondsStart - model.weather[ii].secondsUTC[i2 - 1]) / 3600.0);
+						startT = i2 - 1;
 					}
 				}
 				else
@@ -20132,10 +20822,13 @@ void loadWeatherFiles_onboard_grib() {
 					}
 				}
 				printf("nBands %d startT %d nDaysHistory %d\n", nBands, startT, nDaysNeeded_history);
-				if (model.params.onboard == 1)
+				if (model.params.onboard == 1) {
 					nDaysUsed_history = nDaysNeeded_history;
+					if (nDaysUsed_history < 0)
+						nDaysUsed_history = 0;
+				}
 				else
-					nDaysUsed_history = 2;
+					nDaysUsed_history = 1;
 
 				model.weather[ii].nTimeIntervals_forecast = nBands - startT;
 				if (model.weather[ii].nTimeIntervals_forecast < 0)
@@ -20464,31 +21157,55 @@ int setNewSpeedAlt(strSpeed* speed, int baseSpeed) {
 	return 0;
 }
 
-int modify_midTimeArrive() {
-	int baseSpeed;
-	for (int i = 0; i < model.network.nPhysicalLevels; i++) {
-		if (model.optPath.level[i].timeArrive >= -0.0001) {
-			model.network.physicalLev[i].midTimeArrive = model.optPath.level[i].timeArrive;
-			// baseSpeed = model.functions.speedLevel[i].settingGerBaseSetting[model.optPath.level[i].speedSettingNr];
-			baseSpeed = model.optPath.level[i].baseSpeedSettingNr;
-			setNewSpeedAlt(&(model.functions.speedLevel[i]), baseSpeed);
-		}else
-			model.network.physicalLev[i].midTimeArrive = -1;
-	}
+int modify_midTimeArrive(int iter) {
+	int baseSpeed, indexUnder, indexOver, i1;
+	double kvot, target;
 
-	for (int i = 0; i < model.network.nChannels; i++) {
-		if (model.optPath.channel[i].timeArriveThrough >= -0.0001) {
-			// baseSpeed = model.functions.speedChannel[i].settingGerBaseSetting[model.optPath.channel[i].speedSettingNrThrough];
-			baseSpeed = model.optPath.channel[i].speedSettingNrThrough;
-			setNewSpeedAlt(&(model.functions.speedChannel[i]), baseSpeed);
+	if (iter == 1) {
+		if (model.params.calmWaterSpeedCompare > 0) {
+			target = model.params.calmWaterSpeedCompare;
+			getBastSpeedPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
 		}
-		if (model.optPath.channel[i].timeArriveNext >= -0.0001) {
-			// baseSpeed = model.functions.speedChannelOut[i].settingGerBaseSetting[model.optPath.channel[i].speedSettingNrNext];
-			baseSpeed = model.optPath.channel[i].speedSettingNrNext;
-			setNewSpeedAlt(&(model.functions.speedChannelOut[i]), baseSpeed);
+		else {
+			target = model.params.fuelCompare / 24.0;
+			getBastConsumptionPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
+		}
+		for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+			set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), 0, indexUnder, indexOver, kvot);
+			model.functions.speedLevel[i1].nShip_speedSettings = 1;
+		}
+		for (i1 = 0; i1 < model.network.nChannels; i1++) {
+			set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), 0, indexUnder, indexOver, kvot);
+			model.functions.speedChannel[i1].nShip_speedSettings = 1;
+			set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), 0, indexUnder, indexOver, kvot);
+			model.functions.speedChannelOut[i1].nShip_speedSettings = 1;
 		}
 	}
+	else {
+		for (int i = 0; i < model.network.nPhysicalLevels; i++) {
+			if (model.optPath.level[i].timeArrive >= -0.0001) {
+				model.network.physicalLev[i].midTimeArrive = model.optPath.level[i].timeArrive;
+				// baseSpeed = model.functions.speedLevel[i].settingGerBaseSetting[model.optPath.level[i].speedSettingNr];
+				baseSpeed = model.optPath.level[i].baseSpeedSettingNr;
+				setNewSpeedAlt(&(model.functions.speedLevel[i]), baseSpeed);
+			}
+			else
+				model.network.physicalLev[i].midTimeArrive = -1;
+		}
 
+		for (int i = 0; i < model.network.nChannels; i++) {
+			if (model.optPath.channel[i].timeArriveThrough >= -0.0001) {
+				// baseSpeed = model.functions.speedChannel[i].settingGerBaseSetting[model.optPath.channel[i].speedSettingNrThrough];
+				baseSpeed = model.optPath.channel[i].speedSettingNrThrough;
+				setNewSpeedAlt(&(model.functions.speedChannel[i]), baseSpeed);
+			}
+			if (model.optPath.channel[i].timeArriveNext >= -0.0001) {
+				// baseSpeed = model.functions.speedChannelOut[i].settingGerBaseSetting[model.optPath.channel[i].speedSettingNrNext];
+				baseSpeed = model.optPath.channel[i].speedSettingNrNext;
+				setNewSpeedAlt(&(model.functions.speedChannelOut[i]), baseSpeed);
+			}
+		}
+	}
 
 	return 0;
 }
@@ -20790,11 +21507,13 @@ int gen_midTimeArrive_old() {
 			if (timeExact < model.network.tidp_startHistoricDataOnly) {
 				calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[i].point[pointNr1], i);
 				timeExact = evalWeatherDataAlongArc(-1, 0, timeExact);
+				errlog("\tforecast i %d timeExact %lf\n", i, timeExact);
 			}
 			else {
 				calcWeatherPosAlongpreferredPathArc(model.network.physicalLev[i].point[pointNr1], i);
 				//timeExactTmp = evalWeatherDataAlongArc(-1, 0, timeExact);
 				timeExact = evalEndTimeDelayAlongArc(timeExact, i, i + 1);
+				errlog("\thistData i %d timeExact %lf\n", i, timeExact);
 				//if (SKRIV_UT_NOTHING == 0) {
 				//	double speedDiff, delayFactor, distArc, speedNu;
 				//		delayFactor = eval_factorDelayedAlongPath(i, (int)timeExact, &speedDiff);
@@ -21238,6 +21957,11 @@ int createTimeArcs(int runAlt)
 			checkMinnesAnvandning(__LINE__);
 			if (SKRIV_UT_NOTHING == 0)
 				printf("-- Time after solving SP_delay %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+
+			solve_SP_delayPrefPath();
+			if (SKRIV_UT_NOTHING == 0)
+				printf("-- Time after solving SP_delay %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+
 		}
 	}
 	else {
@@ -21275,7 +21999,7 @@ int createTimeArcs(int runAlt)
 	nArcsTot = 0;
 
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
-		if (i == 7 && model.nArcs < 3000)
+		if (i == 47)
 			i = i;
 
 		n_added_t = 0;
@@ -21284,8 +22008,14 @@ int createTimeArcs(int runAlt)
 		tid1 = std::chrono::high_resolution_clock::now();
 
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			if (model.optPath.level[i].pointNr >= 0 && abs(i1 - model.optPath.level[i].pointNr) > model.params.maxDiff_pointNrFas3)
-				continue;
+			if (runAlt == 1) {
+				if (i1 != model.params.preferredPathOrtoPos[i])
+					continue; // only along preferred path in this opt
+			}
+			else {
+				if (model.optPath.level[i].pointNr >= 0 && abs(i1 - model.optPath.level[i].pointNr) > model.params.maxDiff_pointNrFas3)
+					continue;
+			}
 
 			if (model.network.physicalLev[i].nTimeIntervals[i1] == 0)
 				continue; // inga tidsbagar till denna punkt
@@ -21303,10 +22033,19 @@ int createTimeArcs(int runAlt)
 				nextLevel = model.network.physicalLev[i].outLevel[i1][i2b];
 				if (nextLevel < 0)
 					nextLevel = nextLevel;
+				else {
+					if (runAlt == 1 && i2 != model.params.preferredPathOrtoPos[nextLevel])
+						continue; // only along preferred path in this opt
+				}
 				setupCheckPoints = 1;
 				fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
-				get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(i, i1, nextLevel, i2, &setupCheckPoints, min_t, max_t, fuelQualityKvot);
+				if(runAlt != 1)
+					get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
+				else
+					get_minMax_timeFromLevel(-1, &min_t, &max_t);
+				if (runAlt == 1)
+					i = i;
+				addBagar_AB_speedSTid(i, i1, nextLevel, i2, &setupCheckPoints, min_t, max_t, fuelQualityKvot, runAlt);
 			}
 		}
 		model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
@@ -21319,16 +22058,22 @@ int createTimeArcs(int runAlt)
 				nextLevel = model.network.channel[cNr].outLevel[i2b];
 				if (nextLevel != i + 1)
 					continue;
+				if (runAlt == 1 && model.network.channel[cNr].outNode[i2b] != model.params.preferredPathOrtoPos[nextLevel])
+					continue; // only along preferred path in this opt
 				setupCheckPoints = 1;
 				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
-				get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &setupCheckPoints, min_t, max_t, fuelQualityKvot);
+				if (runAlt != 1)
+					get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
+				else
+					get_minMax_timeFromLevel(-1, &min_t, &max_t);
+				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &setupCheckPoints, min_t, max_t, fuelQualityKvot, runAlt);
 			}
 		}
 
 		nArcsTot += nArcsNu;
-		printf("\tLevel %d done (of %d). I have %d arcs now.\n",
-			i + 1, model.network.nPhysicalLevels - 1, model.nArcs);
+		if(model.nArcs > 1000)
+			printf("\tLevel %d done (of %d). I have %d arcs now.\n",
+				i + 1, model.network.nPhysicalLevels - 1, model.nArcs);
 	}
 
 	errlog("\n");
@@ -21615,302 +22360,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 
 	model.timeStart = std::chrono::high_resolution_clock::now();
 
-	//maxBearingDiff = 0;
-	//sumAbsBearingDiff = 0;
-	//sumBearingDiff = 0;
-	//nBearingDiff = 0;
-
 	initLookUpTables();
-
-	/*
-	spherical::Point p1(10, 10), p2(20, 20), p3;
-	std::chrono::duration<double, std::milli> tidNu;
-	for (int i = 0; i < 1000000; i++)
-		p3 = p1.destinationPoint(10000, 150);
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.timeStart;
-	printf("1M anrop till destinationPoint %.2lf\n", tidNu);
-	for (int i = 0; i < 1000000; i++)
-		dist = p1.distanceTo(p2) / 1000.0; //  / 1852; // rakna om till nautiska miles...
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[1] - model.tmpTid2[0];
-	printf("1M anrop till distanceTo %.2lf\n", tidNu);
-	for (int i = 0; i < 1000000; i++)
-		dist = estimateLargeCircleDistance_km(p1.latitude().degrees(), p1.longitude().degrees(),
-			p2.latitude().degrees(), p2.longitude().degrees());
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("1M anrop till estimateLargeCircleDistance %.2lf\n", tidNu);
-	double lat1 = p1.latitude().degrees();
-	double lon1 = p1.longitude().degrees();
-	double lat2 = p2.latitude().degrees();
-	double lon2 = p2.longitude().degrees();
-	for (int i = 0; i < 1000000; i++)
-		dist = estimateLargeCircleDistance(lat1, lon1, lat2, lon2);
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[1] - model.tmpTid2[0];
-	printf("1M anrop till estimateLargeCircleDistance2 %.2lf\n", tidNu);
-
-	for (int i = 0; i < 1000000; i++)
-		dist = estimateLargeCircleDistance2(lat1, lon1, lat2, lon2);
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("1M anrop till estimateLargeCircleDistance2b %.2lf\n", tidNu);
-
-	for (int i = 0; i < 1000000; i++)
-		dist = estimateLargeCircleDistance3(lat1, lon1, lat2, lon2);
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[1] - model.tmpTid2[0];
-	printf("1M anrop till estimateLargeCircleDistance3 %.2lf\n", tidNu);
-
-	for (int i = 0; i < 30000000; i++) {
-		dist = estimateLargeCircleDistance(lat1++, lon1, lat2, lon2);
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("30M anrop till estimateLargeCircleDistance %.2lf\n", tidNu);
-
-	for (int i = 0; i < 1000000; i++)
-		dist = estimateBearingFromToCoords(lat1, lon1, lat2, lon2);
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[1] - model.tmpTid2[0];
-	printf("1M anrop till estimateBearingToStorm %.2lf\n", tidNu);
-
-	for (int i = 0; i < 10000000; i++)
-		dist = eval_relWindSpeed(12, 2.2, -0.45, 15, &lat1);
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("10M anrop till eval_relWindSpeed %.2lf\n", tidNu);
-
-
-	lon1 = 30;
-	lon2 = 40;
-	lat1 = 50;
-	lat2 = 40;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i < 10000000; i++) {
-		dist = eval_relWindSpeed(lon1++, lon2, lat1, lat2++, &lat1);
-	}
-	printf("dist %.2lf\n", dist);
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("10M anrop till eval_relWindSpeed with timecount %.2lf\n", tidNu);
-
-	lon1 = 30;
-	lon2 = 40;
-	lat1 = 50;
-	lat2 = 40;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i < 10000000; i++) {
-		dist = eval_relWindSpeedApprox(lon1++, lon2, lat1, lat2++, &lat1);
-	}
-	printf("dist %.2lf\n", dist);
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("10M anrop till eval_relWindSpeedApprox with timecount %.2lf\n", tidNu);
-
-	double kvot, totSum;
-	int maxVal = 10000000;
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i / (double)maxVal * M_PI2;
-		lon2 = cos(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till cos tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	kvot = 1.0 / maxVal;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = cos(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till cos2 tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = ApproxCos(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till ApproxCos tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = sin(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till sin tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = ApproxSin(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till ApproxSin tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		if (i < maxVal * 0.5)
-			lon1 = i * 0.01;
-		else
-			lon1 = -i * 0.01;
-		if (i < maxVal * 0.25 || i > maxVal * 0.75)
-			lon2 = i * 0.0234;
-		else
-			lon2 = -i * 0.0234;
-		lon2 = lon1 + lon2;
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till ber for att gora atan2 tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		if (i < maxVal * 0.5)
-			lon1 = i * 0.01;
-		else
-			lon1 = -i * 0.01;
-		if (i < maxVal * 0.25 || i > maxVal * 0.75)
-			lon2 = i * 0.0234;
-		else
-			lon2 = -i * 0.0234;
-		lon2 = atan2(lon1, lon2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till atan2 tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		if (i < maxVal * 0.5)
-			lon1 = i * 0.01;
-		else
-			lon1 = -i * 0.01;
-		if (i < maxVal * 0.25 || i > maxVal * 0.75)
-			lon2 = i * 0.0234;
-		else
-			lon2 = -i * 0.0234;
-		lon2 = ApproxAtan2(lon1, lon2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till ApproxAtan2 tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		if (i < maxVal * 0.5)
-			lon1 = i * 0.01;
-		else
-			lon1 = -i * 0.01;
-		if (i < maxVal * 0.25 || i > maxVal * 0.75)
-			lon2 = i * 0.0234;
-		else
-			lon2 = -i * 0.0234;
-		lon2 = sqrt(lon1 * lon1 + lon2 * lon2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till sqrt tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		if (i < maxVal * 0.5)
-			lon1 = i * 0.01;
-		else
-			lon1 = -i * 0.01;
-		if (i < maxVal * 0.25 || i > maxVal * 0.75)
-			lon2 = i * 0.0234;
-		else
-			lon2 = -i * 0.0234;
-		lon2 = sqrtf(lon1 * lon1 + lon2 * lon2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till sqrtf tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = lookUpCos(lon1);
-		//lat2 = cos(lon1);
-		//if (abs(lat2 - lon2) > 0.0001)
-		//	printf("angel %lf lookUp %.3lf exact %.3lf diff %.4lf\n",
-		//		lon1, lon2, lat2, lon2 - lat2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till lookUpCos tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = lookUpSin(lon1);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till lookUpSin tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = pow(lon1, 2);
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till pow tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-
-	totSum = 0;
-	model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
-	for (int i = 0; i <= maxVal; i++) {
-		lon1 = i * kvot * M_PI2;
-		lon2 = lon1 * lon1;
-		totSum += lon2;
-	}
-	model.tmpTid2[0] = std::chrono::high_resolution_clock::now();
-	tidNu = model.tmpTid2[0] - model.tmpTid2[1];
-	printf("%d anrop till x*x tid %.2lf totSum %.3lf\n", maxVal, tidNu, totSum);
-	*/
-
-
-
-	//model.arc = (strArcInfo*)malloc2(10000000 * sizeof(strArcInfo));
 
 	initModelStatusValues();
 
@@ -21995,10 +22445,12 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	//errlog("ERROR! Hard coded max wave height now of %.2lf. Fix this\n",
 	//	model.functions.waveFactor.waveHeight.maxValue);
 
-	for (int iter = 0; iter < 2; iter++) {
-		if (iter == 1) {
+	for (int iter = 0; iter < 3; iter++) {
+		if (iter > 0) {
+			if (iter == 1 && model.params.calmWaterSpeedCompare <= 0 && model.params.fuelCompare <= 0)
+				continue; // no reason to do this iteration as there are no speed or fuel to compare with
 			freeAllNodData();
-			modify_midTimeArrive();
+			modify_midTimeArrive(iter);
 			model.params.maxDiffTimeFastSlow = model.params.maxDiffTimeFastSlow_fas3;
 			model.params.nTidsperioder_perH = 4;
 			// errlog("ERROR! Change nTidsperioder_perH to 4 above\n");
@@ -22068,10 +22520,10 @@ int voyageOpt(std::string inputPath, std::string resultName)
 			model.network.startKvot = (double*)malloc2((model.network.nMaxSplits + 1) * sizeof(double));
 			model.network.endKvot = (double*)malloc2((model.network.nMaxSplits + 1) * sizeof(double));
 			model.network.posSplitCoord = (int*)malloc2((model.network.nMaxSplits + 1) * sizeof(int));
-			solSavedDist = (double*)malloc2(2 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(double));
-			solSavedEndTP = (int*)malloc2(2 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int));
-			sol_nSavedArcs = (int*)malloc2(2 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int));
-			solSavedArcs = (int**)malloc2(2 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int*));
+			solSavedDist = (double*)malloc2(3 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(double));
+			solSavedEndTP = (int*)malloc2(3 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int));
+			sol_nSavedArcs = (int*)malloc2(3 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int));
+			solSavedArcs = (int**)malloc2(3 * (nExtraOpt + 1) * (evalExtraSol + 1) * sizeof(int*));
 		}
 
 		std::string resAltName;
@@ -22081,17 +22533,21 @@ int voyageOpt(std::string inputPath, std::string resultName)
 				modify_utNodCost(ii);
 				ChangeArcCosts3(&model);
 			}
+			checkMinnesAnvandning(__LINE__);
 			printf("\nsolving dijkstra's algorithm..");
 			AnropDijkstra2(nod1, nod2, &model, &Reached);
+			checkMinnesAnvandning(__LINE__);
 			auto tid1c2 = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> fp_ms2 = tid1c2 - tid0;
 			errlog("after Dijkstra %lf\n", fp_ms2);
 			printf("..done. Obj %I64d\n", model.Dijkstra.OptCost);
+			checkMinnesAnvandning(__LINE__);
 			if (Reached == true) {
 				//printf("har1\n");
 				//printf("har12\n");
 				//model.filpek = fopen("checkOptArcCosts.txt", "a+");
 				dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
+				checkMinnesAnvandning(__LINE__);
 				//fclose(model.filpek);
 				//model.filpek = NULL;
 				if (model.nBVArcs < 2) {
@@ -22115,6 +22571,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 				else
 					errlog("Solution %s (dist %.3lf) will be saved as no %d, cost %I64d\n",
 						model.params.extraOptWeights[ii - 1].identifierOpt, dist, i, Cost);
+				checkMinnesAnvandning(__LINE__);
 				solSavedDist[nSolSaved] = dist;
 				solSavedEndTP[nSolSaved] = endTidsp;
 				//solSavedArcs[nSolSaved] = (int*)malloc2(model.nBVArcs * sizeof(int));
@@ -22135,13 +22592,16 @@ int voyageOpt(std::string inputPath, std::string resultName)
 				//writeSolutionPathToGeoJson(namn, 0);
 
 				//printf("Saving solution path1..");
+				checkMinnesAnvandning(__LINE__);
 				if (ii == 0) {
 					printf("solution to base\n");
-					if (iter == 0 && SKRIV_UT_NOTHING == 0) {
-						writeSolutionToJson(model.params.resultPath + "/resStep1.json", ii, baseName, iter);
+					if (iter < 2 && SKRIV_UT_NOTHING == 0) {
+						writeSolutionToJson(model.params.resultPath + "/resStep" + std::to_string(iter) + ".json", ii, baseName, iter);
 					}
-					else
+					else {
+						// evalCompareSolution();
 						writeSolutionToJson(resultName, ii, baseName, iter);
+					}
 				}
 				else {
 					printf("solution to %s\n", model.params.extraOptWeights[ii - 1].identifierOpt);
@@ -22175,7 +22635,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 				//errlog("dist from %d to %d: %I64d\n", nod1, nod2, sink->dist);
 
 #ifdef WIN32
-				if (iter == 1) {
+				if (iter == 2 && SKRIV_UT_NOTHING == 0) {
 					if (ii == 0)
 						errlog("saving solution path for base to solutionCheck_%d.txt, solution no %d\n", ii, nSolSaved - 1);
 					else
@@ -22196,11 +22656,12 @@ int voyageOpt(std::string inputPath, std::string resultName)
 			fclose(model.timeVisual.filVisuell);
 			simuleraStormsVisuellt();
 		}
-		if (evalExtraSol == 0) {
-			FILE* filpekG = fopen(resultName.c_str(), "a+"); // "result_json.json", "w");
-			fprintf(filpekG, "]}\n");
-			fclose(filpekG);
-		}
+		//if (evalExtraSol == 0) {
+		//	FILE* filpekG;
+		//	filpekG = fopen(resultName.c_str(), "a+"); // "result_json.json", "w");
+		//	fprintf(filpekG, "]}\n");
+		//	fclose(filpekG);
+		//}
 
 	}
 	checkMinnesAnvandning(__LINE__);
@@ -22553,6 +23014,7 @@ int solve_SP_delay() {
 	}
 	for (i1 = 0; i1 < model.network.nChannels; i1++) {
 		nAllocArcs += 1 + model.network.channel[i1].nOutNodes;
+		nAllocNoder += 2;
 	}
 
 	modelDelay.Noder = (strNoder*)malloc2(nAllocNoder * sizeof(strNoder));
@@ -22575,17 +23037,17 @@ int solve_SP_delay() {
 	}
 	checkMinnesAnvandning(__LINE__);
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
-	//for (i = 0; i < 2; i++) {
+		//for (i = 0; i < 2; i++) {
 		tidInt = (int)(round(model.network.physicalLev[i].midTimeArrive / model.params.tIndexGerH));
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			if(model.network.physicalLev[i].nInNodes[i1] > 0 ||
+			if (model.network.physicalLev[i].nInNodes[i1] > 0 ||
 				model.network.physicalLev[i].nOutNodes[i1] > 0)
-			adderaNodDelay(i, i1, tidInt);
+				adderaNodDelay(i, i1, tidInt);
 		}
 	}
 
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
-	//for (i = 0; i < 1; i++) {
+		//for (i = 0; i < 1; i++) {
 		tidInt = (int)(round(model.network.physicalLev[i].midTimeArrive / model.params.tIndexGerH));
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			for (i2b = 0; i2b < model.network.physicalLev[i].nOutNodes[i1]; i2b++) {
@@ -22639,10 +23101,126 @@ int solve_SP_delay() {
 	//fclose(filpek);
 
 
-	
+
 	SattUppDijkstraNatverk3(&modelDelay);
 	nod1 = modelDelay.nNoder - 1;
 	AnropDijkstra2(nod1, nod1, &modelDelay, &Reached);
+	checkMinnesAnvandning(__LINE__);
+
+	//testAnrop(&modelDelay, nod1);
+
+	return 0;
+}
+
+int solve_SP_delayPrefPath() {
+	int i, i1, tidInt, nod1, i2b, i2, nextLevel, setupCheckPoints;
+	int nAllocNoder, nAllocArcs, cNr, nAlloc;
+	bool Reached;
+	double fuelQualityKvot;
+
+	model.delayRouteToEnd_prefPath = (strDelayToEnd**)calloc(model.network.nPhysicalLevels, sizeof(strDelayToEnd*));
+	model.delayRouteToEnd_channel_prefPath = (strDelayToEnd**)calloc(model.network.nChannels, sizeof(strDelayToEnd*));
+	nAlloc = model.network.nPhysicalLevels + 2 * model.network.nChannels + 2;
+
+	nAllocNoder = 1;
+	nAllocArcs = 1;
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		model.network.physicalLev[i].nodDelay_prefPath = (int*)malloc(model.network.physicalLev[i].nPoints * sizeof(int));
+		nAllocNoder++;// += model.network.physicalLev[i].nPoints;
+		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+			model.network.physicalLev[i].nodDelay_prefPath[i1] = -1;
+			if(model.params.preferredPathOrtoPos[i] == i1)
+				nAllocArcs += model.network.physicalLev[i].nOutNodes[i1];
+		}
+	}
+	for (i1 = 0; i1 < model.network.nChannels; i1++) {
+		nAllocArcs += 1 + model.network.channel[i1].nOutNodes;
+		nAllocNoder += 2;// += model.network.physicalLev[i].nPoints;
+	}
+
+	modelDelay_prefPath.Noder = (strNoder*)malloc2(nAllocNoder * sizeof(strNoder));
+	for (int i0 = 0; i0 < nAllocNoder; i0++)
+		modelDelay_prefPath.Noder[i0].UtNod = NULL;
+
+	modelDelay_prefPath.arc = (strArcInfo*)malloc2(nAllocArcs * sizeof(strArcInfo));
+	modelDelay_prefPath.BVArc = (int*)malloc2((model.network.nPhysicalLevels + 2) * sizeof(int));
+	modelDelay_prefPath.BVtempNodOrder = (int*)malloc2((model.network.nPhysicalLevels + 2) * sizeof(int));
+
+
+	modelDelay_prefPath.nArcs = 0;
+	modelDelay_prefPath.nNoder = 0;
+	for (i = 0; i < model.network.nChannels; i++) {
+		tidInt = (int)(round(model.network.channel[i].midTimeArrive / model.params.tIndexGerH));
+		adderaNodDelay_prefPath(-i - 1, 0, tidInt);
+		tidInt = (int)(round(model.network.channel[i].midTimeFinish / model.params.tIndexGerH));
+		adderaNodDelay_prefPath(-i - 1, 1, tidInt);
+
+	}
+	checkMinnesAnvandning(__LINE__);
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+	//for (i = 0; i < 2; i++) {
+		tidInt = (int)(round(model.network.physicalLev[i].midTimeArrive / model.params.tIndexGerH));
+		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+			if (model.params.preferredPathOrtoPos[i] != i1)
+				continue;
+			if(model.network.physicalLev[i].nInNodes[i1] > 0 ||
+				model.network.physicalLev[i].nOutNodes[i1] > 0)
+			adderaNodDelay_prefPath(i, i1, tidInt);
+		}
+	}
+
+	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+	//for (i = 0; i < 1; i++) {
+		tidInt = (int)(round(model.network.physicalLev[i].midTimeArrive / model.params.tIndexGerH));
+		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+			if (model.params.preferredPathOrtoPos[i] != i1)
+				continue;
+			for (i2b = 0; i2b < model.network.physicalLev[i].nOutNodes[i1]; i2b++) {
+				i2 = model.network.physicalLev[i].outNode[i1][i2b];
+				nextLevel = model.network.physicalLev[i].outLevel[i1][i2b];
+				if (nextLevel < 0)
+					nextLevel = nextLevel;
+				else {
+					if (model.params.preferredPathOrtoPos[nextLevel] != i2)
+						continue;
+				}
+				setupCheckPoints = 1;
+				fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
+				addBastSpeed_arcDelayed_prefPath(i, i1, nextLevel, i2, tidInt, fuelQualityKvot);
+			}
+		}
+
+		for (i1 = 0; i1 < model.network.nChannels; i1++) {
+			cNr = i1;
+			tidInt = (int)(round(model.network.channel[i1].midTimeFinish / model.params.tIndexGerH));
+			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
+				nextLevel = model.network.channel[cNr].outLevel[i2b];
+				if (nextLevel != i + 1)
+					continue;
+				if (model.params.preferredPathOrtoPos[nextLevel] != model.network.channel[cNr].outNode[i2b])
+					continue;
+
+				fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
+				addBastSpeed_arcDelayed_prefPath(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], tidInt, fuelQualityKvot);
+			}
+		}
+
+	}
+	for (i1 = 0; i1 < model.network.nChannels; i1++) {
+		cNr = i1;
+		model.functions.valuesNow.prefPathArc = 2;
+		fuelQualityKvot = get_fuelQualityKvot(-i1 - 1, 0, -i1 - 1, 1);
+		tidInt = (int)(round(model.network.channel[i1].midTimeArrive / model.params.tIndexGerH));
+		addBastSpeed_arcDelayed_prefPath(-cNr - 1, 0, -cNr - 1, 1, tidInt, fuelQualityKvot);
+	}
+
+	checkMinnesAnvandning(__LINE__);
+	FILE* filpek;
+
+	
+	SattUppDijkstraNatverk3(&modelDelay_prefPath);
+	nod1 = modelDelay_prefPath.nNoder - 1;
+	AnropDijkstra2(nod1, nod1, &modelDelay_prefPath, &Reached);
 	checkMinnesAnvandning(__LINE__);
 
 	//testAnrop(&modelDelay, nod1);

@@ -95,7 +95,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	node_max = 0;
 	node_min = n;
 
-	int saveDijkstraNetwork = 1;
+	int saveDijkstraNetwork = 0;
 	if (saveDijkstraNetwork == 1) {
 		FILE* pek = fopen("checkDijkst4.txt", "w");
 		for (int i = 0; i < model->nNoder; i++) {
