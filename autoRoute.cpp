@@ -23,7 +23,7 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 {
 	int i, closestI, pos2, minLon, maxLon;
 	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
-	double fuelMain, fuelAux, minLat;
+	double fuelMain, fuelAux, minLat, distFromStart, minX, maxX, minY, maxY, x, y;
 
 
 	std::ifstream fil;
@@ -40,7 +40,7 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 
 	json data, dataGeo, dataGeo2, dataFeature, dataProp, dataGeo3, dataCoord;
 	json dataIt, dataIt2, dataIt3;
-	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase, i1;
+	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase, i1, nAllocSoft;
 	double xVal, yVal;
 	try {
 		fil >> data;
@@ -49,19 +49,11 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
 	}
 
-	params->nCellLevels = 2;
-	params->discretizationSizeLevel = (double*)malloc(params->nCellLevels * sizeof(double));
-	params->nDiscreteSizeLevel = (int*)malloc(params->nCellLevels * sizeof(int));
-	params->discretizationSizeLevel[0] = 2.0; //  1.5; // 3.0; // degrees
-	params->nDiscreteSizeLevel[1] = 15; // km 12;
-	params->discretizationSizeLevel[1] = params->discretizationSizeLevel[0] / params->nDiscreteSizeLevel[1]; // degrees
-	params->factorExtraCover = 6;// 10; //  2;
-	params->maxBaseFeasibleCost = 1000;
-	params->mapAutoRoutePhysicalAFileName = std::string();
-	params->mapAutoRoutePhysicalBFileName = std::string();
-	params->tssName = std::string();
-	params->zonesFileName = std::string();
-	params->zoneConnectionsFileName = std::string();
+	if (!data["SKRIV_UT_NOTHING"].is_null()) {
+		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
+		if (SKRIV_UT_NOTHING < 2)
+			reset_errlog();
+	}
 
 	if (!data["startPoint_lon"].is_null())
 		params->startBas_lon = data["startPoint_lon"];
@@ -84,44 +76,153 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	else
 		params->newSeaRoutePathData = 0;
 
+	if (!data["routeAlternative"].is_null())
+		params->routeAlternative = data["routeAlternative"];
+	else
+		params->routeAlternative = -1;
+
 	if (!data["useOptionalExtraNoGoAreas"].is_null()) {
 		json dataExtra = data["useOptionalExtraNoGoAreas"];
 		model.nExtraNoGoAreas = dataExtra.size();
 		model.extraNoGoArea = (strExtraNoGo*)malloc((model.nExtraNoGoAreas + 1) * sizeof(strExtraNoGo));
 		pos = 0;
+		nAllocSoft = 0;
 		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
 			json dataNu = it.value();
-			model.extraNoGoArea[pos].areaID = dataNu["noGoAreaID"];
+			std::string namnID = dataNu["extraAreaID"];
+			model.extraNoGoArea[pos].areaID = str_alloc_cpy(namnID.c_str());
 			posBase = findAreaIDpos_inBase(model.extraNoGoArea[pos].areaID);
 			if (posBase < 0) {
 				errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
 					model.extraNoGoArea[pos].areaID);
-				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_params.json. Add this area. I ignore it for now and keep running.", 0);
+				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now and keep running.", 0);
 				continue;
 			}
 			model.extraNoGoArea[pos].posBase = posBase;
+			nAllocSoft += model.extraNoGoAreaBase[model.extraNoGoArea[pos].posBase].nCorridors;
 			pos++;
 		}
 		model.nExtraNoGoAreas = pos;
+
+
+		model.paramsAutoRoute.nCorridors_noGoSoft = 0;
+		if (nAllocSoft > 0) {
+			model.paramsAutoRoute.corridors_noGoSoft = (strCorridorSoft*)malloc(nAllocSoft * sizeof(strCorridorSoft));
+			int nNu = 0, antal;
+			for (i = 0; i < pos; i++) {
+				for (i1 = 0; i1 < model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].nCorridors; i1++) {
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].costFactorDist = model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].corridor[i1].costFactorDist;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].maxDistConnectInside = model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].corridor[i1].maxDistConnect_km;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].noGo_posBase = model.extraNoGoArea[i].posBase;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].startNod = -1;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].endNod = -1;
+					antal = model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].corridor[i1].nCoords;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].nPkter = antal;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].xCoord = (double*)malloc(antal * sizeof(double));
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].yCoord = (double*)malloc(antal * sizeof(double));
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].distanceFromStart = (double*)malloc(antal * sizeof(double));
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].point = (spherical::Point*)malloc(antal * sizeof(spherical::Point));
+
+					distFromStart = 0;
+					minX = 360;
+					maxX = -360;
+					minY = 90;
+					maxY = -90;
+					for (i2 = 0; i2 < antal; i2++) {
+						x = model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].corridor[i1].xCoord[i2];
+						y = model.extraNoGoAreaBase[model.extraNoGoArea[i].posBase].corridor[i1].yCoord[i2];
+						model.paramsAutoRoute.corridors_noGoSoft[nNu].xCoord[i2] = x;
+						model.paramsAutoRoute.corridors_noGoSoft[nNu].yCoord[i2] = y;
+						model.paramsAutoRoute.corridors_noGoSoft[nNu].point[i2] = spherical::Point(y, x);
+						if (i2 > 0)
+							distFromStart += estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[i2 - 1],
+								model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[i2 - 1], y, x);
+						model.paramsAutoRoute.corridors_noGoSoft[nNu].distanceFromStart[i2] = distFromStart;
+						if (x < minX)
+							minX = x;
+						if (x > maxX)
+							maxX = x;
+						if (y < minY)
+							minY = y;
+						if (y > maxY)
+							maxY = y;
+					}
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].distance_km = distFromStart;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].boundingBox.yMin = minY;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].boundingBox.yMax = maxY;
+					if (maxX < -180) {
+						minX += 360;
+						maxX += 360;
+					}
+					else {
+						if (minX > 180) {
+							minX -= 360;
+							maxX -= 360;
+						}
+					}
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].boundingBox.xMin = minX;
+					model.paramsAutoRoute.corridors_noGoSoft[nNu].boundingBox.xMax = maxX;
+					nNu++;
+				}
+			}
+			model.paramsAutoRoute.nCorridors_noGoSoft = nNu;
+		}
+
 	}
 	else {
 		model.nExtraNoGoAreas = 0;
 		model.extraNoGoArea = (strExtraNoGo*)malloc((model.nExtraNoGoAreas + 1) * sizeof(strExtraNoGo));
+		model.paramsAutoRoute.nCorridors_noGoSoft = 0;
+	}
+
+	if (!data["useOptionalExtraCostAreas"].is_null()) {
+		json dataExtra = data["useOptionalExtraCostAreas"];
+		model.nExtraCostAreas = dataExtra.size();
+		model.extraCostArea = (strExtraNoGo*)malloc((model.nExtraCostAreas + 1) * sizeof(strExtraNoGo));
+		pos = 0;
+
+		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
+			json dataNu = it.value();
+			std::string namnID = dataNu["extraAreaID"];
+			model.extraCostArea[pos].areaID = str_alloc_cpy(namnID.c_str()); 
+
+			posBase = findAreaIDpos_inBase(model.extraCostArea[pos].areaID);
+			if (posBase < 0) {
+				errlog("ERROR! extra costAreaID %s is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now.\n",
+					model.extraCostArea[pos].areaID);
+				postRequest("ERROR! extra cost AreaID " + std::string(model.extraCostArea[pos].areaID) + " is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now and keep running.", 0);
+				continue;
+			}
+			model.extraCostArea[pos].posBase = posBase;
+
+			if (!dataNu["extraCostFactor"].is_null()) {
+				model.extraCostArea[pos].extraCostFactor = dataNu["extraCostFactor"];
+			}
+			else {
+				model.extraCostArea[pos].extraCostFactor = model.extraNoGoAreaBase[posBase].extraCostFactor;
+			}
+			pos++;
+		}
+		model.nExtraCostAreas = pos;
+	}
+	else {
+		model.nExtraCostAreas = 0;
+		model.extraCostArea = (strExtraNoGo*)malloc((model.nExtraCostAreas + 1) * sizeof(strExtraNoGo));
 	}
 
 	fil.close();
 
-	if (params->startBas_lon < -9998 || params->startBas_lat < -9998) {
+	if (params->startBas_lon < -360 || params->startBas_lon > 360 || params->startBas_lat < -90 || params->startBas_lat > 90) {
 		postRequest("ERROR! startCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav - autoRoute again.\n", 1);
 	}
-	if (params->endBas_lon < -9998 || params->endBas_lat < -9998) {
+	if (params->endBas_lon < -360 || params->endBas_lon > 360 || params->endBas_lat < -90 || params->endBas_lat > 90) {
 		postRequest("ERROR! endCoord not given correctly in " + std::string(namn) + ". Fix it and run OptiNav - autoRoute again.\n", 1);
 	}
 	return 0;
 }
 
 int loadFileParams_autoRoute(strParamsAutoRoute* params)
-{
+{ // not used...
 	int i, closestI, pos2, minLon, maxLon;
 	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
 	double fuelMain, fuelAux, minLat;
@@ -150,13 +251,13 @@ int loadFileParams_autoRoute(strParamsAutoRoute* params)
 		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
 	}
 
-	if (!data["eca_penalty"].is_null())
-		params->eca_penalty = data["eca_penalty"];
-	else {
-		params->eca_penalty = 2.0;
-	}
-	if(params->usePenalty_ECA == 0)
-		params->eca_penalty = 0.0;
+	//if (!data["eca_penalty"].is_null())
+	//	params->eca_penalty = data["eca_penalty"];
+	//else {
+	//	params->eca_penalty = 2.0;
+	//}
+	//if (params->usePenalty_ECA == 0)
+	//	params->eca_penalty = 0.0;
 
 	if (!data["altRouteZones"].is_null())
 		params->zonesFileName = data["altRouteZones"];
@@ -204,16 +305,16 @@ int loadFileParams_autoRoute(strParamsAutoRoute* params)
 		params->corridorsName = "-";
 	}
 
-	if (!data["usePenalty_ECA"].is_null()) {
-		params->usePenalty_ECA = data["usePenalty_ECA"];
-		if (params->usePenalty_ECA < 0 || params->usePenalty_ECA > 1) {
-			postRequest("ERROR! Wrong value of the field usePenalty_ECA. It must be 0 or 1 but is " + std::to_string(params->usePenalty_ECA) + ".I use 1.", 0);
-			params->usePenalty_ECA = 1;
-		}
-	}
-	else {
-		params->usePenalty_ECA = 1;
-	}
+	//if (!data["usePenalty_ECA"].is_null()) {
+	//	params->usePenalty_ECA = data["usePenalty_ECA"];
+	//	if (params->usePenalty_ECA < 0 || params->usePenalty_ECA > 1) {
+	//		postRequest("ERROR! Wrong value of the field usePenalty_ECA. It must be 0 or 1 but is " + std::to_string(params->usePenalty_ECA) + ".I use 1.", 0);
+	//		params->usePenalty_ECA = 1;
+	//	}
+	//}
+	//else {
+	//	params->usePenalty_ECA = 1;
+	//}
 
 	model.paramsAutoRoute.minLat_lonIndex = (double*)malloc(360 * sizeof(double));
 	for (i1 = 0; i1 < 360; i1++)
@@ -251,8 +352,344 @@ int loadFileParams_autoRoute(strParamsAutoRoute* params)
 			model.extraNoGoAreaBase[pos].fileNameA = str_alloc_cpy(namnString.c_str());
 			namnString = dataNu["fileNameB"];
 			model.extraNoGoAreaBase[pos].fileNameB = str_alloc_cpy(namnString.c_str());
+			if (!dataNu["extraCostFactor"].is_null())
+				model.extraNoGoAreaBase[pos].extraCostFactor = dataNu["extraCostFactor"];
+			else {
+				model.extraNoGoAreaBase[pos].extraCostFactor = 2.0;
+				errlog("OBS! No extraCostFactor given for %s, I set it to %.2lf\n", namnString.c_str(), model.extraNoGoAreaBase[pos].extraCostFactor);
+			}
+
 			pos++;
 		}
+	}
+
+	fil.close();
+
+	return 0;
+}
+
+int loadFileParams_feasibilityAuto(strParamsAutoRoute* params)
+{
+	int i, closestI, pos2, minLon, maxLon;
+	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
+	double fuelMain, fuelAux, minLat;
+
+	params->nCellLevels = 2;
+	params->discretizationSizeLevel = (double*)malloc(params->nCellLevels * sizeof(double));
+	params->nDiscreteSizeLevel = (int*)malloc(params->nCellLevels * sizeof(int));
+	params->discretizationSizeLevel[0] = 2.0; //  1.5; // 3.0; // degrees
+	params->nDiscreteSizeLevel[1] = 15; // km 12;
+	params->discretizationSizeLevel[1] = params->discretizationSizeLevel[0] / params->nDiscreteSizeLevel[1]; // degrees
+	params->factorExtraCover = 6;// 10; //  2;
+	params->maxBaseFeasibleCost = 1000;
+	params->mapAutoRoutePhysicalAFileName = std::string();
+	params->mapAutoRoutePhysicalBFileName = std::string();
+	params->tssName = std::string();
+	params->zonesFileName = std::string();
+	params->zoneConnectionsFileName = std::string();
+
+	std::ifstream fil;
+	char* namn;
+	namn = (char*)malloc2(256 * sizeof(char));
+
+	sprintf(namn, "%s/file_paramsFeasibility.json", model.params.indataPath.c_str());
+	errlog("trying to open %s\n", namn);
+	if (!(check_file_exist(namn))) {
+		postRequest(std::string(namn) + " does not exist.I quit\n", 1);
+	}
+	printf("opens %s\n", namn);
+	fil.open(namn);
+
+	json data, dataGeo, dataGeo2, dataFeature, dataProp, dataGeo3, dataCoord;
+	json dataIt, dataIt2, dataIt3;
+	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase, i1;
+	double xVal, yVal;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
+	}
+
+	//if (!data["eca_penalty"].is_null())
+	//	params->eca_penalty = data["eca_penalty"];
+	//else {
+	//	params->eca_penalty = 2.0;
+	//}
+	//if (params->usePenalty_ECA == 0)
+	//	params->eca_penalty = 0.0;
+
+	if (!data["mapPhysicalBFileName"].is_null()) {
+		model.params.mapPhysicalBFileName = data["mapPhysicalBFileName"];
+	}
+	if (!data["mapPhysicalAFileName"].is_null()) {
+		model.params.mapPhysicalAFileName = data["mapPhysicalAFileName"];
+	}
+
+	if (!data["mapLandSeaBFileName"].is_null()) {
+		model.params.mapLandSeaBFileName = data["mapLandSeaBFileName"];
+	}
+	if (!data["mapLandSeaAFileName"].is_null()) {
+		model.params.mapLandSeaAFileName = data["mapLandSeaAFileName"];
+	}
+
+	//if (!data["physicalMap_noDataValue"].is_null())
+	//	model.params.physicalMap_noDataValue = data["physicalMap_noDataValue"];
+
+
+	if (!data["altRouteZones"].is_null())
+		params->zonesFileName = data["altRouteZones"];
+	else {
+		postRequest("ERROR! No altRouteZones in file_paramsFeasibility.json, no alternative routes will be used.", 0);
+		params->zonesFileName = "";
+	}
+	if (!data["zoneConnections"].is_null())
+		params->zoneConnectionsFileName = data["zoneConnections"];
+	else {
+		postRequest("ERROR! No zoneConnections in file_paramsFeasibility.json, no alternative routes will be used.", 0);
+		params->zoneConnectionsFileName = "";
+	}
+
+	if (!data["searoutePathFile"].is_null())
+		params->searoutePathsName = data["searoutePathFile"];
+	else {
+		postRequest("ERROR! No searoutePaths, they must exist when running autoRoute. I quit!", 1);
+	}
+
+	if (!data["mapAutoRoutePhysicalBFileName"].is_null()) {
+		params->mapAutoRoutePhysicalBFileName = data["mapAutoRoutePhysicalBFileName"];
+	}
+	else {
+		postRequest("ERROR! No field mapAutoRoutePhysicalBFileName in file_paramsFeasibility.json. It must exists. I quit!", 1);
+	}
+	if (!data["mapAutoRoutePhysicalAFileName"].is_null()) {
+		params->mapAutoRoutePhysicalAFileName = data["mapAutoRoutePhysicalAFileName"];
+	}
+	else {
+		postRequest("ERROR! No field mapAutoRoutePhysicalAFileName in file_paramsFeasibility.json. It must exists. I quit!", 1);
+	}
+	if (!data["tss"].is_null()) {
+		params->tssName = data["tss"];
+	}
+	else {
+		postRequest("ERROR! No field tss file_paramsFeasibility.json. I use no TSS.", 0);
+		params->tssName = "-";
+	}
+	if (!data["autoRoute_corridors"].is_null()) {
+		params->corridorsName = data["autoRoute_corridors"];
+	}
+	else {
+		postRequest("ERROR! No field autoRoute_corridors in file_paramsFeasibility.json. I use no corridors.", 0);
+		params->corridorsName = "-";
+	}
+
+	//if (!data["usePenalty_ECA"].is_null()) {
+	//	params->usePenalty_ECA = data["usePenalty_ECA"];
+	//	if (params->usePenalty_ECA < 0 || params->usePenalty_ECA > 1) {
+	//		postRequest("ERROR! Wrong value of the field usePenalty_ECA. It must be 0 or 1 but is " + std::to_string(params->usePenalty_ECA) + ".I use 1.", 0);
+	//		params->usePenalty_ECA = 1;
+	//	}
+	//}
+	//else {
+	//	params->usePenalty_ECA = 1;
+	//}
+
+	model.paramsAutoRoute.minLat_lonIndex = (double*)malloc(360 * sizeof(double));
+	for (i1 = 0; i1 < 360; i1++)
+		model.paramsAutoRoute.minLat_lonIndex[0] = -90;
+	if (!data["limitSouth"].is_null()) {
+		json dataExtra = data["limitSouth"];
+		pos = 0;
+		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
+			json dataNu = it.value();
+			minLat = dataNu["minLat"];
+			minLon = roundDown(dataNu["minLon"]) + 180;
+			maxLon = roundDown(dataNu["maxLon"]) + 180;
+			if (minLon < 0)
+				minLon = 0;
+			if (maxLon > 359)
+				maxLon = 359;
+			for (i1 = minLon; i1 <= maxLon; i1++) {
+				model.paramsAutoRoute.minLat_lonIndex[i1] = minLat;
+			}
+			pos++;
+		}
+	}
+
+	if (!data["extraCostFactorNoGoSeaRoutes"].is_null()) {
+		modelSea.seaRoute.costFactorExtraNoGo = data["extraCostFactorNoGoSeaRoutes"];
+	}
+	else
+		modelSea.seaRoute.costFactorExtraNoGo = 20.0;
+
+	std::string namnString;
+	if (!data["optionalExtraAreas"].is_null()) {
+		json dataExtra = data["optionalExtraAreas"];
+		model.nExtraNoGoAreasBase = dataExtra.size();
+		model.extraNoGoAreaBase = (strExtraNoGoBase*)malloc(model.nExtraNoGoAreasBase * sizeof(strExtraNoGoBase));
+		pos = 0;
+		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
+			json dataNu = it.value();
+			namnString = dataNu["areaID"];
+			model.extraNoGoAreaBase[pos].areaID = str_alloc_cpy(namnString.c_str());
+			namnString = dataNu["fileNameA"];
+			model.extraNoGoAreaBase[pos].fileNameA = str_alloc_cpy(namnString.c_str());
+			namnString = dataNu["fileNameB"];
+			model.extraNoGoAreaBase[pos].fileNameB = str_alloc_cpy(namnString.c_str());
+			if (!dataNu["extraCostFactor"].is_null())
+				model.extraNoGoAreaBase[pos].extraCostFactor = dataNu["extraCostFactor"];
+			else {
+				model.extraNoGoAreaBase[pos].extraCostFactor = 2.0;
+				errlog("OBS! No extraCostFactor given for %s, I set it to %.2lf\n", namnString.c_str(), model.extraNoGoAreaBase[pos].extraCostFactor);
+			}
+			if (!dataNu["corridors"].is_null()) {
+				int pos1, posUse, nCoords;
+				json dataGeom, dataLine, dataPaths;
+				
+				dataPaths = dataNu["corridors"];
+				model.extraNoGoAreaBase[pos].nCorridors = dataPaths.size();
+				model.extraNoGoAreaBase[pos].corridor = (strSeaRoutePath*)malloc((model.extraNoGoAreaBase[pos].nCorridors) * sizeof(strSeaRoutePath));
+				pos1 = 0;
+				posUse = 0;
+				for (auto it2 = dataPaths.begin(); it2 != dataPaths.end(); ++it2) {
+					json dataNu2 = it2.value();
+					if (dataNu2["geometry"].is_null()) {
+						errlog("ERROR! No geometry for corridor %d in optionaExtraAreas %s\n", pos1, namnString.c_str());
+						pos1++;
+						continue;
+					}
+					if (!dataNu2["properties"].is_null()) {
+						dataProp = dataNu2["properties"];
+						if (!dataProp["costFactor"].is_null())
+							model.extraNoGoAreaBase[pos].corridor[pos1].costFactorDist = dataProp["costFactor"];
+						else
+							model.extraNoGoAreaBase[pos].corridor[pos1].costFactorDist = 1.0;
+						if (!dataProp["maxDistConnectInside_nm"].is_null()) {
+							model.extraNoGoAreaBase[pos].corridor[pos1].maxDistConnect_km = dataProp["maxDistConnectInside_nm"];
+							model.extraNoGoAreaBase[pos].corridor[pos1].maxDistConnect_km *= 1.852;
+						}
+						else
+							model.extraNoGoAreaBase[pos].corridor[pos1].maxDistConnect_km = 120 * 1.852;
+					}
+					else {
+						model.extraNoGoAreaBase[pos].corridor[pos1].costFactorDist = 1.0;
+						model.extraNoGoAreaBase[pos].corridor[pos1].maxDistConnect_km = 120 * 1.852;
+					}
+					dataGeom = dataNu2["geometry"];
+					if (dataGeom["coordinates"].is_null()) {
+						errlog("ERROR! No coordinates in geometry for corridor %d in optionaExtraAreas %s\n", pos1, namnString.c_str());
+						pos1++;
+						continue;
+					}
+					dataLine = dataGeom["coordinates"];
+
+					nCoords = dataLine.size();
+					model.extraNoGoAreaBase[pos].corridor[pos1].xCoord = (double*)malloc(nCoords * sizeof(double));
+					model.extraNoGoAreaBase[pos].corridor[pos1].yCoord = (double*)malloc(nCoords * sizeof(double));
+					nCoords = 0;
+					for (auto it4 = dataLine.begin(); it4 != dataLine.end(); ++it4) {
+						dataIt2 = it4.value();
+						i2 = 0;
+						for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
+							if (i2 == 0) {
+								model.extraNoGoAreaBase[pos].corridor[posUse].xCoord[nCoords] = it3.value();
+							}
+							else if (i2 == 1)
+								model.extraNoGoAreaBase[pos].corridor[posUse].yCoord[nCoords] = it3.value();
+							i2++;
+						}
+						nCoords++;
+					}
+					model.extraNoGoAreaBase[pos].corridor[posUse].nCoords = nCoords;
+					posUse++;
+					pos1++;
+				}
+				model.extraNoGoAreaBase[pos].nCorridors = posUse;
+			}else
+				model.extraNoGoAreaBase[pos].nCorridors = 0;
+
+			pos++;
+		}
+	}
+
+
+	fil.close();
+
+	return 0;
+}
+
+int loadStartEndPairsSeaRoutes(std::string inputPath)
+{
+	int i, closestI, pos2, minLon, maxLon;
+	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
+	double fuelMain, fuelAux, minLat;
+
+
+	std::ifstream fil;
+
+
+	errlog("trying to open %s\n", inputPath.c_str());
+	fil.open(inputPath.c_str());
+
+	std::string namnStr;
+	json data;
+	json dataIt, dataIt2;
+	int i2, nCoords;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		postRequest("ERROR! json file " + inputPath + " is not valid.Fix it and run OptiNav-seaRoutePaths again.", 1);
+	}
+
+	model.seaRoute.nNewPathPairs = data.size();
+	model.seaRoute.pair = (strPair*)malloc(model.seaRoute.nNewPathPairs * sizeof(strPair));
+
+	int nr = 0;
+	for (auto it = data.begin(); it != data.end(); ++it) {
+		json dataNu = it.value();
+		namnStr = dataNu["groupID"];
+		model.seaRoute.pair[nr].groupID = str_alloc_cpyString(namnStr);
+		dataIt = dataNu["fromCoords"];
+		model.seaRoute.pair[nr].nFrom = dataIt.size();
+		model.seaRoute.pair[nr].xFrom = (double*)malloc(model.seaRoute.pair[nr].nFrom * sizeof(double));
+		model.seaRoute.pair[nr].yFrom = (double*)malloc(model.seaRoute.pair[nr].nFrom * sizeof(double));
+
+		nCoords = 0;
+		for (auto it2 = dataIt.begin(); it2 != dataIt.end(); ++it2) {
+			dataIt2 = it2.value();
+			i2 = 0;
+			for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
+				if (i2 == 0) {
+					model.seaRoute.pair[nr].xFrom[nCoords] = it3.value();
+				}
+				else if (i2 == 1)
+					model.seaRoute.pair[nr].yFrom[nCoords] = it3.value();
+				i2++;
+			}
+			nCoords++;
+		}
+
+		dataIt = dataNu["toCoords"];
+		model.seaRoute.pair[nr].nTo = dataIt.size();
+		model.seaRoute.pair[nr].xTo = (double*)malloc(model.seaRoute.pair[nr].nTo * sizeof(double));
+		model.seaRoute.pair[nr].yTo = (double*)malloc(model.seaRoute.pair[nr].nTo * sizeof(double));
+
+		nCoords = 0;
+		for (auto it2 = dataIt.begin(); it2 != dataIt.end(); ++it2) {
+			dataIt2 = it2.value();
+			i2 = 0;
+			for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
+				if (i2 == 0) {
+					model.seaRoute.pair[nr].xTo[nCoords] = it3.value();
+				}
+				else if (i2 == 1)
+					model.seaRoute.pair[nr].yTo[nCoords] = it3.value();
+				i2++;
+			}
+			nCoords++;
+		}
+		nr++;
 	}
 
 	fil.close();
@@ -300,6 +737,12 @@ void get_xy_fromModelSeaBVArcsPos(int i, double* y1, double* x1) {
 }
 
 double getDist_flat(double x1, double y1, double x2, double y2) {
+	if (x1 > x2 + 180)
+		x2 += 360;
+	else {
+		if (x1 < x2 - 180)
+			x2 -= 360;
+	}
 	return sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
 }
 
@@ -310,7 +753,7 @@ int getClosestPathPos(int pos1, int pos2, double y, double x, double* kvot) {
 
 	for (i = pos1 - 1; i <= pos2; i++) {
 		get_xy_fromModelSeaBVArcsPos(i, &y1, &x1);
-		dist = estimateLargeCircleDistance_km(y, x, y1, x1);
+		dist = estimateLargeCircleDistance2_km(y, x, y1, x1);
 		if (dist < minDist) {
 			minDist = dist;
 			min_i = i;
@@ -389,6 +832,8 @@ int checkIfPathInUsedCells(strTss* path, int dirAlt) {
 	}
 
 	for (i0 = 0; i0 < path->nCoords; i0++) {
+		if (i0 == 5)
+			i0 = i0;
 		if (i0 == 0 && (abs(path->xCoord[i0] + 9.966667) < 0.0001))
 			i0 = i0;
 		yPosDbl = (path->yCoord[i0] - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
@@ -571,7 +1016,7 @@ int load_tss()
 		}
 		model.tss[nTss].nCoords = pos2;
 
-		if (pos == 13)
+		if (pos == 4)
 			pos = pos;
 		if (abs(model.tss[nTss].xCoord[0] - 11.3) < 0.1 && abs(model.tss[nTss].yCoord[0] - 37.35) < 0.1)
 			pos = pos;
@@ -748,7 +1193,7 @@ int load_autoCorridors()
 	return 0;
 }
 
-double getCostFactorArea(double y1, double x1, double y2, double x2) {
+double getCostFactorArea(double y1, double x1, double y2, double x2, int* xIndexReturn) {
 	double factor = 1.0;
 	int xIndex = roundDown(x1 + 180);
 	if (xIndex < 0)
@@ -771,12 +1216,14 @@ double getCostFactorArea(double y1, double x1, double y2, double x2) {
 		if (factor > 2)
 			factor = 2.0;
 	}
+	*xIndexReturn = xIndex;
+
 	return factor;
 }
 
 
 int addArcBetweenNodes(int nod1, int nod2, double dist) {
-	int i, i0;
+	int i, xIndex;
 	double costFactorArea;
 	if (nod1 == 273 && nod2 == 272)
 		nod1 = nod1;
@@ -791,6 +1238,7 @@ int addArcBetweenNodes(int nod1, int nod2, double dist) {
 				modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2], dist, modelSea.Noder[nod1].UtNodCost[i]);
 		if (dist < modelSea.Noder[nod1].UtNodCost[i])
 			modelSea.Noder[nod1].UtNodCost[i] = dist;
+		return modelSea.Noder[nod1].outArcNr[i];
 	}
 	else {
 		if (i >= modelSea.Noder[nod1].nAllocUtNoder) {
@@ -809,16 +1257,17 @@ int addArcBetweenNodes(int nod1, int nod2, double dist) {
 		}
 		modelSea.arc[modelSea.nArcs].fromPointNr = nod1;
 		modelSea.arc[modelSea.nArcs].toPointNr = nod2;
+		modelSea.arc[modelSea.nArcs].corridorNr = -1;
 
 		if (modelSea.nArcs == 15877 || modelSea.nArcs == 15875)
 			nod2 = nod2;
-		costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
-			modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2]);
-		modelSea.arc[modelSea.nArcs].totCost = dist * costFactorArea;
+		//costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
+		//	modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2], &xIndex);
+		//modelSea.arc[modelSea.nArcs].totCost = dist * costFactorArea;
 		modelSea.arc[modelSea.nArcs].distance = dist;
 		(modelSea.nArcs)++;
+		return modelSea.nArcs - 1;
 	}
-	return 0;
 }
 
 
@@ -846,6 +1295,31 @@ int identify_nearestNode_toSearoutes(double y, double x, double* minDist) {
 	return min_i;
 }
 
+int addSeaRouteNode(double y, double x) {
+	int nodNr = modelSea.nNoder;
+	if (nodNr >= modelSea.nAllocNoder) {
+		modelSea.nAllocNoder += 10000;
+		modelSea.Noder = (strNoder*)realloc(modelSea.Noder, modelSea.nAllocNoder * sizeof(strNoder));
+		modelSea.seaRoute.nod_y = (double*)realloc(modelSea.seaRoute.nod_y, modelSea.nAllocNoder * sizeof(double));
+		modelSea.seaRoute.nod_x = (double*)realloc(modelSea.seaRoute.nod_x, modelSea.nAllocNoder * sizeof(double));
+	}
+	if (x < -179.9999)
+		x += 360;
+	if (x > 180)
+		x = 180;
+	modelSea.seaRoute.nod_y[nodNr] = y;
+	modelSea.seaRoute.nod_x[nodNr] = x;
+	modelSea.Noder[nodNr].nUtNoder = 0;
+	modelSea.Noder[nodNr].nAllocUtNoder = 10;
+	modelSea.Noder[nodNr].UtNod = (int*)malloc(modelSea.Noder[nodNr].nAllocUtNoder * sizeof(int));
+	modelSea.Noder[nodNr].UtNodCost = (double*)malloc(modelSea.Noder[nodNr].nAllocUtNoder * sizeof(double));
+	modelSea.Noder[nodNr].outArcNr = (int*)malloc(modelSea.Noder[nodNr].nAllocUtNoder * sizeof(int));
+
+	(modelSea.nNoder)++;
+
+	return nodNr;
+}
+
 int get_nodFrom_coords(double y, double x) {
 	int i;
 	double dist;
@@ -862,23 +1336,315 @@ int get_nodFrom_coords(double y, double x) {
 		}
 	}
 	if (i >= modelSea.nNoder) {
-		if (i >= modelSea.nAllocNoder) {
-			modelSea.nAllocNoder += 10000;
-			modelSea.Noder = (strNoder*)realloc(modelSea.Noder, modelSea.nAllocNoder * sizeof(strNoder));
-			modelSea.seaRoute.nod_y = (double*)realloc(modelSea.seaRoute.nod_y, modelSea.nAllocNoder * sizeof(double));
-			modelSea.seaRoute.nod_x = (double*)realloc(modelSea.seaRoute.nod_x, modelSea.nAllocNoder * sizeof(double));
-		}
-		modelSea.seaRoute.nod_y[i] = y;
-		modelSea.seaRoute.nod_x[i] = x;
-		modelSea.Noder[i].nUtNoder = 0;
-		modelSea.Noder[i].nAllocUtNoder = 10;
-		modelSea.Noder[i].UtNod = (int*)malloc(modelSea.Noder[i].nAllocUtNoder * sizeof(int));
-		modelSea.Noder[i].UtNodCost = (double*)malloc(modelSea.Noder[i].nAllocUtNoder * sizeof(double));
-		modelSea.Noder[i].outArcNr = (int*)malloc(modelSea.Noder[i].nAllocUtNoder * sizeof(int));
-
-		(modelSea.nNoder)++;
+		i = addSeaRouteNode(y, x);
 	}
 	return i;
+}
+
+double estDistCoordToBoundingBoxCorridorSeaRoute(double y, double x, strBoundBox bbox) {
+	double dist;
+
+	if (x < bbox.xMin) {
+		if (y < bbox.yMin)
+			dist = estimateLargeCircleDistance_km(y, x, bbox.yMin, bbox.xMin);
+		else {
+			if (y > bbox.yMax)
+				dist = estimateLargeCircleDistance_km(y, x, bbox.yMax, bbox.xMin);
+			else
+				dist = estimateLargeCircleDistance_km(y, x, y, bbox.xMin);
+		}
+	}
+	else {
+		if (x > bbox.xMax) {
+			if (y < bbox.yMin)
+				dist = estimateLargeCircleDistance_km(y, x, bbox.yMin, bbox.xMax);
+			else {
+				if (y > bbox.yMax)
+					dist = estimateLargeCircleDistance_km(y, x, bbox.yMax, bbox.xMax);
+				else
+					dist = estimateLargeCircleDistance_km(y, x, y, bbox.xMax);
+			}
+		}
+		else {
+			if (y < bbox.yMin)
+				dist = estimateLargeCircleDistance_km(y, x, bbox.yMin, x);
+			else {
+				if (y > bbox.yMax)
+					dist = estimateLargeCircleDistance_km(y, x, bbox.yMax, x);
+				else
+					dist = 0; // estimateLargeCircleDistance_km(y, x, y, x);
+			}
+		}
+	}
+	return dist;
+}
+
+
+int identifyMod_startEndOnCorridorSeaRoute(int cNr, int startEnd) {
+	int i, minPos, posUse, pktNr, nod1, nod2;
+	double minDist2 = 1e20, dist, x, y, distBastPrev2, distPrev2 = -1, distBastNext2 = -1, x0, x1, x2;
+	double dist2, cosC1, cosC2, minPrev, minNext, dist1, distFromPoint, bearing, cosBefore = -10, cosAfter = -10;
+	double distOld, deltaDist, timeOld, timeNew, estMinDist, distPath, minDist;
+	spherical::Point p1;
+
+	// if startpunkt within corridor and dist < x to corridor => cut the corridors length, start at a position after startpunkt
+	if (startEnd == 0) {
+		// only first set of start/end can be used for this
+		x = model.paramsAutoRoute.startBas_lon;
+		y = model.paramsAutoRoute.startBas_lat;
+	}
+	else {
+		// only first set of start/end can be used for this
+		x = model.paramsAutoRoute.endBas_lon;
+		y = model.paramsAutoRoute.endBas_lat;
+	}
+
+	estMinDist = estDistCoordToBoundingBoxCorridorSeaRoute(y, x, model.paramsAutoRoute.corridors_noGoSoft[cNr].boundingBox);
+	if (estMinDist >= model.paramsAutoRoute.corridors_noGoSoft[cNr].maxDistConnectInside)
+		return 0; // too far to the start/end, no need to modify the corridor
+
+	for (i = 0; i < model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter; i++) {
+		x0 = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[i];
+		check_translate_xCoord(&x0);
+		dist = estimateLargeCircleDistance2_km(y, x, model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[i], x0);
+		if (minDist2 > dist) {
+			minDist2 = dist;
+			distBastPrev2 = distPrev2;
+			minPos = i;
+		}
+		distPrev2 = dist;
+		if (minPos == i - 1)
+			distBastNext2 = dist;
+	}
+	minDist = sqrt(minDist2);
+
+	//printf("ident_startEndOnChannel startEnd %d minDist %.2lf minPos %d distBastPrev %.2lf distBastNext %.2lf nPoints %d\n",
+	//	startEnd, minDist, minPos, distBastPrev, distBastNext, model.network.channel[cNr].nPoints);
+
+
+	if (minPos > 0) {
+		x1 = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[minPos - 1];
+		check_translate_xCoord(&x1);
+		x0 = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[minPos];
+		check_translate_xCoord(&x0);
+		dist1 = estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[minPos - 1], x1,
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[minPos], x0);
+
+		if (minDist * dist1 > 0.00001)
+			cosBefore = (-distBastPrev2 + dist1 * dist1 + minDist2) / (2 * minDist * dist1);
+		else
+			cosBefore = (-distBastPrev2 + dist1 * dist1 + minDist2) / (2 * 0.00001);
+
+		if (cosBefore > 1)
+			cosBefore = 1;
+		if (cosBefore < -1)
+			cosBefore = -1;
+		if (cosBefore > 0)
+			minPrev = minDist * sin(acos(cosBefore));
+		else {
+			minPrev = minDist;
+			if (minPos == model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter - 1)
+				return 0; // connection after the corridor ends, keep the corridor as it is
+		}
+	}
+	else {
+		minPrev = 1e10;
+	}
+	if (minPos < model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter - 1) {
+		x2 = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[minPos + 1];
+		check_translate_xCoord(&x2);
+		x0 = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[minPos];
+		check_translate_xCoord(&x0);
+		dist2 = estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[minPos + 1], x2,
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[minPos], x0);
+
+		if (minDist * dist2 > 0.00001)
+			cosAfter = (-distBastNext2 + dist2 * dist2 + minDist2) / (2 * minDist * dist2);
+		else
+			cosAfter = (-distBastNext2 + dist2 * dist2 + minDist2) / (2 * 0.00001);
+
+		if (cosAfter > 1)
+			cosAfter = 1;
+		if (cosAfter < -1)
+			cosAfter = -1;
+		if (cosAfter > 0)
+			minNext = minDist * sin(acos(cosAfter));
+		else {
+			if (minPos == 0)
+				return 0; // connection before the corridor start, keep the corridor as it is
+			minNext = minDist;
+		}
+
+	}
+	else {
+		minNext = 1e10;
+	}
+
+	//printf("minPrev %.2lf minNext %.2lf\n", minPrev, minNext);
+
+	if (minPrev >= 9e9 && minNext >= 9e9)
+		return 0;
+
+	if (startEnd == 0) {
+		if (minDist < 0.01 && minPos == 0)
+			return 0; // no need to do anything as it is the right node
+	}
+	else {
+		if (minDist < 0.01 && minPos == model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter - 1)
+			return 0; // no need to do anything as it is the right node
+	}
+
+	if (minPrev <= minNext) {
+		if (minPrev > model.paramsAutoRoute.corridors_noGoSoft[cNr].maxDistConnectInside) {
+			errlog("OBS! Not shortening the corridor noGoSoft at startEnd %d, distPrev %.2lf km must be <= %.2lf\n",
+				startEnd, minPrev, model.paramsAutoRoute.corridors_noGoSoft[cNr].maxDistConnectInside);
+			return 0; // too far away from the channel
+		}
+		distFromPoint = dist1 - cosBefore * minDist;
+		posUse = minPos - 1;
+		if (cosBefore < 0) {
+			p1 = model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1];
+			//model.network.channel[cNr].point[posUse + 1];
+			distFromPoint = -1;
+		}
+	}
+	else {
+		if (minNext > model.paramsAutoRoute.corridors_noGoSoft[cNr].maxDistConnectInside) {
+			errlog("OBS! Not shortening the corridor noGoSoftat startEnd %d, distNext %.2lf km must be <= %.2lf\n",
+				startEnd, minNext, model.paramsAutoRoute.corridors_noGoSoft[cNr].maxDistConnectInside);
+			return 0; // too far away from the channel
+		}
+		distFromPoint = cosAfter * minDist;
+		posUse = minPos;
+		if (cosAfter <= 0) {
+			p1 = model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse];
+			// model.network.channel[cNr].point[posUse];
+		}
+	}
+
+	if (distFromPoint > 0) {
+		bearing = model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse].bearingTo(model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1]);
+		p1 = model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse].destinationPoint(distFromPoint * 1000, bearing);
+	}
+	distOld = model.paramsAutoRoute.corridors_noGoSoft[cNr].distance_km;
+	if (startEnd == 0)
+		deltaDist = p1.distanceTo(model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1]) / 1000.0 - model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[posUse + 1];
+	else
+		deltaDist = -distOld - p1.distanceTo(model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1]) / 1000.0 + model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[posUse + 1];
+
+	//printf("deltaDist %.2lf distFromStart_posUse+1 %.2lf p1_distTo_posUse+1 %.2lf posUse %d posUse+1_xy %.3lf %.3lf\n", deltaDist,
+	//	model.network.channel[cNr].distanceFromStart[posUse + 1], p1.distanceTo(model.network.channel[cNr].point[posUse + 1]),
+	//	posUse, model.network.channel[cNr].point[posUse + 1].longitude().degrees(), model.network.channel[cNr].point[posUse + 1].latitude().degrees());
+	//timeOld = model.network.channel[cNr].timeThroughChannel;
+	//if (timeOld < -0.1)
+	//	timeNew = timeOld;
+	//else
+	//	timeNew = timeOld * (distOld + deltaDist) / distOld;
+
+	if (startEnd == 0)
+		errlog("update data for corridor noGoSoft. Before it started at %.3lf %.3lf. It is shortened and now starts at %.3lf %.3lf.\n",
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[0], model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[0],
+			p1.longitude().degrees(), p1.latitude().degrees());
+	else
+		errlog("update data for corridor noGoSoft. Before it ended at %.3lf %.3lf. It is shortened and now ends at %.3lf %.3lf.\n",
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter - 1], 
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter - 1],
+			p1.longitude().degrees(), p1.latitude().degrees());
+
+	model.paramsAutoRoute.corridors_noGoSoft[cNr].distance_km = distOld + deltaDist;
+	if (startEnd == 0) {
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].point[0] = p1;
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[0] = p1.longitude().degrees();
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[0] = p1.latitude().degrees();
+
+		//printf("new Point lon/lat %.3lf %.3lf instead of pos %d %.3lf %.3lf\n", model.network.channel[cNr].point_x[0],
+		//	model.network.channel[cNr].point_y[0], posUse, model.network.channel[cNr].point_x[posUse],
+		//	model.network.channel[cNr].point_y[posUse]);
+
+		for (i = posUse + 1; i < model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter; i++) {
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].point[i - posUse] = model.paramsAutoRoute.corridors_noGoSoft[cNr].point[i];
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[i - posUse] = model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[i];
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[i - posUse] = model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[i];
+			if (i == posUse + 1)
+				model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[i - posUse] =
+				model.paramsAutoRoute.corridors_noGoSoft[cNr].point[0].distanceTo(model.paramsAutoRoute.corridors_noGoSoft[cNr].point[1]) / 1000.0;
+			else
+				model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[i - posUse] = model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[i - posUse - 1] +
+				model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[i] - model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[i - 1];
+		}
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter -= posUse;
+
+		pktNr = 0;
+		nod2 = addSeaRouteNode(model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[pktNr], model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[pktNr]);
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].startNod = nod2;
+
+		nod1 = model.paramsAutoRoute.startNod;
+		if (nod1 < 0) {
+			nod1 = addSeaRouteNode(y, x);
+			model.paramsAutoRoute.startNod = nod1;
+		}
+
+	}
+	else {
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1] = p1;
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[posUse + 1] = p1.longitude().degrees();
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[posUse + 1] = p1.latitude().degrees();
+
+		errlog("new endPoint %d lon/lat %.3lf %.3lf\n", posUse + 1, model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[posUse + 1],
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[posUse + 1]);
+
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[posUse + 1] = model.paramsAutoRoute.corridors_noGoSoft[cNr].distanceFromStart[posUse] +
+			model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse].distanceTo(model.paramsAutoRoute.corridors_noGoSoft[cNr].point[posUse + 1]) / 1000.0;
+
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].nPkter = posUse + 2;
+
+		pktNr = posUse + 1;
+		nod1 = addSeaRouteNode(model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[pktNr], model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[pktNr]);
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].endNod = nod1;
+
+		nod2 = model.paramsAutoRoute.endNod;
+		if (nod2 < 0) {
+			nod2 = addSeaRouteNode(y, x);
+			model.paramsAutoRoute.endNod = nod2;
+		}
+
+	}
+
+	//if (modelSea.Noder[nod1].nUtNoder >= modelSea.Noder[nod1].nAllocUtNoder) {
+	(modelSea.Noder[nod1].nAllocUtNoder)++;
+	modelSea.Noder[nod1].UtNod = (int*)realloc(modelSea.Noder[nod1].UtNod, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+	modelSea.Noder[nod1].UtNodCost = (double*)realloc(modelSea.Noder[nod1].UtNodCost, modelSea.Noder[nod1].nAllocUtNoder * sizeof(double));
+	modelSea.Noder[nod1].outArcNr = (int*)realloc(modelSea.Noder[nod1].outArcNr, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+	//}
+
+	if (modelSea.nArcs >= modelSea.nAllocArcs) {
+		modelSea.nAllocArcs += 100;
+		modelSea.arc = (strArcInfo*)realloc(modelSea.arc, modelSea.nAllocArcs * sizeof(strArcInfo));
+	}
+
+	modelSea.arc[modelSea.nArcs].fromPointNr = nod1;
+	modelSea.arc[modelSea.nArcs].toPointNr = nod2;
+	modelSea.arc[modelSea.nArcs].extraAreaFactor = (double*)calloc(model.nExtraNoGoAreasBase, sizeof(double));
+	modelSea.arc[modelSea.nArcs].corridorNr = -1;
+	distPath = estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[cNr].yCoord[pktNr],
+		model.paramsAutoRoute.corridors_noGoSoft[cNr].xCoord[pktNr], y, x);
+	modelSea.arc[modelSea.nArcs].distance = distPath;
+	modelSea.arc[modelSea.nArcs].totCost = distPath * model.paramsAutoRoute.corridors_noGoSoft[cNr].costFactorDist;
+
+	(modelSea.nArcs)++;
+
+
+
+	//printf("nPoints efter %d\n", model.network.channel[cNr].nPoints);
+	//printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 1,
+	//	model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1],
+	//	model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 1]);
+	//printf("pos %d xy %.3lf %.3lf\n", model.network.channel[cNr].nPoints - 2,
+	//	model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 2],
+	//	model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 2]);
+
+
+	return 1;
 }
 
 
@@ -998,7 +1764,8 @@ int load_searoutes()
 
 	sprintf(namn, "%s/autoRoute/seaRoute_nodes.txt", model.params.indataPath.c_str());
 	FILE* filpek;
-	int i;
+	int i, i1;
+	double kvot;
 	filpek = fopen(namn, "w");
 	fprintf(filpek, "%d\n", modelSea.nNoder);
 	for (i = 0; i < modelSea.nNoder; i++) {
@@ -1009,21 +1776,58 @@ int load_searoutes()
 	sprintf(namn, "%s/autoRoute/seaRoute_arcs.txt", model.params.indataPath.c_str());
 	filpek = fopen(namn, "w");
 	fprintf(filpek, "%d\n", modelSea.nArcs);
+	fprintf(filpek, "%d\n", model.nExtraNoGoAreasBase);
+
+	model.boundingBox.xMin = -180;
+	model.boundingBox.xMax = 180;
+	model.boundingBox.yMin = -75;
+	model.boundingBox.yMax = 80;
+
+	char* namn2;
+	namn2 = (char*)malloc2(256 * sizeof(char));
+	model.extraNoGoArea = (strExtraNoGo*)malloc((model.nExtraNoGoAreasBase) * sizeof(strExtraNoGo));
+	for (i = 0; i < model.nExtraNoGoAreasBase; i++) {
+		if (model.extraNoGoAreaBase[i].extraCostFactor > -0.99) {
+			model.extraNoGoArea[i].posBase = i;
+			sprintf(namn2, "%s/%s", model.params.indataPath.c_str(), model.extraNoGoAreaBase[i].fileNameA);
+			checkMinnesAnvandning(__LINE__);
+			openNoGoAreas_local(i, namn2);
+		}
+	}
+
+	int nod1, nod2;
 	for (i = 0; i < modelSea.nArcs; i++) {
-		fprintf(filpek, "%d %d %d %.4lf %.4lf\n", i, modelSea.arc[i].fromPointNr, 
-			modelSea.arc[i].toPointNr, modelSea.arc[i].totCost, modelSea.arc[i].distance);
+		nod1 = modelSea.arc[i].fromPointNr;
+		nod2 = modelSea.arc[i].toPointNr;
+		modelSea.arc[i].totCost = modelSea.arc[i].distance;
+		fprintf(filpek, "%d %d %d %.4lf %.4lf", i, nod1, nod2,
+			modelSea.arc[i].totCost, modelSea.arc[i].distance);
+		for (i1 = 0; i1 < model.nExtraNoGoAreasBase; i1++) {
+			if (model.extraNoGoAreaBase[i1].extraCostFactor > -0.99) {
+				kvot = 1 - check_map_badKvot_auto(modelSea.seaRoute.nod_y[nod1],
+					modelSea.seaRoute.nod_x[nod1],
+					modelSea.seaRoute.nod_y[nod2],
+					modelSea.seaRoute.nod_x[nod2], 0, i1, 0);
+				fprintf(filpek, " %lf", kvot);
+			}
+			else
+				fprintf(filpek, " -1.0");
+		}
+		fprintf(filpek, "\n");
 	}
 	fclose(filpek);
+
+	postRequest("Saved new data for searoutes. Run again with newSeaRoutePathData != 1", 1);
 
 	return 0;
 }
 
 int load_saved_searoutes() {
 	FILE* filpek;
-	int i, iTmp, antal, nod1, nod2;
+	int i, iTmp, antal, nod1, nod2, xIndex, nExtraAreas, i1;
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	double costFactorArea;
+	double costFactorArea, factor;
 
 	sprintf(namn, "%s/autoRoute/seaRoute_nodes.txt", model.params.indataPath.c_str());
 	filpek = fopen(namn, "r");
@@ -1038,11 +1842,12 @@ int load_saved_searoutes() {
 	modelSea.seaRoute.nod_x = (double*)malloc(modelSea.nAllocNoder * sizeof(double));
 
 	for (i = 0; i < modelSea.nNoder; i++) {
-		antal = fscanf(filpek, "%d %d %lf %lf\n", &iTmp, &(modelSea.Noder[i].nUtNoder), 
+		antal = fscanf(filpek, "%d %d %lf %lf", &iTmp, &(modelSea.Noder[i].nUtNoder), 
 			&(modelSea.seaRoute.nod_y[i]), &(modelSea.seaRoute.nod_x[i]));
 		if (antal != 4) {
 			postRequest("ERROR! failed to read from seaRoute_nodes.txt. i " + std::to_string(i) + " antal " + std::to_string(antal), 1);
 		}
+
 		modelSea.Noder[i].nAllocUtNoder = modelSea.Noder[i].nUtNoder;
 		modelSea.Noder[i].UtNod = (int*)malloc(modelSea.Noder[i].nAllocUtNoder * sizeof(int));
 		modelSea.Noder[i].UtNodCost = (double*)malloc(modelSea.Noder[i].nAllocUtNoder * sizeof(double));
@@ -1060,30 +1865,169 @@ int load_saved_searoutes() {
 	fscanf(filpek, "%d\n", &(modelSea.nArcs));
 	modelSea.nAllocArcs = modelSea.nArcs;
 	modelSea.arc = (strArcInfo*)malloc(modelSea.nAllocArcs * sizeof(strArcInfo));
+
+	fscanf(filpek, "%d\n", &nExtraAreas);
+	if (nExtraAreas != model.nExtraNoGoAreasBase) {
+		postRequest("ERROR! Run first autoRoute with newSeaRoutePathData = 1, as it has changed", 1);
+	}
+
 	for (i = 0; i < modelSea.nArcs; i++) {
 		antal = fscanf(filpek, "%d %d %d %lf %lf\n", &iTmp, &(nod1),
 			&(nod2), &(modelSea.arc[i].totCost), &(modelSea.arc[i].distance));
 
-		costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
-			modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2]);
-		modelSea.arc[i].totCost = modelSea.arc[i].distance * costFactorArea;
+		modelSea.arc[i].fromPointNr = nod1;
+		modelSea.arc[i].toPointNr = nod2;
+		modelSea.arc[i].corridorNr = -1;
+		//costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[modelSea.arc[i].fromPointNr], modelSea.seaRoute.nod_x[modelSea.arc[i].fromPointNr],
+		//	modelSea.seaRoute.nod_y[modelSea.arc[i].toPointNr], modelSea.seaRoute.nod_x[modelSea.arc[i].toPointNr], &xIndex);
+		//modelSea.arc[i].totCost = modelSea.arc[i].distance * costFactorArea;
 		if (antal != 5) {
 			postRequest("ERROR! failed to read from seaRoute_arcs.txt. i " + std::to_string(i) + " antal " + std::to_string(antal), 1);
 		}
-		modelSea.arc[i].fromPointNr = nod1;
-		modelSea.arc[i].toPointNr = nod2;
 		if (modelSea.Noder[nod1].nUtNoder >= modelSea.Noder[nod1].nAllocUtNoder) {
 			errlog("ERROR! Too many outnodes for nod %d compared to given in seRoute_arcs.txt, %d\n", nod1, modelSea.Noder[nod1].nUtNoder);
 		}
-		modelSea.Noder[nod1].UtNod[modelSea.Noder[nod1].nUtNoder] = nod2;
-		modelSea.Noder[nod1].UtNodCost[modelSea.Noder[nod1].nUtNoder] = modelSea.arc[i].totCost;
-		modelSea.Noder[nod1].outArcNr[modelSea.Noder[nod1].nUtNoder] = iTmp;
-		(modelSea.Noder[nod1].nUtNoder)++;
+
+		modelSea.arc[i].extraAreaFactor = (double*)malloc(model.nExtraNoGoAreasBase * sizeof(double));
+		for (i1 = 0; i1 < model.nExtraNoGoAreasBase; i1++) {
+			antal = fscanf(filpek, " %lf", &factor);
+			if (antal != 1)
+				postRequest("ERROR! failed to read from seRoute_arcs.txt. i " + std::to_string(i) + " antal " + std::to_string(antal), 1);
+			modelSea.arc[i].extraAreaFactor[i1] = factor;
+		}
 	}
 	fclose(filpek);
 	printf("nNodes %d nArcs %d\n", modelSea.nNoder, modelSea.nArcs);
 	return 0;
 }
+
+int findClosestSeaRouteNode(double x, double y, double* dist) {
+	double minDist = 1e10, distNu;
+	int nodNr = -1, i;
+
+	for (i = 0; i < modelSea.nNoder; i++) {
+		distNu = getDist_flat(modelSea.seaRoute.nod_x[i], modelSea.seaRoute.nod_y[i], x, y);
+		if (distNu < minDist) {
+			minDist = distNu;
+			nodNr = i;
+		}
+	}
+	*dist = minDist;
+	return nodNr;
+}
+
+int generateCorridorSeaRouteArcs() {
+	int i, nod1, nod2, pktNr, i1;
+	double dist, distPath;
+
+	modelSea.nAllocArcs += 3 * model.paramsAutoRoute.nCorridors_noGoSoft; // worst case is to generate arcs from start and end nod and between them for each corridor
+	modelSea.arc = (strArcInfo*)realloc(modelSea.arc, modelSea.nAllocArcs * sizeof(strArcInfo));
+
+	printf("\n\n****************************************\n\nERROR! ERROR kapa corridorer om start/slut inom!\n\n*****************************\n");
+	errlog("\n\n****************************************\n\nERROR! ERROR kapa corridorer om start/slut inom!\n\n*****************************\n");
+	// add logics for;
+	//	om start / slutpkt ar inom extraNoGo och denna extraNoGo har corridor->koll om narmsta pkten pa corridoren ligger nara;
+	//	om ej endpunkt pa corridor och ligger nara->kapa corridoren samt skapa seaRoute arc till corridoren fran start / slutpkten;
+
+	// identifiera om start och/eller slutpunkt inom corridorens noGo omrade
+	//   om ja, hitta narmsta punkt pa corridoren om tillrackligt nara sa  bryt korridoren dar (endpunkt) och 
+	//   lagg till en nod dar samt en bage mellan start/slutpkt och noden pa korridoren
+
+	// lagg till bagar for corridorerna
+	// identifiera narmsta nod till respektive start/endpkt pa corridorer (ska finna nagon nara), ej for de som modifierats ovan
+
+	for (i = 0; i < model.paramsAutoRoute.nCorridors_noGoSoft; i++) {
+		identifyMod_startEndOnCorridorSeaRoute(i, 0); // startPkt of autoRoute
+		identifyMod_startEndOnCorridorSeaRoute(i, 1); // endPkt of autoRoute
+
+		if (model.paramsAutoRoute.corridors_noGoSoft[i].startNod == -1) { // ej modifierad pkt
+			nod1 = findClosestSeaRouteNode(model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[0], model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[0], &dist);
+			// model.paramsAutoRoute.corridors_noGoSoft[i].startNod = nod1;
+		}
+		else
+			nod1 = model.paramsAutoRoute.corridors_noGoSoft[i].startNod;
+		pktNr = model.paramsAutoRoute.corridors_noGoSoft[i].nPkter - 1;
+		if (model.paramsAutoRoute.corridors_noGoSoft[i].endNod == -1) { // ej modifierad pkt
+			nod2 = findClosestSeaRouteNode(model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[pktNr], model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[pktNr], &dist);
+			// model.paramsAutoRoute.corridors_noGoSoft[i].endNod = nod2;
+		}
+		else
+			nod2 = model.paramsAutoRoute.corridors_noGoSoft[i].endNod;
+
+		//if (modelSea.Noder[nod1].nUtNoder >= modelSea.Noder[nod1].nAllocUtNoder) {
+		(modelSea.Noder[nod1].nAllocUtNoder)++;
+		modelSea.Noder[nod1].UtNod = (int*)realloc(modelSea.Noder[nod1].UtNod, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+		modelSea.Noder[nod1].UtNodCost = (double*)realloc(modelSea.Noder[nod1].UtNodCost, modelSea.Noder[nod1].nAllocUtNoder * sizeof(double));
+		modelSea.Noder[nod1].outArcNr = (int*)realloc(modelSea.Noder[nod1].outArcNr, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+		//}
+		
+		if (modelSea.nArcs >= modelSea.nAllocArcs) {
+			modelSea.nAllocArcs += 100;
+			modelSea.arc = (strArcInfo*)realloc(modelSea.arc, modelSea.nAllocArcs * sizeof(strArcInfo));
+		}
+
+		modelSea.arc[modelSea.nArcs].fromPointNr = nod1;
+		modelSea.arc[modelSea.nArcs].toPointNr = nod2;
+		modelSea.arc[modelSea.nArcs].extraAreaFactor = (double*)calloc(model.nExtraNoGoAreasBase, sizeof(double));
+		modelSea.arc[modelSea.nArcs].corridorNr = i;
+		distPath = 0;
+		for (i1 = 0; i1 < pktNr; i1++) {
+			distPath += estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[i1],
+				model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[i1],
+				model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[i1 + 1],
+				model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[i1 + 1]);
+		}
+		modelSea.arc[modelSea.nArcs].distance = distPath;
+		modelSea.arc[modelSea.nArcs].totCost = distPath * model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist;
+
+
+		(modelSea.nArcs)++;
+	}
+
+	return 0;
+}
+
+int updateCostsSeaRouteArcs() {
+	int i, xIndex, nod1, nod2, i1;
+	double costFactorArea, costKvot;
+
+	// modelSea.seaRoute.costFactorExtraNoGo = 20.0;
+
+	if (model.paramsAutoRoute.nCorridors_noGoSoft > 0) {
+		generateCorridorSeaRouteArcs();
+	}
+
+	for (i = 0; i < modelSea.nArcs; i++) {
+		if (i == 17523)
+			i = i;
+		//if(i >= 17503)
+		//	checkMinnesAnvandning(__LINE__);
+		nod1 = modelSea.arc[i].fromPointNr;
+		nod2 = modelSea.arc[i].toPointNr;
+		if (modelSea.arc[i].corridorNr == -1) {
+			costFactorArea = getCostFactorArea(modelSea.seaRoute.nod_y[nod1], modelSea.seaRoute.nod_x[nod1],
+				modelSea.seaRoute.nod_y[nod2], modelSea.seaRoute.nod_x[nod2], &xIndex);
+			costKvot = 1.0;
+			for (i1 = 0; i1 < model.nExtraNoGoAreas; i1++) {
+				if (model.extraNoGoArea[i1].posBase >= 0)
+					costKvot += modelSea.seaRoute.costFactorExtraNoGo *
+					modelSea.arc[i].extraAreaFactor[model.extraNoGoArea[i1].posBase];
+			}
+			for (i1 = 0; i1 < model.nExtraCostAreas; i1++) {
+				if (model.extraCostArea[i1].extraCostFactor > 0)
+					costKvot += model.extraCostArea[i1].extraCostFactor *
+					modelSea.arc[i].extraAreaFactor[model.extraCostArea[i1].posBase];
+			}
+			modelSea.arc[i].totCost = modelSea.arc[i].distance * costFactorArea * costKvot;
+		}
+		modelSea.Noder[nod1].UtNod[modelSea.Noder[nod1].nUtNoder] = nod2;
+		modelSea.Noder[nod1].UtNodCost[modelSea.Noder[nod1].nUtNoder] = modelSea.arc[i].totCost;
+		modelSea.Noder[nod1].outArcNr[modelSea.Noder[nod1].nUtNoder] = i;
+		(modelSea.Noder[nod1].nUtNoder)++;
+	}
+	return 0;
+}
+
 
 
 int calc_boundingBoxAutoRoute() { // not needed anymore
@@ -1265,6 +2209,7 @@ int check_isLandOnly_auto(double lat1, double lon1, double lat2, double lon2) {
 
 int checkIsCompleteLand(double y1, double x1, double y2, double x2) {
 	int isLand = 1;
+	//return 0;
 
 	isLand = check_isLandOnly_auto(y1, x1, y1, x2); // horizontal
 	if (isLand == 0)
@@ -1282,7 +2227,7 @@ int checkIsCompleteLand(double y1, double x1, double y2, double x2) {
 	return isLand;
 }
 
-double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap) {
+double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea) {
 	Raster::strPhysRaster physicalMap;
 	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
 	double kvot, a0, a1, ac, ar, colDbl, rowDbl;
@@ -1291,10 +2236,18 @@ double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2
 	int nVardenOnMap = 0;
 
 	if (pos_noGoMap >= 0) {
-		if (mapAlt == 0)
-			physicalMap = model.extraNoGoArea[pos_noGoMap].mapB;
-		else
-			physicalMap = model.extraNoGoArea[pos_noGoMap].mapA;
+		if (costArea == 0) {
+			if (mapAlt == 0)
+				physicalMap = model.extraNoGoArea[pos_noGoMap].mapB;
+			else
+				physicalMap = model.extraNoGoArea[pos_noGoMap].mapA;
+		}
+		else {
+			if (mapAlt == 0)
+				physicalMap = model.extraCostArea[pos_noGoMap].mapB;
+			else
+				physicalMap = model.extraCostArea[pos_noGoMap].mapA;
+		}
 	}
 	else {
 		if (pos_noGoMap == -1) {
@@ -1312,10 +2265,11 @@ double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2
 			}
 			else {
 				// eca
-				if (mapAlt == 0)
-					physicalMap = model.fuelMapB;
-				else
-					physicalMap = model.fuelMapA;
+				errlog("ERROR! Should never come here, code row %d\n", __LINE__);
+				//if (mapAlt == 0)
+				//	physicalMap = model.fuelMapB;
+				//else
+				//	physicalMap = model.fuelMapA;
 
 			}
 		}
@@ -1416,7 +2370,7 @@ double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2
 				x1 = (col1Dbl + a0 * delta_col) * physicalMap.size_col + physicalMap.minLongitude;
 				y2 = physicalMap.maxLatitude - (row1Dbl + a1 * delta_row) * physicalMap.size_row;
 				x2 = (col1Dbl + a1 * delta_col) * physicalMap.size_col + physicalMap.minLongitude;
-				kvotOKTmp = check_map_badKvot_auto(y1, x1, y2, x2, 1, pos_noGoMap);
+				kvotOKTmp = check_map_badKvot_auto(y1, x1, y2, x2, 1, pos_noGoMap, costArea);
 				kvotOK += kvotOKTmp;
 				//if (isOK == 0)
 				//	return 0; // arc is not okay in raster alt
@@ -1498,51 +2452,75 @@ int evalCostArc_old(strAutoCells* cell, int pos1, double y1, double x1, double y
 	return 0;
 }
 
-double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2) {
-	double kvotBad, kvotBad2, costKvot;
-
-	double kvotBad0 = check_map_badKvot_auto(y1, x1, y2, x2, 0, -1); // physical map 12nm buffer
-	if (kvotBad0 > 0)
-		kvotBad = check_map_badKvot_auto(y1, x1, y2, x2, 0, -2); // physical map 2nm buffer
-	else
-		kvotBad = 0;
-	if (kvotBad < 1) {
-		for (int i = 0; i < model.nExtraNoGoAreas; i++) {
-			kvotBad += check_map_badKvot_auto(y1, x1, y2, x2, 0, i);
-			if (kvotBad >= 1)
-				break;
+double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2, int includeCostFeasible) {
+	double kvotBad, kvotBad2, costKvot, kvotBadExtra;
+	double kvotBad0;
+	if (includeCostFeasible == 1) {
+		kvotBad0 = check_map_badKvot_auto(y1, x1, y2, x2, 0, -1, 0); // physical map 12nm buffer
+		if (kvotBad0 > 0)
+			kvotBad = check_map_badKvot_auto(y1, x1, y2, x2, 0, -2, 0); // physical map 2nm buffer
+		else
+			kvotBad = 0;
+		kvotBadExtra = 0;
+		if (kvotBad < 1) {
+			for (int i = 0; i < model.nExtraNoGoAreas; i++) {
+				kvotBadExtra += 1 - check_map_badKvot_auto(y1, x1, y2, x2, 0, i, 0);
+				//if (kvotBadExtra >= 1)
+				//	break;
+			}
 		}
-	}
 
-	if (kvotBad0 > 0) {
 		if (kvotBad > 0)
-			kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas); // the last extra map is for land!!!
+			kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas, 0); // the last extra map is for land!!!
 		else
 			kvotBad2 = 0;
-		costKvot = (1 + kvotBad0 + 1000 * kvotBad + 100000 * kvotBad2);
+
+		costKvot = (1 + kvotBad0 + 1000 * (kvotBad + kvotBadExtra) + 100000 * kvotBad2);
 	}
 	else
 		costKvot = 1.0;
 
-	double kvotECA;
-	if (model.paramsAutoRoute.eca_penalty > 1) {
-		kvotECA = 1 - check_map_badKvot_auto(y1, x1, y2, x2, 0, -3); // eca penalty
-		costKvot += (model.paramsAutoRoute.eca_penalty - 1) * kvotECA;
+	//if (kvotBad0 > 0 || kvotBad > 0) {
+	//	if (kvotBad > 0)
+	//		kvotBad2 = check_map_badKvot_auto(y1, x1, y2, x2, 0, model.nExtraNoGoAreas); // the last extra map is for land!!!
+	//	else
+	//		kvotBad2 = 0;
+	//	costKvot = (1 + kvotBad0 + 1000 * kvotBad + 100000 * kvotBad2);
+	//}
+	//else
+	//	costKvot = 1.0;
+
+	double extraCostKvot = 0, kvot;
+	for (int i = 0; i < model.nExtraCostAreas; i++) {
+		kvot = 1 - check_map_badKvot_auto(y1, x1, y2, x2, 0, i, 1);
+		extraCostKvot += kvot * model.extraCostArea[i].extraCostFactor;
 	}
+	costKvot += extraCostKvot;
 	return costKvot;
+
+	//double kvotECA;
+	//if (model.paramsAutoRoute.eca_penalty > 1) {
+	//	kvotECA = 1 - check_map_badKvot_auto(y1, x1, y2, x2, 0, -3); // eca penalty
+	//	costKvot += (model.paramsAutoRoute.eca_penalty - 1) * kvotECA;
+	//}
+	//return costKvot;
 }
 
 double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distRes) {
 	double cost, dist, kvotBad2, totCost = 0, totDist, costFactorArea;
 	double kvotBad, x1, y1, x2, y2, splitDist, costKvot, totDist2;
 	totDist = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
-	int nInt, i;
+	double costFactorAreaBas;
+	int nInt, i, xIndex;
 	spherical::Point p1, p2, p3;
 
 	x1 = x1b;
 	y1 = y1b;
 	x2 = x2b;
 	y2 = y2b;
+
+	if (model.nArcs >= 652749)
+		model.nArcs = model.nArcs;
 	// split the arc as it is too long
 	nInt = roundUp(totDist / DIST_SPLIT);
 	if (nInt > 1) {
@@ -1550,7 +2528,10 @@ double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distR
 		p2 = spherical::Point(y2, fix_lonPos(x2));
 		totDist = p1.distanceTo(p2) / 1000.0;
 		splitDist = totDist / nInt * 1000.0;
+		costFactorAreaBas = getCostFactorArea(y1, x1, y2, x2, &xIndex);
 	}
+	else
+		costFactorAreaBas = 2;
 
 	totDist2 = 0;
 	for (i = 0; i < nInt; i++) {
@@ -1565,9 +2546,18 @@ double evalCostArc(double y1b, double x1b, double y2b, double x2b, double* distR
 				x2 = x2b;
 			}
 		}
+		costFactorArea = getCostFactorArea(y1, x1, y2, x2, &xIndex);
+		if (costFactorAreaBas < 1.00001) {
+			if (costFactorArea >= 1.00001) {
+				if (y2 < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
+					y2 = model.paramsAutoRoute.minLat_lonIndex[xIndex];
+					costFactorArea = 1.0;
+				}
+			}
+		}
+		
 		dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
 		costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y2, x2);
-		costFactorArea = getCostFactorArea(y1, x1, y2, x2);
 		totCost += dist * costKvot * costFactorArea;
 		totDist2 += dist;
 
@@ -1596,10 +2586,11 @@ int evalCostArc_cells(strAutoCells* cell, int pos1, double y1, double x1, double
 
 int evalCostArc2(double y1, double x1, double y2, double x2, double* cost, double* dist) {
 	double costFactorArea, costKvot;
+	int xIndex;
 
 	*dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
 	costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y2, x2);
-	costFactorArea = getCostFactorArea(y1, x1, y2, x2);
+	costFactorArea = getCostFactorArea(y1, x1, y2, x2, &xIndex);
 	*cost = *dist * costKvot * costFactorArea;
 
 	return 0;
@@ -1702,15 +2693,17 @@ int writeAllAutoNodesToGeojson(int iter)
 	double x, y, xNy, yNy;
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
 		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
-			if (forsta != 1)
-				fprintf(filpekG, ", ");
-			else
-				forsta = 0;
-			fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"level\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"xPos\":%d, \"yPos\":%d},\n",
-				0, model.autoRoute[pos].nodeNr[0], pos, i1, i);
-			x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
-			y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
-			fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", x, y);
+			if (model.autoRoute[pos].use > 0) {
+				if (forsta != 1)
+					fprintf(filpekG, ", ");
+				else
+					forsta = 0;
+				fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"level\":%d, \"nodeNr\":%d, \"cellPos\":%d, \"xPos\":%d, \"yPos\":%d},\n",
+					0, model.autoRoute[pos].nodeNr[0], pos, i1, i);
+				x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
+				y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
+				fprintf(filpekG, "    \"geometry\":{\"type\": \"Point\", \"coordinates\":[%.4lf,%.4lf]}}\n", x, y);
+			}
 			pos++;
 		}
 	}
@@ -1863,6 +2856,8 @@ int generate_nodes_along_pathSegment(int pathNr, int initStart, int coordPos, do
 				dist = estimateLargeCircleDistance_km(prevY, prevX, y, x);
 			else
 				dist = 0;
+			if (nodNr == 13920)
+				nodNr = nodNr;
 			addArcsInOutFromPathNode(nodNr, pathNr, prevNodNr, dist); // nodNr, pos, i, i1, i3, i4, posSmall);
 		}
 		prevNodNr = nodNr;
@@ -1871,14 +2866,15 @@ int generate_nodes_along_pathSegment(int pathNr, int initStart, int coordPos, do
 	}
 
 
-	return 0;
+	return 1;
 }
 
 int addArcs_tss() {
-	int i, i1, pathNr = 0;
+	int i, i1, pathNr = 0, nAlloc;
 	double x1 = -1, y1 = -1, x2, y2;
 
-	model.autoPath = (strAutoPath*)malloc((model.nTss + model.nAutoCorridors + model.paramsAutoRoute.nStartSlut - 1) * sizeof(strAutoPath));
+	nAlloc = model.nTss + model.nAutoCorridors + model.paramsAutoRoute.nStartSlut + model.paramsAutoRoute.nCorridors_noGoSoft - 1;
+	model.autoPath = (strAutoPath*)malloc(nAlloc * sizeof(strAutoPath));
 
 	for (i = 0; i < model.nTss; i++) {
 		model.tss[i].autoPathNr = pathNr;
@@ -1919,7 +2915,7 @@ int addArcs_tss() {
 }
 
 int addArcs_corridors() {
-	int i, i1, pathNr = model.nAutoPaths;
+	int i, i1, pathNr = model.nAutoPaths, firstTraff;
 	double x1 = -1, y1 = -1, x2, y2;
 
 	for (i = 0; i < model.nAutoCorridors; i++) {
@@ -1934,6 +2930,7 @@ int addArcs_corridors() {
 
 		if (i == 11)
 			i = i;
+		firstTraff = 0;
 		for (i1 = model.autoCorridors[i].firstTraffCoord - 1; i1 <= model.autoCorridors[i].lastTraffCoord; i1++) {
 			if (i1 == model.autoCorridors[i].firstTraffCoord - 1)
 				getCoordFromTss(model.autoCorridors[i], i1, model.autoCorridors[i].firstTraffCoordKvot, &y2, &x2);
@@ -1944,8 +2941,10 @@ int addArcs_corridors() {
 					getCoordFromTss(model.autoCorridors[i], i1, 0.0, &y2, &x2);
 			}
 			if (i1 >= model.autoCorridors[i].firstTraffCoord) {
-				if (i1 == model.autoCorridors[i].firstTraffCoord)
-					generate_nodes_along_pathSegment(model.autoCorridors[i].autoPathNr, 1, i1, y1, x1, y2, x2);
+				if (firstTraff == 0) {
+					//if (i1 == model.autoCorridors[i].firstTraffCoord)
+					firstTraff = generate_nodes_along_pathSegment(model.autoCorridors[i].autoPathNr, 1, i1, y1, x1, y2, x2);
+				}
 				else
 					generate_nodes_along_pathSegment(model.autoCorridors[i].autoPathNr, 0, i1, y1, x1, y2, x2);
 			}
@@ -1953,6 +2952,118 @@ int addArcs_corridors() {
 			y1 = y2;
 
 		}
+		pathNr++;
+	}
+	model.nAutoPaths = pathNr;
+
+	return 0;
+}
+
+int addArcs_corridors_noGoSoft() {
+	int i, i1, pathNr = model.nAutoPaths;
+	int posEnd, nodNr, pos, pktNr, nodNr2;
+	double dist, cost;
+	double x1 = -1, y1 = -1, x2, y2;
+
+	for (i = 0; i < model.paramsAutoRoute.nCorridors_noGoSoft; i++) {
+		model.paramsAutoRoute.corridors_noGoSoft[i].autoPathNr = pathNr;
+		model.autoPath[pathNr].nAllocNoder = 100;
+		model.autoPath[pathNr].nodNr = (int*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(int));
+		model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
+		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
+		model.autoPath[pathNr].nNoder = 0;
+		model.autoPath[pathNr].type = 2;
+		model.autoPath[pathNr].kvotCost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist; // model.autoCorridors[i].kvotCost; // 0.01;
+
+		for (i1 = 1; i1 < model.paramsAutoRoute.corridors_noGoSoft[i].nPkter; i1++) {
+			if (i1 == 1) {
+				x1 = model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[i1 - 1];
+				y1 = model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[i1 - 1];
+			}
+			x2 = model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[i1];
+			y2 = model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[i1];
+			generate_nodes_along_pathSegment(model.paramsAutoRoute.corridors_noGoSoft[i].autoPathNr, 0, i1, y1, x1, y2, x2);
+			y1 = y2;
+			x1 = x2;
+		}
+
+		if (model.paramsAutoRoute.corridors_noGoSoft[i].startNod != -1) {
+			// addera bage fran startNod pa autoRoute till starNod i corridoren
+			if (model.nArcs >= model.nAllocArcs) {
+				model.nAllocArcs += 1000000;
+				model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
+			}
+
+			posEnd = model.paramsAutoRoute.nCellsBase;
+			nodNr = model.autoRoute[posEnd].nodeNr[0];
+			pos = model.Noder[nodNr].nUtNoder;
+			if (pos >= model.Noder[nodNr].nAllocUtNoder) {
+				model.Noder[nodNr].nAllocUtNoder += 8;
+				model.Noder[nodNr].UtNod = (int*)realloc(model.Noder[nodNr].UtNod, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
+				model.Noder[nodNr].UtNodCost = (double*)realloc(model.Noder[nodNr].UtNodCost, model.Noder[nodNr].nAllocUtNoder * sizeof(double));
+				model.Noder[nodNr].outArcNr = (int*)realloc(model.Noder[nodNr].outArcNr, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
+			}
+			nodNr2 = model.autoPath[pathNr].nodNr[0];
+			model.Noder[nodNr].UtNod[pos] = nodNr2;
+			model.Noder[nodNr].outArcNr[pos] = model.nArcs;
+			model.Noder[nodNr].nUtNoder = pos + 1;
+
+			model.arc[model.nArcs].fromLevel = posEnd;
+			model.arc[model.nArcs].fromPointNr = 0;
+			model.arc[model.nArcs].fromTime = -1;
+			model.arc[model.nArcs].toLevel = -1;
+			model.arc[model.nArcs].toPointNr = pathNr;
+			model.arc[model.nArcs].toTime = 0;
+			dist = estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[0],
+				model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[0], 
+				model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0]);
+			model.arc[model.nArcs].distance = dist;
+			cost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist * dist;
+			model.arc[model.nArcs].totCost = cost;
+			model.Noder[nodNr].UtNodCost[pos] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
+			(model.nArcs)++;
+		}
+
+		if (model.paramsAutoRoute.corridors_noGoSoft[i].endNod != -1) {
+			// addera bage fran endnod i corridoren till endnode pa autoRoute 
+			if (model.nArcs >= model.nAllocArcs) {
+				model.nAllocArcs += 1000000;
+				model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
+			}
+
+			posEnd = model.paramsAutoRoute.nCellsBase + 1;
+
+			pktNr = model.autoPath[pathNr].nNoder - 1;
+			nodNr = model.autoPath[pathNr].nodNr[pktNr];
+			// nodNr = model.paramsAutoRoute.corridors_noGoSoft[i].endNod;
+			pos = model.Noder[nodNr].nUtNoder;
+			if (pos >= model.Noder[nodNr].nAllocUtNoder) {
+				model.Noder[nodNr].nAllocUtNoder += 2;
+				model.Noder[nodNr].UtNod = (int*)realloc(model.Noder[nodNr].UtNod, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
+				model.Noder[nodNr].UtNodCost = (double*)realloc(model.Noder[nodNr].UtNodCost, model.Noder[nodNr].nAllocUtNoder * sizeof(double));
+				model.Noder[nodNr].outArcNr = (int*)realloc(model.Noder[nodNr].outArcNr, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
+			}
+			model.Noder[nodNr].UtNod[pos] = model.autoRoute[posEnd].nodeNr[0];
+			model.Noder[nodNr].outArcNr[pos] = model.nArcs;
+			model.Noder[nodNr].nUtNoder = pos + 1;
+
+			model.arc[model.nArcs].fromLevel = -1;
+			model.arc[model.nArcs].fromPointNr = pathNr;
+			model.arc[model.nArcs].fromTime = pktNr;
+			model.arc[model.nArcs].toLevel = posEnd;
+			model.arc[model.nArcs].toPointNr = 0;
+			model.arc[model.nArcs].toTime = -1;
+			pktNr = model.paramsAutoRoute.corridors_noGoSoft[i].nPkter - 1;
+			dist = estimateLargeCircleDistance_km(model.paramsAutoRoute.corridors_noGoSoft[i].yCoord[pktNr],
+				model.paramsAutoRoute.corridors_noGoSoft[i].xCoord[pktNr],
+				model.paramsAutoRoute.endPoint_lat[0], model.paramsAutoRoute.endPoint_lon[0]);
+			model.arc[model.nArcs].distance = dist;
+			cost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist * dist;
+			model.arc[model.nArcs].totCost = cost;
+			model.Noder[nodNr].UtNodCost[pos] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
+			(model.nArcs)++;
+		}
+
 		pathNr++;
 	}
 	model.nAutoPaths = pathNr;
@@ -1977,7 +3088,7 @@ int addArcs_viaPaths(int ruttAlt) {
 		model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 		model.autoPath[pathNr].nNoder = 0;
-		model.autoPath[pathNr].type = 2;
+		model.autoPath[pathNr].type = 10;
 		model.autoPath[pathNr].kvotCost = 0.5;
 
 		for (i1 = 0; i1 < model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints; i1++) {
@@ -2042,7 +3153,7 @@ int addArcs_betweenPaths() {
 	double distGrad, bastDist, bastDistNu, dist, x1, y1;
 
 	for (i = 0; i < model.nAutoPaths; i++) {
-		if (model.autoPath[i].type >= 2) {
+		if (model.autoPath[i].type >= 10) {
 			for (i1 = 0; i1 < i; i1++) {
 				distGrad = getClosestPossibleDistStartSlutPaths(i, i1);
 				if (distGrad < 0.25) { // close enough
@@ -2353,6 +3464,8 @@ int set_nXY_smallCells(strAutoCells* cell) {
 int get_nextHeltal(double x, double dx) {
 	int heltal;
 	heltal = (int)x;
+	if (x < 0 && heltal > x)
+		heltal--;
 	if (dx >= 0) {
 		if (heltal < x)
 			heltal++;
@@ -2432,11 +3545,19 @@ int addNeighboursToCell(int cell, int cellSmall, int valNu, int posTmp) {
 	return 0;
 }
 
+int get_xyPos_fromAutoRoutePos(int cell, int* xPos, int* yPos) {
 
+	// 			pos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
+	int pos1 = (int)(cell / model.paramsAutoRoute.nXbasLevel);
+	*yPos = pos1;
+	*xPos = cell - pos1 * model.paramsAutoRoute.nXbasLevel;
 
-int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, double y1, double x1) {
+	return 0;
+}
+
+int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, double y1, double x1, int iPos, int* nCellsUsed) {
 	double xNu, yNu, dx, dy, kvot = 0.0, next_xKvot, next_yKvot;
-	int i, xPos, yPos, cellUse, cellSmall;
+	int i, xPos, yPos, cellUse, cellSmall, yPosNu, xPosNu;
 
 	y0 *= model.autoRoute[cell].nYsmall;
 	y1 *= model.autoRoute[cell].nYsmall;
@@ -2447,6 +3568,9 @@ int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, 
 	dy = y1 - y0;
 	xNu = x0;
 	yNu = y0;
+
+	if (cell == 1031)
+		cell = cell;
 
 	for (i = 0;; i++) {
 		xPos = round(xNu);
@@ -2485,7 +3609,15 @@ int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, 
 			}
 		}
 
-		if (model.autoRoute[cellUse].use == 1) {
+		if (model.autoRoute[cellUse].use == 0) {
+			model.autoRoute[cellUse].firstUsePathPos = iPos;
+			model.autoRoute[cellUse].use = 1;
+			(*nCellsUsed)++;
+
+			get_xyPos_fromAutoRoutePos(cellUse, &xPosNu, &yPosNu);
+			addSmallerCellsToCell(cellUse, yPosNu, xPosNu);
+		}
+		if (model.autoRoute[cellUse].smallerCellsType > 0) {
 			cellSmall = xPos + model.autoRoute[cell].nXsmall * yPos;
 			if (cellUse == 26 && cellSmall == 108)
 				xPos = xPos;
@@ -2494,8 +3626,10 @@ int addSmallCellsClosestToSeaRoute(int cellOld, double y0, double x0, int cell, 
 				addSmallCellToSearchSet(cellUse, cellSmall, 0);
 			}
 		}
-		else
-			errlog("Skipping cell %d, not used yet...\n", cellUse);
+		//}
+		//else
+		//	errlog("Skipping cell %d, not used yet...\n", cellUse);
+
 		if (kvot > 0.9995)
 			break;
 
@@ -2519,7 +3653,7 @@ int addSmallerCellsToCell(int pos, int i, int i1) {
 	int isLand, i2;
 	double x, y;
 
-	if (pos == 3523)
+	if (pos == 654)
 		pos = pos;
 	model.autoRoute[pos].smallerCells = NULL;
 	model.autoRoute[pos].smallerCellsType = 0;
@@ -2574,6 +3708,7 @@ int createCells_new() {
 	model.autoRoute = (strAutoCells*)malloc(nAlloc * sizeof(strAutoCells)); // +2 since start and end node as well
 	for (i = 0; i < nAlloc; i++) {
 		model.autoRoute[i].use = 0;
+		model.autoRoute[i].smallerCellsType = 0;
 		model.autoRoute[i].smallerCells = NULL;
 	}
 
@@ -2613,6 +3748,8 @@ int createCells_new() {
 				y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
 			}
 		}
+		if (iPos == 36)
+			iPos = iPos;
 		if (x < 13)
 			x = x;
 		yPosDbl = (y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
@@ -2641,107 +3778,110 @@ int createCells_new() {
 				}
 				model.autoRoute[pos].lastUsePathPos = iPos;
 
-				addSmallCellsClosestToSeaRoute(lastPos, yPosDbl_prev0 - yPos, xPosDbl_prev0 - xPos, pos, yNu - yPos, xNu - xPos);
-				lastPos = pos;
-				yPosDbl_prev0 = yNu;
-				xPosDbl_prev0 = xNu;
+				if (model.autoRoute[pos].smallerCellsType > 0) {
+					if(lastPos >= 0)
+						addSmallCellsClosestToSeaRoute(lastPos, yPosDbl_prev0 - yPos, xPosDbl_prev0 - xPos, pos, yNu - yPos, xNu - xPos, iPos, &nCellsUsed);
+					lastPos = pos;
+					yPosDbl_prev0 = yNu;
+					xPosDbl_prev0 = xNu;
 
-				if (xNu - xPos < 0.5 && xPos > 0) {
-					pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * yPos;
-					if (model.autoRoute[pos].use == 0) {
-						model.autoRoute[pos].firstUsePathPos = iPos;
-						model.autoRoute[pos].use = 1;
-						nCellsUsed++;
-						addSmallerCellsToCell(pos, yPos, xPos - 1);
-					}
-					model.autoRoute[pos].lastUsePathPos = iPos;
-
-					if (yNu - yPos < 0.5 && yPos > 0) {
-						// diagonally below left
-						pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
+					if (xNu - xPos < 0.5 && xPos > 0) {
+						pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * yPos;
 						if (model.autoRoute[pos].use == 0) {
 							model.autoRoute[pos].firstUsePathPos = iPos;
 							model.autoRoute[pos].use = 1;
 							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos - 1, xPos - 1);
-						}
-						model.autoRoute[pos].lastUsePathPos = iPos;
-					}
-					else {
-						// diagonally above left
-						if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
-							pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
-							if (model.autoRoute[pos].use == 0) {
-								model.autoRoute[pos].firstUsePathPos = iPos;
-								model.autoRoute[pos].use = 1;
-								nCellsUsed++;
-								addSmallerCellsToCell(pos, yPos + 1, xPos - 1);
-							}
-							model.autoRoute[pos].lastUsePathPos = iPos;
-						}
-					}
-
-				}
-				else {
-					if (xNu - xPos > 0.5 && xPos < model.paramsAutoRoute.nXbasLevel - 1) {
-						pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * yPos;
-						if (model.autoRoute[pos].use == 0) {
-							model.autoRoute[pos].firstUsePathPos = iPos;
-							model.autoRoute[pos].use = 1;
-							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos, xPos + 1);
+							addSmallerCellsToCell(pos, yPos, xPos - 1);
 						}
 						model.autoRoute[pos].lastUsePathPos = iPos;
 
 						if (yNu - yPos < 0.5 && yPos > 0) {
-							// diagonally below right
-							pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
+							// diagonally below left
+							pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
 							if (model.autoRoute[pos].use == 0) {
 								model.autoRoute[pos].firstUsePathPos = iPos;
 								model.autoRoute[pos].use = 1;
 								nCellsUsed++;
-								addSmallerCellsToCell(pos, yPos - 1, xPos + 1);
+								addSmallerCellsToCell(pos, yPos - 1, xPos - 1);
 							}
 							model.autoRoute[pos].lastUsePathPos = iPos;
 						}
 						else {
-							// diagonally above right
+							// diagonally above left
 							if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
-								pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
+								pos = xPos - 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
 								if (model.autoRoute[pos].use == 0) {
 									model.autoRoute[pos].firstUsePathPos = iPos;
 									model.autoRoute[pos].use = 1;
 									nCellsUsed++;
-									addSmallerCellsToCell(pos, yPos + 1, xPos + 1);
+									addSmallerCellsToCell(pos, yPos + 1, xPos - 1);
 								}
 								model.autoRoute[pos].lastUsePathPos = iPos;
 							}
 						}
+
 					}
-				}
-				if (yNu - yPos < 0.5 && yPos > 0) {
-					pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
-					if (model.autoRoute[pos].use == 0) {
-						model.autoRoute[pos].firstUsePathPos = iPos;
-						model.autoRoute[pos].use = 1;
-						nCellsUsed++;
-						addSmallerCellsToCell(pos, yPos - 1, xPos);
+					else {
+						if (xNu - xPos > 0.5 && xPos < model.paramsAutoRoute.nXbasLevel - 1) {
+							pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * yPos;
+							if (model.autoRoute[pos].use == 0) {
+								model.autoRoute[pos].firstUsePathPos = iPos;
+								model.autoRoute[pos].use = 1;
+								nCellsUsed++;
+								addSmallerCellsToCell(pos, yPos, xPos + 1);
+							}
+							model.autoRoute[pos].lastUsePathPos = iPos;
+
+							if (yNu - yPos < 0.5 && yPos > 0) {
+								// diagonally below right
+								pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
+								if (model.autoRoute[pos].use == 0) {
+									model.autoRoute[pos].firstUsePathPos = iPos;
+									model.autoRoute[pos].use = 1;
+									nCellsUsed++;
+									addSmallerCellsToCell(pos, yPos - 1, xPos + 1);
+								}
+								model.autoRoute[pos].lastUsePathPos = iPos;
+							}
+							else {
+								// diagonally above right
+								if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
+									pos = xPos + 1 + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
+									if (model.autoRoute[pos].use == 0) {
+										model.autoRoute[pos].firstUsePathPos = iPos;
+										model.autoRoute[pos].use = 1;
+										nCellsUsed++;
+										addSmallerCellsToCell(pos, yPos + 1, xPos + 1);
+									}
+									model.autoRoute[pos].lastUsePathPos = iPos;
+								}
+							}
+						}
 					}
-					model.autoRoute[pos].lastUsePathPos = iPos;
-				}
-				else {
-					if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
-						pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
+					if (yNu - yPos < 0.5 && yPos > 0) {
+						pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos - 1);
 						if (model.autoRoute[pos].use == 0) {
 							model.autoRoute[pos].firstUsePathPos = iPos;
 							model.autoRoute[pos].use = 1;
 							nCellsUsed++;
-							addSmallerCellsToCell(pos, yPos + 1, xPos);
+							addSmallerCellsToCell(pos, yPos - 1, xPos);
 						}
 						model.autoRoute[pos].lastUsePathPos = iPos;
 					}
-				}
+					else {
+						if (yNu - yPos > 0.5 && yPos < model.paramsAutoRoute.nYbasLevel - 1) {
+							pos = xPos + model.paramsAutoRoute.nXbasLevel * (yPos + 1);
+							if (model.autoRoute[pos].use == 0) {
+								model.autoRoute[pos].firstUsePathPos = iPos;
+								model.autoRoute[pos].use = 1;
+								nCellsUsed++;
+								addSmallerCellsToCell(pos, yPos + 1, xPos);
+							}
+							model.autoRoute[pos].lastUsePathPos = iPos;
+						}
+					}
 
+				}
 				if (kvot > 0.9995)
 					break;
 
@@ -2937,7 +4077,7 @@ double addAutoArc(int cellPos1, int posTmp1, int cellPos2, int posTmp2, int posU
 	model.arc[model.nArcs].totCost = cost;
 
 	(model.nArcs)++;
-	if (model.nArcs == 373)
+	if (model.nArcs == 866980)
 		model.nArcs = model.nArcs;
 	return cost;
 }
@@ -2993,19 +4133,20 @@ double addAutoArcSmall(int cellPos1, int cellSmall1, int posTmp1, int cellPos2, 
 	model.arc[model.nArcs].totCost = cost;
 
 	(model.nArcs)++;
-	if (model.nArcs == 293345)
+	if (model.nArcs == 866980)
 		model.nArcs = model.nArcs;
 	return cost;
 }
 
 double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPos, int cellSmall, int posTmp, double dist, int direction, double costBas) {
 	double cost, kvotCost = 1.0, costFactorArea, x2, y2, x1, y1;
+	int xIndex;
 	if (model.nArcs >= model.nAllocArcs) {
 		model.nAllocArcs += 1000000;
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs == 108942)
+	if (model.nArcs == 600202)
 		model.nArcs = model.nArcs;
 
 	if (direction == -1) { // in to tss
@@ -3047,14 +4188,14 @@ double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPo
 	cost = kvotCost * costBas;
 	getCoordFromAutoArc(model.nArcs, 0, &y1, &x1);
 	getCoordFromAutoArc(model.nArcs, 1, &y2, &x2);
-	if (model.autoPath[pathNr].type != 3)
-		costFactorArea = getCostFactorArea(y1, x1, y2, x2);
+	if (model.autoPath[pathNr].type != 11)
+		costFactorArea = getCostFactorArea(y1, x1, y2, x2, &xIndex);
 	else
 		costFactorArea = 1;
 	model.arc[model.nArcs].totCost = cost * costFactorArea;
 
 	(model.nArcs)++;
-	if (model.nArcs == 373)
+	if (model.nArcs == 866980)
 		model.nArcs = model.nArcs;
 	return cost;
 }
@@ -3116,6 +4257,8 @@ double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
 	model.Noder[nodNr].nUtNoder = nodPos;
 
 	(model.nArcs)++;
+	if (model.nArcs == 866980)
+		model.nArcs = model.nArcs;
 
 	return 0;
 }
@@ -3145,7 +4288,7 @@ int addAutoArcExtra(int arcNr1, int arcNr2, int nod1, int nod2, double dist, dou
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs >= 123614)
+	if (model.nArcs >= 506637)
 		model.nArcs = model.nArcs;
 
 	model.arc[model.nArcs].fromLevel = model.arc[arcNr1].fromLevel;
@@ -3168,7 +4311,7 @@ int addAutoArcExtra(int arcNr1, int arcNr2, int nod1, int nod2, double dist, dou
 		nod1 = nod1;
 
 	(model.nArcs)++;
-	if (model.nArcs == 373)
+	if (model.nArcs == 866980)
 		model.nArcs = model.nArcs;
 	return 0;
 }
@@ -3199,7 +4342,7 @@ double addAutoArcSmall2(int cellPos1, int cellSmall1, int posTmp1, int cellPos2,
 	model.arc[model.nArcs].totCost = cost;
 
 	(model.nArcs)++;
-	if (model.nArcs == 373)
+	if (model.nArcs == 866980)
 		model.nArcs = model.nArcs;
 	return cost;
 }
@@ -3476,7 +4619,7 @@ int addArcsOutFromNodeSmall(int nodNr, int cellPos, int iBas, int i1Bas, int i, 
 	if (nodNr == 78)
 		nodNr = nodNr;
 	// right
-	if (model.nArcs >= 18044)
+	if (model.nArcs >= 131258)
 		nodPos = nodPos;
 	if (model.autoRoute[cellPos].smallerCellsType == 1 || (model.autoRoute[cellPos].smallerCellsType == 2 || model.autoRoute[cellPos].smallerCellsType == 4) && i == 0) {
 		model.Noder[nodNr].UtNod[nodPos] = cells->nodeNr[1];
@@ -3643,6 +4786,7 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 		nodPos = model.Noder[prevNodNr].nUtNoder;
 		model.Noder[prevNodNr].UtNod[nodPos] = nodNr;
 		model.Noder[prevNodNr].outArcNr[nodPos] = model.nArcs;
+
 		cost = addAutoArcSmallPath(pathNr, posIpath, posIpath - 1, -1, -1, -1, distPrev, -1, distPrev);
 		model.Noder[prevNodNr].UtNodCost[nodPos++] = cost;
 		model.Noder[prevNodNr].nUtNoder = nodPos;
@@ -3676,6 +4820,10 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 	xPos2 = (int)(xLocal / model.paramsAutoRoute.discretizationSizeLevel[1]);
 
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
+	if (model.autoRoute[cellPos].use == 0 || model.autoRoute[cellPos].smallerCellsType == 0) {
+		return 0; // not used cell so path is not close enought or is completely on land, skip it
+	}
+
 	cellSmall = xPos2 + model.paramsAutoRoute.nDiscreteSizeLevel[1] * yPos2;
 	y0 = model.autoRoute[cellPos].y + yPos2 * model.paramsAutoRoute.discretizationSizeLevel[1];
 	x0 = model.autoRoute[cellPos].x + xPos2 * model.paramsAutoRoute.discretizationSizeLevel[1];
@@ -3701,7 +4849,7 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 
 
 		costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y, x);
-		if (costKvot < 2.001 || model.autoPath[pathNr].type >= 2) { // only add allowed arcs
+		if (costKvot < 2.001 || model.autoPath[pathNr].type >= 10) { // only add allowed arcs
 			dist = estimateLargeCircleDistance_km(y1, x1, y, x);
 			cost = dist * costKvot;
 
@@ -3935,6 +5083,8 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level) {
 	model.Noder[nodNr].UtNodCost[0] = model.arc[model.nArcs].totCost;
 	model.Noder[nodNr].nUtNoder = 1;
 	(model.nArcs)++;
+	if (model.nArcs == 866980)
+		model.nArcs = model.nArcs;
 
 
 	return 0;
@@ -4007,7 +5157,7 @@ int addArcsToEndNode(int yPos, int xPos, int level) {
 		y + model.paramsAutoRoute.discretizationSizeLevel[0], x, 
 		model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1], 
 		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
-	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs;
+	model.Noder[nodNr].outArcNr[nodPos] = model.nArcs; 
 	cost = addAutoArc(cellPos, 3, posEnd, 0, posTmp);
 	model.Noder[nodNr].UtNodCost[nodPos++] = cost; // model.autoRoute[posEnd].arcCost[posTmp++];
 	model.Noder[nodNr].nUtNoder = nodPos;
@@ -4116,7 +5266,7 @@ int createCellNetwork() {
 
 	model.nArcs = 0;
 	model.nNoder = 0;
-
+	
 	int i2;
 	level = 0;
 	pos = 0;
@@ -4189,9 +5339,17 @@ int createCellNetwork() {
 								else
 									model.autoRoute[pos].smallerCells[posSmall].nodeNr[0] = model.autoRoute[pos].smallerCells[posSmall - 1].nodeNr[1];
 								if (pos >= model.paramsAutoRoute.nXbasLevel) {
-									if (model.autoRoute[pos - model.paramsAutoRoute.nXbasLevel].smallerCellsType == 1) {
-										posTmpNu = i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * (model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1); // top small cell in lower big cell
-										model.autoRoute[pos].smallerCells[posSmall].nodeNr[1] = model.autoRoute[pos - model.paramsAutoRoute.nXbasLevel].smallerCells[posTmpNu].nodeNr[3];
+									if (model.autoRoute[pos - model.paramsAutoRoute.nXbasLevel].use == 1) {
+										if (model.autoRoute[pos - model.paramsAutoRoute.nXbasLevel].smallerCellsType == 1) {
+											posTmpNu = i4 + model.paramsAutoRoute.nDiscreteSizeLevel[level] * (model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1); // top small cell in lower big cell
+											model.autoRoute[pos].smallerCells[posSmall].nodeNr[1] = model.autoRoute[pos - model.paramsAutoRoute.nXbasLevel].smallerCells[posTmpNu].nodeNr[3];
+										}
+										else {
+											if (i4 < model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1)
+												addAutoNode(pos, 1, posSmall);
+											else
+												model.autoRoute[pos].smallerCells[posSmall].nodeNr[1] = model.autoRoute[pos].nodeNr[1];
+										}
 									}
 									else {
 										if (i4 < model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1)
@@ -4215,11 +5373,14 @@ int createCellNetwork() {
 							else { // i4 == 0
 								if (i3 < model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1) {
 									if (pos > 0) {
-										if (model.autoRoute[pos - 1].smallerCellsType == 1) {
-											posTmpNu = (model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1) + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3;
-											model.autoRoute[pos].smallerCells[posSmall].nodeNr[2] = model.autoRoute[pos - 1].smallerCells[posTmpNu].nodeNr[3];
-										}
-										else
+										if (model.autoRoute[pos - 1].use == 1) {
+											if (model.autoRoute[pos - 1].smallerCellsType == 1) {
+												posTmpNu = (model.paramsAutoRoute.nDiscreteSizeLevel[level] - 1) + model.paramsAutoRoute.nDiscreteSizeLevel[level] * i3;
+												model.autoRoute[pos].smallerCells[posSmall].nodeNr[2] = model.autoRoute[pos - 1].smallerCells[posTmpNu].nodeNr[3];
+											}
+											else
+												addAutoNode(pos, 2, posSmall);
+										}else
 											addAutoNode(pos, 2, posSmall);
 									}
 									else
@@ -4244,17 +5405,16 @@ int createCellNetwork() {
 			pos++;
 		}
 	}
-
 	// add nod and arcs for the start of the route
 	identifyCellFromPoint(model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0], &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
 	addAutoNode(cellPos, -level - 1, -1);
 	checkMinnesAnvandning(__LINE__);
-
+	
 	// addArcsFromStartNode(yPos, xPos, level);
 	addArcsSmallFromStartNode(yPos, xPos, level);
-
+	
 	// connect to all four corners of the cell
 
 	// add nod and arcs for the end of the route
@@ -4262,12 +5422,12 @@ int createCellNetwork() {
 		model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1], &yPos, &xPos, &level);
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	addAutoNode(cellPos, -level - 1, -1);
-
+	
 	// addArcsToEndNode(yPos, xPos, level);
 	addArcsSmallToEndNode(yPos, xPos, level);
 	model.autoRoute_startNod = model.nNoder - 2;
 	model.autoRoute_endNod = model.nNoder - 1;
-
+	
 	return 0;
 
 }
@@ -4497,6 +5657,8 @@ int getCoordFromAutoArc(int arcNr, int fromTo, double* y, double* x) {
 		posTmp = model.arc[arcNr].toPointNr;
 		level = model.arc[arcNr].toTime;
 	}
+	if (posCell == 654)
+		posCell = posCell;
 	if (level < 0) {
 		*y = model.autoRoute[posCell].y;
 		*x = model.autoRoute[posCell].x;
@@ -4560,9 +5722,37 @@ int getNodFromArcNr(int arcNr, int fromTo, int* tssNod) {
 	return nodNr;
 }
 
+double getLutningFix(double x0, double y0, double x1, double y1) {
+	double lutning, deltaX, deltaY;
+	deltaX = x1 - x0;
+	deltaY = y1 - y0;
+	double vinkel = atan2(deltaY, deltaX);
+	//if (abs(deltaY) > 0.0001)
+	//	lutning = deltaX / deltaY;
+	//else {
+	//	if (deltaX > 0)
+	//		lutning = 10000;
+	//	else
+	//		lutning = -10000;
+	//}
+	return vinkel;
+}
+
+double getLutningDiff(double lutn1, double lutn2) {
+	double diff = abs(lutn1 - lutn2) * 180 / M_PI;
+	// -pi to pi, -180 to 180
+	if (diff > 180)
+		diff = 360 - diff;
+	return diff;
+}
+
 int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 {
-	FILE* filpekG, *filpekG2 = NULL, *filpekG3 = NULL;
+	FILE* filpekG, * filpekG2 = NULL, * filpekG3 = NULL;
+	double distNu, distLast, lastLutning, lutningNu, xLast, yLast;
+	double diffLutning, yUse;
+	double costFactorAreaBas, costFactorArea, yLastUse;
+	int xIndex;
 
 	FILE* filPek2 = NULL;
 	char* namn;
@@ -4583,11 +5773,14 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 	}
 	if (iter < nMAX_ITER - 1) {
 		sprintf(namn, "%s/res_autoIter%d.json", model.params.indataPath.c_str(), iter);
-		filpekG = fopen(namn, "w");
+		if (altRutt == 0)
+			filpekG = fopen(namn, "w");
+		else
+			filpekG = fopen(namn, "a+");
 	}
 	else {
 		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), filename.c_str());
-		if(altRutt == 0)
+		if (altRutt == 0 || model.paramsAutoRoute.routeAlternative != -1)
 			filpekG = fopen(filename.c_str(), "w");
 		else
 			filpekG = fopen(filename.c_str(), "a+");
@@ -4611,7 +5804,7 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 			postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
 		}
 	}
-	if (altRutt == 0 || iter == 0) {
+	if (altRutt == 0 || model.paramsAutoRoute.routeAlternative != -1){
 		initGeoJsonFil(filpekG, "result_path");
 	}
 	else {
@@ -4619,11 +5812,13 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 	}
 
 	if (filpekG3 != NULL) {
-		if(altRutt == 0)
+		if (altRutt == 0)
 			initGeoJsonFil(filpekG3, "result_path");
 		else
 			fprintf(filpekG3, ",\n\n");
 		fprintf(filpekG3, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
+	}
+	if (filpekG2 != NULL) {
 		if (altRutt == 0)
 			initGeoJsonFil(filpekG2, "result_arcs");
 		else
@@ -4634,14 +5829,14 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 	fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
 
 	int iPos, arcNr, nInt, i;
-	double totCost = 0, totDist = 0, y, x, y0, x0, splitDist, y1, x1;
+	double totCost = 0, totDist = 0, y, x, y0, x0, splitDist, y1, x1, distance;
 	spherical::Point p2, p3;
 	for (iPos = 1; iPos < model.nBVArcs; iPos++)
 	{
 		arcNr = model.BVArc[iPos];
 		if (arcNr == 85187)
 			arcNr = arcNr;
-		if (iPos == 81)
+		if (iPos == 5)
 			iPos = iPos;
 
 		totCost += model.arc[arcNr].totCost;
@@ -4652,6 +5847,10 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 			fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x), y);
 			y0 = y;
 			x0 = x;
+			xLast = x0;
+			yLast = y0;
+			distLast = 0;
+			lastLutning = 1e10;
 			if (filpekG3 != NULL) {
 				if (x < model.paramsAutoRoute.x_min - 3 || x > model.boundingBox.xMax + 3)
 					fprintf(filpekG3, "[%lf, %lf, 0.0]", x, y);
@@ -4673,12 +5872,18 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 		if (iPos == 1315)
 			iPos = iPos;
 		getCoordFromAutoArc(arcNr, 1, &y1, &x1);
-		nInt = roundUp(model.arc[arcNr].distance / DIST_SPLIT);
+		p3 = spherical::Point(y0, fix_lonPos(x0));
+		p2 = spherical::Point(y1, fix_lonPos(x1));
+		distance = p3.distanceTo(p2) / 1000.0;
+		// nInt = roundUp(model.arc[arcNr].distance / DIST_SPLIT);
+		nInt = roundUp(distance / DIST_SPLIT);
 		if (nInt > 1) {
-			p3 = spherical::Point(y0, fix_lonPos(x0));
-			p2 = spherical::Point(y1, fix_lonPos(x1));
-			splitDist = model.arc[arcNr].distance / nInt * 1000.0;
+			//splitDist = model.arc[arcNr].distance / nInt * 1000.0;
+			splitDist = distance / nInt * 1000.0;
+			costFactorAreaBas = getCostFactorArea(y0, x0, y1, x1, &xIndex);
 		}
+		else
+			costFactorAreaBas = 2;
 		y = y1;
 		x = x1;
 
@@ -4694,17 +5899,65 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 					x = x1;
 				}
 			}
-			fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(x), y);
+
+			yUse = y;
+			if (costFactorAreaBas < 1.00001) {
+				costFactorArea = getCostFactorArea(y0, x0, y, x, &xIndex);
+				if (costFactorArea >= 1.00001) {
+					if (y < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
+						yUse = model.paramsAutoRoute.minLat_lonIndex[xIndex];
+					}
+				}
+			}
+
+
+			distNu = estimateLargeCircleDistance_km(y0, x0, y, x);
+			if (x < 40)
+				x = x;
+			if (distLast + distNu > DIST_SPLIT * 2) {
+				if (distLast > 0.0001) {
+					fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(xLast), yLastUse);
+				}
+				if (distNu > DIST_SPLIT * 0.8 * 2) {
+					fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(x), yUse);
+					distLast = 0;
+					lastLutning = 1e10;
+				}
+				else {
+					distLast = distNu;
+					lastLutning = getLutningFix(xLast, yLast, x, y);
+				}
+			}
+			else {
+				distLast += distNu;
+				if (lastLutning > 1e9) {
+					lastLutning = getLutningFix(xLast, yLast, x, y);
+				}
+				else {
+					lutningNu = getLutningFix(xLast, yLast, x, y);
+					diffLutning = getLutningDiff(lastLutning, lutningNu);
+					if (diffLutning > 3.01) {
+						fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(xLast), yLast);
+						distLast = distNu;
+						lastLutning = lutningNu;
+					}
+				}
+			}
+			xLast = x;
+			yLast = y;
+			yLastUse = yUse;
+
+			// fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(x), y);
 			if (SKRIV_UT_NOTHING == 0) {
-				fprintf(filpekG2, ", [%lf, %lf]", getCorrect_longitude(x), y);
+				fprintf(filpekG2, ", [%lf, %lf]", getCorrect_longitude(x), yUse);
 				if (filpekG3 != NULL) {
 					if (x < model.paramsAutoRoute.x_min - 3 || x > model.boundingBox.xMax + 3)
-						fprintf(filpekG3, ", [%lf, %lf, 0.0]", x, y);
+						fprintf(filpekG3, ", [%lf, %lf, 0.0]", x, yUse);
 					else {
 						if (model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1] < model.paramsAutoRoute.x_min)
-							fprintf(filpekG3, ", [%lf, %lf, 0.0]", x - 360, y);
+							fprintf(filpekG3, ", [%lf, %lf, 0.0]", x - 360, yUse);
 						else
-							fprintf(filpekG3, ", [%lf, %lf, 0.0]", x + 360, y);
+							fprintf(filpekG3, ", [%lf, %lf, 0.0]", x + 360, yUse);
 					}
 				}
 			}
@@ -4718,26 +5971,80 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 		y0 = y;
 		x0 = x;
 	}
+	if (distLast > 0.00001) {
+		fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(xLast), yLastUse);
+	}
 
 	fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-	fprintf(filpekG, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
-	if (altRutt == model.paramsAutoRoute.nAltRutter - 1 && iter == nMAX_ITER - 1 || iter < nMAX_ITER - 1)
-		fprintf(filpekG, "]}\n");
+	fprintf(filpekG, "\"routeAlt\": %d, \"name\": \"%s\",\n  \"totCost\": %lf,\n\"totDistance\": %.2lf}}\n",
+		altRutt, model.paramsAutoRoute.altRutt[altRutt].routeID, totCost, totDist / 1.852);
+	printf("totDist %.3lf nm\n", totDist / 1.852);
 
 	fclose(filpekG);
 	if (SKRIV_UT_NOTHING == 0) {
+		printf("testing\n");
 		fclose(filPek2);
 		if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
 			fprintf(filpekG2, "\n]}\n");
 		fclose(filpekG2);
 		if (filpekG3 != NULL) {
 			fprintf(filpekG3, "\n]]},\n\"properties\": {\n");
-			fprintf(filpekG3, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
-			if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
+			fprintf(filpekG3, "\"routeAlt\": %d, \"name\": \"%s\",\n  \"totCost\": %lf,\n\"totDistance\": %.5lf}}\n",
+				altRutt, model.paramsAutoRoute.altRutt[altRutt].routeID, totCost, totDist / 1.852);
+			if (altRutt == model.paramsAutoRoute.nAltRutter - 1 && iter == nMAX_ITER - 1)
 				fprintf(filpekG3, "]}\n");
 			fclose(filpekG3);
 		}
 	}
+
+	return 0;
+}
+
+int writeSolutionToJson_autoRoute_alternatives(std::string filename, int callNr)
+{
+	FILE* filpekG, *filpekG2 = NULL, *filpekG3 = NULL;
+	double distNu, distLast, lastLutning, lutningNu, xLast, yLast;
+	double diffLutning, yUse;
+	double costFactorAreaBas, costFactorArea, yLastUse;
+	int xIndex;
+
+	FILE* filPek2 = NULL;
+	char* namn;
+	namn = (char*)malloc2(256 * sizeof(char));
+
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), filename.c_str());
+	if (callNr == 0) {
+		filpekG = fopen(filename.c_str(), "w");
+	}
+	else {
+		filpekG = fopen(filename.c_str(), "a+");
+	}
+
+	if (filpekG == NULL)
+	{
+		printf("Faile to open file %s for writing.\n", namn);
+		errlog("Faile to open file %s for writing.\n", namn);
+		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
+	}
+
+	if (callNr == 0) {
+		initGeoJsonFil(filpekG, "result_path");
+	}
+	//else {
+	//	fprintf(filpekG, ",\n");
+	//}
+
+	fprintf(filpekG, "],\n");
+	fprintf(filpekG, "\"routeAlternatives\":[\n");
+	for (int i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
+		if (i > 0)
+			fprintf(filpekG, ",\n");
+		fprintf(filpekG, "{\"routeAlt\":%d,\n\"name\":\"%s\"}", i, model.paramsAutoRoute.altRutt[i].routeID);
+	}
+	fprintf(filpekG, "]\n");
+	fprintf(filpekG, "}\n");
+
+	fclose(filpekG);
 
 	return 0;
 }
@@ -4754,11 +6061,82 @@ int addArcsAroundSolution()
 	int iPos, arcNr, nEjBattre, i1, arcNr1, nod1, nod2, tssNod1, tssNod2, nTssNodes, sameDir;
 	double totCost = 0, totDist = 0, y, x, y1, x1, costNod1, costDiff, kvotBad, dist, cost;
 	double dX, dY, dX2, dY2, x0, y0;
+
+	model.seaRoute.nextSeaRouteNodePos = (int*)malloc(model.nBVArcs * sizeof(int));
+	double lastDist = 1e10, distNu;
+	int posSeaRoute = 0, nod, breakSoon, posUse = 0, nExtraPoints = 0, nExtraIter;
+	int lastBattre;
+
+	if (modelSea.nBVArcsUse > 0) {
+		arcNr = modelSea.BVArcUse[posSeaRoute];
+		nod = modelSea.arc[arcNr].toPointNr;
+		y = modelSea.seaRoute.nod_y[nod];
+		x = modelSea.seaRoute.nod_x[nod];
+	}
+	else {
+		x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+		y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+	}
+	x0 = x;
+	y0 = y;
+
+	for (iPos = 1; iPos < model.nBVArcs; iPos++)
+	{
+		if (posSeaRoute < modelSea.nBVArcsUse) {
+			arcNr = model.BVArc[iPos];
+			getCoordFromAutoArc(arcNr, 0, &y1, &x1);
+			distNu = getDist_flat(y, x, y1, x1);
+			if (distNu > lastDist) {
+				posSeaRoute++;
+				if (posSeaRoute < modelSea.nBVArcsUse) {
+					arcNr = modelSea.BVArcUse[posSeaRoute];
+					nod = modelSea.arc[arcNr].toPointNr;
+					y = modelSea.seaRoute.nod_y[nod];
+					x = modelSea.seaRoute.nod_x[nod];
+				}
+				else {
+					x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
+					y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+				}
+
+				lastDist = 1e10;
+				distNu = estimateLargeCircleDistance_km(y0, x0, y, x);
+				if (distNu > 500) {
+					y0 = y;
+					x0 = x;
+					posUse = posSeaRoute;
+					nExtraPoints++;
+				}
+
+				
+			}
+			else
+				lastDist = distNu;
+		}
+		model.seaRoute.nextSeaRouteNodePos[iPos] = posUse;
+	}
+	posUse = model.nBVArcs - 1;
+	posSeaRoute = posSeaRoute + 1;
+	for (iPos = model.nBVArcs - 1; iPos >= 0; iPos--) {
+		if (model.seaRoute.nextSeaRouteNodePos[iPos] < posSeaRoute) {
+			posSeaRoute = model.seaRoute.nextSeaRouteNodePos[iPos];
+			posUse = iPos;
+		}
+		model.seaRoute.nextSeaRouteNodePos[iPos] = posUse;
+	}
+
 	for (iPos = 1; iPos < model.nBVArcs; iPos++)
 	{
 		arcNr = model.BVArc[iPos];
-		if (iPos == 140)
+		if (iPos == 216)
 			iPos = iPos;
+		if (arcNr == 311448)
+			arcNr = arcNr;
+		if (arcNr == 292581)
+			arcNr = arcNr;
+		if (arcNr == 211566)
+			arcNr = arcNr;
+
 		nod1 = getNodFromArcNr(arcNr, 0, &tssNod1);
 		costNod1 = (model.Dijkstra.nodes - model.Dijkstra.node_min + nod1)->dist / model.Dijkstra.FAKTOR_NATVERK;
 
@@ -4774,8 +6152,25 @@ int addArcsAroundSolution()
 		if (iPos == 1315)
 			iPos = iPos;
 		sameDir = 1;
+		breakSoon = 0;
+		nExtraIter = 0;
+		lastBattre = model.nBVArcs;
 		for (i1 = iPos + 1; i1 < model.nBVArcs; i1++) {
+			if (breakSoon == 1) {
+				i1 = model.seaRoute.nextSeaRouteNodePos[i1];
+				if (nExtraIter >= 15) {
+					if (nExtraIter > 15 && nEjBattre > 0)
+						break;
+					i1 = lastBattre + 1;
+				}
+				nExtraIter++;
+				if (i1 >= model.nBVArcs)
+					break;
+			}
+
 			arcNr1 = model.BVArc[i1];
+			if (arcNr1 == 211695)
+				arcNr = arcNr;
 			getCoordFromAutoArc(arcNr1, 1, &y1, &x1);
 			if (sameDir == 1) {
 				getCoordFromAutoArc(arcNr1, 0, &y0, &x0);
@@ -4788,7 +6183,9 @@ int addArcsAroundSolution()
 			}
 
 			nod2 = getNodFromArcNr(arcNr1, 1, &tssNod2);
-			if (i1 == 248)
+			if (i1 == 1200)
+				i1 = i1;
+			if (i1 >= model.nBVArcs - 3)
 				i1 = i1;
 			costDiff = (model.Dijkstra.nodes - model.Dijkstra.node_min + nod2)->dist / model.Dijkstra.FAKTOR_NATVERK - costNod1;
 			cost = evalCostArc(y, x, y1, x1, &dist);
@@ -4797,6 +6194,8 @@ int addArcsAroundSolution()
 				// add arc
 				addAutoArcExtra(arcNr, arcNr1, nod1, nod2, dist, cost);
 				nEjBattre = 0;
+				if (breakSoon == 1)
+					lastBattre = i1;
 				if (tssNod2 == 1)
 					nTssNodes++;
 				else
@@ -4804,8 +6203,9 @@ int addArcsAroundSolution()
 			}
 			else
 				nEjBattre++;
-			if (nEjBattre > 15 || nTssNodes >= 2)
-				break;
+			if (nEjBattre > 15 || nTssNodes >= 2 || i1 > iPos + 50)
+				breakSoon = 1;
+
 		}
 
 		//if (iPos == 1) {
@@ -4819,13 +6219,16 @@ int addArcsAroundSolution()
 
 
 int addNodesAlongArc(int arcNr, int iPos, int* nod1a, int* nod1mitt, int* nod1b) {
-	double dist, splitDist, x1, y1, x2, y2;
+	double dist, splitDist, x1, y1, x2, y2, costFactorArea;
 	spherical::Point p1, p2, p3;
 
 	getCoordFromAutoArc(arcNr, 0, &y1, &x1);
 	getCoordFromAutoArc(arcNr, 1, &y2, &x2);
 	p1 = spherical::Point(y1, fix_lonPos(x1));
 	p2 = spherical::Point(y2, fix_lonPos(x2));
+	int xIndex;
+	double costFactorAreaBas = getCostFactorArea(y1, x1, y2, x2, &xIndex);
+
 	dist = p1.distanceTo(p2) / 1000.0;
 
 	int nExtraNodes = roundDown(dist / 10.0), i, nod, pathNr;
@@ -4842,7 +6245,7 @@ int addNodesAlongArc(int arcNr, int iPos, int* nod1a, int* nod1mitt, int* nod1b)
 	model.autoPath[pathNr].nodCoord_y = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 	model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 	model.autoPath[pathNr].nNoder = 0;
-	model.autoPath[pathNr].type = 3;
+	model.autoPath[pathNr].type = 11;
 	model.autoPath[pathNr].kvotCost = 1.0;
 
 	if (model.nNoder >= 42923)
@@ -4863,6 +6266,15 @@ int addNodesAlongArc(int arcNr, int iPos, int* nod1a, int* nod1mitt, int* nod1b)
 				i = i;
 			model.autoPath[pathNr].nodCoord_y[pos] = p3.latitude().degrees();
 			model.autoPath[pathNr].nodCoord_x[pos] = p3.longitude().degrees();
+			if (costFactorAreaBas < 1.00001) {
+				costFactorArea = getCostFactorArea(y1, x1, model.autoPath[pathNr].nodCoord_y[pos], model.autoPath[pathNr].nodCoord_x[pos], &xIndex);
+				if (costFactorArea >= 1.00001) {
+					if (model.autoPath[pathNr].nodCoord_y[pos] < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
+						model.autoPath[pathNr].nodCoord_y[pos] = model.paramsAutoRoute.minLat_lonIndex[xIndex];
+					}
+				}
+			}
+
 			nod = addAutoNodePath(pathNr, model.autoPath[pathNr].nodCoord_y[pos],
 				model.autoPath[pathNr].nodCoord_x[pos]);
 			if (i == 0)
@@ -4981,7 +6393,7 @@ int aggregateArcs() {
 
 	if (nFixedArcs > 0) {
 		posNy = 0;
-		for (iPos = 0; iPos < model.nBVArcs - 1; iPos++) {
+		for (iPos = 0; iPos < model.nBVArcs; iPos++) {
 			if (model.BVArc[iPos] >= 0)
 				model.BVArc[posNy++] = model.BVArc[iPos];
 		}
@@ -5076,7 +6488,7 @@ int addArcsAroundSolution2()
 	double costTot;
 	int* modCost_arc, * modCost_nod;
 
-	nMAX_ADD_NODES = 50;// 100;
+	nMAX_ADD_NODES = 100;//  50;// 100;
 	modCost_arc = (int*)malloc((2 * nMAX_ADD_NODES + 2) * sizeof(int));
 	modCost_nod = (int*)malloc((2 * nMAX_ADD_NODES + 2) * sizeof(int));
 
@@ -5085,7 +6497,9 @@ int addArcsAroundSolution2()
 
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 		{
-		if (iPos >= 6)
+		if (iPos == 20)
+			iPos = iPos;
+		if (iPos >= model.nBVArcs - 3)
 			iPos = iPos;
 		if (y2 >= 20.7 && iPos > 30)
 			y2 = y2;
@@ -5097,14 +6511,14 @@ int addArcsAroundSolution2()
 		}
 		pathNr1 = arcIsPathNr(arcNr, &startEnd1);
 		if (pathNr1 >= 0) {
-			if (model.autoPath[pathNr1].type <= 2) {
+			if (model.autoPath[pathNr1].type <= 10) {
 				addedNod2a = -1;
 				//continue; // arc is tss path or corridor, don't add arcs to the middle of it
 			}
 		}
 		pathNr2 = arcIsPathNr(arcNrNext, &startEnd2);
 		if (pathNr2 >= 0) {
-			if (model.autoPath[pathNr2].type <= 2 && startEnd2 != 2) { // end in path is okay
+			if (model.autoPath[pathNr2].type <= 10 && startEnd2 != 2) { // end in path is okay
 				addedNod2a = -1;
 				continue; // arc is tss path or corridor, don't add arcs to the middle of it
 			}
@@ -5132,7 +6546,7 @@ int addArcsAroundSolution2()
 		else {
 			addedNod1a = -2;
 			if (pathNr1 >= 0) {
-				if (model.autoPath[pathNr1].type <= 2 && startEnd1 != 1) {
+				if (model.autoPath[pathNr1].type <= 10 && startEnd1 != 1) {
 					addedNod1a = -1;
 				}
 			}
@@ -5229,7 +6643,7 @@ int addArcsAroundSolution2()
 		modCost_nod[posNu++] = nod3;
 		costTot += cost2;
 		if (abs(costTot - model.arc[arcNrNext].totCost) > 0.00001) {
-			costDiff = model.arc[arcNrNext].totCost - costTot;
+			costDiff = model.arc[arcNrNext].totCost - costTot;// +0.001 * posNu;
 			modifyCostArcs(costDiff, costTot, posNu, modCost_arc, modCost_nod);
 			//if (addedNodMitt2 < 0) {
 			//	arcMitt = model.nArcs - (addedNod2b - addedNod2a)/2 - 1;
@@ -5328,6 +6742,8 @@ int sparaSeaRoutePart(int pos) {
 			//}
 			//else {
 				// a path/corridor, add an arc representing the corridor...
+			if (posNu >= 84)
+				posNu = posNu;
 				arcNr = modelSea.BVArcUse[posNu - 1];
 				nod1 = modelSea.arc[arcNr].toPointNr;
 				arcNr = modelSea.BVArc[0];
@@ -5336,14 +6752,16 @@ int sparaSeaRoutePart(int pos) {
 					p1 = spherical::Point(modelSea.seaRoute.nod_y[nod1], fix_lonPos(modelSea.seaRoute.nod_x[nod1]));
 					p2 = spherical::Point(modelSea.seaRoute.nod_y[nod2], fix_lonPos(modelSea.seaRoute.nod_x[nod2]));
 					dist = p1.distanceTo(p2) / 1000.0;
-					addArcBetweenNodes(nod1, nod2, dist);
-					modelSea.BVArcUse[posNu++] = modelSea.nArcs - 1;
+					modelSea.BVArcUse[posNu++] = addArcBetweenNodes(nod1, nod2, dist);
+					//modelSea.BVArcUse[posNu++] = modelSea.nArcs - 1;
 				}
 			//}
 		}
 	}
 
 	for (iPos = 0; iPos < modelSea.nBVArcs; iPos++) {
+		if (posNu >= 84)
+			posNu = posNu;
 		modelSea.BVArcUse[posNu++] = modelSea.BVArc[iPos];
 	}
 	modelSea.nBVArcsUse = posNu;
@@ -5353,7 +6771,7 @@ int sparaSeaRoutePart(int pos) {
 
 int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 {
-	FILE* filpekG = NULL;
+	FILE* filpekG = NULL, *filpekG2 = NULL;
 	double minX, maxX, minY, maxY;
 
 	minX = model.paramsAutoRoute.startPoint_lon[0];
@@ -5387,24 +6805,60 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 		else
 			fprintf(filpekG, ",\n\n");
 
+		sprintf(namn, "%s/seaRouteArcs.geojson", model.params.indataPath.c_str());
+		filpekG2 = fopen(namn, "w");
+		initGeoJsonFil(filpekG2, "result_ars");
+
 		linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
 		fprintf(filpekG, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n");
 	}
 	model.network.last_x = -1000;
-	int iPos, arcNr, nod;
-	double totCost = 0, totDist = 0, y, x, last_x = minX;
+	int iPos, arcNr, nod, corridorNr, i1, forsta = 1;
+	double totCost = 0, totDist = 0, y, x, last_x = minX, x0, y0, distNu;
 	for (iPos = -1; iPos <= modelSea.nBVArcsUse; iPos++)
 	{
+		if (iPos == 50)
+			iPos = iPos;
 		if (iPos < 0) {
 			x = model.paramsAutoRoute.startPoint_lon[0];
 			y = model.paramsAutoRoute.startPoint_lat[0];
 			x = getCorrect_longitude(x);
 			if (SKRIV_UT_NOTHING == 0)
 				fprintf(filpekG, "[%lf, %lf, 0.0]", x, y);
+			x0 = x;
+			y0 = y;
 		}
 		else {
 			if (iPos < modelSea.nBVArcsUse) {
 				arcNr = modelSea.BVArcUse[iPos];
+				corridorNr = modelSea.arc[arcNr].corridorNr;
+				if (corridorNr >= 0) {
+					if (SKRIV_UT_NOTHING == 0) {
+						for (i1 = 1; i1 < model.paramsAutoRoute.corridors_noGoSoft[corridorNr].nPkter; i1++) {
+							x = model.paramsAutoRoute.corridors_noGoSoft[corridorNr].xCoord[i1];
+							y = model.paramsAutoRoute.corridors_noGoSoft[corridorNr].yCoord[i1];
+							fprintf(filpekG, ", [%lf, %lf, 0.0]", x, y);
+							fprintf(filPek2, "%d_%d;%d;%d;%d;%lf;%lf\n", iPos, i1, arcNr, modelSea.arc[arcNr].fromPointNr,
+								modelSea.arc[arcNr].toPointNr, modelSea.arc[arcNr].distance, modelSea.arc[arcNr].totCost);
+
+							if (forsta == 0)
+								fprintf(filpekG2, ",");
+							else
+								forsta = 0;
+							fprintf(filpekG2, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"LineString\",\n\"coordinates\": [\n");
+							fprintf(filpekG2, "[%lf, %lf, 0.0]", x0, y0);
+							fprintf(filpekG2, ", [%lf, %lf, 0.0]", x, y);
+							fprintf(filpekG2, "]},\n\"properties\": {");
+							distNu = estimateLargeCircleDistance_km(y0, x0, y, x);
+							totCost += modelSea.arc[arcNr].totCost * distNu / modelSea.arc[arcNr].distance;
+							totDist += distNu;
+							fprintf(filpekG2, "\"iPos\": %d, \"noGoSoftCorridorPos\": %d, \"arcNr\": %d, \"routeAlt\": %d, \"name\": \"%s\",\n  \"totCost\": %lf,\n\"totDistance\": %lf}}\n",
+								iPos, i1, arcNr, altRutt, model.paramsAutoRoute.altRutt[altRutt].routeID, totCost, totDist / 1.852);
+							x0 = x;
+							y0 = y;
+						}
+					}
+				}
 				nod = modelSea.arc[arcNr].toPointNr;
 				y = modelSea.seaRoute.nod_y[nod];
 				x = modelSea.seaRoute.nod_x[nod];
@@ -5412,6 +6866,7 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 				totDist += modelSea.arc[arcNr].distance;
 			}
 			else {
+				arcNr = -1;
 				x = model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1];
 				y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
 			}
@@ -5426,6 +6881,19 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 				else
 					fprintf(filPek2, "%d;%d;%d;%d;%lf;%lf\n", iPos, -1, -1,
 						-1, -1.0, -1.0);
+
+				if (forsta == 0)
+					fprintf(filpekG2, ",");
+				else
+					forsta = 0;
+				fprintf(filpekG2, "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"LineString\",\n\"coordinates\": [\n");
+				fprintf(filpekG2, "[%lf, %lf, 0.0]", x0, y0);
+				fprintf(filpekG2, ", [%lf, %lf, 0.0]", x, y);
+				fprintf(filpekG2, "]},\n\"properties\": {");
+				fprintf(filpekG2, "\"iPos\": %d, \"arcNr\": %d, \"routeAlt\": %d, \"name\": \"%s\",\n  \"totCost\": %lf,\n\"totDistance\": %lf}}\n", 
+					iPos, arcNr, altRutt, model.paramsAutoRoute.altRutt[altRutt].routeID, totCost, totDist / 1.852);
+				x0 = x;
+				y0 = y;
 			}
 		}
 		if (minY > y)
@@ -5441,10 +6909,13 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 
 	if (SKRIV_UT_NOTHING == 0) {
 		fprintf(filpekG, "\n]]},\n\"properties\": {\n");
-		fprintf(filpekG, "\"routeAlt\": %d, \"totCost\": %lf,\n\"totDistance\": %lf}}\n", altRutt, totCost, totDist);
+		fprintf(filpekG, "\"routeAlt\": %d, \"name\": \"%s\",\n  \"totCost\": %lf,\n\"totDistance\": %lf}}\n", 
+			altRutt, model.paramsAutoRoute.altRutt[altRutt].routeID, totCost, totDist / 1.852);
 		if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
 			fprintf(filpekG, "]}\n");
 		fclose(filpekG);
+		fprintf(filpekG2, "]}\n");
+		fclose(filpekG2);
 		fclose(filPek2);
 	}
 
@@ -5459,7 +6930,7 @@ int writeSolutionToJson_seaRoute(std::string filename, int altRutt)
 	minY = -90 + heltal * model.paramsAutoRoute.discretizationSizeLevel[0];
 
 	if (minY < -90)
-		minY = 90;
+		minY = -90;
 	if (maxY > 90)
 		maxY = 90;
 
@@ -5604,8 +7075,8 @@ int releaseMemoryIter() {
 	free(model.physicalMapB.valueCell);
 	free(model.physical_lessBuffer_MapA.valueCell);
 	free(model.physical_lessBuffer_MapB.valueCell);
-	free(model.fuelMapA.valueCell);
-	free(model.fuelMapB.valueCell);
+	//free(model.fuelMapA.valueCell);
+	//free(model.fuelMapB.valueCell);
 
 	int nExtra = model.nExtraNoGoAreas + 1;
 	for (i = 0; i < nExtra; i++) {
@@ -5615,7 +7086,7 @@ int releaseMemoryIter() {
 
 	int nAlloc = (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2);
 	for (i = 0; i < nAlloc; i++) {
-		if (model.autoRoute[i].use == 1) {
+		if (model.autoRoute[i].smallerCellsType != 0) {
 			free(model.autoRoute[i].smallerCells);
 		}
 	}
@@ -5635,8 +7106,9 @@ int releaseMemoryIter() {
 }
 
 int setUpViaPartsForAltRoute(strAltRutt* altRutt, int ruttNr, json data) {
-	json dataIt, dataGeom, dataCoord, dataIt0, dataIt2;
+	json dataIt, dataGeom, dataCoord, dataIt0, dataIt2, prop;
 	int posNu, nCoords, i2, antal;
+	std::string namn, namn2;
 
 	posNu = 0;
 	antal = data.size();
@@ -5650,7 +7122,16 @@ int setUpViaPartsForAltRoute(strAltRutt* altRutt, int ruttNr, json data) {
 			altRutt[ruttNr].nParts = 0;
 			return 0;
 		}
-
+		prop = dataIt0["properties"];
+		namn = prop["resID"];
+		if (posNu == 0) {
+			namn2 = "Via " + namn;
+			altRutt[ruttNr].routeID = str_alloc_cpyString(namn2);
+		}
+		else {
+			namn2 = " and " + namn;
+			altRutt[ruttNr].routeID = append_str_alloc_cpyString(altRutt[ruttNr].routeID, namn2);
+		}
 		if (dataGeom["type"] == "LineString") {
 			altRutt[ruttNr].sekvens[posNu].nPoints = dataCoord.size();
 			altRutt[ruttNr].sekvens[posNu].x = (double*)malloc((altRutt[ruttNr].sekvens[posNu].nPoints) * sizeof(double));
@@ -5705,6 +7186,7 @@ int identifyAltRutter() {
 		model.paramsAutoRoute.nAltRutter = 1;
 		model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
 		model.paramsAutoRoute.altRutt[0].nParts = 0;
+		model.paramsAutoRoute.altRutt[0].routeID = str_alloc_cpy("basic");
 	}
 	else {
 		namn = (char*)malloc2(256 * sizeof(char));
@@ -5737,6 +7219,7 @@ int identifyAltRutter() {
 						model.paramsAutoRoute.nAltRutter = 1;
 						model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
 						model.paramsAutoRoute.altRutt[0].nParts = 0;
+						model.paramsAutoRoute.altRutt[0].routeID = str_alloc_cpy("basic");
 						return 0;
 					}
 					model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(model.paramsAutoRoute.nAltRutter * sizeof(strAltRutt));
@@ -5755,6 +7238,7 @@ int identifyAltRutter() {
 			model.paramsAutoRoute.nAltRutter = 1;
 			model.paramsAutoRoute.altRutt = (strAltRutt*)malloc(sizeof(strAltRutt));
 			model.paramsAutoRoute.altRutt[0].nParts = 0;
+			model.paramsAutoRoute.altRutt[0].routeID = str_alloc_cpy("basic");
 		}
 		free(namn);
 		
@@ -5765,20 +7249,6 @@ int identifyAltRutter() {
 
 int setStartSlutCoords(int ruttAlt) {
 	int i, nAlloc, nPkter;
-	if (ruttAlt == 0) {
-		nAlloc = 0;
-		for (i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
-			if (nAlloc < model.paramsAutoRoute.altRutt[i].nParts)
-				nAlloc = model.paramsAutoRoute.altRutt[i].nParts;
-		}
-		nAlloc++;
-
-		model.paramsAutoRoute.startPoint_lat = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.startPoint_lon = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.endPoint_lat = (double*)malloc(nAlloc * sizeof(double));
-		model.paramsAutoRoute.endPoint_lon = (double*)malloc(nAlloc * sizeof(double));
-
-	}
 
 	model.paramsAutoRoute.nStartSlut = model.paramsAutoRoute.altRutt[ruttAlt].nParts + 1;
 	model.paramsAutoRoute.startPoint_lon[0] = model.paramsAutoRoute.startBas_lon;
@@ -5829,6 +7299,236 @@ int identifyZonesStartEnd() {
 	return 0;
 }
 
+void SwapArrayD(double* Array, int a, int b)
+{
+	double temp = Array[a];
+	Array[a] = Array[b];
+	Array[b] = temp;
+}
+
+int SorteraArrayOrderToMax(double* BasArray, int nElement)
+{
+	int i, j;
+
+	for (j = 0; j < nElement; j++) {
+		for (i = 0; i < nElement - 1; i++) {
+			if (BasArray[i] > BasArray[i + 1]) {
+				SwapArrayD(BasArray, i, i + 1);
+			}
+		}
+	}
+	return 0;
+}
+
+int checkAddDistLat(double x, double y) {
+	int i, i1;
+	for (i = 0; i < model.seaRoute.nDistLatAlt; i++) {
+		if (abs(y - model.seaRoute.latVal[i]) < 1e-5) {
+			for (i1 = 0; i1 < model.seaRoute.nDistLat[i]; i1++) {
+				if (abs(x - model.seaRoute.distLat[i][i1]) < 1e-5)
+					break;
+			}
+			if (i1 >= model.seaRoute.nDistLat[i]) {
+				if (model.seaRoute.nDistLat[i] >= model.seaRoute.nAllocDistLat[i]) {
+					model.seaRoute.nAllocDistLat[i] += 100;
+					model.seaRoute.distLat[i] = (double*)realloc(model.seaRoute.distLat[i],
+						model.seaRoute.nAllocDistLat[i] * sizeof(double));
+				}
+				model.seaRoute.distLat[i][i1] = x;
+				(model.seaRoute.nDistLat[i])++;
+			}
+			i = model.seaRoute.nDistLatAlt;
+		}
+	}
+	return 0;
+}
+
+
+int evalSeaRoutePaths(std::string inputPath) {
+	int i, antal, rad, index;
+	double x0, y0, x1, y1, sog, currentDirection, currentSpeed;
+	double wavePeriod = 10.0, rpm, windDirection, windSpeed, waveDirection, waveHeight;
+	double calmWaterSpeed, vesselBearing, baseGroundSpeed, rel_windSpeed, rel_waveDir;
+	double rel_windDir, speedDiffWind, speedDiffWave, kvot;
+	double fuelConsumption_main, fuelConsumption_aux;
+	double speedDiffWindWave, speedOverGround;
+	double weatherFactorCurrent, weatherFactorWind, weatherFactorWave;
+	double distSplit2 = DIST_SPLIT * 2;
+
+	reset_errlog();
+	initLookUpTables();
+	model.params.indataPath = splitFilename(inputPath);
+	model.params.knots_to_km = 1.852;
+	loadFileParams_feasibilityAuto(&(model.paramsAutoRoute));
+
+	loadStartEndPairsSeaRoutes(inputPath);
+
+	char* namn = (char*)malloc(256 * sizeof(char));
+	sprintf(namn, "%s/autoRoute/newSeaRoutes.txt", model.params.indataPath.c_str());
+	FILE* filpek = fopen(namn, "w");
+	sprintf(namn, "%s/autoRoute/newSeaRoutes.geojson", model.params.indataPath.c_str());
+	FILE* filpekG = fopen(namn, "w");
+	initGeoJsonFil(filpekG, "paths");
+	
+	int i1, i2, nInt, xIndex, lopNr = 11000;
+	double xLast, yLast, distance, splitDist, costFactorAreaBas, y, x, costFactorArea;
+	double yUse, distNu, distLast, lastLutning, yLastUse, lutningNu, diffLutning;
+	spherical::Point p2, p3;
+
+	model.seaRoute.nDistLatAlt = 2;
+	model.seaRoute.nDistLat = (int*)calloc(model.seaRoute.nDistLatAlt, sizeof(int));
+	model.seaRoute.nAllocDistLat = (int*)malloc(model.seaRoute.nDistLatAlt * sizeof(int));
+	model.seaRoute.distLat = (double**)malloc(model.seaRoute.nDistLatAlt * sizeof(double*));
+	model.seaRoute.latVal = (double*)malloc(model.seaRoute.nDistLatAlt * sizeof(double));
+	model.seaRoute.latVal[0] = -45.0;
+	model.seaRoute.latVal[1] = -53.0;
+	for (i = 0; i < model.seaRoute.nDistLatAlt; i++) {
+		model.seaRoute.nAllocDistLat[i] = 100;
+		model.seaRoute.distLat[i] = (double*)malloc(model.seaRoute.nAllocDistLat[i] * sizeof(double));
+	}
+
+	int nSaved = 0;
+	for (int i0 = 0; i0 < model.seaRoute.nNewPathPairs; i0++) {
+		for (i1 = 0; i1 < model.seaRoute.pair[i0].nFrom; i1++) {
+			for (i2 = 0; i2 < model.seaRoute.pair[i0].nTo; i2++) {
+				model.network.last_x = -1000;
+				y0 = model.seaRoute.pair[i0].yFrom[i1];
+				x0 = model.seaRoute.pair[i0].xFrom[i1];
+				checkAddDistLat(x0, y0);
+				if (nSaved > 0)
+					fprintf(filpekG, ",\n");
+				nSaved++;
+				fprintf(filpekG, "{\"type\":\"Feature\", \"properties\":{\"ID\":\"%s_%d_%d\", \"from\":\"%d_%d\", \"to\":\"%d_%d\"},\n",
+					model.seaRoute.pair[i0].groupID, i1, i2, i0, i1, i0, i2);
+				fprintf(filpek, "{\"type\":\"Feature\", \"properties\":{\"id\": %d },", lopNr++);
+				fprintf(filpekG, "\"geometry\":{\"type\":\"LineString\", \"coordinates\":[");
+				fprintf(filpek, "\"geometry\":{\"type\":\"LineString\", \"coordinates\":[");
+				fprintf(filpekG, "[%lf, %lf, 0.0]", getCorrect_longitude(x0), y0);
+				fprintf(filpek, "[%lf, %lf]", getCorrect_longitude(x0), y0);
+				xLast = x0;
+				yLast = y0;
+
+				y1 = model.seaRoute.pair[i0].yTo[i2];
+				x1 = model.seaRoute.pair[i0].xTo[i2];
+				checkAddDistLat(x1, y1);
+				p3 = spherical::Point(y0, fix_lonPos(x0));
+				p2 = spherical::Point(y1, fix_lonPos(x1));
+				distance = p3.distanceTo(p2) / 1000.0;//  estimateLargeCircleDistance_km(y0, x0, y1, x1);
+				nInt = roundUp(distance / distSplit2);
+				if (nInt > 1) {
+					splitDist = distance / nInt * 1000.0;
+					costFactorAreaBas = getCostFactorArea(y0, x0, y1, x1, &xIndex);
+				}
+				else
+					costFactorAreaBas = 2;
+				y = y1;
+				x = x1;
+				distLast = 0;
+				lastLutning = 1e10;
+				if (i0 == 0 && i2 == 2)
+					i0 = i0;
+
+				for (i = 0; i < nInt; i++) {
+					if (nInt > 1) {
+						if (i < nInt - 1) {
+							p3 = p3.destinationPoint(splitDist, p3.bearingTo(p2));
+							y = p3.latitude().degrees();
+							x = p3.longitude().degrees();
+						}
+						else {
+							y = y1;
+							x = x1;
+						}
+					}
+
+					yUse = y;
+					if (costFactorAreaBas < 1.00001) {
+						costFactorArea = getCostFactorArea(y0, x0, y, x, &xIndex);
+						if (costFactorArea >= 1.00001) {
+							if (y < model.paramsAutoRoute.minLat_lonIndex[xIndex]) {
+								yUse = model.paramsAutoRoute.minLat_lonIndex[xIndex];
+							}
+						}
+					}
+
+
+					distNu = estimateLargeCircleDistance_km(y0, x0, y, x);
+					if (x < 40)
+						x = x;
+					if (distLast + distNu > distSplit2 * 2) {
+						if (distLast > 0.0001) {
+							fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(xLast), yLastUse);
+							fprintf(filpek, ", [%lf, %lf]", getCorrect_longitude(xLast), yLastUse);
+						}
+						if (distNu > distSplit2 * 0.8 * 2) {
+							fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(x), yUse);
+							fprintf(filpek, ", [%lf, %lf]", getCorrect_longitude(x), yUse);
+							distLast = 0;
+							lastLutning = 1e10;
+						}
+						else {
+							distLast = distNu;
+							lastLutning = getLutningFix(xLast, yLast, x, y);
+						}
+					}
+					else {
+						distLast += distNu;
+						if (lastLutning > 1e9) {
+							lastLutning = getLutningFix(xLast, yLast, x, y);
+						}
+						else {
+							lutningNu = getLutningFix(xLast, yLast, x, y);
+							diffLutning = getLutningDiff(lastLutning, lutningNu);
+							if (diffLutning > 3.01) {
+								fprintf(filpekG, ", [%lf, %lf, 0.0]", getCorrect_longitude(xLast), yLast);
+								fprintf(filpek, ", [%lf, %lf]", getCorrect_longitude(xLast), yLast);
+								distLast = distNu;
+								lastLutning = lutningNu;
+							}
+						}
+					}
+					xLast = x;
+					yLast = y;
+					yLastUse = yUse;
+
+				}
+				fprintf(filpekG, ", [%lf, %lf, 0.0]]}}", getCorrect_longitude(x), y);
+				fprintf(filpek, ", [%lf, %lf]]}},\n", getCorrect_longitude(x), y);
+			}
+
+		}
+	}
+	fprintf(filpekG, "]}\n");
+	fclose(filpekG);
+
+	for (i = 0; i < model.seaRoute.nDistLatAlt; i++) {
+		SorteraArrayOrderToMax(model.seaRoute.distLat[i], model.seaRoute.nDistLat[i]);
+		for (i1 = 0; i1 < model.seaRoute.nDistLat[i]; i1++) {
+			if(i == 0 && i1 == 0)
+				continue;
+			if (i1 > 0 && i == 1) {
+				if (model.seaRoute.distLat[i][i1 - 1] < 0 && model.seaRoute.distLat[i][i1] > 0)
+					continue; // not include this part...
+			}
+			model.network.last_x = -1000;
+			fprintf(filpek, "{\"type\":\"Feature\", \"properties\":{\"id\": %d },", lopNr++);
+			fprintf(filpek, "\"geometry\":{\"type\":\"LineString\", \"coordinates\":[");
+			if(i1 == 0)
+				fprintf(filpek, "[%lf, %lf], [%lf, %lf]]}},\n", getCorrect_longitude(model.seaRoute.distLat[i][model.seaRoute.nDistLat[i] - 1]), model.seaRoute.latVal[i],
+					getCorrect_longitude(model.seaRoute.distLat[i][i1]), model.seaRoute.latVal[i]);
+			else
+				fprintf(filpek, "[%lf, %lf], [%lf, %lf]]}},\n", getCorrect_longitude(model.seaRoute.distLat[i][i1 - 1]), model.seaRoute.latVal[i],
+					getCorrect_longitude(model.seaRoute.distLat[i][i1]), model.seaRoute.latVal[i]);
+		}
+	}
+
+	fclose(filpek);
+
+	free(namn);
+
+	return 0;
+}
+
 int genAutoRoute(std::string inputPath, std::string resultName) {
 	int nod1, nod2, i0, ii0;
 	double dist, dist1, dist2;
@@ -5841,23 +7541,33 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 	model.params.indataPathName = inputPath;
 	model.params.indataPath = splitFilename(inputPath);
 	model.params.errorCode = 0;
+	model.params.failedTime = 0;
 
 	initLookUpTables();
 
 	loadParams_theRestOld(&(model.params));
+	loadFileParams_feasibilityAuto(&(model.paramsAutoRoute));
 	loadParams_autoRoute(&(model.paramsAutoRoute));
-	loadFileParams_autoRoute(&(model.paramsAutoRoute));
 
 	identifyZonesStartEnd();
 	identifyAltRutter();
 
+	if (model.paramsAutoRoute.routeAlternative == -3) {
+		writeSolutionToJson_autoRoute_alternatives(resultName, 0);
+		return 0;
+	}
+
+
 	modelSea.Dijkstra.nodes = NULL;
+	model.paramsAutoRoute.startNod = -1;
+	model.paramsAutoRoute.endNod = -1;
 
 	checkMinnesAnvandning(__LINE__);
 	if (model.paramsAutoRoute.newSeaRoutePathData == 1)
 		load_searoutes();
 	else
 		load_saved_searoutes();
+	updateCostsSeaRouteArcs();
 
 	checkMinnesAnvandning(__LINE__);
 	SattUppDijkstraNatverk3(&modelSea);
@@ -5868,17 +7578,46 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 	model.paramsAutoRoute.nAllocSet[0] == 0;
 	model.paramsAutoRoute.nAllocSet[1] == 0;
 
+	int nAlloc = 0;
+	for (int i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
+		if (nAlloc < model.paramsAutoRoute.altRutt[i].nParts)
+			nAlloc = model.paramsAutoRoute.altRutt[i].nParts;
+	}
+	nAlloc++;
 
+	model.paramsAutoRoute.startPoint_lat = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.startPoint_lon = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.endPoint_lat = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.endPoint_lon = (double*)malloc(nAlloc * sizeof(double));
+
+	int nActualIter = 0;
 
 	for (ii0 = 0; ii0 < model.paramsAutoRoute.nAltRutter; ii0++) {
+		if (model.paramsAutoRoute.routeAlternative >= 0) {
+			if (model.paramsAutoRoute.routeAlternative < model.paramsAutoRoute.nAltRutter)
+				ii0 = model.paramsAutoRoute.routeAlternative;
+			else {
+				errlog("ERROR! routeAlternative %d given in input file for autoRoute but must be < %d. I ignore the given routeAlternative\n",
+					model.paramsAutoRoute.routeAlternative, model.paramsAutoRoute.nAltRutter);
+				postRequest("ERROR! routeAlternative " + std::to_string(model.paramsAutoRoute.routeAlternative) +
+					" given in input file for autoRoute but must be < " + std::to_string(model.paramsAutoRoute.nAltRutter) + ".I ignore the given routeAlternative", 0);
+				model.paramsAutoRoute.routeAlternative = -1;
+			}
+		}
 		setStartSlutCoords(ii0);
 		checkMinnesAnvandning(__LINE__);
-		if (ii0 > 0)
+		if (nActualIter > 0)
 			releaseMemoryIter();
 
 		for (i0 = 0; i0 < model.paramsAutoRoute.nStartSlut; i0++) {
-			nod1 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.startPoint_lat[i0], model.paramsAutoRoute.startPoint_lon[i0], &dist1);
-			nod2 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.endPoint_lat[i0], model.paramsAutoRoute.endPoint_lon[i0], &dist2);
+			if (model.paramsAutoRoute.startNod == -1)
+				nod1 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.startPoint_lat[i0], model.paramsAutoRoute.startPoint_lon[i0], &dist1);
+			else
+				nod1 = model.paramsAutoRoute.startNod;
+			if(model.paramsAutoRoute.endNod == -1)
+				nod2 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.endPoint_lat[i0], model.paramsAutoRoute.endPoint_lon[i0], &dist2);
+			else
+				nod2 = model.paramsAutoRoute.endNod;
 
 			checkMinnesAnvandning(__LINE__);
 
@@ -5889,6 +7628,8 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			printf("..done. Obj %I64d\n", modelSea.Dijkstra.OptCost);
 			if (Reached == true) {
 				dist = NystaUppBV_MassTest(&modelSea, Reached, nod1, nod2, &Cost);
+				if (ii0 == 3)
+					ii0 = ii0;
 				sparaSeaRoutePart(i0);//  model.params.resultPath + "/resAutoRoute.json");
 				checkMinnesAnvandning(__LINE__);
 			}
@@ -5905,7 +7646,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 
 		createCellNetwork();
 		checkMinnesAnvandning(__LINE__);
-
+		
 		if (model.paramsAutoRoute.tssName != "-")
 			load_tss();
 		if(model.paramsAutoRoute.corridorsName != "-")
@@ -5914,8 +7655,12 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			save_tss_geojson(ii0);
 		addArcs_tss();
 		addArcs_corridors();
+		checkMinnesAnvandning(__LINE__);
+		addArcs_corridors_noGoSoft();
+		checkMinnesAnvandning(__LINE__);
 		addArcs_viaPaths(ii0);
 		addArcs_betweenPaths();
+		checkMinnesAnvandning(__LINE__);
 
 		int saveNodes = 0;
 		if (saveNodes == 1)
@@ -5937,7 +7682,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			nod1 = model.autoRoute_startNod;
 			nod2 = model.autoRoute_endNod;
 
-			if (ii0 == 0) {
+			if (nActualIter == 0) {
 				model.BVArc = (int*)malloc2(model.nNoder * sizeof(int));
 				model.BVtempNodOrder = (int*)malloc2(model.nNoder * sizeof(int));
 			}
@@ -5958,7 +7703,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 						checkMinnesAnvandning(__LINE__);
 					}
 				}
-			}
+			} 
 			else {
 				errlog("ERROR! Did not manage to find a route from start to finish...\n");
 				printf("\nERROR! Did not manage to find a route from start to finish...\n");
@@ -5975,8 +7720,13 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 
 			}
 		}
+		nActualIter++;
+
+		if (model.paramsAutoRoute.routeAlternative != -1)
+			ii0 = model.paramsAutoRoute.nAltRutter;
 	}
 
+	writeSolutionToJson_autoRoute_alternatives(resultName, 1);
 
 	return 0;
 }

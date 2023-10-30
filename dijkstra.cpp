@@ -795,7 +795,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 				dist += model->arc[model->BVArc[i]].distance;
 				TotCost += model->arc[model->BVArc[i]].totCost;
 				if (model->filpek != NULL)
-					fprintf(model->filpek, "pos %d arcNr %d costDijkstra %.3lf totCost %.3lf\n", i, model->BVArc[i],
+					fprintf(model->filpek, "pos %d arcNr %d costDijkstra %.3lf totCost %.3lf\n", i, model->BVArc[i], model->arc[model->BVArc[i]].totCost,
 						TotCost);
 				//errlog("pos %d arcNr %d dist %.2lf totDist %.2lf cost %.2lf totCost %I64d\n", i, model->BVArc[i], 
 				//	model->arc[model->BVArc[i]].distance, dist,

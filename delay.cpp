@@ -719,9 +719,11 @@ int loadWeatherFiles_delayed_new(int year) {
 
 						if (i == model.weather[ii].nTimeIntervals - 1)
 							maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
-						else
-							maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
-
+						else {
+							// maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+							maxTid = (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]) / 2;
+						}
+					
 						for (; tidInt < 100000; tidInt++) {
 							if (tidInt >= nAlloc) {
 								printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
@@ -788,10 +790,11 @@ int loadWeatherFiles_delayed_notUsed(int year) {
 
 	double size_col, size_row, xPosFrac, yPosFrac;
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
+		model.weather[ii].timePosToBandPos = NULL;
 		size_col = -1;
 		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
 			sprintf(namn, "%s%d.grb", model.weather[ii].filePos[i1].fileName, model.delay.year[year]);
-			sprintf(namn, "data/weather/mwp0_02_%d.grb", model.delay.year[year]);
+			sprintf(namn, "%smwp0_02_%d.grb", model.params.weatherPath.c_str(), model.delay.year[year]);
 			printf("%s\n", namn);
 
 			returnVal = model.weather[ii].rasterPos[i1].open(namn);
@@ -863,9 +866,11 @@ int loadWeatherFiles_delayed_notUsed(int year) {
 
 					if (i == model.weather[ii].nTimeIntervals - 1)
 						maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
-					else
-						maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
-
+					else {
+						// maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+						maxTid = (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]) / 2;
+					}
+				
 					for (; tidInt < 100000; tidInt++) {
 						if (tidInt >= nAlloc) {
 							printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
@@ -987,6 +992,7 @@ int loadWeatherFiles_checkData(int year) {
 		filKvot = 1.0; // to change from m/s to km/h
 
 		size_col = -1;
+		model.weather[ii].timePosToBandPos = NULL;
 		returnVal = model.weather[ii].rasterPos[i1].open(namn2.c_str());
 		if (returnVal == -1)
 			return -1;
@@ -1068,9 +1074,11 @@ int loadWeatherFiles_checkData(int year) {
 
 				if (i == model.weather[ii].nTimeIntervals - 1)
 					maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
-				else
-					maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
-
+				else {
+					// maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+					maxTid = (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]) / 2;
+				}
+			
 				for (; tidInt < 100000; tidInt++) {
 					if (tidInt >= nAlloc) {
 						printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
@@ -2119,7 +2127,7 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 				setupCheckPoints = 1;
 				fuelQualityKvot = 1;
 				// get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(i, i1, nextLevel, i2, &setupCheckPoints, min_t, max_t, fuelQualityKvot);
+				addBagar_AB_speedSTid(i, i1, nextLevel, i2, &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
 			}
 		}
 		model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
@@ -2130,12 +2138,14 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 			cNr = i1;
 			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
 				nextLevel = model.network.channel[cNr].outLevel[i2b];
-				if (nextLevel != i + 1)
+				if (nextLevel != i + 1 && nextLevel >= 0)
+					continue;
+				if (nextLevel < 0 && i > 0)
 					continue;
 				setupCheckPoints = 1;
 				fuelQualityKvot = 1;
 				// get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &setupCheckPoints, min_t, max_t, fuelQualityKvot);
+				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
 			}
 		}
 
@@ -2384,6 +2394,7 @@ int testCallWeatherFile() {
 
 	checkMinnesAnvandning(__LINE__);
 	//weather.valueCell = weather.rasterPos[i1].GetRasterValues_realAllBandsTest(&(weather), 0);
+	weather.timePosToBandPos = NULL;
 	weather.rasterPos[i1].GetRasterValues_realAllBands(&(weather), 0, 1.0);
 	checkMinnesAnvandning(__LINE__);
 	return 0;
@@ -2630,6 +2641,7 @@ int extractGribInfo2(std::string inputPath)
 
 		pos = colBlock + nXblock * rowBlock;
 
+		weatherData.timePosToBandPos = NULL;
 		raster.GetRasterValues_realAllBands(&weatherData, 0, 1.0);
 		for (int i2 = 0; i2 < nBands; i2++) {
 			nSecondsUTC = raster.GetSecondsFromUTC_metadataBand(i2 + 1);
@@ -2667,6 +2679,7 @@ int generateDelayedFactors_old(std::string inputPath, int node, int manad)
 	model.params.errorCode = 0;
 	model.delay.nDelayed_months = 2;
 	model.delay.delayed_monthNr = (int*)malloc(model.delay.nDelayed_months * sizeof(int));
+	model.params.failedTime = 0;
 
 
 	model.delay.delayed_monthNr[0] = manad;
@@ -2723,6 +2736,7 @@ int generateDelayedFactors_old(std::string inputPath, int node, int manad)
 
 
 	loadParams_theRestOld(&(model.params));
+	loadFileParams_feasibilityOptiNav(&(model.params));
 
 	loadParams_new(&(model.params));
 	if (SKRIV_UT_NOTHING == 0 || skrivMycket == 1) {
@@ -3066,6 +3080,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 	model.params.errorCode = 0;
 	model.delay.nDelayed_months = 2;
 	model.delay.delayed_monthNr = (int*)malloc(model.delay.nDelayed_months * sizeof(int));
+	model.params.failedTime = 0;
 
 
 	model.delay.delayed_monthNr[0] = manad;
@@ -3122,6 +3137,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 
 
 	loadParams_theRestOld(&(model.params));
+	loadFileParams_feasibilityOptiNav(&(model.params));
 
 	loadParams_new(&(model.params));
 	if (SKRIV_UT_NOTHING == 0 || skrivMycket == 1) {
@@ -3288,7 +3304,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 						if (pos_XYr == 93296)
 							i1 = i1;
 						calcWeatherPosAlongArc(p1, p2, timep);
-						tid = calcArcTimeCost(timep, -1, 0, 1, calmWaterSpeed);
+						tid = calcArcTimeCost(timep, -1, 0, 1, &calmWaterSpeed);
 						tidBas = model.functions.valuesNow.distance / calmWaterSpeed;
 						factor = tid / tidBas;
 						if (factor > maxAllowedFactor)

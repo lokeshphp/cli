@@ -49,6 +49,8 @@ struct strWeather
 	int nTimeIntervals_forecast;
 	//int tidpHistoricalWeather;
 	long long* secondsUTC;
+	int* timePosToBandPos;
+
 	int useStandardWeather;
 	//double timeIntervall_h;
 	//double inv_timeIntervall_h;
@@ -1647,7 +1649,11 @@ public:
 		}
 		for (z = startBand + 1; z <= nBands; z++) {
 			zNu = zPosBas + z - 1;
-			poBand = rasterDataset->GetRasterBand(z);
+			if (weatherData->timePosToBandPos != NULL)
+				poBand = rasterDataset->GetRasterBand(weatherData->timePosToBandPos[z - 1] + 1);
+			else
+				poBand = rasterDataset->GetRasterBand(z);
+
 			if (weatherData->secondsUTC != NULL)
 				nSecondsUTC = getSecondsFromUTC(poBand->GetMetadataItem("GRIB_VALID_TIME"));
 			//printf("band %d nSecondsUTC %I64d\n", z, nSecondsUTC);
@@ -1720,7 +1726,7 @@ public:
 				if (weatherData->secondsUTC[zNu - startBand] != -1) {
 					if (weatherData->secondsUTC[zNu - startBand] != nSecondsUTC && nBands > 1) {
 						errlog("ERROR! Different time stamp for different files for weather %s pos %d verkl %d (%I64d vs %I64d). I use the first one but will send an error message\n",
-							weatherData->weatherFileTypeName, zNu - startBand, zNu, weatherData->secondsUTC[z - startBand - 1], nSecondsUTC);
+							weatherData->weatherFileTypeName, zNu - startBand, zNu, weatherData->secondsUTC[zNu - startBand], nSecondsUTC);
 						nSecondsUTC = weatherData->secondsUTC[zNu - startBand];
 						weatherData->errorCode = 1;
 					}

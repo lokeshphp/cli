@@ -573,6 +573,25 @@ char *str_alloc_cpyString(std::string data)
 	return dataAdd;
 }
 
+char* append_str_alloc_cpyString(char* oldName, std::string data)
+{
+	int i, nBas;
+	char* dataAdd;
+
+	nBas = strlen(oldName);
+	dataAdd = (char*)malloc((nBas + data.size() + 1) * sizeof(char));
+	if (dataAdd == NULL) {
+		fprintf(stdout, "out of memory at line %d\n", __LINE__);
+	}
+	for (i = 0; i < nBas; i++)
+		dataAdd[i] = oldName[i];
+	for (i = 0; i < data.size(); i++)
+		dataAdd[nBas + i] = data[i];
+	dataAdd[nBas + i] = '\0';
+	free(oldName);
+	return dataAdd;
+}
+
 char *addPathToName(char *data0, char *path)
 {
 	char *dataAdd;

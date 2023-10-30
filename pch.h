@@ -108,6 +108,18 @@ struct strVisuell {
 
 struct strParams
 {
+	int useSimulering;
+	double simulationSpeed_kmh;
+	double user_maxWaveHeight;
+	double user_maxWindSpeed_kmh;
+
+	time_t testTime;
+	struct tm tmBas;
+	char* startTime;
+
+	double wayPointHours;
+
+	char* weatherDirectory;
 	double maxDistBetweenPrefPathPoints;
 
 	int etaFocus_speed;
@@ -151,6 +163,9 @@ struct strParams
 	std::string indataPathName;
 	std::string resultPath;
 	std::string resultName;
+	std::string weatherPath;
+	std::string tssName;
+
 
 	double knots_to_km;
 	double shipSpeed_average; // km/h = 20 knots, 1 knot = 1.852 km/h
@@ -160,8 +175,8 @@ struct strParams
 	std::string mapLandSeaBFileName;
 	std::string mapLandSeaAFileName;
 	//int physicalMapRasterPos;
-	std::string mapFuelGeographyAFileName;
-	std::string mapFuelGeographyBFileName;
+	//std::string mapFuelGeographyAFileName;
+	//std::string mapFuelGeographyBFileName;
 	std::string mapTimeDelayName;
 	std::string map_currentDelayName[2];
 	int nTimeDelayAngles;
@@ -217,7 +232,7 @@ struct strParams
 	int useStandardWeather; // -1 for standard 0, 1 for standard last, 0 for changing forecast
 
 	double basDistArcs;
-	double physicalMap_noDataValue;
+	//double physicalMap_noDataValue;
 	//int speedSettings_addOnlyCheapestArcs;
 
 	int runAlt;
@@ -254,6 +269,7 @@ struct strParams
 	double fuelCompare;
 
 	double maxDeviationPreferred_km;
+	double maxDeviationPreferred2_km;
 
 	double shipDraft;
 	double shipLength;
@@ -265,6 +281,7 @@ struct strParams
 	double maxSpeedDiffCurrent;
 
 	int errorCode;
+	int failedTime;
 
 	strExtraWeights* extraOptWeights;
 };
@@ -327,6 +344,8 @@ struct strArcInfo
 	int fromTime;
 	int toTime;
 	int speedSetting;
+	double* extraAreaFactor;
+	int corridorNr;
 
 	//int nodNr1;
 	//int nodNr2;
@@ -349,9 +368,14 @@ struct strArcInfo
 	double fuel_noEca;//
 	double fuel_eca;//
 	double fuelQualityKvot;
+	double extraAreaCostKvot;
+	double kvotCost;
 	double safetyBase;
 	double safetyHurricane;
 	double totCost;
+
+	double maxWindSpeed;
+	double maxWaveHeight;
 };
 
 struct strChannel {
@@ -369,6 +393,8 @@ struct strChannel {
 	int intArrivalTime_h;
 	//int intWaitingTime;
 	char* ID;
+	int type; // 0 - normal corridor, 1 - tss
+	double kvotCost; // used to give discount on tss paths
 
 	int ECA_type;
 	double waiting_consumption_main;
@@ -378,6 +404,14 @@ struct strChannel {
 	int latestEndLevel;
 	int bastStartLevel;
 	int bastEndLevel;
+	int StartLevelOnlyPrefPath;
+	int EndLevelOnlyPrefPath;
+
+	int bastStartPointPos;
+	int bastEndPointPos;
+	double bastStartDist;
+	double bastEndDist;
+
 	double* point_y;
 	double* point_x;
 	strBoundBox boundingBox;
@@ -433,6 +467,7 @@ struct strNodeSeq
 	//int* nodeConnectedFromChannel;
 	int requirePrefPathFeasible;
 	double factorDelayedPrefPath;
+	int onlyPrefPath;
 
 	//int *nAllocOutArcs;
 	//int *nOutArcs;
@@ -463,7 +498,10 @@ struct strNetwork
 	//int useLongitudeKvadrant[4];
 	int nMaxNodesInPath;
 	int nChannels;
-	strChannel* channel; 
+	int nChannelsTmp;
+	int nAllocChannels;
+	strChannel* channel;
+	strChannel* channelTmp;
 	int nPhysicalNodes;
 	int nPhysicalArcs;
 
@@ -474,6 +512,7 @@ struct strNetwork
 	double* xCoord;
 	double* yCoord;
 	int nCoords;
+	strBoundBox boundingbox;
 	double last_x;
 	double* startKvot;
 	double* endKvot;
@@ -618,8 +657,14 @@ struct strFunkData {
 };
 
 struct strValuesNow {
+	double last_x;
+	double last_y;
+
 	double fuel_main;
 	double fuel_aux;
+	double arcDel_fuel_aux;
+	double arcDel_fuel_main;
+
 	double totFuel_aux;
 	double totFuel_main;
 	double distance;
@@ -638,6 +683,7 @@ struct strValuesNow {
 	double waveHeight;
 	double maxWaveHeight;
 	int maxWaveHeight_tp;
+	int maxWindSpeed_tp;
 	double wavePeriod;
 	double relWaveDir;
 	double forecastType;
@@ -728,7 +774,43 @@ struct strValuesNow {
 	double compare_totalTime_h;
 	double compare_dollar_cost;
 
+	double deltaTid;
+	double currentReal_u;
+	double currentReal_v;
+	double timeArc_current;
 
+	double windSpeedReal_u;
+	double windSpeedReal_v;
+	double timeArc_wind;
+
+	double waveHeightReal_u;
+	double waveHeightReal_v;
+	double timeArc_wave;
+
+	double windSpeed_x;
+	double windSpeed_y;
+
+	double waveDir_x;
+	double waveDir_y;
+
+	double timeCheck;
+	double fuel_eca;
+	double waitingTime;
+	double timeSinceLast;
+	double distSinceLast;
+	double distSinceLastCalmWater;
+
+	int coords_lastFromLevel;
+	int coords_lastToLevel;
+	double coords_lastUsedKvot;
+};
+
+struct strSimulering {
+	double penOverWeatherLimit_fix;
+	double penOverMaxWaveHeight_m;
+	double penOverMaxWindSpeed_kmh;
+	double penDeviateSpeed_kmh;
+	double penDeviatePrefPath_nodes;
 };
 
 struct strTables {
@@ -748,11 +830,25 @@ struct strSpeed {
 	int* settingGerBaseSetting;
 };
 
+struct strClosePoints {
+	int posCoords;
+	int posPrefPath;
+	double kvotCoords;
+	double kvotPrefPath;
+	double distance;
+};
+
 struct strFunc2 {
+	double timeNextWayPoint;
+
 	int nShip_speedSettingsBase;
 	double* rpmSetting_gerCalmWaterSpeedBase;
 	double* rpmSetting_gerFuelConsumption_mainBase;
 	double* rpmSetting_gerFuelConsumption_auxBase;
+	int nShip_speedSettingsDelay;
+	double* rpmSetting_gerCalmWaterSpeedDelay;
+	double* rpmSetting_gerFuelConsumption_mainDelay;
+	double* rpmSetting_gerFuelConsumption_auxDelay;
 	int speedSetting95MCR_base;
 	int speedSetting95MCR_use;
 
@@ -1018,20 +1114,32 @@ struct strDelayToEnd {
 	int* BVArc;
 };
 
+struct strSeaRoutePath {
+	int nCoords;
+	double* xCoord;
+	double* yCoord;
+	double costFactorDist;
+	double maxDistConnect_km;
+};
+
 struct strExtraNoGoBase {
 	char* areaID;
 	char* fileNameA;
 	char* fileNameB;
+	double extraCostFactor;
+	int nCorridors;
+	strSeaRoutePath* corridor;
 };
 
 struct strExtraNoGo {
-	std::string areaID;
+	char* areaID;
 	int posBase;
 
 	Raster rasterA;
 	Raster rasterB;
 	Raster::strPhysRaster mapA;
 	Raster::strPhysRaster mapB;
+	double extraCostFactor;
 };
 
 struct strViaPos {
@@ -1043,13 +1151,36 @@ struct strViaPos {
 struct strAltRutt {
 	int nParts;
 	strViaPos* sekvens;
+	char* routeID;
+};
+
+struct strCorridorSoft {
+	int nPkter;
+	double* xCoord;
+	double* yCoord;
+	int startNod;
+	int endNod;
+	double costFactorDist;
+	int noGo_posBase;
+
+	double maxDistConnectInside;
+	double* distanceFromStart;
+	double distance_km;
+	spherical::Point* point;
+	strBoundBox boundingBox;
+	int autoPathNr;
 };
 
 struct strParamsAutoRoute {
+	int nCorridors_noGoSoft;
+	strCorridorSoft* corridors_noGoSoft;
+
 	int nInSet[2];
 	int nAllocSet[2];
 	int* setCell[2];
 	int* setSmallCell[2];
+
+	int routeAlternative;
 
 	double startBas_lon;
 	double startBas_lat;
@@ -1065,6 +1196,8 @@ struct strParamsAutoRoute {
 	double* startPoint_lat;
 	double* endPoint_lon;
 	double* endPoint_lat;
+	int startNod;
+	int endNod;
 
 	std::string searoutePathsName;
 	int newSeaRoutePathData;
@@ -1081,8 +1214,8 @@ struct strParamsAutoRoute {
 	double factorExtraCover;
 	double maxBaseFeasibleCost;
 
-	int usePenalty_ECA;
-	double eca_penalty;
+	//int usePenalty_ECA;
+	//double eca_penalty;
 
 	std::string mapAutoRoutePhysicalBFileName;
 	std::string mapAutoRoutePhysicalAFileName;
@@ -1113,10 +1246,16 @@ struct strAutoCells {
 
 };
 
-struct strSeaRoutePath {
-	int nCoords;
-	double* xCoord;
-	double* yCoord;
+struct strPair {
+	char* groupID;
+	int nFrom;
+	double* xFrom;
+	double* yFrom;
+	int nTo;
+	double* xTo;
+	double* yTo;
+
+
 };
 
 struct strSeaRoute {
@@ -1124,6 +1263,18 @@ struct strSeaRoute {
 	strSeaRoutePath* seaRoutePath;
 	double* nod_y;
 	double* nod_x;
+
+	int nNewPathPairs;
+	strPair* pair;
+
+	double** distLat;
+	int* nDistLat;
+	int* nAllocDistLat;
+	int nDistLatAlt;
+	double* latVal;
+	double costFactorExtraNoGo;
+
+	int* nextSeaRouteNodePos;
 };
 
 struct strTss {
@@ -1153,8 +1304,42 @@ struct strAutoPath {
 
 };
 
+struct strKaoutarData {
+	int radNr;
+	double x0;
+	double y0;
+	double x1;
+	double y1;
+	int shipType;
+	double rpm;
+	double sog;
+	double fuelCons;
+	double windDir;
+	double windSpeed;
+	double waveDir;
+	double waveHeight;
+	double currDir;
+	double currSpeed;
+};
+
+struct strKaoutar {
+	int nShipTypes;
+	char* windTableID;
+	char* waveTableID;
+	char* stabilityTableID;
+	int nShip_speedSettingsBase;
+	double* rpmBase;
+	double* rpmSetting_gerCalmWaterSpeedBase;
+	double* rpmSetting_gerFuelConsumption_mainBase;
+	double* rpmSetting_gerFuelConsumption_auxBase;
+};
+
 struct strModel
-{
+{	
+	strSimulering simulering;
+
+	strKaoutar* kaoutar;
+
 	int nBVArcsUse;
 	int* BVArcUse;
 
@@ -1176,6 +1361,9 @@ struct strModel
 	strExtraNoGoBase* extraNoGoAreaBase;
 	int nExtraNoGoAreas;
 	strExtraNoGo* extraNoGoArea;
+
+	int nExtraCostAreas;
+	strExtraNoGo* extraCostArea;
 
 	double scaledDelay;
 
@@ -1231,8 +1419,8 @@ struct strModel
 	//Raster rasterPhysicalMapA;
 	//Raster rasterPhysicalMapB;
 
-	Raster::strPhysRaster fuelMapA;
-	Raster::strPhysRaster fuelMapB;
+	//Raster::strPhysRaster fuelMapA;
+	//Raster::strPhysRaster fuelMapB;
 	//Raster rasterFuelMapA;
 	//Raster rasterFuelMapB;
 
@@ -1302,6 +1490,8 @@ int errlog0(const char* format, ...);
 int reset_errlog();
 char *str_alloc_cpy(const char *data);
 char* str_alloc_cpyString(std::string data);
+char* append_str_alloc_cpyString(char* oldName, std::string data);
+
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
 int SattUppDijkstraNatverk3(strModel* model);
@@ -1333,6 +1523,7 @@ int fixReadableDate(struct tm tmBas, char* namn);
 int fixReadableDate_file(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
+void get_UseKvotExtraArea(double lat1, double lon1, double lat2, double lon2, int posExtraArea, int extraType, int mapAlt, double* distArea, double* distOther);
 
 int redisSetKeys(std::string inputPath);
 void putStringIntoArrayFloat(std::string strang, float* arrFloat, FILE* filtmp);
@@ -1365,6 +1556,7 @@ int roundUp(double varde);
 int check_nodeIsWithinPhysicalMapRaster(double lat1, double lon1);
 int setUpUsablePointsInPolygonChannel(int cNr, int pos);
 int identify_startEndOnChannel(int cNr, int startEnd);
+int identify_startEndOnChannel_tss(int cNr, int startEnd);
 int checkCoordInBoundingBox(double y, double x, strBoundBox bbox);
 void updateBoundingBoxWithCoord(strBoundBox* bbox, double y, double x);
 void initBoundingBox(strBoundBox* bbox);
@@ -1382,7 +1574,9 @@ unsigned short* openBinaryMap(int ii, Raster::strPhysRaster* physRaster, strBoun
 int checkMinnesAnvandning(int rad);
 
 int loadParams_theRestOld(strParams* params);
+int loadFileParams_feasibilityOptiNav(strParams* params);
 int loadParams_new(strParams* params);
+
 int loadAllNeededTablesFromSQLite();
 int loadVariables(int alt = 0);
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt);
@@ -1390,8 +1584,9 @@ int adderaNod(int physicalLevel, int pointNr, int timeInterval);
 int check_useRaster_longitude(int weatherNr, int filNr);
 int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
+double estimateLargeCircleDistance2_km(double lat1, double lon1, double lat0, double lon0);
 int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting);
-int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, int runAlt = 0);
+int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, double extraAreaCostKvot, int runAlt = 0);
 int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName, int useFixCalmWaterSpeed = 0, int iter = 0);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
@@ -1411,8 +1606,9 @@ void calc_stormsNearby_delay();
 int plotNodeTimeVisuellt(double time, double x, double y);
 int simuleraStormsVisuellt();
 double fix_lonPos(double lon);
-int getMonthsToUseForDelay(double dist);
+int getMonthsToUseForDelay_new(double dist);
 double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2);
+double get_extraAreaKvot(int thisLevel, int pos1, int nextLevel, int pos2, int posExtraArea, int extraType);
 
 std::string stringDateFromUTCSeconds(long long seconds);
 double get_colDblFromWeatherFile(int weatherNr, double lon);
@@ -1422,7 +1618,7 @@ int solve_SP_delayPrefPath();
 
 int testAnrop(strModel* modelDelay, int nod2);
 double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int delayNr, double bearing, double lat, double lon, double calmWaterSpeed = -1.0);
-double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, double calmWaterSpeed = -1.0, double fuelFactorMain = -1.0);
+double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, double* calmWaterSpeed, double fuelFactorMain = -1.0);
 int checkWeatherCoverOK(int xPos, int yPos);
 int getClosestSetting_fromBase(int baseSetting, int fromLevel, int toLevel);
 int determineBastSpeedDelay_routeToEnd_eta(strDelayToEnd* routeToEnd, double startTidp);
@@ -1439,7 +1635,7 @@ int calc_boundingBoxAutoRoute();
 int check_physicalMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt);
 int check_extraNoGoMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap);
 int genAutoRoute(std::string inputPath, std::string resultName);
-int findAreaIDpos_inBase(std::string ID);
+int findAreaIDpos_inBase(char* ID);
 int initLookUpTables();
 int getCoordFromAutoArc(int arcNr, int fromTo, double* y, double* x);
 void getRowColDblFromPhysicalMap(Raster::strPhysRaster physicalMap, double lat1, double lon1, double* row1Dbl, double* col1Dbl);
@@ -1452,6 +1648,13 @@ double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2);
 int checkAllocNode(int nodNr);
 int checkSameDir(double dY, double dX, double dY2, double dX2);
 int evalKaoutarData(std::string inputPath);
+int evalSeaRoutePaths(std::string inputPath);
+int addSmallerCellsToCell(int pos, int i, int i1);
+double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2, int includeCostFeasible = 1);
+int openNoGoAreas_local(int i, char* namn2);
+double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea = 0);
+void init_tmBas();
+int fixReportDateNew();
 
 
 #endif //PCH_H

@@ -167,6 +167,89 @@ int setUserParam(char* argv, std::string* inPath, std::string* outPath) {
 
 }
 
+int readUserParam(char* argv, std::string* pathTmp) {
+	int i, likaPos = -1;
+	std::string givenData = argv;
+
+
+	size_t findData;
+	findData = givenData.find("--input=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 8, givenData.size() - 8);
+		return 1;
+	}
+	findData = givenData.find("--output=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 9, givenData.size() - 9);
+		return 2;
+	}
+	findData = givenData.find("--inputAutoRoute=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 17, givenData.size() - 17);
+		return 3;
+	}
+	findData = givenData.find("--outputAutoRoute=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 18, givenData.size() - 18);
+		return 4;
+	}
+	findData = givenData.find("--weatherDirectory=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 19, givenData.size() - 19);
+		return 5;
+	}
+	findData = givenData.find("--opt=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 6, givenData.size() - 6);
+		return 10;
+	}
+	findData = givenData.find("--test=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 7, givenData.size() - 7);
+		return 11;
+	}
+	findData = givenData.find("--inputStormFix=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 16, givenData.size() - 16);
+		return 12;
+	}
+	findData = givenData.find("--inputKaoutar=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 15, givenData.size() - 15);
+		return 13;
+	}
+	findData = givenData.find("--inputGribFileTest=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 20, givenData.size() - 20);
+		return 14;
+	}
+	findData = givenData.find("--outputGribFileTest=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 21, givenData.size() - 21);
+		return 15;
+	}
+	findData = givenData.find("--inputCreateRaster=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 20, givenData.size() - 20);
+		return 16;
+	}
+	findData = givenData.find("--outputCreateRaster=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 21, givenData.size() - 21);
+		return 17;
+	}
+	findData = givenData.find("--inputSeaRoute=");
+	if (findData < givenData.size()) {
+		*pathTmp = givenData.substr(findData + 16, givenData.size() - 16);
+		return 18;
+	}
+
+
+	return 0;
+
+}
+
+
 void putStringIntoArrayFloat(std::string strang, float* arrFloat, FILE* filpek = NULL) {
 	int pos = 0, pos2 = 0, negativ = 0, decimal = 0;
 	double scale = 10, varde = 0;
@@ -295,7 +378,18 @@ void postRequest(std::string errorMessage, int endProgram) {
 		fclose(filPek3);
 	}
 
-	errorMessage.append(" hindcast: " + std::to_string(model.params.hindCast));
+	errorMessage.append(", hindcast " + std::to_string(model.params.hindCast));
+	
+	char hostname[256];
+	char username[256];
+	int result;
+	result = gethostname(hostname, 256);
+	if(!result)
+		errorMessage.append(", computerName " + std::string(hostname));
+	result = getlogin_r(username, 256);
+	if (!result)
+		errorMessage.append(", user " + std::string(username));
+
 	if(SKRIV_UT_NOTHING <= 1)
 		errlog("postRequest: %s", errorMessage.c_str());
 	printf("postRequest: %s\n", errorMessage.c_str());
@@ -362,6 +456,348 @@ void postRequest(std::string errorMessage, int endProgram) {
 }
 
 int main(int argc, char* argv[])
+{
+	std::string dataName, inputPath, outputPath, weatherPath, pathUse;
+	int nAnropData, userGivenOK, problTyp;
+	FILE* filpek;
+
+	// testing(2);
+
+	//cout << "Hello CMake. Test 2" << endl;
+	//cout << "nArgc " << argc << endl;
+
+	LOGFILE = "logfile.txt";
+	//for (int i = 0; i < argc; i++)
+	//	cout << argv[i] << endl;
+
+	model.params.checkGribFilesSpecial = 0;
+	model.delay.nYears = 0;
+
+	if (argc > 5) {
+		argc = 5;
+		printf("ERROR! Too many input parameters, is %d but max is 5. I quit!\n", argc);
+		exitKontrollerat(__LINE__, 0);
+	}
+
+	problTyp = 0;
+	weatherPath = "-";
+	inputPath = "-";
+	outputPath = "-";
+	int node = -1;
+	int manad = -1;
+	for (int i = 1; i < argc; i++) {
+		userGivenOK = readUserParam(argv[i], &dataName);
+		if (userGivenOK >= 1) {
+			if (userGivenOK <= 2) {
+				if (userGivenOK == 1)
+					inputPath = dataName;
+				else
+					outputPath = dataName;
+				if (problTyp != 1) {
+					if (problTyp != 0)
+						errlog("ERROR! OptiNav called with unknown combination of flags. Before was problTyp %d but now it is %d which I use.\n",
+							problTyp, 1);
+					problTyp = 1; // forecast opt
+				}
+			}
+			else if (userGivenOK <= 4) {
+				if (userGivenOK == 3)
+					inputPath = dataName;
+				else
+					outputPath = dataName;
+				if (problTyp != 2) {
+					if (problTyp != 0)
+						errlog("ERROR! OptiNav called with unknown combination of flags. Before was problTyp %d but now it is %d which I use.\n",
+							problTyp, 2);
+					problTyp = 2; // auto route
+				}
+			}
+			else if (userGivenOK == 5) {
+				weatherPath = dataName;
+			}
+			else if (userGivenOK == 10) {
+				// what to do here, --opt??
+				// weatherPath = dataName;
+			}
+			else if (userGivenOK == 11) {
+				// what to do here, --test??
+				inputPath = dataName;
+				problTyp = 5;
+			}
+			else if (userGivenOK == 12) {
+				// what to do here, --inputStormFix??
+				inputPath = dataName;
+				problTyp = 7;
+			}
+			else if (userGivenOK == 13) {
+				// what to do here, --inputKaoutar??
+				// weatherPath = dataName;
+				inputPath = dataName;
+				problTyp = 8;
+			}
+			else if (userGivenOK <= 15) {
+				if (userGivenOK == 14)
+					inputPath = dataName;
+				else
+					outputPath = dataName;
+				if (problTyp != 3) {
+					if (problTyp != 0)
+						errlog("ERROR! OptiNav called with unknown combination of flags. Before was problTyp %d but now it is %d which I use.\n",
+							problTyp, 3);
+					problTyp = 3; // GribFileTest
+				}
+			}
+			else if (userGivenOK <= 17) {
+				if (userGivenOK == 16)
+					inputPath = dataName;
+				else
+					outputPath = dataName;
+				if (problTyp != 4) {
+					if (problTyp != 0)
+						errlog("ERROR! OptiNav called with unknown combination of flags. Before was problTyp %d but now it is %d which I use.\n",
+							problTyp, 4);
+					problTyp = 4; // CreateDelayFactors
+				}
+			}
+			else if (userGivenOK == 18) {
+				inputPath = dataName;
+				problTyp = 9;
+			}
+			else if ((problTyp == 3 || problTyp == 4) && i == 3) {
+				node = char_to_int(argv[3]);
+			}
+			else if (problTyp == 4 && i == 4) {
+				manad = char_to_int(argv[4]);
+			}
+			else {
+				errlog("ERROR! Skipping input no %d %s, problType %d\n", i, argv[i], problTyp);
+			}
+		}
+		else {
+			errlog("ERROR2! Skipping input no %d %s, problType %d\n", i, argv[i], problTyp);
+		}
+	}
+
+	if (weatherPath != "-") {
+		model.params.weatherPath = weatherPath;
+		if (model.params.weatherPath.back() != '/\\' && model.params.weatherPath.back() != '/')
+			model.params.weatherPath.push_back('/\\');
+	}
+	else {
+		if (outputPath == "-") {
+			if (inputPath.back() != '/' && inputPath.back() != '\\')
+				inputPath += '/';
+		}
+		pathUse = splitFilename(inputPath);
+		model.params.weatherPath = pathUse + "/weather/";
+	}
+
+	if (problTyp == 1) {// OptiNav forecast or setRedisKeys
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+			printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+			exitKontrollerat(__LINE__, 0);
+		}
+
+		if (outputPath == "-") {
+			LOGFILE = "logfile_setRedisKeys.txt";
+			printf("input file for redis key generation '%s'\n", inputPath.c_str());
+			auto tid0 = std::chrono::high_resolution_clock::now();
+			int returnVal = 1;
+			if (inputPath != "-") {
+
+				returnVal = saveTablesToSQLite(inputPath);
+				//returnVal = saveMapsToBinary();
+
+				SKRIV_UT_NOTHING = 0;
+				returnVal = redisSetKeys(inputPath);
+			}
+			if (returnVal != 0) {
+				errlog("ERROR! Failed to set redis keys for weather\n");
+				printf("ERROR! Failed to set redis keys for weather\n");
+			}
+			else
+				printf("Setting of all the keys done\n");
+
+
+			auto tid1 = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+			printf("redis key generation took %.3lf\n", fp_ms);
+			errlog("redis key generation took %.3lf\n", fp_ms);
+			return 0;
+		}
+		resultPath = splitFilename(outputPath);
+		filpek = fopen(outputPath.c_str(), "w");
+		if (filpek == NULL) {
+			errlog0("ERROR! Could not open file %s. Does the directory not exist or am I not allowed to write to that directory? I quit.\n",
+				outputPath.c_str());
+			printf("ERROR! Could not open file %s for writing. Is it locked or does the directory not exist? I quit.\n",
+				outputPath.c_str());
+			exitKontrollerat(__LINE__, 0);
+		}
+		fprintf(filpek, "{\nerror\n}\n");
+		fclose(filpek);
+
+		printf("Calling OptiNav with input '%s' and output '%s'\n", inputPath.c_str(), outputPath.c_str());
+		auto tid0 = std::chrono::high_resolution_clock::now();
+		if (inputPath != "-")
+			voyageOpt(inputPath, outputPath);
+
+		auto tid1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+		printf("OptiNav took %.3lf\n", fp_ms);
+		errlog("OptiNav took %.3lf\n", fp_ms);
+
+	}
+	else if (problTyp == 2) {// autoRoute
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from input flags. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from input flags. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		if (outputPath == "-") {
+			errlog0("ERROR! Did not manage to identify a result name from input flags. I quit.\n");
+			printf("ERROR! Did not manage to identify a result name from input flags. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		resultPath = splitFilename(outputPath);
+		filpek = fopen(outputPath.c_str(), "w");
+		if (filpek == NULL) {
+			errlog0("ERROR! Could not open file %s. Does the directory not exist or am I not allowed to write to that directory? I quit.\n",
+				outputPath.c_str());
+			printf("ERROR! Could not open file %s for writing. Is it locked or does the directory not exist? I quit.\n",
+				outputPath.c_str());
+			exitKontrollerat(__LINE__, 0);
+		}
+		fprintf(filpek, "{\nerror\n}\n");
+		fclose(filpek);
+
+		LOGFILE = "logfile_autoRoute.txt";
+		printf("Calling OptiNav-autoRoute with input '%s' and output '%s'\n", inputPath.c_str(), outputPath.c_str());
+		auto tid0 = std::chrono::high_resolution_clock::now();
+		if (inputPath != "-")
+			genAutoRoute(inputPath, outputPath);
+
+		auto tid1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+		printf("OptiNav-autoRoute took %.3lf\n", fp_ms);
+		errlog("OptiNav-autoRoute took %.3lf\n", fp_ms);
+	}
+	else if (problTyp == 3) {// grib info
+		if (node == -1) {
+			errlog("ERROR! Params to run gribInfo given but no node. I quit\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		LOGFILE = "logfile_gribInfo.txt";
+		SKRIV_UT_NOTHING = 0;
+
+		auto tid0 = std::chrono::high_resolution_clock::now();
+		printf("Calling OptiNav to test grib files, input file '%s'\n", inputPath.c_str());
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from input flags. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from input flags. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		else {
+			resultPath = splitFilename(outputPath);
+			model.params.checkGribFilesSpecial = 1;
+			int returnVal = generateDelayedFactors(inputPath, node, 0);
+
+		}
+		auto tid1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+		printf("OptiNav to test grib files took %.3lf\n", fp_ms);
+		errlog("OptiNav to test grib files took %.3lf\n", fp_ms);
+	}
+	else if (problTyp == 4) {// generate delay raster
+		LOGFILE = "logfile_delayedFactors.txt";
+		SKRIV_UT_NOTHING = 0;
+
+		auto tid0 = std::chrono::high_resolution_clock::now();
+		printf("Calling OptiNav to calculate delay factors with input '%s'\n", inputPath.c_str());
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+			printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
+			exitKontrollerat(__LINE__, 0);
+		}
+		else {
+			resultPath = splitFilename(outputPath);
+			int returnVal = generateDelayedFactors(inputPath, node, manad);
+
+		}
+		auto tid1 = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
+		printf("OptiNav calculate delay factors took %.3lf\n", fp_ms);
+		errlog("OptiNav calculate delay factors took %.3lf\n", fp_ms);
+	}
+	else if (problTyp == 5) {// test call
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		printf("%s\n", inputPath.c_str());
+		return 2;
+	}
+	else if (problTyp == 7) {// fix stormValues
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		LOGFILE = "logfile_fixStormValues.txt";
+		int returnVal = 1;
+		if (inputPath != "-") {
+			returnVal = fixStormFiles(inputPath);
+		}
+		if (returnVal != 0) {
+			errlog("ERROR! Failed to fix storm files\n");
+			printf("ERROR! Failed to fix storm files\n");
+		}
+		else
+			printf("All storm files fixed\n");
+	}
+	else if (problTyp == 8) {// Kaoutar data
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		LOGFILE = "logfile_kaoutarData.txt";
+		int returnVal = 1;
+		if (inputPath != "-") {
+			returnVal = evalKaoutarData(inputPath);
+		}
+		if (returnVal != 0) {
+			errlog("ERROR! Failed to calculate weather factors for Kaoutar\n");
+			printf("ERROR! Failed to calculate weather factors for Kaoutar\n");
+		}
+		else
+			printf("Weather factors for Kaoutar calculated\n");
+	}
+	else if (problTyp == 9) {// generate new paths to seaRoute
+		if (inputPath == "-") {
+			errlog0("ERROR! Did not manage to identify an input name from. I quit.\n");
+			printf("ERROR! Did not manage to identify an input name from. I quit.\n");
+			exitKontrollerat(__LINE__, 0);
+		}
+		LOGFILE = "logfile_seaRouteExtend.txt";
+		int returnVal = 1;
+		if (inputPath != "-") {
+			returnVal = evalSeaRoutePaths(inputPath);
+		}
+		if (returnVal != 0) {
+			errlog("ERROR! Failed to calculate new seaRoute paths\n");
+			printf("ERROR! Failed to calculate new seaRoute paths\n");
+		}
+		else
+			printf("New seaRoute paths calculated, saved in autoRoute/newSeaRoutes.txt to be added to seaRoutes\n"
+				"and autoRoute/newSeaRoutes.geojson to be visualized\n");
+	}
+	return 0;
+}
+
+int main_old(int argc, char* argv[])
 {
 	std::string dataName, inputPath;
 	int nAnropData, userGivenOK;

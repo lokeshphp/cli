@@ -14,9 +14,17 @@
     }
   },
   "ActiveTargetSystem": "WSL: Ubuntu-20.04",
+  "OutputFoldersPerTargetSystem": {
+    "WSL: Ubuntu-20.04": [
+      "out\\Ubuntu-20.04\\build\\linux-debug",
+      "out\\Ubuntu-20.04\\install\\linux-debug",
+      "out\\Ubuntu-20.04\\build\\linux-release",
+      "out\\Ubuntu-20.04\\install\\linux-release"
+    ]
+  },
   "ExpandedNodes": [
     ""
   ],
-  "SelectedNode": "\\CMakeLists.txt",
+  "SelectedNode": "\\weatherTest.cpp",
   "PreviewInSolutionExplorer": false
 }
