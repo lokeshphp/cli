@@ -119,6 +119,9 @@ struct strParams
 
 	double wayPointHours;
 
+	char* loadWeightsFile;
+	int weightID;
+
 	char* weatherDirectory;
 	double maxDistBetweenPrefPathPoints;
 
@@ -131,8 +134,12 @@ struct strParams
 	int nHindCastMonths;
 	int* hindCast_month;
 	int* hindCast_year;
+	int* hindCast_yearSecDiff;
 
 	int onboard;
+	int onboard_currentStatic;
+	int* weather_is_current;
+
 
 	int checkGribFilesSpecial;
 
@@ -397,6 +404,7 @@ struct strChannel {
 	double kvotCost; // used to give discount on tss paths
 
 	int ECA_type;
+	int followExactly;
 	double waiting_consumption_main;
 	double waiting_consumption_aux;
 
@@ -468,6 +476,7 @@ struct strNodeSeq
 	int requirePrefPathFeasible;
 	double factorDelayedPrefPath;
 	int onlyPrefPath;
+	int followChannelExactly;
 
 	//int *nAllocOutArcs;
 	//int *nOutArcs;
@@ -683,6 +692,7 @@ struct strValuesNow {
 	double waveHeight;
 	double maxWaveHeight;
 	int maxWaveHeight_tp;
+	double maxWindSpeed;
 	int maxWindSpeed_tp;
 	double wavePeriod;
 	double relWaveDir;
@@ -732,12 +742,13 @@ struct strValuesNow {
 	double sumWindSpeed;
 	double sumRelCurrent;
 	double sumCurrent;
-	double sumWaveHight;
-	double maxWindSpeed;
+	double sumWaveHeight;
 	double maxCurrent;
-	double maxWaveHight;
 	double sumSpeedOnWater;
 	double speedOnWater;
+
+	double obj_fel_maxWindSpeed;
+	double obj_fel_maxWaveHeight;
 
 	int prefPathArc;
 
@@ -803,6 +814,20 @@ struct strValuesNow {
 	int coords_lastFromLevel;
 	int coords_lastToLevel;
 	double coords_lastUsedKvot;
+
+	double pressureSurface;
+	double pressureAir;
+	double precipitation;
+	double tempSea;
+	double tempAir;
+	double cloudCover;
+	double timePressureSurface;
+	double timePressureAir;
+	double timePrecipitation;
+	double timeTempSea;
+	double timeTempAir;
+	double timeCloudCover;
+
 };
 
 struct strSimulering {
@@ -815,9 +840,9 @@ struct strSimulering {
 
 struct strTables {
 	int nBasAlloc;
-	int nAllocTableTyp[3];
-	int nTableTyp[3];
-	strTableTyp* tableTyp[3]; // 0 wind, 1 wave, 2 stability
+	int nAllocTableTyp[5];
+	int nTableTyp[5];
+	strTableTyp* tableTyp[5]; // 0 wind, 1 wave, 2 stability, 3 bow slamming, 4 green water
 };
 
 struct strSpeed {
@@ -864,6 +889,8 @@ struct strFunc2 {
 	std::string waveTableID_orig;
 	std::string waveTableID;
 	std::string stabilityTableID;
+	std::string bowSlammingTableID;
+	std::string greenWaterTableID;
 	int windTableNr;
 	int  waveTableNr;
 	int stabilityTableNr;
@@ -923,6 +950,14 @@ struct strFunc2 {
 	int pos_waveDirection;
 	int pos_iceThickness;
 
+	int pos_pressureSurface;
+	int pos_pressureAir;
+	int pos_precipitation;
+	int pos_tempSea;
+	int pos_tempAir;
+	int pos_cloudCover;
+
+
 	// weather factors
 	strFunkData windFactor;
 	strFunkData waveFactor;
@@ -933,6 +968,8 @@ struct strFunc2 {
 	//strFunkData bowSlamming; // height + nHeight * period
 	//strFunkData greenWater; // height
 	strFunkData dynStability; // wSpeed + nWSpeed * wDir
+	strFunkData bowSlamming; // height + period * nHeight
+	strFunkData greenWater; // height
 
 	strValuesNow valuesNow;
 };
@@ -1334,8 +1371,33 @@ struct strKaoutar {
 	double* rpmSetting_gerFuelConsumption_auxBase;
 };
 
+struct strResults {
+	double bowSlam_aver;
+	double bowSlam_0;
+	double bowSlam_01;
+	double bowSlam_05;
+	double bowSlam_2;
+	double greenWater_aver;
+	double greenWater_0;
+	double greenWater_01;
+	double greenWater_05;
+	double greenWater_2;
+	double dynamicStability_aver;
+	double dynamicStability_0;
+	double dynamicStability_01;
+	double dynamicStability_05;
+	double dynamicStability_2;
+	double stormValue_aver;
+	double worstStormValue_max;
+
+	FILE* fileForecast;
+	std::string fileNameForecast;
+};
+
 struct strModel
 {	
+	strResults results;
+
 	strSimulering simulering;
 
 	strKaoutar* kaoutar;
@@ -1535,7 +1597,7 @@ double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, d
 double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel);
 
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
-void eval_safety(double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
+void eval_safety(double shipSpeedOverLand, double windspeed, double windDirection, double waveHeight,	double wavePeriod, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
 int calcWeatherPosAlongChannel(int cNr);
 double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel);
@@ -1649,12 +1711,14 @@ int checkAllocNode(int nodNr);
 int checkSameDir(double dY, double dX, double dY2, double dX2);
 int evalKaoutarData(std::string inputPath);
 int evalSeaRoutePaths(std::string inputPath);
-int addSmallerCellsToCell(int pos, int i, int i1);
+int addSmallerCellsToCell(int pos, int i, int i1, int mustUse = 0);
 double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2, int includeCostFeasible = 1);
 int openNoGoAreas_local(int i, char* namn2);
 double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea = 0);
 void init_tmBas();
 int fixReportDateNew();
+int get_speedSettingBase(int arcNr);
+double eval_absWindDirDiff(double bearing, double windDir);
 
 
 #endif //PCH_H

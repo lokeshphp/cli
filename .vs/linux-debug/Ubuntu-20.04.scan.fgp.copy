@@ -11,23 +11,23 @@
 -579579873 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\autoRoute - Copy (5).cpp
 216669411 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\autoRoute - Copy (6).cpp
 -1581986862 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\autoRoute - Copy.cpp
-1836431838 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\autoRoute.cpp
+2038038035 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\autoRoute.cpp
 -1048614064 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakeLists (2).txt
 -1901399108 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakeLists.txt
 1279890537 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\CMakePresets.json
 383538603 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.cpp
 1279898444 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\coordinate.h
--210599197 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\delay.cpp
--1785021141 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\dijkstra.cpp
+1964650532 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\delay.cpp
+-1803680372 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\dijkstra.cpp
 -966995182 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\filhantering.cpp
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\json.hpp
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\nodearc.h
 1702809309 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch - Copy.h
-2042989810 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
+-738643059 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
 396178744 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.cpp
 1278763306 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\point.h
-782880600 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\raster.cpp
--489077176 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\redisDef.h
+700628941 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\raster.cpp
+-1355513137 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\redisDef.h
 1278763306 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\redisDef.h~
 1278851127 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\result_json.json
 475453522 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\smartq.cpp
@@ -41,10 +41,11 @@
 585860126 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy (2).cpp
 -474250357 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy (3).cpp
 -1556410322 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy (4).cpp
+-812961277 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy (5).cpp
 151548549 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt - Copy.cpp
-2042788511 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
+171036606 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt.cpp
 -291828562 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt_tmp.cpp
 -1583762058 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest - Copy.cpp
--1935227930 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp
+1689913838 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.cpp
 -21005177 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\weatherTest.h
--1095998673 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\
+786673582 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\

@@ -1,5 +1,5 @@
 
-//#define ONBOARD
+#define ONBOARD
 //#define NAZANIN_SAFETY
 
 
@@ -48,8 +48,6 @@ extern std::string resultPath;
 extern long long MAXVARDE_NATVERK;
 extern int SKRIV_UT_NOTHING;
 extern int SEND_POST_REQUEST;
-extern int runAltForecast;
-
 
 int printGlobal = 0;
 int globalCount1 = 0;
@@ -4075,7 +4073,7 @@ int addPositionDataToReport(FILE* filpekG, int* posReport, int arcNr, int startS
 	//errlog("arcNr %d nSplit %d from xy %.3lf %.3lf to %.3lf %.3lf\n", arcNr, nSplit,
 	//	p1.longitude().degrees(), p1.latitude().degrees(), p2.longitude().degrees(), p2.latitude().degrees());
 
-	if (model.arc[arcNr].fromLevel == 7)
+	if (model.arc[arcNr].fromLevel == 89)
 		arcNr = arcNr;
 	if (arcNr == 39216)
 		arcNr = arcNr;
@@ -6379,11 +6377,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	y = (double*)malloc2(nAlloc * sizeof(double));
 	nSpeedSettingUsed = (int*)calloc2(model.functions.nShip_speedSettingsBase, sizeof(int));
 
-	char* startTime, * endTime, * startTime0;
-	startTime = (char*)malloc2(256 * sizeof(char));
-	startTime0 = (char*)malloc2(256 * sizeof(char));
-	time_t test = mktime(&tmBas);
-
 	FILE* filPek = NULL, * filPek2 = NULL;
 	//std::string solName;
 	char* namn;
@@ -6400,7 +6393,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	}
 	std::string linePath = "";
 
-	model.results.fileForecast = NULL;
 	if (strcmp("base", namnSol) == 0 || strcmp("prefPathFixSpeed", namnSol) == 0) {
 		saveBoth = 0;
 		if(iter == 2){
@@ -6421,32 +6413,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 			}
 			initGeoJsonFil(filpekG, "result_path");
 			linePath = "{ \"type\": \"Feature\",\n\"geometry\": { \"type\": \"MultiLineString\",\n\"coordinates\": [ [\n";
-
-			if (runAltForecast >= 0 && iter == 2) {
-				sprintf(namn, "%s/forecastTest/resOpt_%s.txt", model.params.resultPath.c_str(),
-					model.results.fileNameForecast.c_str());
-				model.results.fileForecast = fopen(namn, "r");
-				if (model.results.fileForecast == NULL) {
-					model.results.fileForecast = fopen(namn, "w");
-				}
-				else {
-					fclose(model.results.fileForecast);
-					model.results.fileForecast = fopen(namn, "a+");
-				}
-
-				test = mktime(&tmBas);
-				if (test == -1) {
-					printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
-						tmBas.tm_year,
-						tmBas.tm_mon, tmBas.tm_mday, tmBas.tm_hour, tmBas.tm_min, tmBas.tm_sec);
-					if (model.params.failedTime == 0)
-						postRequest("Failed mktime on row " + std::to_string(__LINE__), 0);
-					model.params.failedTime = 1;
-				}
-				fixReadableDate(tmBas, startTime);
-				fprintf(model.results.fileForecast, "runDateTime;%s\n", startTime);
-				fprintf(model.results.fileForecast, "forecastType;%d\n", runAltForecast);
-			}
 		}
 		else {
 			filpekG = fopen(filename.c_str(), "a+"); // "result_json.json", "w");
@@ -6507,11 +6473,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 
 	model.functions.valuesNow.maxDiffTime = -1e10;
 	model.functions.valuesNow.minDiffTime = 1e10;
-
-	if (model.results.fileForecast != NULL) {
-		fprintf(model.results.fileForecast, "nBVArcs;%d;nPhysLevels;%d;nArcs;%d\n", model.nBVArcs, model.network.nPhysicalLevels, model.nArcs);
-		fprintf(model.results.fileForecast, "pos;arcNr;fromLevel;toLevel;fromPos;toPos;fromTime;toTime;speedSettingBase\n");
-	}
 
 	int posDelay = 0;
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++) {
@@ -6715,14 +6676,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 			(nSpeedSettingUsed[speedSettingBase])++;
 			lastSpeedSetting = speedSettingBase;
 		}
-
-		if (model.results.fileForecast != NULL) {
-			fprintf(model.results.fileForecast, "%d;%d;%d;%d;%d;%d;%d;%d;%d\n", iPos, arcNr, model.arc[arcNr].fromLevel,
-				model.arc[arcNr].toLevel, model.arc[arcNr].fromPointNr, model.arc[arcNr].toPointNr,
-				model.arc[arcNr].fromTime, model.arc[arcNr].toTime, speedSettingBase);
-		}
-
-
 		//if (lev2 < model.network.nPhysicalLevels) {
 		//	if(model.arc[arcNr].speedSetting >= 0)
 		//		(nSpeedSettingUsed[model.arc[arcNr].speedSetting])++;
@@ -7329,9 +7282,12 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	}
 
 	double averSpeed, dollarCost, lateEtaCost, earlyEtaCost;
+	char* startTime, * endTime, *startTime0;
+	startTime = (char*)malloc2(256 * sizeof(char));
+	startTime0 = (char*)malloc2(256 * sizeof(char));
 
 	tmBas.tm_min += model.functions.valuesNow.maxWaveHeight_tp * 60;
-	test = mktime(&tmBas);
+	time_t test = mktime(&tmBas);
 	if (test == -1) {
 		printf("failed mktime on row %d time %d %d %d: %d %d %d\n", __LINE__,
 			tmBas.tm_year,
@@ -7586,22 +7542,6 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 			model.functions.valuesNow.totDistance_movingNoCorridors / model.functions.valuesNow.totTime_movingNoCorridors / model.params.knots_to_km);
 	else
 		fprintf(filpekG, "\"consumptionTransit_average\": %.2lf, \"speedTransit_average\": %.2lf\n", 0.0, 0.0);
-
-	if (model.results.fileForecast != NULL) {
-		fprintf(model.results.fileForecast, "totFuel;%lf;totTime;%lf;fuelCostDollar;%lf;timeCostDollar;%lf;totalDistance_kts;%lf;safety; %lf\n",
-			fuel_eca + fuel_noEca + fuel_aux + fuel_auxEca
-			- model.functions.valuesNow.totCorridorWaitingFuel_mainNonECA
-			- model.functions.valuesNow.totCorridorWaitingFuel_auxNonECA
-			- model.functions.valuesNow.totCorridorWaitingFuel_mainECA
-			- model.functions.valuesNow.totCorridorWaitingFuel_auxECA,
-			timeNu, fuelCostDollar, timeNu * model.params.priceTime,
-			distance / model.params.knots_to_km, safety);
-		fprintf(model.results.fileForecast, "weightTime;%lf;weightFuel;%lf;weightEmission;%lf;weightSafety;%lf\n",
-			model.params.weightTime, model.params.weightFuel,
-			model.params.weightEmission, model.params.weightSafety.base);
-		fclose(model.results.fileForecast);
-	}
-
 
 	if (iter == 1) {
 		if (timeNu > 0) {
@@ -15609,6 +15549,59 @@ int loadVariables(int alt)
 	dataVar = data["weather_parameters"];
 	char* namnAll = (char*)malloc2(256 * sizeof(char));
 
+	model.weather = (strWeather*)malloc2((int)dataVar.size() * sizeof(strWeather));
+	//printf("\n####\nalloc %d weatherData\n", (int)dataVar.size());
+	i0 = 0;
+	for (auto it = dataVar.begin(); it != dataVar.end(); ++it) {
+		dataIt = it.value();
+		namn = dataIt["variableID"];
+		model.weather[i0].weatherFileTypeName = str_alloc_cpy(namn.c_str());
+		model.weather[i0].nBlock_x = dataIt["nBlock_x"];
+		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
+		if(!dataIt["timeIntervall_expected_h"].is_null())
+			model.weather[i0].timeIntervall_expected = dataIt["timeIntervall_expected_h"];
+		else
+			model.weather[i0].timeIntervall_expected = -1;
+
+		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
+		dataFiles = dataIt["files"];
+		model.weather[i0].nFiles = (int)dataFiles.size();
+		model.weather[i0].filePos = (strFileWeather*)malloc2(model.weather[i0].nFiles * sizeof(strFileWeather));
+		model.weather[i0].rasterPos = (Raster*)malloc2(model.weather[i0].nFiles * sizeof(Raster));
+		model.weather[i0].valueCell = NULL;
+		i1 = 0;
+		for (auto it2 = dataFiles.begin(); it2 != dataFiles.end(); ++it2) {
+			dataIt2 = it2.value();
+			namn = dataIt2["fileName"];
+			if (model.params.hindCast == 0) {
+				//if (model.params.weatherDirectory != NULL) {
+				//	sprintf(namnAll, "%s/%s", model.params.weatherDirectory, namn.c_str());
+				//}
+				//else {
+				//	sprintf(namnAll, "%s/%s", model.params.indataPath.c_str(), namn.c_str());
+				//}
+				sprintf(namnAll, "%s%s", model.params.weatherPath.c_str(), namn.c_str());
+				model.weather[i0].filePos[i1].fileName = str_alloc_cpy(namnAll);
+			}
+			else {
+				model.weather[i0].filePos[i1].fileName = str_alloc_cpy_hindCastWeatherData(namn);
+				//sprintf(namnAll, "%s%s", model.params.weatherPath.c_str(), str_alloc_cpy_hindCastWeatherData(namn));
+				//model.weather[i0].filePos[i1].fileName = str_alloc_cpy(namnAll);
+			}
+			//printf("-- weatheFilePath %s\n", model.weather[i0].filePos[i1].fileName);
+			//model.weather[i0].filePos[i1].fileNameOnly = splitFilename(namn, 1);
+
+			//model.weather[i0].filePos[i1].minX = dataIt2["minLon"];
+			//model.weather[i0].filePos[i1].maxX = dataIt2["maxLon"];
+			i1++;
+		}
+		(model.nWeatherFiles)++;
+		i0++;
+	}
+
+	free(namnAll);
+	model.inv_nWeatherFiles = 1.0 / model.nWeatherFiles;
+
 	model.functions.pos_wind_u = -1;
 	model.functions.pos_wind_v = -1;
 	model.functions.pos_current_u = -1;
@@ -15618,16 +15611,11 @@ int loadVariables(int alt)
 	model.functions.pos_waveDirection = -1;
 	model.functions.pos_iceThickness = -1;
 
+	model.functions.varValue = (double*)malloc2(model.nWeatherFiles * sizeof(double));
+	model.functions.varValueAverage = (double*)malloc2(model.nWeatherFiles * sizeof(double));
+	model.params.weather_is_current = (int*)calloc(model.nWeatherFiles, sizeof(int));
 
-	model.weather = (strWeather*)malloc2((int)dataVar.size() * sizeof(strWeather));
-	model.params.weather_is_current = (int*)calloc((int)dataVar.size(), sizeof(int));
-	//printf("\n####\nalloc %d weatherData\n", (int)dataVar.size());
-	i0 = 0;
-	for (auto it = dataVar.begin(); it != dataVar.end(); ++it) {
-		dataIt = it.value();
-		namn = dataIt["variableID"];
-		model.weather[i0].weatherFileTypeName = str_alloc_cpy(namn.c_str());
-
+	for (i0 = 0; i0 < model.nWeatherFiles; i0++) {
 		model.weather[i0].defaultValueMore = 1;
 		if (strcmp(model.weather[i0].weatherFileTypeName, "wind_uComponent") == 0)
 			model.functions.pos_wind_u = i0;
@@ -15665,60 +15653,7 @@ int loadVariables(int alt)
 		if (strcmp(model.weather[i0].weatherFileTypeName, "cloudCover_tcc") == 0)
 			model.functions.pos_cloudCover = i0;
 		printf("weatherFile %d %s\n", i0, model.weather[i0].weatherFileTypeName);
-
-		model.weather[i0].nBlock_x = dataIt["nBlock_x"];
-		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
-		if(!dataIt["timeIntervall_expected_h"].is_null())
-			model.weather[i0].timeIntervall_expected = dataIt["timeIntervall_expected_h"];
-		else
-			model.weather[i0].timeIntervall_expected = -1;
-
-		model.weather[i0].nBlock_y = dataIt["nBlock_y"];
-		dataFiles = dataIt["files"];
-		model.weather[i0].nFiles = (int)dataFiles.size();
-		model.weather[i0].filePos = (strFileWeather*)malloc2(model.weather[i0].nFiles * sizeof(strFileWeather));
-		model.weather[i0].rasterPos = (Raster*)malloc2(model.weather[i0].nFiles * sizeof(Raster));
-		model.weather[i0].valueCell = NULL;
-		i1 = 0;
-		for (auto it2 = dataFiles.begin(); it2 != dataFiles.end(); ++it2) {
-			dataIt2 = it2.value();
-			namn = dataIt2["fileName"];
-			if (model.params.hindCast == 0) {
-				//if (model.params.weatherDirectory != NULL) {
-				//	sprintf(namnAll, "%s/%s", model.params.weatherDirectory, namn.c_str());
-				//}
-				//else {
-				//	sprintf(namnAll, "%s/%s", model.params.indataPath.c_str(), namn.c_str());
-				//}
-				if (model.params.onboard_currentStatic == 0 || model.params.weather_is_current[i0] != 1) {
-					sprintf(namnAll, "%s%s", model.params.weatherPath.c_str(), namn.c_str());
-					model.weather[i0].filePos[i1].fileName = str_alloc_cpy(namnAll);
-				}
-				else {
-					model.weather[i0].filePos[i1].fileName = str_alloc_cpy_hindCastWeatherData(namn);
-				}
-			}
-			else {
-				model.weather[i0].filePos[i1].fileName = str_alloc_cpy_hindCastWeatherData(namn);
-				//sprintf(namnAll, "%s%s", model.params.weatherPath.c_str(), str_alloc_cpy_hindCastWeatherData(namn));
-				//model.weather[i0].filePos[i1].fileName = str_alloc_cpy(namnAll);
-			}
-			//printf("-- weatheFilePath %s\n", model.weather[i0].filePos[i1].fileName);
-			//model.weather[i0].filePos[i1].fileNameOnly = splitFilename(namn, 1);
-
-			//model.weather[i0].filePos[i1].minX = dataIt2["minLon"];
-			//model.weather[i0].filePos[i1].maxX = dataIt2["maxLon"];
-			i1++;
-		}
-		(model.nWeatherFiles)++;
-		i0++;
 	}
-
-	free(namnAll);
-	model.inv_nWeatherFiles = 1.0 / model.nWeatherFiles;
-
-	model.functions.varValue = (double*)malloc2(model.nWeatherFiles * sizeof(double));
-	model.functions.varValueAverage = (double*)malloc2(model.nWeatherFiles * sizeof(double));
 
 	if (model.functions.pos_wind_u == -1) {
 		errlog("ERROR! weather parameter wind_uComponent not given in weather_parameters.json. It must exist\n");
@@ -16240,7 +16175,7 @@ int fixStormFiles(std::string inputPath) {
 	namn = (char*)malloc(256 * sizeof(char));
 	namnNu = (char*)malloc(256 * sizeof(char));
 	json data, data2, data3;
-	std::string datum, stringPrev, stringNu, nummerString;
+	std::string datum, stringPrev, stringNu;
 	FILE* filPrev, * filNu, * filNext = NULL;
 	//FILE* filPrev2, * filNu2, * filNext2 = NULL;
 	int monthNu, taMedStormInfo;
@@ -16250,8 +16185,6 @@ int fixStormFiles(std::string inputPath) {
 	//std::string stormInfo2, stormPrev2, stormTmp2;
 	double lat, lon, radius1, radius2, radius3, maxWind;
 	int langd, year, month, isInteger, i1;
-
-	int filTyp = 1; // 0 original, 1 works 2024/01/04, string for Wind
 
 	// loop over all months with storms
 	filPrev = NULL;
@@ -16369,34 +16302,10 @@ int fixStormFiles(std::string inputPath) {
 				if (manadNu != monthNu) {
 					nextMonth = 1;
 				}
-
-				if (dataSpeed3["Wind"].type() == json::value_t::string) {
-					nummerString = dataSpeed3["Wind"];
-					maxWind = std::stof(nummerString);
-				}
-				else
-					maxWind = dataSpeed3["Wind"];
+				maxWind = dataSpeed3["Wind"];
 				json dataPos = dataSpeed3["Position"];
-
-				if (filTyp == 0) {
-					lat = dataPos["LatitudeNormalized"];
-					lon = dataPos["LongitudeNormalized"];
-				}
-				else {
-					if (dataPos["Latitude"].type() == json::value_t::string) {
-						nummerString = dataPos["Latitude"];
-						lat = std::stof(nummerString);
-					}
-					else
-						lat = dataPos["Latitude"];
-					if (dataPos["Longitude"].type() == json::value_t::string) {
-						nummerString = dataPos["Longitude"];
-						lon = std::stof(nummerString);
-					}
-					else
-						lon = dataPos["Longitude"];
-				}
-
+				lat = dataPos["LatitudeNormalized"];
+				lon = dataPos["LongitudeNormalized"];
 				taMedStormInfo = setRadiusFromMaxWind(maxWind, &radius1, &radius2, &radius3);
 				if (taMedStormInfo == -1)
 					continue;
@@ -26456,7 +26365,7 @@ void loadWeatherFiles_redis() {
 
 }
 
-void identify_hindCastMonths(tm tmEnd, int alt) {
+void identify_hindCastMonths(tm tmEnd) {
 	int endYear, endMonth, startYear, startMonth, i, i1, pos;
 	int startMonthUse, endMonthUse;
 
@@ -26470,7 +26379,6 @@ void identify_hindCastMonths(tm tmEnd, int alt) {
 	model.params.nHindCastMonths = endMonth - startMonth + 1 + 12 * (endYear - startYear);
 	model.params.hindCast_month = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
 	model.params.hindCast_year = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
-	model.params.hindCast_yearSecDiff = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
 
 	pos = 0;
 	for (i = startYear; i <= endYear; i++) {
@@ -26484,33 +26392,20 @@ void identify_hindCastMonths(tm tmEnd, int alt) {
 			startMonthUse = 1;
 		for (i1 = startMonthUse; i1 <= endMonthUse && i1 <= 12; i1++) {
 			model.params.hindCast_month[pos] = i1;
-			if (alt == 0) {
-				model.params.hindCast_year[pos] = i;
-				model.params.hindCast_yearSecDiff[pos] = 0;
-			}
-			else {
-				model.params.hindCast_year[pos] = 2022;
-				model.params.hindCast_yearSecDiff[pos] = (i - 2022) * 3600 * 24 * 365;
-				if (i > 2024 || (i == 2024 && i1 > 2))
-					model.params.hindCast_yearSecDiff[pos] += 3600 * 24;
-				if (i > 2028 || (i == 2028 && i1 > 2))
-					model.params.hindCast_yearSecDiff[pos] += 3600 * 24;
-				if (i > 2032 || (i == 2032 && i1 > 2))
-					model.params.hindCast_yearSecDiff[pos] += 3600 * 24;
-			}
+			model.params.hindCast_year[pos] = i;
 			pos++;
 		}
 	}
 	if (pos != model.params.nHindCastMonths)
-		errlog("ERROR! Wrong number of hindCast months set. Should be %d but is %d\n",
+		errlog("ERROR! Wrong number of hindCast months set. Should be %d but is %d\n", 
 			model.params.nHindCastMonths, pos);
 
 
 }
 
 
-int loadStaticWeatherFile_grib(int ii, int* nMaxTimeInt, int* initFile, char* namn, int* startPos, int* endPos, long long endTime_secondsUTC) {
-	int xPos0, xPos1, yPos0, yPos1, nBands;
+void loadWeatherFiles_grib() {
+	int xPos0, xPos1, yPos0, yPos1, nBands, ii;
 	int pos2, pos3, i4, i5, nAlloc, i3, offset_x, offset_y;
 	int nCols, nRows, nRows_inBlock, nCols_inBlock;
 	int yStartBlock, yStartValue, nY_valueAdd, yEndBlock;
@@ -26518,387 +26413,17 @@ int loadStaticWeatherFile_grib(int ii, int* nMaxTimeInt, int* initFile, char* na
 	int xBlockNr, xBlockUse, yBlockNr, pos, latPos, lonPos, tidInt;
 	int nTimeIntervals_forecast_redis, nTimeIntervals_redis, forstaOverT, startT;
 	int nDefault, nNoll, nTot, nBandsAlloc, nSecondsUTC, nBandsNu;
-	int nAllocTmp = 0;
-	long long* secondsUTC_tmp = NULL;
-
-	int tidpHistoricalWeather;
-	int posNu, savePosStart, i10;
+	int nMaxTimeInt = 0, tidpHistoricalWeather;
+	int nBandsTooLate, posNu, savePosStart, * endPos, * startPos, i10;
 
 	long long maxTid, sekNu, offset_x2;
 	double min_lon, max_lon, min_lat, max_lat, min_lonUse, max_lonUse;
-	double xPosFrac0, xPosFrac1, yPosFrac0, yPosFrac1;
-	//float* arrFloat;
-
-
-	double filKvot;
-	int manad2, returnVal, first_i1, nBandsTooLate;
 	double size_col, size_row, xPosFrac, yPosFrac, lat, lon;
-	long long nSecondsUTC_next;
+	double xPosFrac0, xPosFrac1, yPosFrac0, yPosFrac1;
+	float* arrFloat;
 
-	model.tmpTid[0] = std::chrono::high_resolution_clock::now();
-
-	filKvot = 1.0; // to change from m/s to km/h
-	if (strcmp(model.weather[ii].weatherFileTypeName, "wind_uComponent") == 0)
-		filKvot = 3.6;
-	if (strcmp(model.weather[ii].weatherFileTypeName, "wind_vComponent") == 0)
-		filKvot = 3.6;
-	if (strcmp(model.weather[ii].weatherFileTypeName, "current_uComponent") == 0)
-		filKvot = 3.6;
-	if (strcmp(model.weather[ii].weatherFileTypeName, "current_vComponent") == 0)
-		filKvot = 3.6;
-
-	size_col = -1;
-	manad2 = 0;
-	nBandsTooLate = 0;
-	first_i1 = 1;
-
-	for (int i10 = 0; i10 < model.params.nHindCastMonths; i10++)
-		initFile[i10] = 0;
-
-	for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
-		posNu = 0;
-		savePosStart = 0;
-		for (int i10 = 0; i10 < model.params.nHindCastMonths; i10++) {
-			if (model.params.hindCast_month[i10] < 10)
-				sprintf(namn, "%sHindcast/0%d/%s_0%d_%d.grb", model.params.weatherPath.c_str(), model.params.hindCast_month[i10],
-					model.weather[ii].filePos[i1].fileName, model.params.hindCast_month[i10],
-					model.params.hindCast_year[i10]);
-			else
-				sprintf(namn, "%sHindcast/%d/%s_%d_%d.grb", model.params.weatherPath.c_str(), model.params.hindCast_month[i10],
-					model.weather[ii].filePos[i1].fileName, model.params.hindCast_month[i10],
-					model.params.hindCast_year[i10]);
-			printf("%s\n", namn);
-
-			returnVal = model.weather[ii].rasterPos[i1].open(namn);
-			if (returnVal == -1) {
-				if (i10 == 0) {
-					errlog("ERROR! Failed to open weather file %s. I quit!\n", namn);
-					postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.", 1);
-				}
-				else {
-					errlog("ERROR! Failed to open weather file %s. I don't use it!\n", namn);
-					continue;
-				}
-			}
-			if (i10 == 0) {
-				model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
-				model.weather[ii].filePos[i1].maxX = model.weather[ii].rasterPos[i1].Get_maxLongitude();
-				if (check_useRaster_longitude(ii, i1) == 0)
-					break;
-			}
-			if (first_i1 >= 1) {
-				first_i1 = 2;
-				//if (i10 == 0) {
-				if (size_col < -0.1) {
-					size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
-					model.weather[ii].size_col = size_col;
-					xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
-					xPos0 = roundDown(xPosFrac);
-					model.weather[ii].minX = model.weather[ii].rasterPos[i1].Get_minLongitude() +
-						xPos0 * size_col;
-					xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
-						size_col;
-					xPos1 = roundUp(xPosFrac);
-					model.weather[ii].maxX = model.weather[ii].minX +
-						xPos1 * size_col;
-					model.weather[ii].nCols = xPos1 + 1;
-
-					size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
-					model.weather[ii].size_row = size_row;
-					yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
-						size_row;
-					yPos0 = roundDown(yPosFrac);
-					model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude() -
-						yPos0 * size_row;
-					yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
-						size_row;
-					yPos1 = roundUp(yPosFrac);
-					if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
-						yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
-					model.weather[ii].minY = model.weather[ii].maxY -
-						yPos1 * size_row;
-					model.weather[ii].nRows = yPos1 + 1;
-
-					if (ii == 3)
-						ii = ii;
-					nBands = model.weather[ii].rasterPos[i1].Get_nBands();
-					endPos[i10] = -1;
-					for (int i2 = 0; i2 < nBands; i2++) {
-						if (i2 > 0)
-							nSecondsUTC = nSecondsUTC_next;
-						else
-							nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
-
-						if (i2 + 1 < nBands) {
-							nSecondsUTC_next = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 2);
-							if (nSecondsUTC_next < model.params.UTC_secondsStart - model.params.hindCast_yearSecDiff[i10])
-								continue; // too early
-						}
-
-						if (nSecondsUTC >= endTime_secondsUTC - model.params.hindCast_yearSecDiff[i10])
-							nBandsTooLate++;
-						if (nBandsTooLate > 1) {
-							break; // too late, do not include any more bands
-						}
-						endPos[i10] = i2;
-
-						if (posNu == 0) {
-							startPos[i10] = i2;
-							nBandsAlloc = (int)(nBands - i2);
-							model.weather[ii].secondsUTC = (long long*)malloc2(nBandsAlloc * sizeof(long long));
-							if (nBandsAlloc > nAllocTmp) {
-								if (nAllocTmp == 0) {
-									nAllocTmp = nBandsAlloc;
-									secondsUTC_tmp = (long long*)malloc(nAllocTmp * sizeof(long long));
-								}
-								else {
-									nAllocTmp = nBandsAlloc;
-									secondsUTC_tmp = (long long*)realloc(secondsUTC_tmp, nAllocTmp * sizeof(long long));
-								}
-							}
-							model.weather[ii].valueCell = (float**)malloc2(nBandsAlloc * sizeof(float*));
-							//for (int i2 = 0; i2 < nBandsAlloc; i2++) {
-							//	model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
-							//	for (int i3 = 0; i3 < nAlloc; i3++)
-							//		model.weather[ii].valueCell[posNu][i3] = 9999;
-							//}
-						}
-						model.weather[ii].secondsUTC[posNu] = nSecondsUTC;
-						secondsUTC_tmp[posNu] = nSecondsUTC + model.params.hindCast_yearSecDiff[i10];
-
-						posNu++;
-					}
-					model.weather[ii].nTimeIntervals = posNu;
-					model.weather[ii].nTimeIntervals_forecast = posNu;
-				}
-				else {
-					size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
-					if (abs(model.weather[ii].size_col - size_col) > 0.0001)
-						errlog("ERROR! Wrong size_col %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							size_col, model.weather[ii].size_col, namn, ii, i1, i10);
-					xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
-					xPos0 = roundDown(xPosFrac);
-					if (abs(model.weather[ii].minX - model.weather[ii].rasterPos[i1].Get_minLongitude() -
-						xPos0 * size_col) > 0.0001)
-						errlog("ERROR! Wrong minX %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							model.weather[ii].rasterPos[i1].Get_minLongitude() + xPos0 * size_col,
-							model.weather[ii].minX, namn, ii, i1, i10);
-					xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
-						size_col;
-
-					xPos1 = roundUp(xPosFrac);
-					if (abs(model.weather[ii].maxX - model.weather[ii].minX - xPos1 * size_col) > 0.0001)
-						errlog("ERROR! Wrong maxX %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							model.weather[ii].minX + xPos1 * size_col,
-							model.weather[ii].maxX, namn, ii, i1, i10);
-					if (model.weather[ii].nCols != xPos1 + 1)
-						errlog("ERROR! Wrong nCols %d vs %d for weather data %s ii %d i1 %d i10 %d\n",
-							xPos1 + 1, model.weather[ii].nCols, namn, ii, i1, i10);
-					//model.weather[ii].nCols = xPos1 + 1;
-
-					size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
-					if (abs(model.weather[ii].size_row - size_row) > 0.0001)
-						errlog("ERROR! Wrong size_row %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							size_row, model.weather[ii].size_row, namn, ii, i1, i10);
-					yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
-						size_row;
-					yPos0 = roundDown(yPosFrac);
-					if (abs(model.weather[ii].maxY - model.weather[ii].rasterPos[i1].Get_maxLatitude() +
-						yPos0 * size_row) > 0.0001)
-						errlog("ERROR! Wrong maxY %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							model.weather[ii].rasterPos[i1].Get_maxLatitude() -
-							yPos0 * size_row, model.weather[ii].maxY, namn, ii, i1, i10);
-					yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
-						size_row;
-					yPos1 = roundUp(yPosFrac);
-					if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
-						yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
-					if (abs(model.weather[ii].minY - model.weather[ii].maxY +
-						yPos1 * size_row) > 0.0001)
-						errlog("ERROR! Wrong maxY %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
-							model.weather[ii].maxY -
-							yPos1 * size_row, model.weather[ii].minY, namn, ii, i1, i10);
-					//model.weather[ii].minY = model.weather[ii].maxY -
-					//	yPos1 * size_row;
-					if (model.weather[ii].nRows != yPos1 + 1)
-						errlog("ERROR! Wrong nRows %d vs %d for weather data %s ii %d i1 %d i10 %d\n",
-							yPos1 + 1, model.weather[ii].nRows, namn, ii, i1, i10);
-					//model.weather[ii].nRows = yPos1 + 1;
-
-
-
-					if (ii == 3)
-						ii = ii;
-					nBands = model.weather[ii].rasterPos[i1].Get_nBands();
-
-					nBandsAlloc += nBands;
-					model.weather[ii].nTimeIntervals = nBandsAlloc;
-					model.weather[ii].nTimeIntervals_forecast = nBandsAlloc;
-					model.weather[ii].secondsUTC = (long long*)realloc(model.weather[ii].secondsUTC, nBandsAlloc * sizeof(long long));
-					nAllocTmp = nBandsAlloc;
-					secondsUTC_tmp = (long long*)realloc(secondsUTC_tmp, nAllocTmp * sizeof(long long));
-
-					model.weather[ii].valueCell = (float**)realloc(model.weather[ii].valueCell, nBandsAlloc * sizeof(float*));
-					nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
-
-
-					startPos[i10] = 0;
-					endPos[i10] = -1;
-					for (int i2 = 0; i2 < nBands; i2++) {
-						nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
-						if (nSecondsUTC >= endTime_secondsUTC - model.params.hindCast_yearSecDiff[i10])
-							nBandsTooLate++;
-						if (nBandsTooLate > 1)
-							break; // too late, do not include any more bands
-						endPos[i10] = i2;
-
-						model.weather[ii].secondsUTC[posNu] = nSecondsUTC;
-						secondsUTC_tmp[posNu] = nSecondsUTC + model.params.hindCast_yearSecDiff[i10];
-						posNu++;
-					}
-					model.weather[ii].nTimeIntervals = posNu;
-					model.weather[ii].nTimeIntervals_forecast = posNu;
-				}
-			}
-			else {
-				if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
-					errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
-						model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
-				if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
-					errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
-						model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
-
-				errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
-					ii, model.weather[ii].nTimeIntervals,
-					model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
-				nBands = model.weather[ii].rasterPos[i1].Get_nBands();
-			}
-			if (ii == 2 && i1 == 1)
-				ii = ii;
-
-			nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
-			if (initFile[i10] == 0) {
-				for (posNu = savePosStart; posNu <= savePosStart + endPos[i10] - startPos[i10]; posNu++) {
-					model.weather[ii].valueCell[posNu] = (float*)malloc2(nAlloc * sizeof(float));
-					for (int i3 = 0; i3 < nAlloc; i3++)
-						model.weather[ii].valueCell[posNu][i3] = 9999;
-				}
-				initFile[i10] = 1;
-			}
-
-			if (ii == 2)
-				ii = ii;
-			if (endPos[i10] >= nBands)
-				postRequest("ERROR! To few bands in fil " + std::string(namn) + " must be the same as in the first one. I quit!", 1);
-
-			model.weather[ii].rasterPos[i1].GetRasterValues_realHindCastBands(&(model.weather[ii]), startPos[i10], endPos[i10], savePosStart, filKvot);
-			savePosStart += endPos[i10] - startPos[i10] + 1;
-			//if (i1 < model.weather[ii].nFiles / 2.0)
-			//	model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), 0, nBandsAlloc);
-			//else
-			//	model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc);
-
-		}
-		if (first_i1 == 2)
-			first_i1 = 0;
-
-
-
-		//testCoordValue(ii, -41.43, -26.44);
-		//testCoordValue(ii, -40.77, -26.76);
-		// testCoordValue(ii, 93.84, 5.98);
-		//testCoordValue(ii, 167.6111, 81);
-		//testCoordValue(ii, 179.6111, 82);
-		//testCoordValue(ii, -179.6111, 83);
-		//testCoordValue(ii, -132.39, 84);
-
-
-		// om olika diskretization pa oppnade raster sa stoppa
-		// 
-
-
-
-		//model.weather[ii].valueCell = model.weather[ii].rasterPos.GetRasterBand_realArrAllBands(&(model.weather[ii].raster), model.boundingBox);
-		//printf("used dim %d %d tid %lf nBands %d\n", model.weather[ii].nRows,
-		//	model.weather[ii].nCols, model.durationMilli[ii], model.weather[ii].nTimeIntervals);
-
-
-
-
-
-		//errlog("iicc %d ii2 %d\n", ii, ii2);
-		(model.nCallsWeatherBand[ii])++;
-		//errlog("weather %d variable %s nTimeInt %d dim %d %d tid %lf\nminLon %.3lf maxLon %.3lf\nminLat %.3lf maxLat %.3lf\n", ii,
-		//	model.weather[ii].weatherFileTypeName, model.weather[ii].nTimeIntervals,
-		//	model.weather[ii].nRows,
-		//	model.weather[ii].nCols,
-		//	model.durationMilli[ii],
-		//	model.weather[ii].minX, model.weather[ii].maxX,
-		//	model.weather[ii].minY, model.weather[ii].maxY);
-
-	}
-	if (ii == 2)
-		ii = ii;
-	// testCoordValue(ii, 25.675, -33.917);
-
-
-	if (nAllocTmp > 0) {
-		for (int i2 = 0; i2 < model.weather[ii].nTimeIntervals; i2++) {
-			model.weather[ii].secondsUTC[i2] = secondsUTC_tmp[i2];
-		}
-		free(secondsUTC_tmp);
-	}
-
-	nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
-	model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
-
-	errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
-		ii, model.weather[ii].nTimeIntervals,
-		model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
-
-	tidInt = 0;
-	for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
-
-		if (i == model.weather[ii].nTimeIntervals - 1)
-			maxTid = model.weather[ii].secondsUTC[i] + 3600 - 1;
-		else
-			maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]));
-
-		for (; tidInt < 100000; tidInt++) {
-			if (tidInt >= nAlloc) {
-				printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
-					model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
-				errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
-					model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
-				break;
-			}
-			sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
-			if (sekNu <= maxTid)
-				model.weather[ii].timeIntervalIndex[tidInt] = i;
-			else
-				break;
-		}
-		//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
-		model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
-		if (model.weather[ii].nTimeIntervals_maxValue > (*nMaxTimeInt))
-			*nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
-	}
-	if (model.weather[ii].nTimeIntervals_maxValue < 0)
-		model.weather[ii].nTimeIntervals_maxValue = 0;
-
-	//testCoordValue(ii, 141.639, -11.240);
-	//testCoordValue(ii, 149.315, -21.275);
-
-	return 0;
-
-}
-
-void loadWeatherFiles_grib() {
-	int ii, i;
-	int nMaxTimeInt = 0;
-	double endTime = model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater; // * delayFactor;
 	double factorExtraTime = 1.3;
-	int* startPos, * endPos;
+	double endTime = model.network.physicalLev[model.network.nPhysicalLevels - 1].distanceFromStartPosMid / model.params.preferredSpeed_calmWater; // * delayFactor;
 
 	tm tmBas = { 0 };
 	tmBas.tm_isdst = 0;
@@ -26912,7 +26437,8 @@ void loadWeatherFiles_grib() {
 	fixReadableDate(tmBas, timeTxt);
 	errlog("factorExtraTime %.2lf gives Estimated endtime %.2lf: end date/time %s\n",
 		factorExtraTime, endTime, timeTxt);
-	identify_hindCastMonths(tmBas, 0);
+	long long nSecondsUTC_next, endTime_secondsUTC = model.params.UTC_secondsStart + endTime * 3600;
+	identify_hindCastMonths(tmBas);
 
 	if (model.params.hindCast == 1) {
 		loadStorms_historical();
@@ -26923,15 +26449,343 @@ void loadWeatherFiles_grib() {
 	startPos = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
 	endPos = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
 
-	// arrFloat = NULL;
+	arrFloat = NULL;
 
 	char* namn = (char*)malloc(2356 * sizeof(char));
+	int manad2, returnVal, first_i1;
+	double filKvot;
 	int* initFile = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
-	long long endTime_secondsUTC = model.params.UTC_secondsStart + endTime * 3600;
 
 	//errlog("test14\n");
 	for (ii = 0; ii < model.nWeatherFiles; ii++) {
-		loadStaticWeatherFile_grib(ii, &nMaxTimeInt, initFile, namn, startPos, endPos, endTime_secondsUTC);
+		model.tmpTid[0] = std::chrono::high_resolution_clock::now();
+
+		filKvot = 1.0; // to change from m/s to km/h
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "wind_vComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_uComponent") == 0)
+			filKvot = 3.6;
+		if (strcmp(model.weather[ii].weatherFileTypeName, "current_vComponent") == 0)
+			filKvot = 3.6;
+
+		size_col = -1;
+		manad2 = 0;
+		nBandsTooLate = 0;
+		first_i1 = 1;
+
+		for (int i10 = 0; i10 < model.params.nHindCastMonths; i10++)
+			initFile[i10] = 0;
+
+		for (int i1 = 0; i1 < model.weather[ii].nFiles; i1++) {
+			posNu = 0;
+			savePosStart = 0;
+			for (int i10 = 0; i10 < model.params.nHindCastMonths; i10++) {
+				if (model.params.hindCast_month[i10] < 10)
+					sprintf(namn, "%sHindcast/0%d/%s_0%d_%d.grb", model.params.weatherPath.c_str(), model.params.hindCast_month[i10],
+						model.weather[ii].filePos[i1].fileName, model.params.hindCast_month[i10],
+						model.params.hindCast_year[i10]);
+				else
+					sprintf(namn, "%sHindcast/%d/%s_%d_%d.grb", model.params.weatherPath.c_str(), model.params.hindCast_month[i10],
+						model.weather[ii].filePos[i1].fileName, model.params.hindCast_month[i10],
+						model.params.hindCast_year[i10]);
+				printf("%s\n", namn);
+
+				returnVal = model.weather[ii].rasterPos[i1].open(namn);
+				if (returnVal == -1) {
+					if (i10 == 0) {
+						errlog("ERROR! Failed to open weather file %s. I quit!\n", namn);
+						postRequest("ERROR! Failed to open weather file " + std::string(namn) + ".Fix it and run OptiNav hindCast again.", 1);
+					}
+					else {
+						errlog("ERROR! Failed to open weather file %s. I don't use it!\n", namn);
+						continue;
+					}
+				}
+				if (i10 == 0) {
+					model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
+					model.weather[ii].filePos[i1].maxX = model.weather[ii].rasterPos[i1].Get_maxLongitude();
+					if (check_useRaster_longitude(ii, i1) == 0)
+						break;
+				}
+				if (first_i1 >= 1) {
+					first_i1 = 2;
+					//if (i10 == 0) {
+					if (size_col < -0.1) {
+						size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+						model.weather[ii].size_col = size_col;
+						xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
+						xPos0 = roundDown(xPosFrac);
+						model.weather[ii].minX = model.weather[ii].rasterPos[i1].Get_minLongitude() +
+							xPos0 * size_col;
+						xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
+							size_col;
+						xPos1 = roundUp(xPosFrac);
+						model.weather[ii].maxX = model.weather[ii].minX +
+							xPos1 * size_col;
+						model.weather[ii].nCols = xPos1 + 1;
+
+						size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+						model.weather[ii].size_row = size_row;
+						yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
+							size_row;
+						yPos0 = roundDown(yPosFrac);
+						model.weather[ii].maxY = model.weather[ii].rasterPos[i1].Get_maxLatitude() -
+							yPos0 * size_row;
+						yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+							size_row;
+						yPos1 = roundUp(yPosFrac);
+						if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
+							yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+						model.weather[ii].minY = model.weather[ii].maxY -
+							yPos1 * size_row;
+						model.weather[ii].nRows = yPos1 + 1;
+
+						if (ii == 3)
+							ii = ii;
+						nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+						endPos[i10] = -1;
+						for (int i2 = 0; i2 < nBands; i2++) {
+							if (i2 > 0)
+								nSecondsUTC = nSecondsUTC_next;
+							else
+								nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
+
+							if (i2 + 1 < nBands) {
+								nSecondsUTC_next = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 2);
+								if (nSecondsUTC_next < model.params.UTC_secondsStart)
+									continue; // too early
+							}
+
+							if (nSecondsUTC >= endTime_secondsUTC)
+								nBandsTooLate++;
+							if (nBandsTooLate > 1) {
+								break; // too late, do not include any more bands
+							}
+							endPos[i10] = i2;
+
+							if (posNu == 0) {
+								startPos[i10] = i2;
+								nBandsAlloc = (int)(nBands - i2);
+								model.weather[ii].secondsUTC = (long long*)malloc2(nBandsAlloc * sizeof(long long));
+								model.weather[ii].valueCell = (float**)malloc2(nBandsAlloc * sizeof(float*));
+								//for (int i2 = 0; i2 < nBandsAlloc; i2++) {
+								//	model.weather[ii].valueCell[i2] = (float*)malloc2(nAlloc * sizeof(float));
+								//	for (int i3 = 0; i3 < nAlloc; i3++)
+								//		model.weather[ii].valueCell[posNu][i3] = 9999;
+								//}
+							}
+							model.weather[ii].secondsUTC[posNu] = nSecondsUTC;
+							posNu++;
+						}
+						model.weather[ii].nTimeIntervals = posNu;
+						model.weather[ii].nTimeIntervals_forecast = posNu;
+					}
+					else {
+						size_col = model.weather[ii].rasterPos[i1].Get_sizeCol();
+						if (abs(model.weather[ii].size_col - size_col) > 0.0001)
+							errlog("ERROR! Wrong size_col %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								size_col, model.weather[ii].size_col, namn, ii, i1, i10);
+						xPosFrac = (model.boundingBox.xMin - model.weather[ii].rasterPos[i1].Get_minLongitude()) / size_col;
+						xPos0 = roundDown(xPosFrac);
+						if (abs(model.weather[ii].minX - model.weather[ii].rasterPos[i1].Get_minLongitude() -
+							xPos0 * size_col) > 0.0001)
+							errlog("ERROR! Wrong minX %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								model.weather[ii].rasterPos[i1].Get_minLongitude() + xPos0 * size_col,
+								model.weather[ii].minX, namn, ii, i1, i10);
+						xPosFrac = (model.boundingBox.xMax - model.weather[ii].minX) /
+							size_col;
+
+						xPos1 = roundUp(xPosFrac);
+						if (abs(model.weather[ii].maxX - model.weather[ii].minX - xPos1 * size_col) > 0.0001)
+							errlog("ERROR! Wrong maxX %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								model.weather[ii].minX + xPos1 * size_col,
+								model.weather[ii].maxX, namn, ii, i1, i10);
+						if (model.weather[ii].nCols != xPos1 + 1)
+							errlog("ERROR! Wrong nCols %d vs %d for weather data %s ii %d i1 %d i10 %d\n",
+								xPos1 + 1, model.weather[ii].nCols, namn, ii, i1, i10);
+						//model.weather[ii].nCols = xPos1 + 1;
+
+						size_row = model.weather[ii].rasterPos[i1].Get_sizeRow();
+						if (abs(model.weather[ii].size_row - size_row) > 0.0001)
+							errlog("ERROR! Wrong size_row %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								size_row, model.weather[ii].size_row, namn, ii, i1, i10);
+						yPosFrac = (model.weather[ii].rasterPos[i1].Get_maxLatitude() - model.boundingBox.yMax) /
+							size_row;
+						yPos0 = roundDown(yPosFrac);
+						if (abs(model.weather[ii].maxY - model.weather[ii].rasterPos[i1].Get_maxLatitude() +
+							yPos0 * size_row) > 0.0001)
+							errlog("ERROR! Wrong maxY %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								model.weather[ii].rasterPos[i1].Get_maxLatitude() -
+								yPos0 * size_row, model.weather[ii].maxY, namn, ii, i1, i10);
+						yPosFrac = (model.weather[ii].maxY - model.boundingBox.yMin) /
+							size_row;
+						yPos1 = roundUp(yPosFrac);
+						if (yPos1 >= model.weather[ii].rasterPos[i1].Get_nRows())
+							yPos1 = model.weather[ii].rasterPos[i1].Get_nRows() - 1;
+						if (abs(model.weather[ii].minY - model.weather[ii].maxY +
+							yPos1 * size_row) > 0.0001)
+							errlog("ERROR! Wrong maxY %.5lf vs %.5lf for weather data %s ii %d i1 %d i10 %d\n",
+								model.weather[ii].maxY -
+								yPos1 * size_row, model.weather[ii].minY, namn, ii, i1, i10);
+						//model.weather[ii].minY = model.weather[ii].maxY -
+						//	yPos1 * size_row;
+						if (model.weather[ii].nRows != yPos1 + 1)
+							errlog("ERROR! Wrong nRows %d vs %d for weather data %s ii %d i1 %d i10 %d\n",
+								yPos1 + 1, model.weather[ii].nRows, namn, ii, i1, i10);
+						//model.weather[ii].nRows = yPos1 + 1;
+
+
+
+						if (ii == 3)
+							ii = ii;
+						nBands = model.weather[ii].rasterPos[i1].Get_nBands();
+
+						nBandsAlloc += nBands;
+						model.weather[ii].nTimeIntervals = nBandsAlloc;
+						model.weather[ii].nTimeIntervals_forecast = nBandsAlloc;
+						model.weather[ii].secondsUTC = (long long*)realloc(model.weather[ii].secondsUTC, nBandsAlloc * sizeof(long long));
+						model.weather[ii].valueCell = (float**)realloc(model.weather[ii].valueCell, nBandsAlloc * sizeof(float*));
+						nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+
+
+						startPos[i10] = 0;
+						endPos[i10] = -1;
+						for (int i2 = 0; i2 < nBands; i2++) {
+							nSecondsUTC = model.weather[ii].rasterPos[i1].GetSecondsFromUTC_metadataBand(i2 + 1);
+							if (nSecondsUTC >= endTime_secondsUTC)
+								nBandsTooLate++;
+							if (nBandsTooLate > 1)
+								break; // too late, do not include any more bands
+							endPos[i10] = i2;
+
+							model.weather[ii].secondsUTC[posNu] = nSecondsUTC;
+							posNu++;
+						}
+						model.weather[ii].nTimeIntervals = posNu;
+						model.weather[ii].nTimeIntervals_forecast = posNu;
+					}
+				}
+				else {
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
+						errlog("ERROR! raster size longitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_col, model.weather[ii].rasterPos[i1].Get_sizeCol());
+					if (abs(model.weather[ii].rasterPos[i1].Get_sizeRow() - size_row) > 0.0001)
+						errlog("ERROR! raster size latitude differ for weather parameter %s, %lf vs %lf. Must be the same\n",
+							model.weather[ii].weatherFileTypeName, size_row, model.weather[ii].rasterPos[i1].Get_sizeRow());
+
+					errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+						ii, model.weather[ii].nTimeIntervals,
+						model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+				}
+				if (ii == 2 && i1 == 1)
+					ii = ii;
+
+				nAlloc = model.weather[ii].nCols * model.weather[ii].nRows;
+				if (initFile[i10] == 0) {
+					for (posNu = savePosStart; posNu <= savePosStart + endPos[i10] - startPos[i10]; posNu++) {
+						model.weather[ii].valueCell[posNu] = (float*)malloc2(nAlloc * sizeof(float));
+						for (int i3 = 0; i3 < nAlloc; i3++)
+							model.weather[ii].valueCell[posNu][i3] = 9999;
+					}
+					initFile[i10] = 1;
+				}
+
+				if (ii == 2)
+					ii = ii;
+				if (endPos[i10] >= nBands)
+					postRequest("ERROR! To few bands in fil " + std::string(namn) + " must be the same as in the first one. I quit!", 1);
+
+				model.weather[ii].rasterPos[i1].GetRasterValues_realHindCastBands(&(model.weather[ii]), startPos[i10], endPos[i10], savePosStart, filKvot);
+				savePosStart += endPos[i10] - startPos[i10] + 1;
+				//if (i1 < model.weather[ii].nFiles / 2.0)
+				//	model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), 0, nBandsAlloc);
+				//else
+				//	model.weather[ii].rasterPos[i1].GetRasterValues_realAllBands_fixBandNr(&(model.weather[ii]), nBands, nBandsAlloc);
+			}
+			if (first_i1 == 2)
+				first_i1 = 0;
+
+
+			//testCoordValue(ii, -41.43, -26.44);
+			//testCoordValue(ii, -40.77, -26.76);
+			// testCoordValue(ii, 93.84, 5.98);
+			//testCoordValue(ii, 167.6111, 81);
+			//testCoordValue(ii, 179.6111, 82);
+			//testCoordValue(ii, -179.6111, 83);
+			//testCoordValue(ii, -132.39, 84);
+
+
+			// om olika diskretization pa oppnade raster sa stoppa
+			// 
+
+
+
+			//model.weather[ii].valueCell = model.weather[ii].rasterPos.GetRasterBand_realArrAllBands(&(model.weather[ii].raster), model.boundingBox);
+			//printf("used dim %d %d tid %lf nBands %d\n", model.weather[ii].nRows,
+			//	model.weather[ii].nCols, model.durationMilli[ii], model.weather[ii].nTimeIntervals);
+
+
+
+
+
+			//errlog("iicc %d ii2 %d\n", ii, ii2);
+			(model.nCallsWeatherBand[ii])++;
+			//errlog("weather %d variable %s nTimeInt %d dim %d %d tid %lf\nminLon %.3lf maxLon %.3lf\nminLat %.3lf maxLat %.3lf\n", ii,
+			//	model.weather[ii].weatherFileTypeName, model.weather[ii].nTimeIntervals,
+			//	model.weather[ii].nRows,
+			//	model.weather[ii].nCols,
+			//	model.durationMilli[ii],
+			//	model.weather[ii].minX, model.weather[ii].maxX,
+			//	model.weather[ii].minY, model.weather[ii].maxY);
+
+		}
+		if (ii == 2)
+			ii = ii;
+		// testCoordValue(ii, 25.675, -33.917);
+
+
+		nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[model.weather[ii].nTimeIntervals - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
+		model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
+
+		errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+			ii, model.weather[ii].nTimeIntervals,
+			model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+
+		tidInt = 0;
+		for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+
+			if (i == model.weather[ii].nTimeIntervals - 1)
+				maxTid = model.weather[ii].secondsUTC[i] + 3600 - 1;
+			else
+				maxTid = (long long)(0.5 * (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]));
+
+			for (; tidInt < 100000; tidInt++) {
+				if (tidInt >= nAlloc) {
+					printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
+					errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d tidInt %d maxTid %I64d\n", tidInt, nAlloc, ii,
+						model.weather[ii].weatherFileTypeName, i, tidInt, maxTid);
+					break;
+				}
+				sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
+				if (sekNu <= maxTid)
+					model.weather[ii].timeIntervalIndex[tidInt] = i;
+				else
+					break;
+			}
+			//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
+			model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+			if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+				nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
+		}
+		if (model.weather[ii].nTimeIntervals_maxValue < 0)
+			model.weather[ii].nTimeIntervals_maxValue = 0;
+
+		//testCoordValue(ii, 141.639, -11.240);
+		//testCoordValue(ii, 149.315, -21.275);
+
 	}
 	free(initFile);
 
@@ -27450,34 +27304,12 @@ void loadWeatherFiles_onboard_grib() {
 
 
 	if (model.params.onboard_currentStatic == 1) {
-		double endTime = model.network.tidp_startHistoricDataOnly - model.weather_timeIntervall_h;
-		if (endTime < 0)
-			endTime = 0;
-		tm tmBas = { 0 };
-		tmBas.tm_isdst = 0;
-		setTMtime(&tmBas, endTime);
-		char* timeTxt = (char*)malloc(2356 * sizeof(char));
-		fixReadableDate(tmBas, timeTxt);
-		errlog("Estimated endtime %.2lf: end date/time %s\n",
-			endTime, timeTxt);
-		//endTime *= factorExtraTime;
-		setTMtime(&tmBas, endTime);
-		fixReadableDate(tmBas, timeTxt);
-		errlog("onboard current static, using data till endtime %.2lf: end date/time %s\n",
-			endTime, timeTxt);
-		identify_hindCastMonths(tmBas, 1);
-		int* initFile = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
-		long long endTime_secondsUTC = model.params.UTC_secondsStart + (int)endTime * 3600;
-		startPos = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
-		endPos = (int*)malloc(model.params.nHindCastMonths * sizeof(int));
-
 		for (ii = 0; ii < model.nWeatherFiles; ii++) {
 			if (model.params.weather_is_current[ii] != 1)
 				continue; // only load current from hindcast data
-
-			loadStaticWeatherFile_grib(ii, &nMaxTimeInt, initFile, namn, startPos, endPos, endTime_secondsUTC);
 		}
-		free(initFile);
+
+
 	}
 
 
@@ -29327,9 +29159,6 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	model.params.etaFocus_speed = 0;
 	model.params.UTC_secondsStart = 0;
 
-	if(runAltForecast >= 0)
-		model.results.fileNameForecast = splitFilename(inputPath, 1);
-
 	//errlog("#######\nERROR! Change the below code rows as it is for analysis only\n");
 	model.params.nSpeedSettingDivideIter1 = 2; // 2 ger 3 speed settings, 4 ger 5 speed settings
 	model.params.nTidsperioder_perH_iter1 = 1; // 1 is default, 4 ger var 15:e minut
@@ -29352,7 +29181,6 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	// testSaveMapToSQLite();
 	// testSaveMapToBinaryFile();
 
-	printf("obj weight dynamicStability %.3lf\n", model.params.weightSafety.dynamicStability);
 
 	loadAllNeededTablesFromSQLite();
 
@@ -29623,8 +29451,6 @@ int voyageOpt(std::string inputPath, std::string resultName)
 
 	}
 	checkMinnesAnvandning(__LINE__);
-
-
 
 	if (evalExtraSol == 1) {
 		dist = genBV_franFixLsning(&model, &Cost);
