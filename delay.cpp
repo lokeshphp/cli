@@ -501,6 +501,9 @@ int setupNodesArcsNoTime_delay() {
 				model.arc[arcNr].fuel_eca = 0;
 				model.arc[arcNr].fuel_noEca = 0;
 				model.arc[arcNr].safetyHurricane = 0;
+				model.arc[arcNr].bowSlam = 0;
+				model.arc[arcNr].greenWater = 0;
+				model.arc[arcNr].dynamicStability = 0;
 				//model.arc[arcNr].safetyBowSlam = 0;
 				//model.arc[arcNr].safetyGreenWater = 0;
 				//model.arc[arcNr].safetyDynStability = 0;

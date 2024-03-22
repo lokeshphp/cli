@@ -992,8 +992,8 @@ public:
 				}
 				//xUse = 0;
 				//iYBlock = 0;
-				if (printGlobal == 1)
-					printf("read block %d %lld\n", xUse, iYBlock);
+				//if (printGlobal == 1)
+				//	printf("read block %d %lld\n", xUse, iYBlock);
 				poBand->ReadBlock(xUse, iYBlock, pabyData);
 				if (printGlobal == 1)
 					printf(".. done iXBlock %lld xMin %d pnXSize %d globPos %lld to %lld coord %.3lf to %.3lf (%.3lf to %.3lf)\n",
@@ -1010,7 +1010,8 @@ public:
 				poBand->GetActualBlockSize(xUse, iYBlock, &nXValid, &nYValid);
 				nNotValid += pnXSize - nXValid;
 				if (printGlobal == 1) {
-					printf("block xy %d %lld nValid xy %d %d\n", xUse, iYBlock, nXValid, nYValid);
+					printf("block xy %d %lld nValid xy %d %d lat0 %.4lf values", xUse, iYBlock, nXValid, nYValid,
+						rasterData->maxLatitude - (double)(yPosNu + 0.5) * rasterData->size_row);
 				}
 				//nLoops1++;
 
@@ -1020,6 +1021,15 @@ public:
 					//memcpy(&(valueCell3[posTmp]), &(pabyData[posTmp2]), sizeof(unsigned __int8) * nXValid);
 					memcpy(&(valueCell[posTmp]), &(pabyData[posTmp2]), sizeof(GByte) * nXValid);
 					//memcpy(&(valueCell2[posTmp]), &(pabyData[posTmp2]), sizeof(GByte) * nXValid);
+					if (printGlobal == 1) {
+						if (iY == 0 || iY == nYValid - 1)
+							printf(" %d", valueCell[posTmp]);
+						if ((iXBlock - xMin) * pnXSize == 8704 && iY == 85 && yPosNu==512)
+							printf(" xy %.3lf %.3lf %d", 
+								rasterData->minLongitude + (double)((iXBlock - xMin) * pnXSize - nNotValid + 0.5 + 180) * rasterData->size_col,
+								rasterData->maxLatitude - (double)(yPosNu + iY + 0.5) * rasterData->size_row,
+								valueCell[posTmp + 180]);
+					}
 
 					/*
 					for (iX = 0; iX < nXValid; iX++) {
@@ -1043,6 +1053,9 @@ public:
 
 					}
 					*/
+				}
+				if (printGlobal == 1) {
+					printf("\n");
 				}
 
 			}

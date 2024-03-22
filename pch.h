@@ -116,6 +116,7 @@ struct strParams
 	time_t testTime;
 	struct tm tmBas;
 	char* startTime;
+	char* startTime_full;
 
 	double wayPointHours;
 
@@ -354,9 +355,9 @@ struct strArcInfo
 	double* extraAreaFactor;
 	int corridorNr;
 
-	//int nodNr1;
+	int nodNr1;
 	//int nodNr2;
-	//int nodNr1_utNodPos;
+	int nodNr1_utNodPos;
 	//double safetyBowSlam;//
 	//double safetyGreenWater;//
 	//double safetyDynStability;//
@@ -383,6 +384,11 @@ struct strArcInfo
 
 	double maxWindSpeed;
 	double maxWaveHeight;
+
+	double bowSlam;
+	double greenWater;
+	double dynamicStability;
+
 };
 
 struct strChannel {
@@ -692,8 +698,10 @@ struct strValuesNow {
 	double waveHeight;
 	double maxWaveHeight;
 	int maxWaveHeight_tp;
+	double maxWaveHeight_dir;
 	double maxWindSpeed;
 	int maxWindSpeed_tp;
+	double maxWindSpeed_dir;
 	double wavePeriod;
 	double relWaveDir;
 	double forecastType;
@@ -762,6 +770,8 @@ struct strValuesNow {
 	double totCorridorWaitingFuel_auxNonECA;
 	double totCorridorWaitingTime;
 
+	double accumRPM;
+	double accumRPM_time;
 
 	double totTimeArcSTW;
 	double WindFArc;
@@ -1371,6 +1381,37 @@ struct strKaoutar {
 	double* rpmSetting_gerFuelConsumption_auxBase;
 };
 
+struct strFixedArc {
+	int arcNr;
+	int fromLevel;
+	int toLevel;
+	int fromPos;
+	int toPos;
+	double fromTime;
+	double toTime;
+	int speedSettingBase;
+};
+
+struct strIterKaoutar {
+	long long UTC_secondsFirstStart;
+	int physLevelStart;
+	int physPointStart;
+	double tidpStartIter_h;
+	double tidpStartIterArc_h;
+	int nLevelsMoveForeward;
+	int nForecastRuns;
+	int evalAlt;
+
+	strFixedArc* fixedArcs;
+	int nFixedArcs;
+	FILE* filpek;
+	//double fuelUsedSoFar_aux;
+	//double fuelUsedSoFar_auxEca;
+	//double fuelUsedSoFar_eca;
+	//double fuelUsedSoFar_noEca;
+
+};
+
 struct strResults {
 	double bowSlam_aver;
 	double bowSlam_0;
@@ -1391,12 +1432,31 @@ struct strResults {
 	double worstStormValue_max;
 
 	FILE* fileForecast;
+	FILE* fileForecast2;
 	std::string fileNameForecast;
+	int forecastType;
+	double weightTime;
+	double weightFuel;
+	double weightEmission;
+	double weightSafetyBase;
+	char* optRunDateTime;
+	double fuel;
+	double time;
+	double fuelCost;
+	double timeCost;
+	double dist;
+	double safety;
+
+	double iterTotDistStart;
+	double iterTotFuelStart;
+	double iterTotObjStart;
+	double iterTotDollarCostStart;
 };
 
 struct strModel
 {	
 	strResults results;
+	strIterKaoutar iterKaoutar;
 
 	strSimulering simulering;
 
@@ -1576,6 +1636,7 @@ int test2(int a);
 int testing(int a);
 
 int voyageOpt(std::string inputName, std::string resultName);
+int voyageOpt_fixPartSol(std::string inputPath, std::string resultName);
 int generateDelayedFactors(std::string inputName, int node, int manad);
 int extractGribInfo(std::string inputPath);
 int exitKontrollerat(int codeLine, int callType = 1);
@@ -1720,5 +1781,8 @@ int fixReportDateNew();
 int get_speedSettingBase(int arcNr);
 double eval_absWindDirDiff(double bearing, double windDir);
 
+int voyageEval_fixSol(std::string inputPath, std::string resultName);
+int fixReportDate_full(struct tm tmBas, char* namn);
+int fixReportDateNew_full();
 
 #endif //PCH_H

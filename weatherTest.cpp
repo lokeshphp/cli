@@ -28,6 +28,7 @@ std::string resultPath;
 std::string LOGFILE;
 int SKRIV_UT_NOTHING = 2;
 int SEND_POST_REQUEST = 1;
+int runAltForecast = 0;
 
 extern strModel model;
 
@@ -563,6 +564,9 @@ int main(int argc, char* argv[])
 				inputPath = dataName;
 				problTyp = 9;
 			}
+			else if (userGivenOK == 20) {
+				runAltForecast = stoi(dataName);
+			}
 			else if ((problTyp == 3 || problTyp == 4) && i == 3) {
 				node = char_to_int(argv[3]);
 			}
@@ -640,8 +644,16 @@ int main(int argc, char* argv[])
 
 		printf("Calling OptiNav with input '%s' and output '%s'\n", inputPath.c_str(), outputPath.c_str());
 		auto tid0 = std::chrono::high_resolution_clock::now();
-		if (inputPath != "-")
-			voyageOpt(inputPath, outputPath);
+		if (inputPath != "-") {
+			if (runAltForecast == 0)
+				voyageOpt(inputPath, outputPath);
+			else {
+				//if (runAltForecast > 0)
+				voyageOpt_fixPartSol(inputPath, outputPath);
+				//else
+				//	voyageEval_fixSol(inputPath, outputPath);
+			}
+		}
 
 		auto tid1 = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;

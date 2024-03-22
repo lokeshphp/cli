@@ -50,8 +50,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	}
 	if (maxCost > 0) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-		//if (model->Dijkstra.FAKTOR_NATVERK > 1e10)
-		model->Dijkstra.FAKTOR_NATVERK = 10000;
+		if (model->Dijkstra.FAKTOR_NATVERK > 1e10)
+			model->Dijkstra.FAKTOR_NATVERK = 1e10; // 0000;
 	}
 
 	//errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
@@ -100,11 +100,12 @@ int SattUppDijkstraNatverk3(strModel* model) {
 		FILE* pek = fopen("checkDijkst4.txt", "w");
 		for (int i = 0; i < model->nNoder; i++) {
 			for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
-				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
+				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d speed %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
 					model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel,
 					model->arc[model->Noder[i].outArcNr[i1]].fromTime, model->arc[model->Noder[i].outArcNr[i1]].fromPointNr,
 					model->arc[model->Noder[i].outArcNr[i1]].toLevel, model->arc[model->Noder[i].outArcNr[i1]].toTime,
-					model->arc[model->Noder[i].outArcNr[i1]].toPointNr, model->Noder[i].UtNodCost[i1]);
+					model->arc[model->Noder[i].outArcNr[i1]].toPointNr, 
+					model->arc[model->Noder[i].outArcNr[i1]].speedSetting, model->Noder[i].UtNodCost[i1]);
 			}
 		}
 		fclose(pek);

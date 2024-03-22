@@ -11,7 +11,7 @@
 extern strModel model;
 extern std::string resultPath;
 extern int SKRIV_UT_NOTHING;
-double DIST_SPLIT = 250.0;
+double DIST_SPLIT = 100.0; // 250.0;
 
 int nMAX_ITER = 3;
 int nMAX_ADD_NODES;
@@ -110,11 +110,11 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		model.nExtraNoGoAreas = pos;
 	}
 	else {
-		model.nExtraNoGoAreas = 1;
+		model.nExtraNoGoAreas = 0; // 1;
 		model.extraNoGoArea = (strExtraNoGo*)malloc((model.nExtraNoGoAreas + 1) * sizeof(strExtraNoGo));
 		pos = 0;
 		nAllocSoft = 0;
-		for (int ii = 0; ii < 1; ii++){
+		for (int ii = 0; ii < model.nExtraNoGoAreas; ii++){ // obs not added as default anymore
 			model.extraNoGoArea[pos].areaID = str_alloc_cpy("HRA");
 			posBase = findAreaIDpos_inBase(model.extraNoGoArea[pos].areaID);
 			if (posBase < 0) {
@@ -2505,7 +2505,7 @@ double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, doub
 		else
 			kvotBad2 = 0;
 
-		costKvot = (1 + kvotBad0 + 1000 * (kvotBad + kvotBadExtra) + 100000 * kvotBad2);
+		costKvot = (1 + 2 * kvotBad0 + 1000 * (kvotBad + kvotBadExtra) + 100000 * kvotBad2);
 	}
 	else
 		costKvot = 1.0;
@@ -4187,7 +4187,7 @@ double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPo
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs == 600202)
+	if (model.nArcs == 301242)
 		model.nArcs = model.nArcs;
 
 	if (direction == -1) { // in to tss
@@ -4271,7 +4271,7 @@ double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
 		kvotCost = model.autoPath[path2].kvotCost;
 	else
 		kvotCost = model.autoPath[path1].kvotCost;
-	if (model.nArcs == 108942)
+	if (model.nArcs == 301242)
 		path1 = path1;
 	//if (model.autoPath[path2].type == 0)
 	//	kvotCost = 0.01;
@@ -4287,7 +4287,7 @@ double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
 	x1 = model.autoPath[path1].nodCoord_x[posPath1];
 	y2 = model.autoPath[path2].nodCoord_y[posPath2];
 	x2 = model.autoPath[path2].nodCoord_x[posPath2];
-	if (model.nArcs == 83502 || model.nArcs == 83501)
+	if (model.nArcs == 320005)
 		path1 = path1;
 	cost = evalCostArc(y1, x1, y2, x2, &dist);
 	model.arc[model.nArcs].distance = dist;
@@ -6025,7 +6025,7 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 
 	fclose(filpekG);
 	if (SKRIV_UT_NOTHING == 0) {
-		printf("testing\n");
+		//printf("testing\n");
 		fclose(filPek2);
 		if (altRutt == model.paramsAutoRoute.nAltRutter - 1)
 			fprintf(filpekG2, "\n]}\n");
@@ -6492,7 +6492,7 @@ int modifyCostArcs(double costDiff, double costTot, int nElement, int* arcs, int
 		if (i == nElement - 2)
 			costDelta = costDiff - costFix;
 
-		if (cost + costDelta < 1.0) {
+		if (cost + costDelta < 0.01){ // 1.0) {
 			printf("ERROR! can't decrease the arccost this much... to %.3lf from %.3lf. I skip this one\n", cost + costDelta, cost);
 		}
 		else {
@@ -6540,7 +6540,7 @@ int addArcsAroundSolution2()
 
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 		{
-		if (iPos == 20)
+		if (iPos == 248)
 			iPos = iPos;
 		if (iPos >= model.nBVArcs - 3)
 			iPos = iPos;
@@ -6630,7 +6630,7 @@ int addArcsAroundSolution2()
 				modCost_nod[posNu++] = addedNod1b;
 				modCost_nod[posNu++] = nod2;
 				costTot += cost2;
-				if (abs(costTot - model.arc[arcNr].totCost) > 0.00001) {
+				if (abs(costTot - model.arc[arcNr].totCost) > 0.00001 && costTot < 2 * model.arc[arcNr].totCost) {
 					costDiff = model.arc[arcNr].totCost - costTot;
 					modifyCostArcs(costDiff, costTot, posNu, modCost_arc, modCost_nod);
 					//if (addedNodMitt1 < 0) {
@@ -6664,6 +6664,8 @@ int addArcsAroundSolution2()
 			x1 = x2;
 			y2 = model.autoPath[pathBas + iPos + 1].nodCoord_y[i - addedNod2a + 1];
 			x2 = model.autoPath[pathBas + iPos + 1].nodCoord_x[i - addedNod2a + 1];
+			if (model.nArcs == 301242)
+				model.nArcs = model.nArcs;
 			cost = evalCostArc(y1, x1, y2, x2, &dist);
 			addUtNodToNod(i, i + 1, cost);
 			cost2 = addAutoArcSmallPath(pathBas + iPos + 1, i - addedNod2a + 1, i - addedNod2a, -1, -1, -1, dist, -1, cost);
@@ -6685,7 +6687,7 @@ int addArcsAroundSolution2()
 		modCost_nod[posNu++] = addedNod2b;
 		modCost_nod[posNu++] = nod3;
 		costTot += cost2;
-		if (abs(costTot - model.arc[arcNrNext].totCost) > 0.00001) {
+		if (abs(costTot - model.arc[arcNrNext].totCost) > 0.00001 && costTot < 2 * model.arc[arcNrNext].totCost) {
 			costDiff = model.arc[arcNrNext].totCost - costTot;// +0.001 * posNu;
 			modifyCostArcs(costDiff, costTot, posNu, modCost_arc, modCost_nod);
 			//if (addedNodMitt2 < 0) {
