@@ -8718,8 +8718,8 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 			// sets the bastLevel to -1 if the direction is completely wrong
 		}
 		model.network.channel[cNr].bastStartLevel = bastLevel;
-		if (model.network.channel[cNr].followExactly == 1)
-			model.network.physicalLev[bastLevel].followChannelExactly = 1;
+		//if (model.network.channel[cNr].followExactly == 1)
+		//	model.network.physicalLev[bastLevel].followChannelExactly = 1;
 
 		bastDist = 1e20;
 		for (i = -1; i < model.network.physicalLev[bastLevel].npreferredPathPoints; i++) {
@@ -8804,6 +8804,9 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 			if (bastPos < model.network.physicalLev[bastLevel].npreferredPathPoints - 1)
 				bastPos++;
 			model.network.channel[cNr].preferredPathPoint_posConnectFrom = bastPos;
+
+			if(model.network.channel[cNr].bastStartLevel >= 0 && model.network.channel[cNr].followExactly == 1)
+				model.network.physicalLev[model.network.channel[cNr].bastStartLevel].followChannelExactly = 1;
 		}
 		else {
 			model.network.channel[cNr].preferredPathPoint_posConnectFrom = -1;
@@ -11585,7 +11588,7 @@ int loadChannelsFromInfile(json data)
 			if (!dataT["Eca_area"].is_null())
 				model.network.channel[pos].ECA_type = dataT["Eca_area"];
 			else {
-				errlog("ERROR! No 'Eca_area' given for a corridor. I set it to -1, to be determined by the ECA map\n");
+				errlog("OBS! No 'Eca_area' given for a corridor. I set it to -1, to be determined by the ECA map\n");
 				model.network.channel[pos].ECA_type = -1;
 			}
 			if (!dataT["followExactly"].is_null())
@@ -19807,6 +19810,8 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 	int nChangeFactor;
 
 	checkNextLevel = 0;
+	if (thisLevel == 34 && nextLevel == thisLevel + 1)
+		thisLevel = thisLevel;
 	if (nextLevel > 0) { // next physical level
 		if (nextLevel == 20)
 			nextLevel = nextLevel;
@@ -20136,7 +20141,7 @@ int addArcsToNetwork()
 			i = i;
 		try_addPhysicalArcsFromChannel(i);
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			if (i == 15 && i1 == 23)
+			if (i == 34 && i1 == 23)
 				i = i;
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
@@ -29605,6 +29610,8 @@ int createTimeArcs(int runAlt)
 				continue; // inga tidsbagar till denna punkt
 			if (i1 == 24)
 				i1 = i1;
+			if (i == 34)
+				i = i;
 
 			if (i == model.network.nPhysicalLevels - 2 && i1 == model.params.preferredPathOrtoPos[i])
 				i = i;
