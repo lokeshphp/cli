@@ -501,9 +501,11 @@ int setupNodesArcsNoTime_delay() {
 				model.arc[arcNr].fuel_eca = 0;
 				model.arc[arcNr].fuel_noEca = 0;
 				model.arc[arcNr].safetyHurricane = 0;
+				model.arc[arcNr].dynamicStability = 0;
 				model.arc[arcNr].bowSlam = 0;
 				model.arc[arcNr].greenWater = 0;
-				model.arc[arcNr].dynamicStability = 0;
+				model.arc[arcNr].rolling= 0;
+				model.arc[arcNr].surfRiding = 0;
 				//model.arc[arcNr].safetyBowSlam = 0;
 				//model.arc[arcNr].safetyGreenWater = 0;
 				//model.arc[arcNr].safetyDynStability = 0;
@@ -541,6 +543,7 @@ int loadStorms_delayed(int year) {
 	std::ifstream fil;
 	int manadNu;
 
+	model.nameTmp = (char*)malloc(256 * sizeof(char));
 
 	if (model.delay.stormsYear[year] == NULL) {
 		manadNu = model.delay.delayed_monthNr[0];
@@ -555,7 +558,6 @@ int loadStorms_delayed(int year) {
 			fil >> data;
 
 			model.nAllocStorms = data.size();
-			model.nStorms = 0;
 			model.storms = (strStorm*)malloc2(model.nAllocStorms * sizeof(strStorm));
 
 			for (auto it = data.begin(); it != data.end(); ++it) {
@@ -1169,10 +1171,10 @@ long long make_gmtime_fromGivenDate_delay(int yearPos, strParams* params) {
 	params->startHour = tmBas.tm_hour;
 	params->startMinute = tmBas.tm_min;
 
-#ifdef WIN32
+#ifdef _WIN32
 	time_t rawtime = _mkgmtime(&tmBas);
 #endif
-#ifndef WIN32
+#ifndef _WIN32
 	time_t rawtime = timegm(&tmBas);
 #endif
 	//cout << "rawtime " << rawtime << "\n";
@@ -1818,8 +1820,8 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 				forsta = 0;
 				fixPositionString_latLon(model.storms[i].feature[model.storms[i].nFeatures - 1].lat,
 					model.storms[i].feature[model.storms[i].nFeatures - 1].lon, startTime);
-				fprintf(filpekG, "  {\"stormID\":%d, \"STORMNAME\":\"%s\", \"CPA_nm\": %.1lf, \"latestPositionKnown\":\"%s\"}\n",
-					model.storms[i].stormNr, model.storms[i].stormName, model.storms[i].closestPointToRoute / model.params.knots_to_km,
+				fprintf(filpekG, "  {\"stormID\":\"%s\", \"STORMNAME\":\"%s\", \"CPA_nm\": %.1lf, \"latestPositionKnown\":\"%s\"}\n",
+					model.storms[i].stormID, model.storms[i].stormName, model.storms[i].closestPointToRoute / model.params.knots_to_km,
 					startTime);
 				nStormsPath++;
 			}
@@ -1983,6 +1985,12 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		}
 		model.Dijkstra.nodes = NULL;
 
+		model.waypointResult.dateUTC = (char*)malloc(256 * sizeof(char));
+		model.waypointResult.full_Date = (char*)malloc(256 * sizeof(char));
+		model.waypointResult.fixPositionString_latlon = (char*)malloc(256 * sizeof(char));
+		model.waypointResult.windDirReal_letters = (char*)malloc(256 * sizeof(char));
+		model.waypointResult.waveDir_letters = (char*)malloc(256 * sizeof(char));
+
 		//model.params.preferredPathUseChannelSpeed = (double*)malloc2(model.network.nPhysicalLevels * sizeof(double));
 		//model.params.preferredPathUseChannelConsumption = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
 		//for (int i = 0; i < model.network.nPhysicalLevels; i++) {
@@ -2083,7 +2091,7 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 		model.network.channel[i].nTimeIntervals[1] = 0;
 	}
 
-#ifdef WIN32
+#ifdef _WIN32
 	std::chrono::steady_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3d, tt;
 #else
 	std::chrono::system_clock::time_point tid1, tid2, tid3, tid4, tid3b, tid3c, tid3d, tt;
@@ -2882,7 +2890,7 @@ int generateDelayedFactors_old(std::string inputPath, int node, int manad)
 				nod2 = model.nNoder - 1;
 				bool Reached;
 
-#ifdef WIN32
+#ifdef _WIN32
 				//sprintf(namn, "%s/checkArcsInSolution.txt", model.params.indataPath.c_str());
 				//FILE* filpek = fopen(namn, "w");
 				//fprintf(filpek, "arcNr\tsSplit\tnodNr1\tnod1UtPos\tnodNr2\tfromLevel\tfromPointNr\tfromTimeInterval\ttoLevel\ttoPointNr\ttoTimeInterval\ttotCost\t"

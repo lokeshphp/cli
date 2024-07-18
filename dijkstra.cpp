@@ -100,6 +100,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 		FILE* pek = fopen("checkDijkst4.txt", "w");
 		for (int i = 0; i < model->nNoder; i++) {
 			for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
+				if (model->Noder[i].outArcNr[i1] == 6)
+					i = i;
 				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d speed %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
 					model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel,
 					model->arc[model->Noder[i].outArcNr[i1]].fromTime, model->arc[model->Noder[i].outArcNr[i1]].fromPointNr,
@@ -737,6 +739,13 @@ int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached) {
 }
 
 
+long long getCostFromDijkstra(strModel* model, int nod) {
+	Node* source;
+	source = model->Dijkstra.nodes -
+		model->Dijkstra.node_min + nod;
+	return source->dist;
+}
+
 double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, long long* Cost) {
 	int i, i1, nNoder = 0, Nod1, Nod2, ArcPos, ArcNr, NodNu;
 	int i11, VerklBage, ArcNr2;
@@ -796,8 +805,8 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 				dist += model->arc[model->BVArc[i]].distance;
 				TotCost += model->arc[model->BVArc[i]].totCost;
 				if (model->filpek != NULL)
-					fprintf(model->filpek, "pos %d arcNr %d costDijkstra %.3lf totCost %.3lf\n", i, model->BVArc[i], model->arc[model->BVArc[i]].totCost,
-						TotCost);
+					fprintf(model->filpek, "pos %d arcNr %d costDijkstra %.3lf totCost %.3lf dist %lf\n", i, model->BVArc[i], model->arc[model->BVArc[i]].totCost,
+						TotCost, model->arc[model->BVArc[i]].distance);
 				//errlog("pos %d arcNr %d dist %.2lf totDist %.2lf cost %.2lf totCost %I64d\n", i, model->BVArc[i], 
 				//	model->arc[model->BVArc[i]].distance, dist,
 				//	model->arc[model->BVArc[i]].totCost, TotCost);

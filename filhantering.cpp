@@ -885,7 +885,8 @@ int errlog0(const char* format, ...)
 
 	FILE* log;
 
-	log = fopen(LOGFILE.c_str(), "a+");
+	std::string namn = resultPath + "/" + LOGFILE; // "/logfile.txt";
+	log = fopen(namn.c_str(), "a+");
 
 	if (log == NULL)
 		return -1;
@@ -929,8 +930,10 @@ int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode)
 
 
 	strcpy(fil2, filnamnUt);
-	strcat(fil2, ".");
-	strcat(fil2, filExt);
+	if (strcmp(filExt, "-") != 0) {
+		strcat(fil2, ".");
+		strcat(fil2, filExt);
+	}
 	FilIn = fopen(filenamnIn, "r");
 	if (FilIn != NULL) {
 		FilUt = fopen(fil2, mode);

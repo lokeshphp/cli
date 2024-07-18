@@ -244,153 +244,6 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	return 0;
 }
 
-int loadFileParams_autoRoute(strParamsAutoRoute* params)
-{ // not used...
-	int i, closestI, pos2, minLon, maxLon;
-	double xValOld, yValOld, last_x = -999, worstDegree, maxWind, diffI, diffNu;
-	double fuelMain, fuelAux, minLat;
-
-
-	std::ifstream fil;
-	char* namn;
-	namn = (char*)malloc2(256 * sizeof(char));
-
-	sprintf(namn, "%s/file_paramsAutoRoute.json", model.params.indataPath.c_str());
-	errlog("trying to open %s\n", namn);
-	if (!(check_file_exist(namn))) {
-		postRequest(std::string(namn) + " does not exist but given as input data to OptiNav-autoRoute.I quit\n", 1);
-	}
-	printf("opens %s\n", namn);
-	fil.open(namn);
-
-	json data, dataGeo, dataGeo2, dataFeature, dataProp, dataGeo3, dataCoord;
-	json dataIt, dataIt2, dataIt3;
-	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase, i1;
-	double xVal, yVal;
-	try {
-		fil >> data;
-	}
-	catch (...) {
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav-autoRoute again.", 1);
-	}
-
-	//if (!data["eca_penalty"].is_null())
-	//	params->eca_penalty = data["eca_penalty"];
-	//else {
-	//	params->eca_penalty = 2.0;
-	//}
-	//if (params->usePenalty_ECA == 0)
-	//	params->eca_penalty = 0.0;
-
-	if (!data["altRouteZones"].is_null())
-		params->zonesFileName = data["altRouteZones"];
-	else {
-		postRequest("ERROR! No altRouteZones in input file, no alternative routes will be used.", 0);
-		params->zonesFileName = "";
-	}
-	if (!data["zoneConnections"].is_null())
-		params->zoneConnectionsFileName = data["zoneConnections"];
-	else {
-		postRequest("ERROR! No zoneConnections in input file, no alternative routes will be used.", 0);
-		params->zoneConnectionsFileName = "";
-	}
-
-	if (!data["searoutePathFile"].is_null())
-		params->searoutePathsName = data["searoutePathFile"];
-	else {
-		postRequest("ERROR! No searoutePaths, they must exist when running autoRoute. I quit!", 1);
-	}
-
-	if (!data["mapAutoRoutePhysicalBFileName"].is_null()) {
-		params->mapAutoRoutePhysicalBFileName = data["mapAutoRoutePhysicalBFileName"];
-	}
-	else {
-		postRequest("ERROR! No field mapAutoRoutePhysicalBFileName in the autoRoute input file. It must exists. I quit!", 1);
-	}
-	if (!data["mapAutoRoutePhysicalAFileName"].is_null()) {
-		params->mapAutoRoutePhysicalAFileName = data["mapAutoRoutePhysicalAFileName"];
-	}
-	else {
-		postRequest("ERROR! No field mapAutoRoutePhysicalAFileName in the autoRoute input file. It must exists. I quit!", 1);
-	}
-	if (!data["autoRoute_tss"].is_null()) {
-		params->tssName = data["autoRoute_tss"];
-	}
-	else {
-		postRequest("ERROR! No field autoRoute_tss in the autoRoute input file. I use no TSS.", 0);
-		params->tssName = "-";
-	}
-	if (!data["autoRoute_corridors"].is_null()) {
-		params->corridorsName = data["autoRoute_corridors"];
-	}
-	else {
-		postRequest("ERROR! No field autoRoute_corridors in the autoRoute input file. I use no corridors.", 0);
-		params->corridorsName = "-";
-	}
-
-	//if (!data["usePenalty_ECA"].is_null()) {
-	//	params->usePenalty_ECA = data["usePenalty_ECA"];
-	//	if (params->usePenalty_ECA < 0 || params->usePenalty_ECA > 1) {
-	//		postRequest("ERROR! Wrong value of the field usePenalty_ECA. It must be 0 or 1 but is " + std::to_string(params->usePenalty_ECA) + ".I use 1.", 0);
-	//		params->usePenalty_ECA = 1;
-	//	}
-	//}
-	//else {
-	//	params->usePenalty_ECA = 1;
-	//}
-
-	model.paramsAutoRoute.minLat_lonIndex = (double*)malloc(360 * sizeof(double));
-	for (i1 = 0; i1 < 360; i1++)
-		model.paramsAutoRoute.minLat_lonIndex[0] = -90;
-	if (!data["limitSouth"].is_null()) {
-		json dataExtra = data["limitSouth"];
-		pos = 0;
-		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
-			json dataNu = it.value();
-			minLat = dataNu["minLat"];
-			minLon = roundDown(dataNu["minLon"]) + 180;
-			maxLon = roundDown(dataNu["maxLon"]) + 180;
-			if (minLon < 0)
-				minLon = 0;
-			if (maxLon > 359)
-				maxLon = 359;
-			for (i1 = minLon; i1 <= maxLon; i1++) {
-				model.paramsAutoRoute.minLat_lonIndex[i1] = minLat;
-			}
-			pos++;
-		}
-	}
-
-	std::string namnString;
-	if (!data["optionalExtraNoGoAreas"].is_null()) {
-		json dataExtra = data["optionalExtraNoGoAreas"];
-		model.nExtraNoGoAreasBase = dataExtra.size();
-		model.extraNoGoAreaBase = (strExtraNoGoBase*)malloc(model.nExtraNoGoAreasBase * sizeof(strExtraNoGoBase));
-		pos = 0;
-		for (auto it = dataExtra.begin(); it != dataExtra.end(); ++it) {
-			json dataNu = it.value();
-			namnString = dataNu["noGoAreaID"];
-			model.extraNoGoAreaBase[pos].areaID = str_alloc_cpy(namnString.c_str());
-			namnString = dataNu["fileNameA"];
-			model.extraNoGoAreaBase[pos].fileNameA = str_alloc_cpy(namnString.c_str());
-			namnString = dataNu["fileNameB"];
-			model.extraNoGoAreaBase[pos].fileNameB = str_alloc_cpy(namnString.c_str());
-			if (!dataNu["extraCostFactor"].is_null())
-				model.extraNoGoAreaBase[pos].extraCostFactor = dataNu["extraCostFactor"];
-			else {
-				model.extraNoGoAreaBase[pos].extraCostFactor = 2.0;
-				errlog("OBS! No extraCostFactor given for %s, I set it to %.2lf\n", namnString.c_str(), model.extraNoGoAreaBase[pos].extraCostFactor);
-			}
-
-			pos++;
-		}
-	}
-
-	fil.close();
-
-	return 0;
-}
-
 int loadFileParams_feasibilityAuto(strParamsAutoRoute* params)
 {
 	int i, closestI, pos2, minLon, maxLon;
@@ -498,12 +351,18 @@ int loadFileParams_feasibilityAuto(strParamsAutoRoute* params)
 		postRequest("ERROR! No field tss file_paramsFeasibility.json. I use no TSS.", 0);
 		params->tssName = "-";
 	}
-	if (!data["autoRoute_corridors"].is_null()) {
-		params->corridorsName = data["autoRoute_corridors"];
+	if (!data["autoRoute_corridorsNew"].is_null()) {
+		params->corridorsNameNew = data["autoRoute_corridorsNew"];
 	}
 	else {
-		postRequest("ERROR! No field autoRoute_corridors in file_paramsFeasibility.json. I use no corridors.", 0);
-		params->corridorsName = "-";
+		params->corridorsNameNew = "-";
+		if (!data["autoRoute_corridors"].is_null()) {
+			params->corridorsName = data["autoRoute_corridors"];
+		}
+		else {
+			postRequest("ERROR! No field autoRoute_corridors in file_paramsFeasibility.json. I use no corridors.", 0);
+			params->corridorsName = "-";
+		}
 	}
 
 	//if (!data["usePenalty_ECA"].is_null()) {
@@ -1091,7 +950,7 @@ int autoCorridor_create_oppositeDirection(int nAutoCorridors) {
 	return 0;
 }
 
-int load_autoCorridors()
+int load_autoCorridorsOld()
 {
 	std::ifstream fil;
 	char* namn;
@@ -1102,7 +961,7 @@ int load_autoCorridors()
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsName.c_str());
 	errlog("trying to open %s\n", namn);
 	if (!(check_file_exist(namn))) {
-		postRequest(std::string(namn) + " does not exist but given in input data as the corridors to load in OptiNav-autoRoute.I continue without corridors\n", 0);
+		postRequest(std::string(namn) + " does not exist but given in input data as the corridors to load in OptiNav-autoRoute. I continue without corridors\n", 0);
 		model.nAutoCorridors = 0;
 		return 0;
 	}
@@ -1193,6 +1052,136 @@ int load_autoCorridors()
 			}
 			else
 				kvotCost = default_kvotCost;
+
+			if (oneWay == 0 || useCorridor == 1) {
+				if (useCorridor == 2)
+					autoCorridor_create_oppositeDirection(nAutoCorridors);
+				model.autoCorridors[nAutoCorridors].kvotCost = kvotCost;
+				nAutoCorridors++;
+			}
+			else {
+				free(model.autoCorridors[nAutoCorridors].xCoord);
+				free(model.autoCorridors[nAutoCorridors].yCoord);
+			}
+		}
+		else {
+			free(model.autoCorridors[nAutoCorridors].xCoord);
+			free(model.autoCorridors[nAutoCorridors].yCoord);
+		}
+	}
+	model.nAutoCorridors = nAutoCorridors;
+	free(namn);
+
+	return 0;
+}
+
+int load_autoCorridors(int alt)
+{
+	std::ifstream fil;
+	char* namn;
+	std::string namnStr;
+	namn = (char*)malloc2(256 * sizeof(char));
+	double kvotCost, default_kvotCost = 0.5;
+	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
+	if(alt == 0)
+		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
+	else
+		sprintf(namn, "%s/tmp_corridors.json", model.params.indataPath.c_str());
+	errlog("trying to open %s\n", namn);
+	if (!(check_file_exist(namn))) {
+		postRequest(std::string(namn) + " does not exist but given in input data as the corridors to load in OptiNav-autoRoute. Did an update of the corridor api fail? I continue without corridors\n", 0);
+		model.nAutoCorridors = 0;
+		return 0;
+	}
+	printf("opens %s\n", namn);
+	fil.open(namn);
+
+	int nAutoCorridors, pos2, useCorridor;
+	json data, geom, coords, dataIt2, prop;
+	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, oneWay;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid. I continue without corridors.", 0);
+		fil.close();
+		model.nAutoCorridors = 0;
+		return 0;
+	}
+	fil.close();
+
+	if (data["Data"].is_null()) {
+		postRequest("ERROR! no data in corridors file. I continue without corridors.", 0);
+		model.nAutoCorridors = 0;
+		return 0;
+	}
+	json data2 = data["Data"];
+
+	nAlloc = 2 * data2.size();
+	model.autoCorridors = (strTss*)malloc(nAlloc * sizeof(strTss));
+	pos = 0;
+	nAutoCorridors = 0;
+	for (auto it = data2.begin(); it != data2.end(); ++it) {
+		pos++;
+		json dataNu = it.value();
+		if (dataNu["geometry"].is_null()) {
+			errlog("ERROR! corridor %d do not have a geometry. I skip this one\n", pos);
+			continue;
+		}
+		if (dataNu["coordinates"].is_null()) {
+			errlog("ERROR! corridor %d has geometry but no coordinates. I skip this one\n", pos);
+			continue;
+		}
+		coords = dataNu["coordinates"];
+
+		model.autoCorridors[nAutoCorridors].nCoords = coords.size();
+		model.autoCorridors[nAutoCorridors].xCoord = (double*)malloc(model.autoCorridors[nAutoCorridors].nCoords * sizeof(double));
+		model.autoCorridors[nAutoCorridors].yCoord = (double*)malloc(model.autoCorridors[nAutoCorridors].nCoords * sizeof(double));
+		pos2 = 0;
+		for (auto it2 = coords.begin(); it2 != coords.end(); ++it2) {
+			dataIt2 = it2.value();
+			i2 = 0;
+			for (auto it3 = dataIt2.begin(); it3 != dataIt2.end(); ++it3) {
+				if (i2 == 0)
+					model.autoCorridors[nAutoCorridors].xCoord[pos2] = it3.value();
+				else
+					model.autoCorridors[nAutoCorridors].yCoord[pos2] = it3.value();
+				i2++;
+			}
+			pos2++;
+		}
+		model.autoCorridors[nAutoCorridors].nCoords = pos2;
+
+		if (pos == 6)
+			pos = pos;
+		if (abs(model.autoCorridors[nAutoCorridors].xCoord[0] - 11.3) < 0.1 && abs(model.autoCorridors[nAutoCorridors].yCoord[0] - 37.35) < 0.1)
+			pos = pos;
+		if (alt == 0)
+			useCorridor = checkIfPathInUsedCells(&(model.autoCorridors[nAutoCorridors]), 1);
+		else
+			useCorridor = 1;
+
+		if (useCorridor > 0) { // 1 forward, 2 backwards, 3 both - not used...
+			oneWay = 1;
+			//if (!(dataNu["properties"].is_null())) {
+			//	prop = dataNu["properties"];
+			//	if (!(prop["kvotCost"].is_null()))
+			//		kvotCost = prop["kvotCost"];
+			//	else
+			//		kvotCost = default_kvotCost;
+			//	if (!(prop["oneWay"].is_null())) {
+			//		if (prop["oneWay"] == "yes")
+			//			oneWay = 1;
+			//		else {
+			//			if (prop["oneWay"] != "no") {
+			//				namnStr = prop["oneWay"];
+			//				errlog("ERROR! Corridor has oneWay = %s, must be 'yes' or 'no'\n", namnStr.c_str());
+			//			}
+			//		}
+			//	}
+			//}
+			//else
+			kvotCost = default_kvotCost;
 
 			if (oneWay == 0 || useCorridor == 1) {
 				if(useCorridor == 2)
@@ -4187,7 +4176,7 @@ double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPo
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
 	}
 
-	if (model.nArcs == 301242)
+	if (model.nArcs == 47877)
 		model.nArcs = model.nArcs;
 
 	if (direction == -1) { // in to tss
@@ -4890,7 +4879,8 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 
 
 		costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y, x);
-		if (costKvot < 2.001 || model.autoPath[pathNr].type >= 10) { // only add allowed arcs
+		if (costKvot < 2.001 || model.autoPath[pathNr].type >= 10 ||
+			(costKvot < 3.001 && model.autoPath[pathNr].type == 1)) { // only add allowed arcs
 			dist = estimateLargeCircleDistance_km(y1, x1, y, x);
 			cost = dist * costKvot;
 
@@ -6039,6 +6029,25 @@ int writeSolutionToJson_autoRoute(std::string filename, int iter, int altRutt)
 			fclose(filpekG3);
 		}
 	}
+
+	return 0;
+}
+
+int writeErrorSolutionToJson_autoRoute(std::string filename) {
+	FILE* filpekG;
+	char* namn;
+	namn = (char*)malloc2(256 * sizeof(char));
+
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), filename.c_str());
+	filpekG = fopen(filename.c_str(), "w");
+	if (filpekG == NULL)
+	{
+		printf("Faile to open file %s for writing.\n", namn);
+		errlog("Faile to open file %s for writing.\n", namn);
+		postRequest("Faile to open file " + std::string(namn) + " for writing.", 1);
+	}
+	fprintf(filpekG, "{\n\t\"errorMessage\":\"no path was found. Is the start or end coordinate too far away from the sea?\"\n}\n");
+	fclose(filpekG);
 
 	return 0;
 }
@@ -7694,8 +7703,12 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 		
 		if (model.paramsAutoRoute.tssName != "-")
 			load_tss();
-		if(model.paramsAutoRoute.corridorsName != "-")
-			load_autoCorridors();
+		if (model.paramsAutoRoute.corridorsNameNew != "-")
+			load_autoCorridors(0);
+		else {
+			if (model.paramsAutoRoute.corridorsName != "-")
+				load_autoCorridorsOld();
+		}
 		if (SKRIV_UT_NOTHING == 0)
 			save_tss_geojson(ii0);
 		addArcs_tss();
@@ -7753,6 +7766,11 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			else {
 				errlog("ERROR! Did not manage to find a route from start to finish...\n");
 				printf("\nERROR! Did not manage to find a route from start to finish...\n");
+				if (iter == nMAX_ITER - 1) {
+					writeErrorSolutionToJson_autoRoute(resultName);
+					return 0;
+
+				}
 			}
 			if (iter == 0) {
 				// saveGoodCells();
@@ -7761,8 +7779,8 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			}
 			if (iter == 1) {
 				addArcsAroundSolution2();
-				//writeAllPathNodesToGeojson(model.nAutoPaths + model.nBVArcs);
-				//writeAllPathArcsToGeojson();
+				// writeAllPathNodesToGeojson(model.nAutoPaths + model.nBVArcs);
+				// writeAllPathArcsToGeojson();
 
 			}
 		}

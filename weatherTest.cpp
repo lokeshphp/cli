@@ -29,6 +29,7 @@ std::string LOGFILE;
 int SKRIV_UT_NOTHING = 2;
 int SEND_POST_REQUEST = 1;
 int runAltForecast = 0;
+int SPARA_RUN_DATA = 0;
 
 extern strModel model;
 
@@ -371,6 +372,121 @@ void getRequest() {
 */
 }
 
+/*
+struct MemoryStruct {
+	char* memory;
+	size_t size;
+};
+
+static size_t
+WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp)
+{
+	size_t realsize = size * nmemb;
+	struct MemoryStruct* mem = (struct MemoryStruct*)userp;
+
+	char* ptr = realloc(mem->memory, mem->size + realsize + 1);
+	if (!ptr) {
+		printf("not enough memory (realloc returned NULL)\n");
+		return 0;
+	}
+
+	mem->memory = ptr;
+	memcpy(&(mem->memory[mem->size]), contents, realsize);
+	mem->size += realsize;
+	mem->memory[mem->size] = 0;
+
+	return realsize;
+}
+*/
+
+int call_api_corridors(std::string resultPath) {
+	// download new corridors from api to file inputPath/tmp_corridors.json
+	
+	int retVal = 0;
+	CURL* curl;
+	CURLcode res;
+	FILE* file;
+	char* fileName;
+
+	//struct MemoryStruct chunk;
+	//chunk.memory = malloc(1);  /* grown as needed by the realloc above */
+	//chunk.size = 0;    /* no data at this point */
+
+	printf("hej1\n");
+	curl = curl_easy_init();
+	if (curl) {
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
+		curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/ivado/get-corridors");
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+		struct curl_slist* headers = NULL;
+		headers = curl_slist_append(headers, "sec-ch-ua: \"Google Chrome\";v=\"123\", \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"123\"");
+		headers = curl_slist_append(headers, "sec-ch-ua-mobile: ?0");
+		headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
+		headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+		headers = curl_slist_append(headers, "Accept: application/json, text/plain, */*");
+		headers = curl_slist_append(headers, "Referer: https://optinav-beta.tnmservices.ai/");
+		headers = curl_slist_append(headers, "sec-ch-ua-platform: \"Windows\"");
+
+
+
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+		printf("hej2\n");
+		/* send all data to this function  */
+		//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+		/* we pass our 'chunk' struct to the callback function */
+		//curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
+
+		fileName = (char*)malloc(256 * sizeof(char));
+		//sprintf(fileName, "%s/corridorsTest.txt", resultPath.c_str());
+		sprintf(fileName, "%stmp_corridors.json", resultPath.c_str());
+		printf("hej3\n");
+		file = fopen(fileName, "w");
+		printf("hej4\n");
+		printf("%s\n", "testing");
+		printf("%s\n", resultPath.c_str());
+		printf("%s\n", fileName);
+
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
+		printf("hej5\n");
+
+		res = curl_easy_perform(curl);
+		printf("hej6\n");
+
+		/* check for errors */
+		if (res != CURLE_OK) {
+			printf("curl_easy_perform() failed: %s\n",
+				curl_easy_strerror(res));
+			retVal = -1;
+		}
+		else {
+			/*
+			 * Now, our chunk.memory points to a memory block that is chunk.size
+			 * bytes big and contains the remote file.
+			 *
+			 * Do something nice with it!
+			 */
+
+			printf("file %s saved with corridors\n", fileName);
+		}
+		printf("hej7\n");
+		free(fileName);
+
+		curl_slist_free_all(headers);
+	}
+	else
+		retVal = -1;
+	printf("hej8\n");
+	curl_easy_cleanup(curl);
+	fclose(file);
+	printf("hej9\n");
+	// exit(0);
+
+	return retVal;
+}
+
 void postRequest(std::string errorMessage, int endProgram) {
 
 	if (endProgram == 1) {
@@ -609,11 +725,20 @@ int main(int argc, char* argv[])
 			auto tid0 = std::chrono::high_resolution_clock::now();
 			int returnVal = 1;
 			if (inputPath != "-") {
+				SKRIV_UT_NOTHING = 0;
+				printf("pfg innan reset_errlog\n");
+				resultPath = inputPath;
+				reset_errlog();
 
+				printf("pfg innan updateCorridors\n");
+				//printf("\n\ntesting to call the api to update corridors\n");
+				updateCorridors(inputPath);
+				//exit(0);
+
+				printf("pfg innan saveTablesToSQLite\n");
 				returnVal = saveTablesToSQLite(inputPath);
 				//returnVal = saveMapsToBinary();
 
-				SKRIV_UT_NOTHING = 0;
 				returnVal = redisSetKeys(inputPath);
 			}
 			if (returnVal != 0) {
@@ -641,6 +766,8 @@ int main(int argc, char* argv[])
 		}
 		fprintf(filpek, "{\nerror\n}\n");
 		fclose(filpek);
+
+
 
 		printf("Calling OptiNav with input '%s' and output '%s'\n", inputPath.c_str(), outputPath.c_str());
 		auto tid0 = std::chrono::high_resolution_clock::now();

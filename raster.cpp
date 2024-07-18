@@ -11,6 +11,8 @@
 // #include "gdal.h"
 
 extern int printGlobal;
+extern std::string resultPath;
+
 int checkMinnesAnvandning(int rad);
 
 int errlog(const char* format, ...);
@@ -140,12 +142,20 @@ public:
 
 	int open(const char* tiffname) {
 		filename = tiffname;
+		char* namn;
+		FILE* filNu;
 
 		// set pointer to Geotiff dataset as class member.  
 		rasterDataset = (GDALDataset*)GDALOpen(filename, GA_ReadOnly);
 		if (rasterDataset == NULL) {
 			printf("ERROR! Raster %s cannot be open.\n", tiffname);
 			errlog("ERROR! Raster %s cannot be open.\n", tiffname);
+			namn = (char*)malloc(256 * sizeof(char));
+			sprintf(namn, "%s/missingFiles.txt", resultPath.c_str());
+			filNu = fopen(namn, "a+");
+			fprintf(filNu, "ERROR! Raster %s cannot be open.\n", tiffname);
+			fclose(filNu);
+			free(namn);
 			return -1;
 			//exit(0);
 		}
