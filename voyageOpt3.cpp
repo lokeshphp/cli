@@ -1689,10 +1689,10 @@ double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu, in
 		}
 	}
 	else {
-		if (modelDelay.arc[arcDelay].toLevel < 0)
+		if (modelDelay.arc[arcDelay].toLevel < 0) {
 			waiting = model.network.channel[-modelDelay.arc[arcDelay].fromLevel - 1].waitingTime;
-		if (modelDelay.arc[arcDelay].toLevel < 0)
 			fixTime = model.network.channel[-modelDelay.arc[arcDelay].fromLevel - 1].timeThroughChannel;
+		}
 		else
 			fixTime = -1;
 		if (fixTime < -0.5)
@@ -1724,10 +1724,10 @@ double calcNewTime_changeSpeedSetting_delay_prefPath(int arcDelay, int speedSett
 			modelDelay_prefPath.arc[arcDelay].toLevel, modelDelay_prefPath.arc[arcDelay].toPointNr, tidInt, &speedDiffCurrent, *calmWaterSpeedNy);
 	}
 	else {
-		if (modelDelay_prefPath.arc[arcDelay].toLevel < 0)
+		if (modelDelay_prefPath.arc[arcDelay].toLevel < 0) {
 			waiting = model.network.channel[-modelDelay_prefPath.arc[arcDelay].fromLevel - 1].waitingTime;
-		if (modelDelay.arc[arcDelay].toLevel < 0)
 			fixTime = model.network.channel[-modelDelay_prefPath.arc[arcDelay].fromLevel - 1].timeThroughChannel;
+		}
 		else
 			fixTime = -1;
 		if (fixTime < -0.5)
@@ -1770,6 +1770,8 @@ int setAllSpeedAltOK_ifPossible_level(int arcDelay, int posDelay){
 			else {
 				speedLevel = model.functions.speedChannel;
 				pos = -lev1 - 1;
+				if (model.network.channel[pos].timeThroughChannel > 0)
+					return chosenSetting; // do not change the number of speed settings for this one
 			}
 		}
 		checkMinnesAnvandning(__LINE__);
@@ -7465,27 +7467,21 @@ void setupUsableSpeedSettings() {
 							model.functions.speedChannel[i1].nShip_speedSettings = 1;
 							model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
 							model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
-							model.functions.speedChannelOut[i1].nShip_speedSettings = 1;
-							model.functions.speedChannelOut[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-							model.functions.speedChannelOut[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
 						}
-						else
-							continue;
+					}
+					if (iUse == indexUnder && kvot >= 0) {
+						if (model.network.channel[i1].timeThroughChannel <= 0)
+							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
+						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
 					}
 					else {
-						if (iUse == indexUnder && kvot >= 0){
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
-						}
-						else {
+						if (model.network.channel[i1].timeThroughChannel <= 0)
 							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
-							if (iUse == maxPos) {
+						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
+						if (iUse == maxPos) {
+							if (model.network.channel[i1].timeThroughChannel <= 0)
 								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, iUse);
-								set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, iUse);
-							}
+							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, iUse);
 						}
 					}
 				}
@@ -7525,26 +7521,17 @@ void setupUsableSpeedSettings() {
 			}
 			for (i1 = 0; i1 < model.network.nChannels; i1++) {
 				if (model.network.channel[i1].timeThroughChannel > 0) {
-					if (i == 0) {
-						consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
-						speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
-						set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-						model.functions.speedChannel[i1].nShip_speedSettings = 1;
-						model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-						model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-
-						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
-						model.functions.speedChannelOut[i1].nShip_speedSettings = 1;
-						model.functions.speedChannelOut[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-						model.functions.speedChannelOut[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-					}
-					else
-						continue;
+					consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
+					speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
+					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
+					model.functions.speedChannel[i1].nShip_speedSettings = 1;
+					model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
+					model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
 				}
 				else {
 					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-					set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
 				}
+				set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
 			}
 			i++;
 
@@ -7598,19 +7585,12 @@ void setupUsableSpeedSettings() {
 								model.functions.speedChannel[i1].nShip_speedSettings = 1;
 								model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
 								model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-
-								set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, i);
-								model.functions.speedChannelOut[i1].nShip_speedSettings = 1;
-								model.functions.speedChannelOut[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-								model.functions.speedChannelOut[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
 							}
-							else
-								continue;
 						}
 						else {
 							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder);
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder);
 						}
+						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder);
 					}
 				}
 				else {
@@ -7627,19 +7607,12 @@ void setupUsableSpeedSettings() {
 								model.functions.speedChannel[i1].nShip_speedSettings = 1;
 								model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
 								model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-
-								set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, i);
-								model.functions.speedChannelOut[i1].nShip_speedSettings = 1;
-								model.functions.speedChannelOut[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-								model.functions.speedChannelOut[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
 							}
-							else
-								continue;
 						}
 						else {
 							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
 						}
+						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
 					}
 				}
 			}

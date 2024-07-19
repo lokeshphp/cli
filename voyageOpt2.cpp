@@ -2799,7 +2799,7 @@ int addPositionDataToReport(FILE* filpekG, int* posReport, int arcNr, int startS
 		arcNr = arcNr;
 	if (arcNr == 39216)
 		arcNr = arcNr;
-	if (model.arc[arcNr].fromLevel == 55)
+	if (model.arc[arcNr].fromLevel == -1)
 		arcNr = arcNr;
 
 	double calmWaterSpeed, delayFactor, timeOld = *timeExact;
@@ -15677,6 +15677,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 		pos1 = pos1;
 	if (thisLevel == 26 && pos1 == 43 && pos2 == 44)
 		pos1 = pos1;
+	if (thisLevel < 0)
+		pos1 = pos1;
 	for (i4 = 0; i4 < model.functions.nShip_speedSettingsDelay; i4++) {
 		// if (model.params.commercialAllowedVariation >= 0 && i4 >= model.functions.speedLevel[0].nShip_speedSettings)
 		//	break;
@@ -20745,6 +20747,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 
 				fuelTot_main += fuelUsage_main;
 				fuelTot_aux += fuelUsage_aux;
+				model.functions.valuesNow.forecastType += identifyForecastType(tidTot) * timeArc;
 
 				tidTot += timeArc;
 
