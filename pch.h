@@ -689,6 +689,7 @@ struct strFunkData {
 struct strValuesNow {
 	int sparaWaypointPos;
 	int sparaWaypoint;
+	double deltaArcStart;
 
 	double last_x;
 	double last_y;
@@ -1461,6 +1462,17 @@ struct strIterKaoutar {
 };
 
 struct strResults {
+	double bowSlam_notAllowed;
+	double greenWater_notAllowed;
+	double rolling_notAllowed;
+	double dynamicStability_notAllowed;
+	double surfRiding_notAllowed;
+	double maxWaveHeight_notAllowed;
+	double hurricane_insideOuterCircle;
+	double hurricane_maxCost_insideOuterCircle;
+	double hurricane_insideInnerCircle;
+	double hurricane_maxCost_insideInnerCircle;
+
 	double bowSlam_aver;
 	double bowSlam_0;
 	double bowSlam_01;

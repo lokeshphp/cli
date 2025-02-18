@@ -84,6 +84,7 @@ bool check_file_exist(char* name) {
 
 void 	initModelStatusValues() {
 	model.status.weatherHistoryOpenFile_fail = 0;
+	model.functions.valuesNow.deltaArcStart = 0;
 }
 
 std::string splitFilename(std::string namn, int alt) {
@@ -1816,7 +1817,7 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		speedSetting = setAllSpeedAltOK_ifPossible_level(arcDelay, posDelay);
 		checkMinnesAnvandning(__LINE__);
 
-		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)), &calmWaterSpeed);
+		newTime = calcNewTime_changeSpeedSetting_delay(arcDelay, speedSetting, (int)(round((timeExact + model.functions.valuesNow.deltaArcStart) / model.params.tIndexGerH)), &calmWaterSpeed);
 		fuelQualityKvot = modelDelay.arc[arcDelay].fuelQualityKvot;
 		extraAreaCostKvot = modelDelay.arc[arcDelay].extraAreaCostKvot;
 		kvotCost = modelDelay.arc[arcDelay].kvotCost;
@@ -1835,7 +1836,7 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 			return 0; // don't need all the other stuff
 		//model.arc[arcNu].speedSetting = modelDelay.arc[arcDelay].speedSetting + model.delay.changedSpeed[posDelay];
 		speedSetting = 0;
-		newTime = calcNewTime_changeSpeedSetting_delay_prefPath(arcDelay, speedSetting, (int)(round(timeExact / model.params.tIndexGerH)), &calmWaterSpeed);
+		newTime = calcNewTime_changeSpeedSetting_delay_prefPath(arcDelay, speedSetting, (int)(round((timeExact + model.functions.valuesNow.deltaArcStart) / model.params.tIndexGerH)), &calmWaterSpeed);
 
 		fuelQualityKvot = modelDelay_prefPath.arc[arcDelay].fuelQualityKvot;
 		extraAreaCostKvot = modelDelay_prefPath.arc[arcDelay].extraAreaCostKvot;
@@ -1970,6 +1971,8 @@ int determineBastSpeedDelay_routeToEnd_eta_arc(int arcNr, double tidp) {
 void addStatisticsSafety(int arcNr) {
 	double dist = model.arc[arcNr].distance / model.params.knots_to_km;
 
+	if (model.arc[arcNr].bowSlam > 0.999)
+		model.results.bowSlam_notAllowed += dist;
 	model.results.bowSlam_aver += model.arc[arcNr].bowSlam;
 	if (model.arc[arcNr].bowSlam > 0.00001) {
 		(model.results.bowSlam_0)++;// += dist;
@@ -1984,6 +1987,8 @@ void addStatisticsSafety(int arcNr) {
 		}
 	}
 
+	if (model.arc[arcNr].greenWater > 0.999)
+		model.results.greenWater_notAllowed += dist;
 	model.results.greenWater_aver += model.arc[arcNr].greenWater;
 	if (model.arc[arcNr].greenWater > 0.00001) {
 		(model.results.greenWater_0)++;
@@ -1998,6 +2003,8 @@ void addStatisticsSafety(int arcNr) {
 		}
 	}
 
+	if (model.arc[arcNr].dynamicStability > 0.999)
+		model.results.dynamicStability_notAllowed += dist;
 	model.results.dynamicStability_aver += model.arc[arcNr].dynamicStability;
 	if (model.arc[arcNr].dynamicStability > 0.00001) {
 		(model.results.dynamicStability_0)++;// += dist;
@@ -2012,6 +2019,8 @@ void addStatisticsSafety(int arcNr) {
 		}
 	}
 
+	if (model.arc[arcNr].rolling > 0.999)
+		model.results.rolling_notAllowed += dist;
 	model.results.rolling_aver += model.arc[arcNr].rolling;
 	if (model.arc[arcNr].rolling > 0.00001) {
 		(model.results.rolling_0)++;
@@ -2026,6 +2035,8 @@ void addStatisticsSafety(int arcNr) {
 		}
 	}
 
+	if (model.arc[arcNr].surfRiding > 0.999)
+		model.results.surfRiding_notAllowed += dist;
 	model.results.surfRiding_aver += model.arc[arcNr].surfRiding;
 	if (model.arc[arcNr].surfRiding > 0.00001) {
 		(model.results.surfRiding_0)++;
@@ -2043,6 +2054,22 @@ void addStatisticsSafety(int arcNr) {
 	model.results.stormValue_aver += model.arc[arcNr].safetyHurricane; // *dist;
 	if (model.arc[arcNr].safetyHurricane > model.results.worstStormValue_max)
 		model.results.worstStormValue_max = model.arc[arcNr].safetyHurricane;
+
+	if (model.arc[arcNr].safetyHurricane > 0.001) {
+		if (model.arc[arcNr].safetyHurricane > 100.001) {
+			model.results.hurricane_insideInnerCircle += dist;
+			if (model.results.hurricane_maxCost_insideInnerCircle < model.arc[arcNr].safetyHurricane)
+				model.results.hurricane_maxCost_insideInnerCircle = model.arc[arcNr].safetyHurricane;
+		}
+		else {
+			model.results.hurricane_insideOuterCircle += dist;
+			if (model.results.hurricane_maxCost_insideOuterCircle < model.arc[arcNr].safetyHurricane)
+				model.results.hurricane_maxCost_insideOuterCircle = model.arc[arcNr].safetyHurricane;
+		}
+	}
+
+	if (model.arc[arcNr].maxWaveHeight > model.functions.maxWaveHeight)
+		model.results.maxWaveHeight_notAllowed += dist;
 
 }
 
@@ -2834,9 +2861,11 @@ int check_isStraightLineFeasible(double y1, double x1, double y2, double x2)
 
 int findClosestNextPointAlongPrefPath(int cNr, int posTss, int levelPrefP, int riktning, int* levelNy, int* posPrefP) {
 	int i, i1, startP, lastLev = levelPrefP, lastPos = 0, okAngleBefore = 0;
-	double x1, y1, x, y, dist, lastDist = 1e20;
+	double x1, y1, x, y, dist, lastDist = 1e20, bastDist = 1e20;
 	double dirChannel, connectDir, diffAngle, angleKrav = M_PI * 11 / 20; // slightly more than 90 degrees
 
+
+	*levelNy = -1;
 	x = model.network.channelTmp[cNr].point_x[posTss];
 	y = model.network.channelTmp[cNr].point_y[posTss];
 	dirChannel = getDirChannelTmp(cNr, riktning);
@@ -2854,18 +2883,35 @@ int findClosestNextPointAlongPrefPath(int cNr, int posTss, int levelPrefP, int r
 				x1 = model.network.physicalLev[i].preferredPathPoint[i1].longitude().degrees();
 				y1 = model.network.physicalLev[i].preferredPathPoint[i1].latitude().degrees();
 				dist = estimateLargeCircleDistance2_km(y, x, y1, x1);
-				connectDir = atan2(y1 - y, x1 - x);
-				diffAngle = getDiff_angles(dirChannel, connectDir, riktning);
-				if (dist < 1 || dist > lastDist || (abs(diffAngle) < angleKrav && okAngleBefore == 1)) {
+				if (dist < 1) {
 					*levelNy = lastLev;
 					*posPrefP = lastPos;
 					return 0;
 				}
+				connectDir = atan2(y1 - y, x1 - x);
+				diffAngle = getDiff_angles(dirChannel, connectDir, riktning);
+				//if (dist < 1 || dist > lastDist || (abs(diffAngle) < angleKrav && okAngleBefore == 1)) {
+				//	if (dist < bastDist) {
+				//		bastDist = dist;
+				//		*levelNy = lastLev;
+				//		*posPrefP = lastPos;
+				//		if (dist < 1)
+				//			return 0;
+				//	}
+				//}
 				lastLev = i;
 				lastPos = i1;
 				lastDist = dist;
-				if (abs(diffAngle) >= angleKrav)
-					okAngleBefore = 1;
+				//if (abs(diffAngle) >= angleKrav)
+				//	okAngleBefore = 1;
+				if (abs(diffAngle) >= angleKrav && dist < bastDist) {
+					bastDist = dist;
+					*levelNy = i;
+					*posPrefP = i1;
+				}
+			}
+			if (*levelNy != -1) {
+				return 0;
 			}
 			if(i > 0)
 				startP = model.network.physicalLev[i - 1].npreferredPathPoints - 1;
@@ -2883,18 +2929,32 @@ int findClosestNextPointAlongPrefPath(int cNr, int posTss, int levelPrefP, int r
 				x1 = model.network.physicalLev[i].preferredPathPoint[i1].longitude().degrees();
 				y1 = model.network.physicalLev[i].preferredPathPoint[i1].latitude().degrees();
 				dist = estimateLargeCircleDistance2_km(y, x, y1, x1);
-				connectDir = atan2(y1 - y, x1 - x);
-				diffAngle = getDiff_angles(dirChannel, connectDir, riktning);
-				if (dist < 1 || dist > lastDist || (abs(diffAngle) < angleKrav && okAngleBefore == 1)) {
+				if (dist < 1) {
 					*levelNy = lastLev;
 					*posPrefP = lastPos;
 					return 0;
 				}
+				connectDir = atan2(y1 - y, x1 - x);
+				diffAngle = getDiff_angles(dirChannel, connectDir, riktning);
+				//if (dist < 1 || dist > lastDist || (abs(diffAngle) < angleKrav && okAngleBefore == 1)) {
+				//	bastDist = dist;
+				//	*levelNy = lastLev;
+				//	*posPrefP = lastPos;
+				//	return 0;
+				//}
 				lastLev = i;
 				lastPos = i1;
 				lastDist = dist;
-				if (abs(diffAngle) >= angleKrav)
-					okAngleBefore = 1;
+				//if (abs(diffAngle) >= angleKrav)
+				//	okAngleBefore = 1;
+				if (abs(diffAngle) >= angleKrav && dist < bastDist) {
+					bastDist = dist;
+					*levelNy = i;
+					*posPrefP = i1;
+				}
+			}
+			if (*levelNy != -1) {
+				return 0;
 			}
 			startP = 0;
 		}
@@ -5010,7 +5070,7 @@ int load_tss_optiNav()
 			pos2++;
 		}
 		model.network.nCoords = pos2;
-		if (pos == 67)
+		if (pos == 5)
 			pos = pos;
 		useTss = checkTssRightArea(&firstPoints, &lastPoints);
 		if (useTss != 0)
@@ -6366,9 +6426,10 @@ int loadSurfRidingTable(int tableNr) {
 
 	copyAddTableInfo(model.tables.tableTyp[6][tableNr].relShipSpeed, &(model.functions.surfRiding.relShipSpeed));
 	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveHeight, &(model.functions.surfRiding.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[6][tableNr].wavePeriod, &(model.functions.surfRiding.wavePeriod));
 	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveDirection, &(model.functions.surfRiding.waveDirection));
 	nAlloc = model.functions.surfRiding.relShipSpeed.nIndex * model.functions.surfRiding.waveHeight.nIndex *
-		model.functions.surfRiding.waveDirection.nIndex;
+		model.functions.surfRiding.wavePeriod.nIndex * model.functions.surfRiding.waveDirection.nIndex;
 	if (model.functions.surfRiding.tableValue != NULL)
 		free(model.functions.surfRiding.tableValue);
 	model.functions.surfRiding.tableValue = (float*)malloc2(nAlloc * sizeof(float));
@@ -6380,9 +6441,10 @@ int loadSurfRidingTable(int tableNr) {
 	antal = fscanf(filpek, "%s\t", namn);
 	antal = fscanf(filpek, "%s\t", namn);
 	antal = fscanf(filpek, "%s\t", namn);
+	antal = fscanf(filpek, "%s\t", namn);
 	free(namn);
 	for (i = 0; i < nAlloc; i++) {
-		antal = fscanf(filpek, "%lf\t%lf\t%lf\t%lf\n", &relShipSpeed, &wave, &waveDir, &varde);
+		antal = fscanf(filpek, "%lf\t%lf\t%lf\t%lf\t%lf\n", &relShipSpeed, &wave, &wavePeriod, &waveDir, &varde);
 		if (antal <= 0)
 			break;
 
@@ -6444,8 +6506,30 @@ int loadSurfRidingTable(int tableNr) {
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 
+		wavePeriodI = get_tableIndex(wavePeriod, model.functions.surfRiding.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
+		if (wavePeriodI < 0) {
+			errlog("ERROR! wavePeriod %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				model.functions.surfRiding.wavePeriod.minValue);
+			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.surfRiding.wavePeriod.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		if (wavePeriodI >= model.functions.surfRiding.wavePeriod.nIndex) {
+			errlog("ERROR! wavePeriod %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				model.functions.surfRiding.wavePeriod.maxValue);
+			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.surfRiding.wavePeriod.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+
+
 		pos = relShipSpeedI + model.functions.surfRiding.relShipSpeed.nIndex *
-			(waveDirI + model.functions.surfRiding.waveDirection.nIndex * waveI);
+			(waveDirI + model.functions.surfRiding.waveDirection.nIndex * 
+				(wavePeriodI + model.functions.surfRiding.wavePeriod.nIndex * waveI));
 		if (model.functions.surfRiding.tableValue[pos] > -9998)
 			errlog("ERROR! More than one value for surfRiding table pos %d, before %lf, now %lf. I use the later one.\n", pos,
 				model.functions.surfRiding.tableValue[pos], varde);
@@ -7073,7 +7157,7 @@ int  loadGreenWaterTable(int tableNr) {
 
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[4][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open bow slamming table file %s\n", namn);
@@ -7104,7 +7188,7 @@ int  loadGreenWaterTable(int tableNr) {
 				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[4][tableNr].fileName,
 				model.functions.greenWater.waveHeight.minValue);
 			postRequest("ERROR3! wave height " + std::to_string(waveHeight) + " given in " +
-				std::string(model.tables.tableTyp[3][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[4][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.greenWater.waveHeight.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -8109,7 +8193,7 @@ int loadVariables(int alt)
 		errlog("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist\n");
 		postRequest("ERROR! weather parameter current_uComponent not given in weather_parameters.json. It must exist", 1);
 	}
-	if (model.functions.pos_current_v == -1) {
+	if (model.functions.pos_current_v == -1){// }&& model.params.onboard != 2) { // not needed for onboard pfg 20250209
 		errlog("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist\n");
 		postRequest("ERROR! weather parameter current_vComponent not given in weather_parameters.json. It must exist", 1);
 	}

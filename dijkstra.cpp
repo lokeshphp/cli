@@ -52,6 +52,11 @@ int SattUppDijkstraNatverk3(strModel* model) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
 		if (model->Dijkstra.FAKTOR_NATVERK > 1e10)
 			model->Dijkstra.FAKTOR_NATVERK = 1e10; // 0000;
+		if (model->Dijkstra.FAKTOR_NATVERK < 1) {
+			printf("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
+			errlog("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
+			model->Dijkstra.FAKTOR_NATVERK = 1;
+		}
 	}
 
 	//errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
