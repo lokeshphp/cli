@@ -2863,7 +2863,7 @@ int addPositionDataToReport(FILE* filpekG, int* posReport, int arcNr, int startS
 	else
 		delayFactor = -1;
 
-	if (arcNr == 75635)
+	if (arcNr == 17)
 		arcNr = arcNr;
 
 	for (ii = 0; ii < nSplit; ii++) {
