@@ -11,6 +11,8 @@
 extern strModel model;
 extern std::string resultPath;
 extern int SKRIV_UT_NOTHING;
+extern int USE_KVOTCOST_CORRIDORS;
+
 double DIST_SPLIT = 100.0; // 250.0;
 
 int nMAX_ITER = 3;
@@ -830,6 +832,11 @@ int load_tss()
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.01;
+	double default_kvotMinCost = 1.0, kvotMinCost;
+	if (USE_KVOTCOST_CORRIDORS == 0) {
+		default_kvotCost = 1.0;
+		default_kvotMinCost = 0.01;
+	}
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.tssName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -913,7 +920,14 @@ int load_tss()
 				else
 					kvotCost = default_kvotCost;
 			}
+			if (USE_KVOTCOST_CORRIDORS == 0) {
+				kvotCost = 1.0;
+				kvotMinCost = kvotCost;
+			}
+			else
+				kvotMinCost = -1.0;
 			model.tss[nTss].kvotCost = kvotCost;
+			model.tss[nTss].kvotMinCost = kvotMinCost;
 			nTss++;
 		}
 		else {
@@ -957,6 +971,11 @@ int load_autoCorridorsOld()
 	std::string namnStr;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.5;
+	double default_kvotMinCost = 1.0, kvotMinCost;
+	if (USE_KVOTCOST_CORRIDORS == 0) {
+		default_kvotCost = 1.0;
+		default_kvotMinCost = 0.01;
+	}
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -1052,11 +1071,18 @@ int load_autoCorridorsOld()
 			}
 			else
 				kvotCost = default_kvotCost;
+			if (USE_KVOTCOST_CORRIDORS == 0) {
+				kvotCost = 1.0;
+				kvotMinCost = kvotCost;
+			}
+			else
+				kvotMinCost = -1.0;
 
 			if (oneWay == 0 || useCorridor == 1) {
 				if (useCorridor == 2)
 					autoCorridor_create_oppositeDirection(nAutoCorridors);
 				model.autoCorridors[nAutoCorridors].kvotCost = kvotCost;
+				model.autoCorridors[nAutoCorridors].kvotMinCost = kvotMinCost;
 				nAutoCorridors++;
 			}
 			else {
@@ -1082,6 +1108,11 @@ int load_autoCorridors(int alt)
 	std::string namnStr;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.5;
+	double default_kvotMinCost = 1.0, kvotMinCost;
+	if (USE_KVOTCOST_CORRIDORS == 0) {
+		default_kvotCost = 1.0;
+		default_kvotMinCost = 0.01;
+	}
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	if(alt == 0)
 		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
@@ -1182,11 +1213,18 @@ int load_autoCorridors(int alt)
 			//}
 			//else
 			kvotCost = default_kvotCost;
+			if (USE_KVOTCOST_CORRIDORS == 0) {
+				kvotCost = 1.0;
+				kvotMinCost = kvotCost;
+			}
+			else
+				kvotMinCost = -1.0;
 
 			if (oneWay == 0 || useCorridor == 1) {
 				if(useCorridor == 2)
 					autoCorridor_create_oppositeDirection(nAutoCorridors);
 				model.autoCorridors[nAutoCorridors].kvotCost = kvotCost;
+				model.autoCorridors[nAutoCorridors].kvotMinCost = kvotMinCost;
 				nAutoCorridors++;
 			}
 			else {
@@ -2907,6 +2945,7 @@ int addArcs_tss() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 0;
 		model.autoPath[pathNr].kvotCost = model.tss[i].kvotCost; // 0.01;
+		model.autoPath[pathNr].kvotMinCost = model.tss[i].kvotMinCost; // 0.01;
 
 		if (i == 11)
 			i = i;
@@ -2952,6 +2991,7 @@ int addArcs_corridors() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 1;
 		model.autoPath[pathNr].kvotCost = model.autoCorridors[i].kvotCost; // 0.01;
+		model.autoPath[pathNr].kvotMinCost = model.autoCorridors[i].kvotMinCost; // 0.01;
 
 		if (i == 11)
 			i = i;
@@ -2999,6 +3039,7 @@ int addArcs_corridors_noGoSoft() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 2;
 		model.autoPath[pathNr].kvotCost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist; // model.autoCorridors[i].kvotCost; // 0.01;
+		model.autoPath[pathNr].kvotMinCost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist; // model.autoCorridors[i].kvotCost; // 0.01;
 
 		firstTraff = 0;
 		for (i1 = 1; i1 < model.paramsAutoRoute.corridors_noGoSoft[i].nPkter; i1++) {
@@ -3118,8 +3159,14 @@ int addArcs_viaPaths(int ruttAlt) {
 		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 10;
-		model.autoPath[pathNr].kvotCost = 0.5;
-
+		if (USE_KVOTCOST_CORRIDORS == 1) {
+			model.autoPath[pathNr].kvotCost = 0.5;
+			model.autoPath[pathNr].kvotMinCost = -1.0;
+		}
+		else {
+			model.autoPath[pathNr].kvotCost = 1.0;
+			model.autoPath[pathNr].kvotMinCost = 0.5;
+		}
 		firstTraff = 0;
 		for (i1 = 0; i1 < model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints; i1++) {
 			x2 = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[i1];

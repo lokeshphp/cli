@@ -757,8 +757,13 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	Node* source, * sink, * newNode;
 	double TotCost = 0;
 	double dist = 0;
-	FILE* FilPek = NULL;
-	
+	FILE* FilPek = NULL, * filpek1 = NULL;
+
+	int saveArcInfoDijkstra = 0;
+	if (saveArcInfoDijkstra == 1) {
+		filpek1 = fopen("res_dijkstra.txt", "w");
+	}
+
 	source = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodA0;
 	sink = model->Dijkstra.nodes -
@@ -768,7 +773,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 		model->nBVArcs = 0;
 		return (double)(source->dist);
 	}
-	
+
 	for (newNode = sink; newNode != source; newNode = newNode->parent) {
 		// NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
 		NodNu = model->Dijkstra.sp->nodeId(newNode) + model->Dijkstra.node_min;
@@ -779,7 +784,7 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 		if (nNoder >= model->nNoder)
 			errlog("ERROR! Rundgang i uppnystningen kodrad %d\n", __LINE__);
 		model->BVtempNodOrder[nNoder] = NodNu - 1;
-		if(model->filpek != NULL)
+		if (model->filpek != NULL)
 			fprintf(model->filpek, "pos %d nodNr %d costDijkstra %I64d\n", nNoder, model->BVtempNodOrder[nNoder],
 				newNode->dist);
 		//errlog("(pos %d )n%d(p%d): c %.2lf\n", nNoder, NodNu-1, nNoder, newNode->dist / model->Dijkstra.FAKTOR_NATVERK);
@@ -815,6 +820,15 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 				//errlog("pos %d arcNr %d dist %.2lf totDist %.2lf cost %.2lf totCost %I64d\n", i, model->BVArc[i], 
 				//	model->arc[model->BVArc[i]].distance, dist,
 				//	model->arc[model->BVArc[i]].totCost, TotCost);
+				if (saveArcInfoDijkstra == 1) {
+					fprintf(filpek1, "%d\t%d\t%d\t%d\t%d\t%lf\t%lf\n", model->BVArc[i], model->arc[model->BVArc[i]].fromLevel,
+						model->arc[model->BVArc[i]].fromTime, model->arc[model->BVArc[i]].fromPointNr,
+						model->arc[model->BVArc[i]].speedSetting, model->arc[model->BVArc[i]].distance,
+						model->arc[model->BVArc[i]].totCost);
+					if (i == nNoder - 1)
+						fprintf(filpek1, "%d\t%d\t%d\t%d\t%d\t%lf\t%lf\n", -1, model->arc[model->BVArc[i]].toLevel,
+							model->arc[model->BVArc[i]].toTime, model->arc[model->BVArc[i]].toPointNr, -1, 0.0, 0.0);
+				}
 			}
 			else {
 				errlog("ERROR! Could not find the arc that connects nodes %d and %d\n", nod1, nod2);
@@ -827,6 +841,10 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	else {
 		*Cost = 9999999;
 	}
+	if (saveArcInfoDijkstra == 1) {
+		fclose(filpek1);
+	}
+
 	//checkMinnesAnvandning(__LINE__);
 
 	//int pos = 0;
@@ -841,6 +859,58 @@ double NystaUppBV_MassTest(strModel* model, int Reached, int NodA0, int NodB0, l
 	//	pos++;
 	//}
 	return dist;
+}
+
+double lasInLsngFromFil_MassTest(strModel* model, int Reached, int NodA0, int NodB0, long long* Cost) {
+	int i, i1, nNoder = 0, Nod1, Nod2, ArcPos, ArcNr, NodNu;
+	int i11, VerklBage, ArcNr2;
+	Node* source, * sink, * newNode;
+	double TotCost = 0;
+	double dist = 0;
+	FILE* FilPek = NULL, * filpek1 = NULL;
+
+	filpek1 = fopen("res_dijkstra.txt", "r");
+	char* namn = (char*)malloc(256 * sizeof(char));
+	int antal;
+	// antal = fscanf(filpek1, "%s\n", namn);
+
+	int time0 = -1, time, nr, level, level0, pointNr, pointNr0, speed, speed0, cost, totDist = 0;
+	nNoder = 0;
+	int arcNr = 0;
+	for (i = 0; ; i++) {
+		antal = fscanf(filpek1, "%d\t%d\t%d\t%d\t%d\t%lf\t%lf\n", &nr, &level, &time, &pointNr, &speed, &dist, &cost);
+		if (antal != 7)
+			break;
+
+		if (time0 >= 0) {
+			for (; arcNr < model->nArcs; arcNr++) {
+				if (model->arc[arcNr].fromLevel == level0 && model->arc[arcNr].fromTime == time0 &&
+					model->arc[arcNr].fromPointNr == pointNr0 && model->arc[arcNr].toLevel == level &&
+					model->arc[arcNr].toTime == time && model->arc[arcNr].toPointNr == pointNr){// &&
+					// model->arc[arcNr].speedSetting == level0) {
+					model->BVArc[nNoder] = arcNr;
+					totDist += model->arc[arcNr].distance;
+					TotCost += model->arc[arcNr].totCost;
+					nNoder++;
+					break;
+				}
+			}
+			if (arcNr >= model->nArcs) {
+				errlog("ERROR! Didn't find the arc pos %d from %d %d %d to %d %d %d speedSetting %d\n",
+					i, level0, time0, pointNr0, level, time, pointNr, speed0);
+			}
+		}
+
+		level0 = level;
+		time0 = time;
+		pointNr0 = pointNr;
+		speed0 = speed;
+	}
+	model->nBVArcs = nNoder;
+	fclose(filpek1);
+	free(namn);
+	*Cost = TotCost;
+	return totDist;
 }
 
 

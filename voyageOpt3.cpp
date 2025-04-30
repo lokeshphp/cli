@@ -1,6 +1,7 @@
 
 
 extern int USE_KVOTKOST;
+int USE_KVOTCOST_CORRIDORS = 1;
 
 #include "pch.h"
 #include <cstdio>
@@ -253,6 +254,10 @@ float lookUpCos(float x)
 	if (x < 0)
 		x += M_PI2;
 	int pos = (int)(x * LOOKUP_COS_STEP_INV);
+	if (pos < 0 || pos > 20000) {
+		errlog("ERROR! lookUpCos pos %d x %lf\n", pos, x);
+		pos = 0;
+	}
 	//if (pos < 0)
 	//	printf("x %lf pos %d\n", x, pos);
 	//if(pos > 2000)
@@ -266,7 +271,15 @@ float lookUpSin(float x)
 		x -= M_PI2;
 	if (x < 0)
 		x += M_PI2;
+	//if (x < -100000 || x > 100000) {
+	//	errlog("ERROR! lookUpCost %lf\n", x);
+	//	x = 0;
+	//}
 	int pos = (int)(x * LOOKUP_COS_STEP_INV);
+	if (pos < 0 || pos > 20000) {
+		errlog("ERROR! lookUpSin pos %d x %lf\n", pos, x);
+		pos = 0;
+	}
 	//if (pos < 0)
 	//	printf("x %lf pos %d\n", x, pos);
 	//if(pos > 2000)
@@ -1971,86 +1984,87 @@ int determineBastSpeedDelay_routeToEnd_eta_arc(int arcNr, double tidp) {
 void addStatisticsSafety(int arcNr) {
 	double dist = model.arc[arcNr].distance / model.params.knots_to_km;
 
-	if (model.arc[arcNr].bowSlam > 0.999)
-		model.results.bowSlam_notAllowed += dist;
-	model.results.bowSlam_aver += model.arc[arcNr].bowSlam;
-	if (model.arc[arcNr].bowSlam > 0.00001) {
-		(model.results.bowSlam_0)++;// += dist;
-		if (model.arc[arcNr].bowSlam > 0.01) {
-			(model.results.bowSlam_01)++;// += dist;
-			if (model.arc[arcNr].bowSlam > 0.05) {
-				(model.results.bowSlam_05)++;// += dist;
-				if (model.arc[arcNr].bowSlam > 0.2) {
-					(model.results.bowSlam_2)++;// += dist;
+	if (model.params.includeNazanin_safety >= 1) {
+		if (model.arc[arcNr].bowSlam > 0.999)
+			model.results.bowSlam_notAllowed += dist;
+		model.results.bowSlam_aver += model.arc[arcNr].bowSlam;
+		if (model.arc[arcNr].bowSlam > 0.00001) {
+			(model.results.bowSlam_0)++;// += dist;
+			if (model.arc[arcNr].bowSlam > 0.01) {
+				(model.results.bowSlam_01)++;// += dist;
+				if (model.arc[arcNr].bowSlam > 0.05) {
+					(model.results.bowSlam_05)++;// += dist;
+					if (model.arc[arcNr].bowSlam > 0.2) {
+						(model.results.bowSlam_2)++;// += dist;
+					}
+				}
+			}
+		}
+
+		if (model.arc[arcNr].greenWater > 0.999)
+			model.results.greenWater_notAllowed += dist;
+		model.results.greenWater_aver += model.arc[arcNr].greenWater;
+		if (model.arc[arcNr].greenWater > 0.00001) {
+			(model.results.greenWater_0)++;
+			if (model.arc[arcNr].greenWater > 0.01) {
+				(model.results.greenWater_01)++;// += dist;
+				if (model.arc[arcNr].greenWater > 0.05) {
+					(model.results.greenWater_05)++; // += dist;
+					if (model.arc[arcNr].greenWater > 0.2) {
+						(model.results.greenWater_2)++; // += dist;
+					}
+				}
+			}
+		}
+
+		if (model.arc[arcNr].dynamicStability > 0.999)
+			model.results.dynamicStability_notAllowed += dist;
+		model.results.dynamicStability_aver += model.arc[arcNr].dynamicStability;
+		if (model.arc[arcNr].dynamicStability > 0.00001) {
+			(model.results.dynamicStability_0)++;// += dist;
+			if (model.arc[arcNr].dynamicStability > 0.01) {
+				(model.results.dynamicStability_01)++;// += dist;
+				if (model.arc[arcNr].dynamicStability > 0.05) {
+					(model.results.dynamicStability_05)++;// += dist;
+					if (model.arc[arcNr].dynamicStability > 0.2) {
+						(model.results.dynamicStability_2)++;// += dist;
+					}
+				}
+			}
+		}
+
+		if (model.arc[arcNr].rolling > 0.999)
+			model.results.rolling_notAllowed += dist;
+		model.results.rolling_aver += model.arc[arcNr].rolling;
+		if (model.arc[arcNr].rolling > 0.00001) {
+			(model.results.rolling_0)++;
+			if (model.arc[arcNr].rolling > 0.01) {
+				(model.results.rolling_01)++;// += dist;
+				if (model.arc[arcNr].rolling > 0.05) {
+					(model.results.rolling_05)++; // += dist;
+					if (model.arc[arcNr].rolling > 0.2) {
+						(model.results.rolling_2)++; // += dist;
+					}
+				}
+			}
+		}
+
+		if (model.arc[arcNr].surfRiding > 0.999)
+			model.results.surfRiding_notAllowed += dist;
+		model.results.surfRiding_aver += model.arc[arcNr].surfRiding;
+		if (model.arc[arcNr].surfRiding > 0.00001) {
+			(model.results.surfRiding_0)++;
+			if (model.arc[arcNr].surfRiding > 0.01) {
+				(model.results.surfRiding_01)++;// += dist;
+				if (model.arc[arcNr].surfRiding > 0.05) {
+					(model.results.surfRiding_05)++; // += dist;
+					if (model.arc[arcNr].surfRiding > 0.2) {
+						(model.results.surfRiding_2)++; // += dist;
+					}
 				}
 			}
 		}
 	}
-
-	if (model.arc[arcNr].greenWater > 0.999)
-		model.results.greenWater_notAllowed += dist;
-	model.results.greenWater_aver += model.arc[arcNr].greenWater;
-	if (model.arc[arcNr].greenWater > 0.00001) {
-		(model.results.greenWater_0)++;
-		if (model.arc[arcNr].greenWater > 0.01) {
-			(model.results.greenWater_01)++;// += dist;
-			if (model.arc[arcNr].greenWater > 0.05) {
-				(model.results.greenWater_05)++; // += dist;
-				if (model.arc[arcNr].greenWater > 0.2) {
-					(model.results.greenWater_2)++; // += dist;
-				}
-			}
-		}
-	}
-
-	if (model.arc[arcNr].dynamicStability > 0.999)
-		model.results.dynamicStability_notAllowed += dist;
-	model.results.dynamicStability_aver += model.arc[arcNr].dynamicStability;
-	if (model.arc[arcNr].dynamicStability > 0.00001) {
-		(model.results.dynamicStability_0)++;// += dist;
-		if (model.arc[arcNr].dynamicStability > 0.01) {
-			(model.results.dynamicStability_01)++;// += dist;
-			if (model.arc[arcNr].dynamicStability > 0.05) {
-				(model.results.dynamicStability_05)++;// += dist;
-				if (model.arc[arcNr].dynamicStability > 0.2) {
-					(model.results.dynamicStability_2)++;// += dist;
-				}
-			}
-		}
-	}
-
-	if (model.arc[arcNr].rolling > 0.999)
-		model.results.rolling_notAllowed += dist;
-	model.results.rolling_aver += model.arc[arcNr].rolling;
-	if (model.arc[arcNr].rolling > 0.00001) {
-		(model.results.rolling_0)++;
-		if (model.arc[arcNr].rolling > 0.01) {
-			(model.results.rolling_01)++;// += dist;
-			if (model.arc[arcNr].rolling > 0.05) {
-				(model.results.rolling_05)++; // += dist;
-				if (model.arc[arcNr].rolling > 0.2) {
-					(model.results.rolling_2)++; // += dist;
-				}
-			}
-		}
-	}
-
-	if (model.arc[arcNr].surfRiding > 0.999)
-		model.results.surfRiding_notAllowed += dist;
-	model.results.surfRiding_aver += model.arc[arcNr].surfRiding;
-	if (model.arc[arcNr].surfRiding > 0.00001) {
-		(model.results.surfRiding_0)++;
-		if (model.arc[arcNr].surfRiding > 0.01) {
-			(model.results.surfRiding_01)++;// += dist;
-			if (model.arc[arcNr].surfRiding > 0.05) {
-				(model.results.surfRiding_05)++; // += dist;
-				if (model.arc[arcNr].surfRiding > 0.2) {
-					(model.results.surfRiding_2)++; // += dist;
-				}
-			}
-		}
-	}
-
 	model.results.stormValue_aver += model.arc[arcNr].safetyHurricane; // *dist;
 	if (model.arc[arcNr].safetyHurricane > model.results.worstStormValue_max)
 		model.results.worstStormValue_max = model.arc[arcNr].safetyHurricane;
@@ -2068,8 +2082,10 @@ void addStatisticsSafety(int arcNr) {
 		}
 	}
 
-	if (model.arc[arcNr].maxWaveHeight > model.functions.maxWaveHeight)
+	if (model.arc[arcNr].maxWaveHeight > model.params.userLimit_maxWaveHeight)
 		model.results.maxWaveHeight_notAllowed += dist;
+	if (model.arc[arcNr].maxWindSpeed > model.params.userLimit_maxWindSpeed_kmh)
+		model.results.maxWindSpeed_notAllowed += dist;
 
 }
 
@@ -4872,7 +4888,7 @@ int sort_tssChannels(int nC) {
 }
 
 
-int addSplitTss(int* cNrUse, double kvotCost, strClosePoints firstPoints, strClosePoints lastPoints) {
+int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints firstPoints, strClosePoints lastPoints) {
 
 	// add the tss from firstPoints to lastPoints
 	int nAlloc = lastPoints.posCoords - firstPoints.posCoords + 2, pos;
@@ -4972,6 +4988,7 @@ int addSplitTss(int* cNrUse, double kvotCost, strClosePoints firstPoints, strClo
 		model.network.channelTmp[cNr].latestEndLevel = pos1; // +2;
 
 	model.network.channelTmp[cNr].kvotCost = kvotCost;
+	model.network.channelTmp[cNr].kvotMinCost = kvotMinCost;
 
 
 	*cNrUse = cNr + 1;
@@ -4987,6 +5004,11 @@ int load_tss_optiNav()
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.01;
+	double default_kvotMinCost = 1.0, kvotMinCost;
+	if (USE_KVOTCOST_CORRIDORS == 0) {
+		default_kvotCost = 1.0;
+		default_kvotMinCost = 0.0;
+	}
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.tssName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -5083,7 +5105,13 @@ int load_tss_optiNav()
 				else
 					kvotCost = default_kvotCost;
 			}
-			addSplitTss(&cNr, kvotCost, firstPoints, lastPoints);
+			if (USE_KVOTCOST_CORRIDORS == 0) {
+				kvotCost = 1.0;
+				kvotMinCost = kvotCost;
+			}else
+				kvotMinCost = -1.0;
+
+			addSplitTss(&cNr, kvotCost, kvotMinCost, firstPoints, lastPoints);
 			// cNr++;
 		}
 	}
@@ -5445,6 +5473,10 @@ int loadParams_theRestOld(strParams* params)
 	errlog("OBS! minSpeedDiffCurrent set to %.3lf\n", params->minSpeedDiffCurrent);
 	errlog("OBS! maxSpeedDiffCurrent set to %.3lf\n", params->maxSpeedDiffCurrent);
 
+	params->penOverWeatherLimit_fix = 1e12;
+	params->penOverMaxWaveHeightLimit_m = 1e11;
+	params->penOverMaxWindSpeedLimit_kmh = 1e10;
+
 	params->longestRouteDays_history = -1;
 	namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/file_params.json", model.params.indataPath.c_str());
@@ -5473,6 +5505,12 @@ int loadParams_theRestOld(strParams* params)
 			reset_errlog();
 		}
 	}
+
+	if (!data["includeNazanin_safety"].is_null())
+		params->includeNazanin_safety = data["includeNazanin_safety"];
+	else
+		params->includeNazanin_safety = 0;
+
 
 	if (!data["delayVersion"].is_null()) {
 		// loadSet_startDateTime(data["startDateTime", params]);
@@ -6141,8 +6179,9 @@ int loadWeatherFactorTableWave(int tableNr) {
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveHeight, &(model.functions.waveFactor.waveHeight));
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].wavePeriod, &(model.functions.waveFactor.wavePeriod));
 	copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveDirection, &(model.functions.waveFactor.waveDirection));
-	model.functions.maxWaveHeight = model.tables.tableTyp[1][tableNr].maxWaveHeight;
-	model.functions.maxWaveHeight_warning = model.tables.tableTyp[1][tableNr].maxWaveHeight_warning;
+	model.params.userLimit_maxWaveHeight = model.tables.tableTyp[1][tableNr].maxWaveHeight;
+	model.params.userLimit_maxWindSpeed_kmh = model.tables.tableTyp[0][tableNr].maxWindSpeed;
+	model.params.maxWaveHeight_warning = model.tables.tableTyp[1][tableNr].maxWaveHeight_warning;
 	nAlloc = model.functions.waveFactor.shipSpeedCalmWater.nIndex * model.functions.waveFactor.waveHeight.nIndex *
 		model.functions.waveFactor.wavePeriod.nIndex * model.functions.waveFactor.waveDirection.nIndex;
 	if (model.functions.waveFactor.tableValue != NULL)
@@ -6826,7 +6865,7 @@ int loadWeatherFactorTableWind(int tableNr) {
 	copyAddTableInfo(model.tables.tableTyp[0][tableNr].shipSpeedCalmWater, &(model.functions.windFactor.shipSpeedCalmWater));
 	copyAddTableInfo(model.tables.tableTyp[0][tableNr].windSpeed, &(model.functions.windFactor.windSpeed));
 	copyAddTableInfo(model.tables.tableTyp[0][tableNr].windDirection, &(model.functions.windFactor.windDirection));
-	model.functions.maxWindSpeed_warning = model.tables.tableTyp[0][tableNr].maxWindSpeed_warning;
+	model.params.maxWindSpeed_warning = model.tables.tableTyp[0][tableNr].maxWindSpeed_warning;
 	printf("windFactor dimensions %d %d %d\n", model.functions.windFactor.shipSpeedCalmWater.nIndex,
 		model.functions.windFactor.windSpeed.nIndex, model.functions.windFactor.windDirection.nIndex);
 

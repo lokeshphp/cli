@@ -24,7 +24,7 @@
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\json.hpp
 1279875000 F:\TNM\GitHub\TrueNorthRouteOptimization\nodearc.h
 1702809309 F:\TNM\GitHub\TrueNorthRouteOptimization\pch - Copy.h
-974393262 F:\TNM\GitHub\TrueNorthRouteOptimization\pch.h
+-2118775668 F:\TNM\GitHub\TrueNorthRouteOptimization\pch.h
 396178744 F:\TNM\GitHub\TrueNorthRouteOptimization\point.cpp
 1278763306 F:\TNM\GitHub\TrueNorthRouteOptimization\point.h
 -1017776035 F:\TNM\GitHub\TrueNorthRouteOptimization\raster.cpp
@@ -47,12 +47,15 @@
 -2010749746 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt - Copy (7).cpp
 151548549 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt - Copy.cpp
 -1912587579 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt.cpp
-583919449 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt2.cpp
+-1013418376 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt2.cpp
 -1867413711 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt3 - Copy.cpp
-974087278 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt3.cpp
+-2119660306 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt3.cpp
 -291828562 F:\TNM\GitHub\TrueNorthRouteOptimization\voyageOpt_tmp.cpp
 -1583762058 F:\TNM\GitHub\TrueNorthRouteOptimization\weatherTest - Copy.cpp
 1466085140 F:\TNM\GitHub\TrueNorthRouteOptimization\weatherTest.cpp
 -21005177 F:\TNM\GitHub\TrueNorthRouteOptimization\weatherTest.h
--461577311 F:\TNM\GitHub\TrueNorthRouteOptimization\
-0 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\
+-1236750306 F:\TNM\GitHub\TrueNorthRouteOptimization\
+-2118775668 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\pch.h
+-2119471613 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt2.cpp
+-2119660306 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\voyageOpt3.cpp
+1097992471 F:\TNM\GitHub\TrueNorthRouteOptimization\TrueNorthRouteOptimization\

@@ -113,8 +113,12 @@ struct strParams
 {
 	int useSimulering;
 	double simulationSpeed_kmh;
-	double user_maxWaveHeight;
-	double user_maxWindSpeed_kmh;
+	double userSimulation_maxWaveHeight;
+	double userSimulation_maxWindSpeed_kmh;
+	double userLimit_maxWaveHeight;
+	double userLimit_maxWindSpeed_kmh;
+	double maxWaveHeight_warning;
+	double maxWindSpeed_warning;
 
 	time_t testTime;
 	struct tm tmBas;
@@ -145,6 +149,7 @@ struct strParams
 	int onboard_currentStatic;
 	int* weather_is_current;
 
+	int includeNazanin_safety;
 
 	int checkGribFilesSpecial;
 
@@ -242,6 +247,11 @@ struct strParams
 	double scaleObjEmission;
 	strSafety weightSafety;
 	strPenalties penalties;
+
+	double penOverWeatherLimit_fix;
+	double penOverMaxWaveHeightLimit_m;
+	double penOverMaxWindSpeedLimit_kmh;
+
 
 	int useStandardWeather; // -1 for standard 0, 1 for standard last, 0 for changing forecast
 
@@ -420,6 +430,7 @@ struct strChannel {
 	char* ID;
 	int type; // 0 - normal corridor, 1 - tss
 	double kvotCost; // used to give discount on tss paths
+	double kvotMinCost;
 
 	int ECA_type;
 	int followExactly;
@@ -946,9 +957,10 @@ struct strFunc2 {
 	int windTableNr;
 	int  waveTableNr;
 	int stabilityTableNr;
-	double maxWaveHeight;
-	double maxWaveHeight_warning;
-	double maxWindSpeed_warning;
+	//double maxWaveHeight;
+	//double maxWaveHeight_warning;
+	//double maxWindSpeed;
+	//double maxWindSpeed_warning;
 
 	// std::string bowSlammingTableID;
 	// std::string greenWaterTableID;
@@ -1385,6 +1397,7 @@ struct strTss {
 	double lastTraffCoordKvot;
 	int autoPathNr;
 	double kvotCost;
+	double kvotMinCost;
 };
 
 struct strAutoPath {
@@ -1397,7 +1410,7 @@ struct strAutoPath {
 			  // 2 - connector to tss/corridor, 
 			  // 3 - new connectors to nodes along SP
 	double kvotCost;
-
+	double kvotMinCost;
 };
 
 struct strKaoutarData {
@@ -1472,6 +1485,7 @@ struct strResults {
 	double dynamicStability_notAllowed;
 	double surfRiding_notAllowed;
 	double maxWaveHeight_notAllowed;
+	double maxWindSpeed_notAllowed;
 	double hurricane_insideOuterCircle;
 	double hurricane_maxCost_insideOuterCircle;
 	double hurricane_insideInnerCircle;
@@ -1820,6 +1834,8 @@ int SattUppDijkstraNatverk3tmp(strModel* model);
 int ChangeArcCosts3(strModel* model);
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);
 double NystaUppBV_MassTest(strModel *model, int Reached, int NodA0, int NodB0, long long *Cost);
+double lasInLsngFromFil_MassTest(strModel* model, int Reached, int NodA0, int NodB0, long long* Cost);
+
 int try_addBage_fromPath(int thisLevel, int nextLevel, int pos1, int pos2, int speedSetting, int tPos); // , float** fuelRaster);
 
 double char_to_double(char* object);
