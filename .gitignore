@@ -71,3 +71,6 @@ out/build/x64-debug/cmake_install.cmake
 out/build/x64-debug/CMakeFiles/3.22.22022201-MSVC_2/CMakeCCompiler.cmake
 out/build/x64-debug/CMakeFiles/3.22.22022201-MSVC_2/CMakeCXXCompiler.cmake
 out/build/x64-debug/CMakeFiles/3.22.22022201-MSVC_2/CMakeDetermineCompilerABI_C.bin
+/.vs/optiNav_offline/v17
+/x64/Release
+/x64/Debug
