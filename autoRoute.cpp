@@ -100,9 +100,14 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 			model.extraNoGoArea[pos].areaID = str_alloc_cpy(namnID.c_str());
 			posBase = findAreaIDpos_inBase(model.extraNoGoArea[pos].areaID);
 			if (posBase < 0) {
-				errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
-					model.extraNoGoArea[pos].areaID);
-				postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now and keep running.", 0);
+				if (posBase != -2) {
+					errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
+						model.extraNoGoArea[pos].areaID);
+					postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now and keep running.", 0);
+				}
+				else {
+					add_custom_noGo_areas(dataNu);
+				}
 				continue;
 			}
 			model.extraNoGoArea[pos].posBase = posBase;
@@ -2284,6 +2289,64 @@ int checkIsCompleteLand(double y1, double x1, double y2, double x2) {
 	return isLand;
 }
 
+
+double check_map_badKvot_polygons_auto(double lat1, double lon1, double lat2, double lon2, int pos_noGoPoly) {
+	int i;
+	OGRLineString* line = new OGRLineString();
+	line->addPoint(lon1, lat1);
+	line->addPoint(lon2, lat2);
+
+	for (i = 0; i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons; i++) {
+		if (line->Intersects(model.extraNoGoPolygon[pos_noGoPoly].polygon_GDAL[i])) {
+			// Get the intersection geometry
+			OGRGeometry* intersection = line->Intersection(model.extraNoGoPolygon[pos_noGoPoly].polygon_GDAL[i]);
+
+			// Check the type of intersection
+			if (intersection != nullptr)
+			{
+				if (intersection->getGeometryType() == wkbPoint) {
+					OGRPoint* point = (OGRPoint*)intersection;
+					std::cout << "Intersection is a point: (" << point->getX() << ", " << point->getY() << ")" << std::endl;
+				}
+				else if (intersection->getGeometryType() == wkbMultiPoint) {
+					OGRMultiPoint* multiPoint = (OGRMultiPoint*)intersection;
+					for (int i = 0; i < multiPoint->getNumGeometries(); i++) {
+						OGRPoint* point = (OGRPoint*)multiPoint->getGeometryRef(i);
+						std::cout << "Intersection point " << i + 1 << ": (" << point->getX() << ", " << point->getY() << ")" << std::endl;
+					}
+				}
+				else if (intersection->getGeometryType() == wkbLineString) {
+					OGRLineString* intersectingLine = (OGRLineString*)intersection;
+					std::cout << "Intersection is a line string." << std::endl;
+					for (int i = 0; i < intersectingLine->getNumPoints(); i++) {
+						double x, y;
+						OGRPoint point;
+						intersectingLine->getPoint(i, &point); //  &x, & y);
+						std::cout << "Point " << i + 1 << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
+					}
+				}
+				else {
+					std::cout << "Intersection is of an unknown type." << std::endl;
+				}
+
+				// Destroy the intersection geometry
+				OGRGeometryFactory::destroyGeometry(intersection);
+			}
+			else {
+				std::cout << "Intersection returned a null geometry." << std::endl;
+			}
+			break;
+		}
+	}
+
+	// Clean up
+	OGRGeometryFactory::destroyGeometry(line);
+	if (i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons)
+		return 0.0;
+	return 1.0;
+}
+
+
 double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea) {
 	Raster::strPhysRaster physicalMap;
 	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
@@ -2492,6 +2555,9 @@ int evalCostArc_old(strAutoCells* cell, int pos1, double y1, double x1, double y
 			if (isOk == 0)
 				break;
 		}
+		if (isOk == 1) {
+			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
+		}
 	}
 	dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
 	cell->arcDistance[pos1] = dist;
@@ -2522,6 +2588,11 @@ double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, doub
 		if (kvotBad < 1) {
 			for (int i = 0; i < model.nExtraNoGoAreas; i++) {
 				kvotBadExtra += 1 - check_map_badKvot_auto(y1, x1, y2, x2, 0, i, 0);
+				//if (kvotBadExtra >= 1)
+				//	break;
+			}
+			for (int i = 0; i < model.nExtraNoGoPolygons; i++) {
+				kvotBadExtra += 1 - check_map_badKvot_polygons_auto(y1, x1, y2, x2, i);
 				//if (kvotBadExtra >= 1)
 				//	break;
 			}

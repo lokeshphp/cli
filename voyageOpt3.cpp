@@ -789,6 +789,8 @@ double identifyForecastType(double tidTot) {
 		//}
 	}
 
+	if (forecastType > 4)
+		forecastType = forecastType;
 	return forecastType;
 }
 
@@ -1701,6 +1703,8 @@ double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu, in
 			else
 				factorDelay = 1.0;
 		}
+		if (modelDelay.arc[arcDelay].fromLevel >= 0)
+			waiting = model.network.physicalLev[modelDelay.arc[arcDelay].fromLevel].tidWait;
 	}
 	else {
 		if (modelDelay.arc[arcDelay].toLevel < 0) {
@@ -1736,6 +1740,8 @@ double calcNewTime_changeSpeedSetting_delay_prefPath(int arcDelay, int speedSett
 	if (modelDelay_prefPath.arc[arcDelay].fromLevel >= 0) {
 		factorDelay = eval_factorDelayedAlongArc_currSpeedDiff(modelDelay_prefPath.arc[arcDelay].fromLevel, modelDelay_prefPath.arc[arcDelay].fromPointNr,
 			modelDelay_prefPath.arc[arcDelay].toLevel, modelDelay_prefPath.arc[arcDelay].toPointNr, tidInt, &speedDiffCurrent, *calmWaterSpeedNy);
+		if (modelDelay.arc[arcDelay].fromLevel >= 0)
+			waiting = model.network.physicalLev[modelDelay.arc[arcDelay].fromLevel].tidWait;
 	}
 	else {
 		if (modelDelay_prefPath.arc[arcDelay].toLevel < 0) {
@@ -1799,7 +1805,7 @@ int setAllSpeedAltOK_ifPossible_level(int arcDelay, int posDelay){
 }
 
 int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int fullCalc) {
-	int arcNu = model.nArcs, arcDelay, thisLevel, pos1, speedSetting, cNr;
+	int arcNu = model.nArcs, arcDelay, thisLevel, pos1, speedSetting, cNr, legNr;
 	double emission, newTime;
 	double fuelConsumption_main, fuelConsumption_aux, fuelUsage_main, fuelUsage_aux;
 	double fuelQualityKvot, fuel_eca, fuel_noEca, fuel_aux, fuel_auxEca, fuelBase, totCost;
@@ -1880,6 +1886,10 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 			fuelUsage_aux -= fuelConsumption_aux * model.network.channel[cNr].waitingTime;
 			fuelUsage_aux += model.network.channel[cNr].waiting_consumption_aux;
 		}
+		if (model.arc[arcNu].fromLevel >= 0) {
+			fuelUsage_main -= fuelConsumption_main * model.network.physicalLev[model.arc[arcNu].fromLevel].tidWait;
+			//fuelUsage_aux -= fuelConsumption_aux * model.network.physicalLev[model.arc[arcNu].fromLevel].tidWait;
+		}
 
 		//if (iter != 1) {
 		//}
@@ -1904,8 +1914,9 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		emission = fuel_aux * model.params.fuel.aux_noEca.emissionFactor + fuel_auxEca * model.params.fuel.aux_eca.emissionFactor +
 			fuel_eca * model.params.fuel.main_eca.emissionFactor + fuel_noEca * model.params.fuel.main_noEca.emissionFactor;
 
-		totCost = model.params.weightTime * model.params.priceTime * newTime +
-			model.params.weightFuel * fuelBase + emission * model.params.weightEmission * model.params.scaleObjEmission;
+		legNr = getLegNrFromLevels(model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel);
+		totCost = model.params.legWeights[legNr].weightTime * model.params.priceTime * newTime +
+			model.params.legWeights[legNr].weightFuel * fuelBase + emission * model.params.legWeights[legNr].weightEmission * model.params.scaleObjEmission;
 
 		if (model.params.useSimulering == 1) {
 			//if (model.functions.valuesNow.maxWaveHeight > model.params.user_maxWaveHeight)
@@ -2708,6 +2719,10 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 			// sets the bastLevel to -1 if the direction is completely wrong
 		}
 		model.network.channel[cNr].bastStartLevel = bastLevel;
+		if (bastLevel >= 0)
+			model.network.channel[cNr].legNr = model.network.physicalLev[bastLevel].legNr;
+		else
+			model.network.channel[cNr].legNr = model.network.channel[-bastLevel - 1].legNr;
 		//if (model.network.channel[cNr].followExactly == 1)
 		//	model.network.physicalLev[bastLevel].followChannelExactly = 1;
 
@@ -2869,6 +2884,9 @@ int check_isStraightLineFeasible(double y1, double x1, double y2, double x2)
 			isOk = check_extraNoGoMap_ok(y1, x1, y2, x2, 0, i);
 			if (isOk == 0)
 				break;
+		}
+		if (isOk == 1) {
+			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
 		}
 	}
 
@@ -3249,6 +3267,11 @@ int getBastPhysLevelToConnectToChannel_tss(int alt, int cNr) {
 		//	}
 		}
 		model.network.channelTmp[cNr].bastStartLevel = bastLevel;
+		if (bastLevel >= 0)
+			model.network.channelTmp[cNr].legNr = model.network.physicalLev[bastLevel].legNr;
+		else
+			model.network.channelTmp[cNr].legNr = model.network.channelTmp[-bastLevel - 1].legNr;
+
 		returnLevel = bastLevel;
 	}
 	else { // end of channel
@@ -4066,8 +4089,6 @@ int checkChannels() {
 
 
 	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
-		if (model.network.channel[cNr].type == 1)
-			continue; // only normal channels need to be checked, not tss
 
 		model.network.channel[cNr].straightArcFeasible_toChannelFromPrefPath = 1;
 		model.network.channel[cNr].straightArcFeasible_fromChannelToPrefPath = 1;
@@ -4077,8 +4098,14 @@ int checkChannels() {
 			//	model.network.channel[cNr].nPolygonUsePoints[i1] = 0;
 			//else
 			//	model.network.channel[cNr].nPolygonUsePoints[i1] = setUpUsablePointsInPolygonChannel(cNr, i1);
-			model.network.channel[cNr].outNode = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
-			model.network.channel[cNr].outLevel = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
+		model.network.channel[cNr].nAllocOutNodes = model.params.nPkterOrto * 2;
+		model.network.channel[cNr].outNode = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+		model.network.channel[cNr].outLevel = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+
+		if (model.network.channel[cNr].type == 1)
+			continue; // only normal channels need to be checked, not tss 
+
+
 		//}
 		nCoords = model.network.channel[cNr].nPoints;
 
@@ -4776,6 +4803,7 @@ void copyChannelFromTmp(int cNr, int pos) {
 	model.network.channel[cNr].EndLevelOnlyPrefPath = model.network.channelTmp[pos].EndLevelOnlyPrefPath;
 
 	model.network.channel[cNr].bastStartLevel = model.network.channelTmp[pos].bastStartLevel;
+	model.network.channel[cNr].legNr = model.network.channelTmp[pos].legNr;
 	model.network.channel[cNr].bastEndLevel = model.network.channelTmp[pos].bastEndLevel;
 	model.network.channel[cNr].bastStartPointPos = model.network.channelTmp[pos].bastStartPointPos;
 	model.network.channel[cNr].bastStartDist = model.network.channelTmp[pos].bastStartDist;
@@ -5512,6 +5540,15 @@ int loadParams_theRestOld(strParams* params)
 		params->includeNazanin_safety = 0;
 
 
+	if (!data["ignore_windWave"].is_null())
+		params->ignore_windWave = data["ignore_windWave"];
+	else
+		params->ignore_windWave = 0;
+	if (!data["ignore_current"].is_null())
+		params->ignore_current = data["ignore_current"];
+	else
+		params->ignore_current = 0;
+
 	if (!data["delayVersion"].is_null()) {
 		// loadSet_startDateTime(data["startDateTime", params]);
 		delayVersion = data["delayVersion"];
@@ -6037,6 +6074,9 @@ int findAreaIDpos_inBaseOld(std::string ID) {
 
 int findAreaIDpos_inBase(char* ID) {
 	int i;
+
+	if (strcmp(ID, "custom") == 0)
+		return -2; // custom polygon area
 	for (i = 0; i < model.nExtraNoGoAreasBase; i++) {
 		if (strcmp(ID, model.extraNoGoAreaBase[i].areaID) == 0)
 			break;
@@ -6047,11 +6087,25 @@ int findAreaIDpos_inBase(char* ID) {
 		return -1;
 }
 
-int loadWeights(strParams* params, json dataObj) {
+int loadWeights_leg(strParams* params, int legNr, json dataObj) {
 	json dataIt, dataIt2;
+
+	if (!dataObj["path_pos"].is_null()) {
+		if (params->legProperties[legNr].path_pos != dataObj["path_pos"])
+			postRequest("ERROR! path_pos " + std::string(dataObj["path_pos"]) + 
+				" in objective is different for leg " + std::to_string(legNr + 1) + 
+				" than in geoData " + std::to_string(params->legProperties[legNr].path_pos), 1);
+	}
+	else {
+		if (params->legProperties[legNr].path_pos != -1) {
+			postRequest("ERROR! path_pos in objective is not given for leg " + std::to_string(legNr + 1) + 
+				" but is " + std::to_string(params->legProperties[legNr].path_pos) + " in geoData", 1);
+		}
+	}
+
 	if (!dataObj["weight_time"].is_null()) {
 		dataIt = dataObj["weight_time"];
-		params->weightTime = (double)(dataIt["weight"]); // / 100;
+		params->legWeights[legNr].weightTime = (double)(dataIt["weight"]); // / 100;
 	}
 	if (!dataObj["weightID"].is_null()) {
 		params->weightID = (int)(dataObj["weightID"]); // / 100;
@@ -6060,64 +6114,78 @@ int loadWeights(strParams* params, json dataObj) {
 		params->weightID = 0;
 	if (!dataObj["weight_fuel"].is_null()) {
 		dataIt = dataObj["weight_fuel"];
-		params->weightFuel = (double)(dataIt["weight"]); // / 100;
+		params->legWeights[legNr].weightFuel = (double)(dataIt["weight"]); // / 100;
 	}
 	if (!dataObj["weight_emission"].is_null()) {
 		dataIt = dataObj["weight_emission"];
-		params->weightEmission = (double)(dataIt["weight"]); // / 100;
+		params->legWeights[legNr].weightEmission = (double)(dataIt["weight"]); // / 100;
 	}
 	if (!dataObj["weight_safety"].is_null()) {
 		json data3 = dataObj["weight_safety"];
 		if (!data3["base"].is_null()) {
 			dataIt2 = data3["base"];
-			params->weightSafety.base = (double)(dataIt2["weight"]); // / 100;
+			params->legWeights[legNr].weightSafety.base = (double)(dataIt2["weight"]); // / 100;
 		}
 		if (!data3["hurricane"].is_null()) {
 			dataIt2 = data3["hurricane"];
-			params->weightSafety.hurricane = (double)(dataIt2["weight"]); // / 100;
+			params->legWeights[legNr].weightSafety.hurricane = (double)(dataIt2["weight"]); // / 100;
 		}
 
 		if (!data3["bowSlamming"].is_null()) {
 			dataIt2 = data3["bowSlamming"];
-			params->weightSafety.bowSlam = dataIt2["weight"];
+			params->legWeights[legNr].weightSafety.bowSlam = dataIt2["weight"];
 		}
 		if (!data3["greenWater"].is_null()) {
 			dataIt2 = data3["greenWater"];
-			params->weightSafety.greenWater = dataIt2["weight"];
+			params->legWeights[legNr].weightSafety.greenWater = dataIt2["weight"];
 		}
 		if (!data3["dynamicStability"].is_null()) {
 			dataIt2 = data3["dynamicStability"];
 			//if (dataIt2["useWeight"] == 1)
-				params->weightSafety.dynamicStability = dataIt2["weight"];
+				params->legWeights[legNr].weightSafety.dynamicStability = dataIt2["weight"];
 		}
 		if (!data3["rolling"].is_null()) {
 			dataIt2 = data3["rolling"];
-			params->weightSafety.rolling = dataIt2["weight"];
+			params->legWeights[legNr].weightSafety.rolling = dataIt2["weight"];
 		}
 		if (!data3["surfRiding"].is_null()) {
 			dataIt2 = data3["surfRiding"];
-			params->weightSafety.surfRiding = dataIt2["weight"];
+			params->legWeights[legNr].weightSafety.surfRiding = dataIt2["weight"];
 		}
 		if (!data3["feasibleSafety"].is_null()) {
 			dataIt2 = data3["feasibleSafety"];
 			//if (dataIt2["useWeight"] == 1)
-				params->weightSafety.feasibleSafety = dataIt2["weight"];
+				params->legWeights[legNr].weightSafety.feasibleSafety = dataIt2["weight"];
 		}
 		if (!data3["iceCoverCost_fix"].is_null()) {
 			dataIt2 = data3["iceCoverCost_fix"];
 			//if (dataIt2["useWeight"] == 1)
-				params->weightSafety.iceCoverCost_fix = dataIt2["weight"];
+				params->legWeights[legNr].weightSafety.iceCoverCost_fix = dataIt2["weight"];
 		}
 		if (!data3["iceCoverCost_thickness"].is_null()) {
 			dataIt2 = data3["iceCoverCost_thickness"];
 			//if (dataIt2["useWeight"] == 1)
-				params->weightSafety.iceCoverCost_thickness = dataIt2["weight"];
+				params->legWeights[legNr].weightSafety.iceCoverCost_thickness = dataIt2["weight"];
 		}
 	}
 	return 0;
 }
 
+int loadWeights(strParams* params, json dataObj) {
+	int legNr = 0;
+	json dataFeature;
+	if (dataObj.is_array()) {
+		for (auto it = dataObj.begin(); it != dataObj.end(); ++it) {
+			dataFeature = it.value();
+			loadWeights_leg(params, legNr, dataFeature);
+			legNr++;
+		}
+	}
+	else
+		loadWeights_leg(params, legNr, dataObj);
 
+	return 0;
+}
 
 
 void calc_stormsNearby_delay() {
@@ -9448,6 +9516,8 @@ void calc_boundingBoxFrompreferredPath(int alt) {
 		errlog("boundingBox in calc_boundingBoxFrompreferredPath alt %d after prefPath points min/max %.3lf %.3lf\n", alt,
 			model.boundingBox.xMin, model.boundingBox.xMax);
 
+
+		model.params.maxDeviationPreferred_km = model.params.shipSpeed_average / model.params.ortoDist_nPointsPerHour * (model.params.nPkterOrto - 1) / 2;
 		double deltaY = model.params.maxDeviationPreferred_km / 111 + 0.3; // 120; max antal grader
 		model.boundingBox.yMin -= deltaY;
 		model.boundingBox.yMax += deltaY;
@@ -9660,13 +9730,78 @@ int makeSureChannelsInBoundingBox() {
 	return 0;
 }
 
+double get_bast_longitude_fit_to_physicalMapA(double min_x, double max_x) {
+	double mid, delta_x = 0, diff1, diff2;
+
+	mid = (min_x + max_x) / 2.0;
+	if (mid > model.physicalMapA.maxLongitude) {
+		if (mid - 360 < model.physicalMapA.minLongitude) {
+			diff1 = mid - model.physicalMapA.maxLongitude;
+			diff2 = model.physicalMapA.minLongitude - (mid - 360);
+			if (diff1 > diff2)
+				delta_x = -360;
+		}
+		else
+			delta_x = -360;
+	}
+	else {
+		if (mid < model.physicalMapA.minLongitude) {
+			if (mid + 360 > model.physicalMapA.maxLongitude) {
+				diff1 = model.physicalMapA.minLongitude - mid;
+				diff2 = mid + 360 - model.physicalMapA.maxLongitude;
+				if (diff1 > diff2)
+					delta_x = 360;
+			}
+			else
+				delta_x = 360;
+		}
+	}
+
+	return delta_x;
+}
+
+int setup_noGo_polygons_GDAL() {
+	int i, i1, i2;
+	double min_x, max_x, delta_x;
+	// create the GDAL polygons
+	for (i = 0; i < model.nExtraNoGoPolygons; i++) {
+		model.extraNoGoPolygon[i].polygon_GDAL = (OGRPolygon**)malloc(model.extraNoGoPolygon[i].nPolygons * sizeof(OGRPolygon*));
+		for (i1 = 0; i1 < model.extraNoGoPolygon[i].nPolygons; i1++) {
+			model.extraNoGoPolygon[i].polygon_GDAL[i1] = new OGRPolygon();
+			OGRLinearRing* ring = new OGRLinearRing();
+			min_x = 1e10;
+			max_x = -1e10;
+			for (i2 = 0; i2 < model.extraNoGoPolygon[i].polygon[i1].nCoords; i2++) {
+				if (min_x > model.extraNoGoPolygon[i].polygon[i1].x[i2])
+					min_x = model.extraNoGoPolygon[i].polygon[i1].x[i2];
+				if (max_x < model.extraNoGoPolygon[i].polygon[i1].x[i2])
+					max_x = model.extraNoGoPolygon[i].polygon[i1].x[i2];
+			}
+			delta_x = get_bast_longitude_fit_to_physicalMapA(min_x, max_x);
+
+			for (i2 = 0; i2 < model.extraNoGoPolygon[i].polygon[i1].nCoords; i2++) {
+				ring->addPoint(model.extraNoGoPolygon[i].polygon[i1].y[i2], model.extraNoGoPolygon[i].polygon[i1].x[i2] + delta_x);
+			}
+			if (model.extraNoGoPolygon[i].polygon[i1].x[i2 - 1] != model.extraNoGoPolygon[i].polygon[i1].x[0] ||
+				model.extraNoGoPolygon[i].polygon[i1].y[i2 - 1] != model.extraNoGoPolygon[i].polygon[i1].y[0]) {
+				postRequest("ERROR! useOptionalExtraNoGoAreas given extraAreaID custom customAreaID " + std::string(model.extraNoGoPolygon[i].customAreaID) + " the first and last coordinates are not the same, I close the ring", 0);
+				ring->closeRings();
+			}
+			//(model.extraNoGoPolygon[i].polygon_GDAL[i1])->addRingDirectly(ring);
+			(model.extraNoGoPolygon[i].polygon_GDAL[i1])->addRing(ring);
+		}
+	}
+
+
+	return 0;
+}
 
 int openNeededRasterFilesNew(int alt)
 {
 	char* namn2;
 	namn2 = (char*)malloc2(256 * sizeof(char));
 	//Raster rasterFuelMapA, rasterFuelMapB, rasterTimeDelay;
-	int i;
+	int i, i1, i2;
 
 	if (alt > -10) {
 		if (model.params.varyStartEndArcLength == 0)
@@ -9706,7 +9841,7 @@ int openNeededRasterFilesNew(int alt)
 	}
 	checkMinnesAnvandning(__LINE__);
 
-
+	setup_noGo_polygons_GDAL();
 
 	if (alt == -10)
 		return 0;
@@ -10116,6 +10251,83 @@ int check_feasibleNodeRasterA(double lat1, double lon1) {
 	return physicalMap.valueCell[row * physicalMap.nCols + col];
 }
 
+double fix_longitude(double lon) {
+	if (lon < model.physicalMapA.minLongitude) {
+		if (model.physicalMapA.maxLongitude - model.physicalMapA.minLongitude < 355) {
+			if (lon < model.physicalMapA.minLongitude - 20)
+				lon += 360;
+		}
+		else
+			lon += 360;
+	}
+	else {
+		if (lon > model.physicalMapA.maxLongitude) {
+			if (model.physicalMapA.maxLongitude - model.physicalMapA.minLongitude < 355) {
+				if (lon > model.physicalMapA.maxLongitude + 20)
+					lon -= 360;
+			}
+			else
+				lon -= 360;
+		}
+	}
+	return lon;
+}
+
+int check_feasibleNode_noGo_polygons(double lat, double lon) {
+	int i, pos_noGoPoly;
+
+	// lon = fix_longitude(lon);
+
+	OGRPoint point(lat, lon);
+
+	for (pos_noGoPoly = 0; pos_noGoPoly < model.nExtraNoGoPolygons; pos_noGoPoly++) {
+		for (i = 0; i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons; i++) {
+			if ((model.extraNoGoPolygon[pos_noGoPoly].polygon_GDAL[i])->Contains(&point))
+				break;
+		}
+		if (i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons)
+			break;
+	}
+
+	if (pos_noGoPoly < model.nExtraNoGoPolygons)
+		return 0;
+	return 1;
+}
+
+
+
+int check_noGoPolygons_ok(double lat1, double lon1, double lat2, double lon2) {
+	int i, pos_noGoPoly;
+
+	OGRLineString line;// = new OGRLineString();
+	line.addPoint(lat1, lon1);
+	line.addPoint(lat2, lon2);
+
+
+	//int numPoints = line->getNumPoints();
+	//std::cout << "Number of points: " << numPoints << std::endl;
+	//for (int i = 0; i < numPoints; ++i) {
+	//	OGRPoint point;
+	//	line->getPoint(i, &point); //  &x, & y);
+	//	std::cout << "Point " << i << ": (" << point.getX() << ", " << point.getY() << ")"
+	//		<< std::endl;
+	//}
+
+	for (pos_noGoPoly = 0; pos_noGoPoly < model.nExtraNoGoPolygons; pos_noGoPoly++) {
+		for (i = 0; i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons; i++) {
+			if (line.Intersects(model.extraNoGoPolygon[pos_noGoPoly].polygon_GDAL[i]))
+				break;
+		}
+		if (i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons)
+			break;
+	}
+
+	// Clean up
+	//OGRGeometryFactory::destroyGeometry(line);
+	if (pos_noGoPoly < model.nExtraNoGoPolygons)
+		return 0;
+	return 1;
+}
 
 int check_extraNoGoMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap) {
 	Raster::strPhysRaster physicalMap;
@@ -10847,6 +11059,9 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 			if (isOk == 0)
 				break;
 		}
+		if (isOk == 1) {
+			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
+		}
 	}
 			
 			//int isOk = check_physicalMap_ok(y1, x1, y2, x2p1.latitude().degrees(), p1.longitude().degrees(),
@@ -10942,6 +11157,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 		if (nextLevel == 20)
 			nextLevel = nextLevel;
 		for (i2 = 0; i2 < model.network.physicalLev[nextLevel].nPoints; i2++) {
+
 			if (i2 == 30)
 				i2 = i2;
 			if (model.network.physicalLev[nextLevel].allowedPoint[i2] == 0)
@@ -11077,6 +11293,11 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 			cNr = cNr;
 
 		for (i1 = 0; i1 < model.network.physicalLev[toLevel].nPoints; i1++) {
+			if (toLevel >= 11) {
+				checkMinnesAnvandning(__LINE__);
+				if (i1 == 28)
+					i1 = i1;
+			}
 			if (model.network.physicalLev[toLevel].allowedPoint[i1] == 0)
 				continue; // node not okay
 
@@ -11099,11 +11320,26 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 			if (arcOK == 1) {
 				//printf("--add arc to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
 				arcPos = model.network.channel[cNr].nOutNodes;
+				if (arcPos >= model.network.channel[cNr].nAllocOutNodes) {
+					model.network.channel[cNr].nAllocOutNodes += 50;
+					model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+				}
+				if (toLevel >= 11)
+					checkMinnesAnvandning(__LINE__);
 				model.network.channel[cNr].outNode[arcPos] = i1;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
+				if (toLevel >= 11)
+					checkMinnesAnvandning(__LINE__);
 				model.network.channel[cNr].outLevel[arcPos] = toLevel;
+				if (toLevel >= 11)
+					checkMinnesAnvandning(__LINE__);
 				(model.network.channel[cNr].nOutNodes)++;
+				if (toLevel >= 11)
+					checkMinnesAnvandning(__LINE__);
 				(model.network.physicalLev[toLevel].nInNodes[i1])++;
+				if (toLevel >= 11)
+					checkMinnesAnvandning(__LINE__);
 			}
 			else {
 				//printf("++ortoPos %d i1 %d bastEndLevel %d toLevel %d\n", 
@@ -11113,6 +11349,11 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 					//printf("--add arc2 to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
 					model.network.channel[cNr].straightArcFeasible_fromChannelToPrefPath = 0;
 					arcPos = model.network.channel[cNr].nOutNodes;
+					if (arcPos >= model.network.channel[cNr].nAllocOutNodes) {
+						model.network.channel[cNr].nAllocOutNodes += 50;
+						model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+						model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+					}
 					model.network.channel[cNr].outNode[arcPos] = i1;
 					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 					model.network.channel[cNr].outLevel[arcPos] = toLevel;
@@ -11120,6 +11361,8 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 					(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				}
 			}
+			if (toLevel >= 11)
+				checkMinnesAnvandning(__LINE__);
 
 		}
 	}
@@ -11139,6 +11382,11 @@ int try_addPhysicalArcsBetweenChannels()
 			if (arcOK == 1) {
 				//printf("--add arc to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
 				arcPos = model.network.channel[cNr1].nOutNodes;
+				if (arcPos >= model.network.channel[cNr1].nAllocOutNodes) {
+					model.network.channel[cNr1].nAllocOutNodes += 50;
+					model.network.channel[cNr1].outNode = (int*)realloc(model.network.channel[cNr1].outNode, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr1].outLevel = (int*)realloc(model.network.channel[cNr1].outLevel, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
+				}
 				model.network.channel[cNr1].outNode[arcPos] = 0;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr1].outLevel[arcPos] = -cNr2 - 1;
@@ -11190,7 +11438,6 @@ int addArcsToNetwork()
 		}
 	}
 
-
 	//FILE* filpek;
 	//int allowed;
 	//filpek = fopen("checkChannelsCorridor.txt", "w");
@@ -11217,7 +11464,6 @@ int addArcsToNetwork()
 			model.network.physicalLev[i].minDistPrevNode[i1] = 1e10;
 		}
 	}
-
 
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		if (i == 0 || i == model.network.nPhysicalLevels - 1)
@@ -11255,7 +11501,6 @@ int addArcsToNetwork()
 			break;
 	}
 
-
 	if (SKRIV_UT_NOTHING == 0)
 		printf("nCorridors %d\n", model.network.nChannels);
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
@@ -11274,6 +11519,9 @@ int addArcsToNetwork()
 			if (model.network.physicalLev[i].nInNodes[i1] == 0 && model.params.preferredPathOrtoPos[i] != i1) {// && model.network.physicalLev[i].nodeConnectedFromChannel[i1] == 0)
 				continue; // no physical arcs to this node so no use to look for arcs out from it...
 			}
+
+			if (i == 11 && i1 == 6)
+				i1 = i1;
 
 			if ((model.network.physicalLev[i].onlyPrefPath != 1 || model.params.preferredPathOrtoPos[i] == i1) && model.network.physicalLev[i].followChannelExactly == 0) {
 				for (i2 = i + 1; i2 < model.network.nPhysicalLevels; i2++) { // not if onlyPrefPath whole physical
@@ -11400,7 +11648,9 @@ int movePointToFeasible(int level, int pos) {
 				else
 					colUse = col;
 			}
-			if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 1)
+			if (model.physicalMapA.valueCell[row * model.physicalMapA.nCols + colUse] == 1 &&
+				check_feasibleNode_noGo_polygons(model.physicalMapA.maxLatitude - (row + 0.5) * model.physicalMapA.size_col,
+					model.physicalMapA.minLongitude + (col + 0.5) * model.physicalMapA.size_col) == 1)
 				nCellsOK++;
 			else
 				nCellsOK = 0;
@@ -11582,6 +11832,10 @@ int makeSure_feasibleNodes(int level, int mittPos) {
 
 		isFeasible = check_feasibleNodeRasterA(model.network.physicalLev[level].point_y[i],
 			model.network.physicalLev[level].point_x[i]);
+		if (isFeasible == 1 && model.params.preferredPathOrtoPos[level] != i)
+			isFeasible = check_feasibleNode_noGo_polygons(model.network.physicalLev[level].point_y[i],
+				model.network.physicalLev[level].point_x[i]);
+
 		if (isFeasible == 0 && model.params.preferredPathOrtoPos[level] != i) {
 			isFeasible = movePointToFeasible(level, i);
 			model.network.physicalLev[level].allowedPoint[i] = isFeasible;
@@ -11909,7 +12163,7 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 	prevDistOK = 0;
 	for (i = model.preferredPath.nPoints - 1; i > 0; i--) {
 		if (dist >= distInt - 0.01) {
-			*startDistBad = distInt;
+			*endDistBad = distInt;
 			break;
 		}
 		distNu = model.preferredPath.point[i].distanceTo(model.preferredPath.point[i - 1]) / 1000.0;
@@ -11959,9 +12213,9 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 {
-	int i, nInt, nPkterOrto = -1;
-	double dist, distTot, nIntDbl, distInt, distIntUse;
-	double ortoDist, bNy;
+	int i, nInt, nPkterOrto = -1, i1, endPos, nIntLoc, roundKvot, nodExact;
+	double dist, distTot, nIntDbl, distInt, distIntUse, distIntTot;
+	double ortoDist, bNy, badDist;
 	double distNu, startDistBad, endDistBad;
 	spherical::Point pointNu;
 
@@ -11972,41 +12226,77 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		model.preferredPath.distToPrevPoint[i] = dist;
 		distTot += dist;
 	}
-	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n", 
+	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n",
 		distTot, model.preferredPath.nPoints);
 
 	model.preferredPath.totDist = distTot;
-	
+
 	if (model.params.varyStartEndArcLength == 1)
 		openNeededRasterFilesNew(alt);
 
-	nIntDbl = distTot / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
-	errlog("nHoursIntervals: %lf", model.params.nHours_changeCourseInterval);
-	nInt = (int)ceil(nIntDbl);
-	distInt = distTot / nInt * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
-	errlog(" nIntDbl %lf nInt %d distInt %lf\n", nIntDbl, nInt, distInt);
+	errlog("nHoursIntervals: %lf\n", model.params.nHours_changeCourseInterval);
 
+	nIntDbl = distTot / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
+	nIntLoc = (int)ceil(nIntDbl);
+	distInt = distTot / nIntLoc * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
+	//errlog("is identifyStartEndAllowed() below needed for legs. I have removed it now.\n");
 	if (model.params.varyStartEndArcLength == 1)
 		identifyStartEndAllowed(distInt, &startDistBad, &endDistBad);
 	else {
 		startDistBad = 0;
 		endDistBad = 0;
 	}
-	if (startDistBad + endDistBad > 0.01) {
-		nIntDbl = (distTot - (startDistBad + endDistBad)) / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
-		nInt = (int)ceil(nIntDbl);
-		distInt = (distTot - (startDistBad + endDistBad)) / nInt * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
-		if (startDistBad > 0)
-			nInt++;
-		if (endDistBad > 0)
-			nInt++;
-		errlog("recalculate distInt, nIntDbl %lf nInt %d distInt %lf, startDistBad %.2lf endDistBad %.2lf\n", 
-			nIntDbl, nInt, distInt, startDistBad, endDistBad);
+
+	distIntTot = 0;
+	nInt = 0;
+	for (i = 0; i < model.params.nLegs; i++) {
+		distNu = 0;
+		if (i < model.params.nLegs - 1)
+			endPos = model.params.legProperties[i + 1].prefPath_startPoint;
+		else
+			endPos = model.params.legProperties[i].prefPath_endPoint;
+		for (i1 = model.params.legProperties[i].prefPath_startPoint + 1; i1 <= endPos; i1++)
+			distNu += model.preferredPath.distToPrevPoint[i1];
+		nIntDbl = distNu / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
+		nIntLoc = (int)ceil(nIntDbl);
+		distInt = distNu / nIntLoc * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
+		//if (i < model.params.nLegs - 1)
+		//	distInt--; // since last node will be used for the next leg, not correct, I add one more in the end
+		errlog("legNr %d nIntDbl %lf nInt %d distInt %lf\n", i, nIntDbl, nIntLoc, distInt);
+
+		if ((startDistBad > 0.005 && i == 0) || (endDistBad > 0.005 && i == model.params.nLegs - 1)) {
+			if (i == 0)
+				badDist = startDistBad;
+			else
+				badDist = 0;
+			if (i == model.params.nLegs - 1)
+				badDist += endDistBad;
+			nIntDbl = (distNu - badDist) / model.params.shipSpeed_average / model.params.nHours_changeCourseInterval;
+			nIntLoc = (int)ceil(nIntDbl);
+			if (nIntLoc < 1)
+				nIntLoc = 1;
+			distInt = (distNu - badDist) / nIntLoc * (1 + model.params.epsilon); // # add a small number so there will be no nodes orthogonal to the last one
+			if (distInt < model.params.epsilon)
+				distInt = model.params.epsilon;
+			if (startDistBad > 0 && i == 0)
+				nIntLoc++;
+			if (endDistBad > 0 && i == model.params.nLegs - 1)
+				nIntLoc++;
+			errlog("recalculate distInt, nIntDbl %lf nInt %d distInt %lf, startDistBad %.2lf endDistBad %.2lf\n",
+				nIntDbl, nIntLoc, distInt, startDistBad, endDistBad);
+		}
+
+		model.params.legProperties[i].physLevelFirst = nInt;
+		model.params.legProperties[i].basDistArcs = distInt;
+		distIntTot += distInt;
+		nInt += nIntLoc;
+		model.params.legProperties[i].physLevelLast = nInt - 1;
+
 	}
 
-	model.params.basDistArcs = distInt;
+	model.params.basDistArcs = distIntTot;
 
-	int nIntervallPoints, nAllocPoints, posNu;
+	int nIntervallPoints, nAllocPoints, posNu, legNr;
 	spherical::Point* intervallPoint;
 	double distKvar, kvot;
 
@@ -12018,21 +12308,25 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	nIntervallPoints++;
 
 	model.network.physicalLev = (strNodeSeq*)malloc2((nInt + 1) * sizeof(strNodeSeq));
-	nAllocPoints = 100;
-	model.network.physicalLev[0].preferredPathPoint = (spherical::Point*)malloc2(nAllocPoints * sizeof(spherical::Point));
+	nAllocPoints = 10;
+	model.network.physicalLev[0].preferredPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
 	model.network.physicalLev[0].npreferredPathPoints = 0;
 	model.network.physicalLev[0].distanceFromStartPosMid = 0;
+	model.network.physicalLev[0].legNr = 0;
 
 	// add nodes at even distances along given path
 	dist = 0;
 	posNu = 0;
+	legNr = 0;
 	for (i = 1; i < model.preferredPath.nPoints; i++) {
-		if (i >= 46)
+		if (i >= 55)
 			i = i;
 		distNu = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000.0;
 		distKvar = distNu;
 
-		distIntUse = distInt;
+		if (nIntervallPoints - 1 > model.params.legProperties[legNr].physLevelLast)
+			legNr++;
+		distIntUse = model.params.legProperties[legNr].basDistArcs; // distInt;
 		if (nIntervallPoints == 1) {
 			if (startDistBad > 0.001) {
 				distIntUse = startDistBad;
@@ -12041,9 +12335,20 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		while (dist + distKvar >= distIntUse && nIntervallPoints < nInt) {
 			// add an intervall here
 			kvot = (distIntUse - dist + distNu - distKvar) / distNu;
+			if (kvot < 0.0001) {
+				kvot = 0;
+				roundKvot = 1;
+			}
+			else
+				roundKvot = 0;
 			auto pMid = model.preferredPath.point[i - 1].intermediatePointTo(
 				model.preferredPath.point[i], kvot); // 51.3721°N, 000.7073°E
 			intervallPoint[nIntervallPoints] = pMid;
+			if (posNu <= nAllocPoints) {
+				nAllocPoints += 10;
+				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)realloc(
+					model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint, nAllocPoints * sizeof(spherical::Point));
+			}
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = pMid;
 			model.network.physicalLev[nIntervallPoints].distanceFromStartPosMid = model.network.physicalLev[nIntervallPoints - 1].distanceFromStartPosMid + distIntUse;
 
@@ -12052,30 +12357,38 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar, distInt);
 			posNu++;
 			model.network.physicalLev[nIntervallPoints - 1].npreferredPathPoints = posNu;
+			model.network.physicalLev[nIntervallPoints - 1].legNr = legNr;
+
 			if (posNu + 1 > model.network.nMaxNodesInPath)
 				model.network.nMaxNodesInPath = posNu + 1;
 			posNu = 0;
 			nIntervallPoints++;
+
 			if (nIntervallPoints >= 6)
 				nIntervallPoints = nIntervallPoints;
-			nAllocPoints = 100;
-			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)malloc2(nAllocPoints * sizeof(spherical::Point));
+			nAllocPoints = 10;
+			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
 			//distIntUse = distInt;
-			if (dist > distInt)
+			if (dist > distIntUse)
 				dist -= distIntUse;
 			else {
-				distKvar -= distIntUse - dist;
+				if(roundKvot == 0)
+					distKvar -= distIntUse - dist;
 				dist = 0;
 			}
-			distIntUse = distInt;
+			if (nIntervallPoints - 1 > model.params.legProperties[legNr].physLevelLast) {
+				legNr++;
+			}
+			distIntUse = model.params.legProperties[legNr].basDistArcs; // distInt;
 		}
 		if (dist + distKvar > 0.1) {
 			if (posNu >= nAllocPoints - 1) {
-				nAllocPoints += 100;
+				nAllocPoints += 10;
 				model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint = (spherical::Point*)realloc(
 					model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint, nAllocPoints * sizeof(spherical::Point));
 			}
 			model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu] = model.preferredPath.point[i];
+			model.network.physicalLev[nIntervallPoints - 1].legNr = legNr;
 			//printf("-- i %d level %d adding pref path point2 %d %.3lf %.3lf dist %.2lf distKvar %.2lf\n", i, nIntervallPoints - 1, posNu,
 			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].longitude().degrees(),
 			//	model.network.physicalLev[nIntervallPoints - 1].preferredPathPoint[posNu].latitude().degrees(), dist, distKvar);
@@ -12107,18 +12420,42 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 
 	// printf("-- Time1 %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	distTot = 0;
+	if (nIntervallPoints > 1)
+		model.network.physicalLev[nIntervallPoints - 1].legNr = model.network.physicalLev[nIntervallPoints - 2].legNr;
+	else {
+		model.network.physicalLev[nIntervallPoints - 1].legNr = 0;
+	}
 	for (i = 0; i < nIntervallPoints; i++) {
 		if (i > 0)
 			distTot += intervallPoint[i - 1].distanceTo(intervallPoint[i]) / 1000.0;
 		model.network.physicalLev[i].distTot = distTot;
 		model.network.physicalLev[i].requirePrefPathFeasible = 0;
 		model.network.physicalLev[i].factorDelayedPrefPath = 0;
-		model.network.physicalLev[i].onlyPrefPath = 0;
+		legNr = model.network.physicalLev[i].legNr;
+		if(model.params.legProperties[legNr].path_fixed == 1)
+			model.network.physicalLev[i].onlyPrefPath = 1;
+		else {
+			model.network.physicalLev[i].onlyPrefPath = 0;
+		}
 		model.network.physicalLev[i].followChannelExactly = 0;
+
+		nodExact = 0;
+		if (i > 0 && model.network.physicalLev[i].onlyPrefPath == 0 && model.network.physicalLev[i - 1].onlyPrefPath == 0) {
+			if (model.network.physicalLev[i - 1].legNr < legNr &&
+				model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_exact == 1)
+				nodExact = 1;
+		}
 
 		if (i == nIntervallPoints - 2)
 			i = i;
-		if (i == 0 || i == nIntervallPoints - 1) {
+
+		if (i > 0 && model.network.physicalLev[i - 1].legNr < legNr)
+			model.network.physicalLev[i].tidWait = model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_waitingTime;
+		else
+			model.network.physicalLev[i].tidWait = 0.0;
+
+
+		if (i == 0 || i == nIntervallPoints - 1 || model.network.physicalLev[i].onlyPrefPath == 1 || nodExact == 1) {
 			model.network.physicalLev[i].nPoints = 0;
 			model.network.physicalLev[i].point = (spherical::Point*)malloc2(sizeof(spherical::Point));
 			model.network.physicalLev[i].allowedPoint = (int*)malloc2(sizeof(int));
@@ -13487,6 +13824,8 @@ double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nex
 
 		if (distHittils + dist * 1.05 < totDist) {
 			distHittils += dist;
+			if (i == 25)
+				i = i;
 			pMid = p1.destinationPoint(distHittils * 1000, bearing);
 
 		}
@@ -14178,6 +14517,10 @@ double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double curren
 
 		speed = calmWaterSpeed * lookUpSin(C) / sinA;
 	}
+	if (speed > calmWaterSpeed + currentSpeed)
+		speed = calmWaterSpeed + currentSpeed;
+	if (speed < calmWaterSpeed - currentSpeed)
+		speed = calmWaterSpeed - currentSpeed;
 	if (speed < 0.0001)
 		speed = 0.0001;
 	//printf("calmWaterSpeed %.2lf bearing %.2lf currentDir %.2lf currentSpeed %.2lf rel_currentDir %.2lf speed %.2lf sinA %.2lf B %.2lf currentSpeed * sinA / calmWaterSpeed %.2lf\n",
@@ -14292,8 +14635,8 @@ double eval_absWindDirDiff(double bearing, double windDir) {
 		}
 	}
 	if (windDir >= M_PI)
-		windDir = M_PI - windDir; // if it is from the left or from the right doesn't matter
-	windDir *= 180 / M_PI;
+		windDir = M_PI2 - windDir; // if it is from the left or from the right doesn't matter
+	//windDir *= 180 / M_PI;
 	return windDir;
 }
 
@@ -14418,11 +14761,11 @@ int get_tableIndex(double value, strTableParam param, int alt) {
 }
 
 int get_tableIndexDirection(double value, strTableParam param, int alt) {
-	double dirUse = M_PI - value;
-	if (dirUse < 0)
-		dirUse = -dirUse;
-	if (dirUse > M_PI)
-		dirUse = M_PI2 - dirUse;
+	//double dirUse = M_PI - value;
+	//if (dirUse < 0)
+	//	dirUse = -dirUse;
+	//if (dirUse > M_PI)
+	//	dirUse = M_PI2 - dirUse;
 
 	int tmp = (int)((value - param.minValue) * param.inv_intervalSize);
 	if (tmp < (value - param.minValue) * param.inv_intervalSize - 0.5)
@@ -14644,5 +14987,4 @@ int check_useRaster_longitude(int weatherNr, int filNr) {
 
 	return 1;
 }
-
 

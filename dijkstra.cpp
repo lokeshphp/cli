@@ -886,7 +886,7 @@ double lasInLsngFromFil_MassTest(strModel* model, int Reached, int NodA0, int No
 			for (; arcNr < model->nArcs; arcNr++) {
 				if (model->arc[arcNr].fromLevel == level0 && model->arc[arcNr].fromTime == time0 &&
 					model->arc[arcNr].fromPointNr == pointNr0 && model->arc[arcNr].toLevel == level &&
-					model->arc[arcNr].toTime == time && model->arc[arcNr].toPointNr == pointNr){// &&
+					model->arc[arcNr].toTime == time && model->arc[arcNr].toPointNr == pointNr) {// &&
 					// model->arc[arcNr].speedSetting == level0) {
 					model->BVArc[nNoder] = arcNr;
 					totDist += model->arc[arcNr].distance;

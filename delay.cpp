@@ -1305,8 +1305,8 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	double timeNu = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0, emission = 0;
 	double fuel_aux = 0, fuel_auxEca = 0, fuel_eca = 0, fuel_noEca = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
 	double bowSlamming = 0, greenWater = 0, dynStability = 0, iceCoverage = 0, feasibleSafety = 0, timeExact = 0;
-	double fuelCostDollar, fuel_objCost, voyageTime_objCost, emission_objCost;
-	int ii, nTp, nAdded, ii2, posIreport;
+	double fuelCostDollar, fuel_objCost, voyageTime_objCost, emission_objCost, safety_objCost;
+	int ii, nTp, nAdded, ii2, posIreport, legNr;
 	double x1, y1, x2, y2;
 	spherical::Point pointLast, pointFinal;
 
@@ -1339,6 +1339,12 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 	model.network.last_x = model.preferredPath.startX;
 	model.functions.valuesNow.maxWaveHeight = 0;
 	model.functions.valuesNow.maxWaveHeight_tp = 0;
+
+	fuel_objCost = 0;
+	voyageTime_objCost = 0;
+	emission_objCost = 0;
+	safety_objCost = 0;
+	model.waypointResult.accumDistance_km = 0;
 
 	for (iPos = 0; iPos < model.nBVArcs - 1; iPos++)
 	{
@@ -1476,13 +1482,20 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 							timeNu += model.arc[arcNr].time / nTp;
 							fuel += model.arc[arcNr].fuelBase / nTp;
 							emission += model.arc[arcNr].emission / nTp;
+
+							legNr = getLegNrFromLevels(lev1, lev2);
+							fuel_objCost += model.params.legWeights[legNr].weightFuel * model.arc[arcNr].fuelBase / nTp;
+							voyageTime_objCost += model.params.legWeights[legNr].weightTime * model.params.priceTime * model.arc[arcNr].time / nTp;
+							emission_objCost += model.params.legWeights[legNr].weightEmission * model.params.scaleObjEmission * model.arc[arcNr].emission / nTp;
+							safety_objCost += model.params.legWeights[legNr].weightSafety.base * model.arc[arcNr].safetyBase / nTp;
+
+							safety += model.arc[arcNr].safetyBase / nTp;
 							fuel_aux += model.arc[arcNr].fuel_aux / nTp;
 							fuel_auxEca += model.arc[arcNr].fuel_auxEca / nTp;
 							fuel_eca += model.arc[arcNr].fuel_eca / nTp;
 							fuel_noEca += model.arc[arcNr].fuel_noEca / nTp;
 							//if(ii == nTp - 1)
 							//	printf("arcNr %d fuelArc_noEca %.2lf arcTime %.2lf totFuel_noEca %.2lf\n", arcNr, model.arc[arcNr].fuel_noEca, model.arc[arcNr].time, fuel_noEca);
-							safety += model.arc[arcNr].safetyBase / nTp;
 							hurricane += model.arc[arcNr].safetyHurricane / nTp;
 							bowSlamming += model.functions.valuesNow.bowSlam / nTp; // model.arc[arcNr].safetyBowSlam / nTp;
 							greenWater += model.functions.valuesNow.greenWater / nTp; // model.arc[arcNr].safetyGreenWater / nTp;
@@ -1565,6 +1578,13 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 									timeNu += model.arc[arcNr].time / nTp;
 									fuel += model.arc[arcNr].fuelBase / nTp;
 									emission += model.arc[arcNr].emission / nTp;
+
+									legNr = getLegNrFromLevels(lev1, lev2);
+									fuel_objCost += model.params.legWeights[legNr].weightFuel * model.arc[arcNr].fuelBase / nTp;
+									voyageTime_objCost += model.params.legWeights[legNr].weightTime * model.params.priceTime * model.arc[arcNr].time / nTp;
+									emission_objCost += model.params.legWeights[legNr].weightEmission * model.params.scaleObjEmission * model.arc[arcNr].emission / nTp;
+									safety_objCost += model.params.legWeights[legNr].weightSafety.base * model.arc[arcNr].safetyBase / nTp;
+
 									fuel_aux += model.arc[arcNr].fuel_aux / nTp;
 									fuel_auxEca += model.arc[arcNr].fuel_auxEca / nTp;
 									fuel_eca += model.arc[arcNr].fuel_eca / nTp;
@@ -1671,6 +1691,13 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 				timeNu += model.arc[arcNr].time;
 				fuel += model.arc[arcNr].fuelBase;
 				emission += model.arc[arcNr].emission;
+				legNr = getLegNrFromLevels(lev1, lev2);
+				fuel_objCost += model.params.legWeights[legNr].weightFuel * model.arc[arcNr].fuelBase;
+				voyageTime_objCost += model.params.legWeights[legNr].weightTime * model.params.priceTime * model.arc[arcNr].time;
+				emission_objCost += model.params.legWeights[legNr].weightEmission * model.params.scaleObjEmission * model.arc[arcNr].emission;
+				safety_objCost += model.params.legWeights[legNr].weightSafety.base * model.arc[arcNr].safetyBase;
+
+
 				fuel_aux += model.arc[arcNr].fuel_aux;
 				fuel_auxEca += model.arc[arcNr].fuel_auxEca;
 				fuel_eca += model.arc[arcNr].fuel_eca;
@@ -1788,9 +1815,9 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 		fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price;
 	dollarCost = fuelCostDollar + timeNu * model.params.priceTime + channelCost;
 
-	fuel_objCost = model.params.weightFuel * fuel;
-	voyageTime_objCost = model.params.weightTime * timeNu * model.params.priceTime;
-	emission_objCost = model.params.weightEmission * emission * model.params.scaleObjEmission;
+	//fuel_objCost = model.params.legWeights[legNr].weightFuel * fuel;
+	//voyageTime_objCost = model.params.legWeights[legNr].weightTime * timeNu * model.params.priceTime;
+	//emission_objCost = model.params.legWeights[legNr].weightEmission * emission * model.params.scaleObjEmission;
 
 	lateEtaCost = 0;
 	earlyEtaCost = 0;
@@ -1848,23 +1875,23 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 
 		fprintf(filPek, "total\tcombined\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n",
 			distance, timeNu, fuel, emission, safety, channelCost, totCost);
-		fprintf(filPek, "\nobj_weights\ntime\tfuel\tsafety\n%lf\t%lf\t%lf\n",
-			model.params.weightTime, 1.0,
-			model.params.weightSafety.base);
+		fprintf(filPek, "\nobj_weights\nobj_nr\tlev1\tlev2\time\tfuel\tsafety\n");
+		for(int i11 = 0; i11 < model.params.nLegs; i11++)
+			fprintf(filPek, "%d\t%d\t%d\t%lf\t%lf\t%lf\n", i,
+				model.params.legWeights[i11].level1, model.params.legWeights[i11].level2,
+				model.params.legWeights[i11].weightTime, 1.0,
+				model.params.legWeights[i11].weightSafety.base);
 
 		printf("dist\t%.2lf\ntime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
 			"fuel\t%.2lf\teca\t%.2lf\tnonEca\t%.2lf\tcost\t%.2lf\t"
 			"obj\t%.2lf\n"
-			"emission\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\n"
+			"emission\t%.2lf\t%.2lf\tobj\t%.2lf\n"
 			"safety\t%.2lf\tobj\t%.2lf\nchannelCost\t%.2lf\n",
-			distance, timeNu, model.params.priceTime * timeNu, model.params.weightTime * model.params.priceTime * timeNu,
+			distance, timeNu, model.params.priceTime * timeNu, voyageTime_objCost,
 			fuel_aux + fuel_auxEca + fuel_eca + fuel_noEca, fuel_aux + fuel_eca, fuel_noEca,
-			fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price + fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price,
-			model.params.weightFuel * (fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price +
-				fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price),
-			emission, model.params.weightEmission, emission_objCost,
-			safety, model.params.weightSafety.base * safety,
-			channelCost);
+			fuel_aux * model.params.fuel.aux_noEca.price + fuel_auxEca * model.params.fuel.aux_eca.price + 
+			fuel_eca * model.params.fuel.main_eca.price + fuel_noEca * model.params.fuel.main_noEca.price,
+			fuel_objCost, emission, emission_objCost,safety, safety_objCost, channelCost);
 
 		for (i = 0; i < model.functions.nShip_speedSettingsBase; i++) {
 			if (nSpeedSettingUsed[i] > 0) {
@@ -1885,7 +1912,7 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 			}
 		}
 		printf("dist\t%.2lf\ttime\t%.2lf\tcost\t%.2lf\tobj\t%.2lf\tnStorms\t%d\n",
-			distance, timeNu, model.params.priceTime * timeNu, model.params.weightTime * model.params.priceTime * timeNu, nStormsPath);
+			distance, timeNu, model.params.priceTime * timeNu, voyageTime_objCost, nStormsPath);
 	}
 
 

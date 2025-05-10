@@ -100,6 +100,28 @@ struct strExtraWeights {
 	char* identifierOpt;
 };
 
+struct strLegWeights {
+	int level1;
+	int level2;
+	double weightTime;
+	double weightFuel;
+	double weightEmission;
+	strSafety weightSafety;
+};
+
+struct strLegProp {
+	int prefPath_startPoint;
+	int prefPath_endPoint;
+	int path_fixed; // 1 if the leg has to be followed exactly
+	int path_pos;
+	double endNode_waitingTime;
+	int endNode_exact; // 1 if the end node of the leg must be exactly visited
+
+	int physLevelFirst;
+	int physLevelLast;
+	double basDistArcs;
+};
+
 struct strVisuell {
 	FILE* filVisuell;
 	struct tm tmBas;
@@ -150,6 +172,8 @@ struct strParams
 	int* weather_is_current;
 
 	int includeNazanin_safety;
+	int ignore_windWave;
+	int ignore_current;
 
 	int checkGribFilesSpecial;
 
@@ -239,13 +263,18 @@ struct strParams
 	
 	//std::string variableFileName;
 
-	double weightTime;
+	// double weightTime;
 	double priceTime;
 	strFuel fuel;
-	double weightFuel;
-	double weightEmission;
+
+	//double weightFuel;
+	//double weightEmission;
+	//strSafety weightSafety;
+	strLegWeights* legWeights;
+	strLegProp* legProperties;
+	int nLegs;
+
 	double scaleObjEmission;
-	strSafety weightSafety;
 	strPenalties penalties;
 
 	double penOverWeatherLimit_fix;
@@ -463,6 +492,7 @@ struct strChannel {
 	spherical::Point* point;
 	//int* allowedPoint;
 	int nOutNodes;
+	int nAllocOutNodes;
 	int* outNode;
 	//int* outPolyPoint;
 	int* outLevel;
@@ -475,6 +505,9 @@ struct strChannel {
 
 	int nodDelay[2];
 	int nodDelay_prefPath[2];
+
+	int legNr;
+
 	//double* polygon_x[2];
 	//double* polygon_y[2];
 	//strBoundBox polygon_boundingBox[2];
@@ -527,6 +560,9 @@ struct strNodeSeq
 
 	int* nodDelay;
 	int* nodDelay_prefPath;
+
+	int legNr;
+	double tidWait;
 };
 
 struct strNetwork
@@ -815,7 +851,7 @@ struct strValuesNow {
 	double totCorridorWaitingFuel_mainNonECA;
 	double totCorridorWaitingFuel_auxECA;
 	double totCorridorWaitingFuel_auxNonECA;
-	double totCorridorWaitingTime;
+	double totWaitingTime;
 
 	double accumRPM;
 	double accumRPM_time;
@@ -1249,6 +1285,19 @@ struct strExtraNoGo {
 	double extraCostFactor;
 };
 
+struct strPolygon {
+	int nCoords;
+	double* x;
+	double* y;
+};
+
+struct strExtraNoGoPolygon {
+	char* customAreaID;
+	int nPolygons;
+	strPolygon* polygon;
+	OGRPolygon** polygon_GDAL;
+};
+
 struct strViaPos {
 	int nPoints;
 	double* x;
@@ -1591,7 +1640,7 @@ struct strWaypointResults {
 	double currentF;
 	double delayF;
 	double accumDistance_km;
-	double distanceLeft_nm;
+	double accumDistance_last_km;
 
 	char* fixPositionString_latlon;
 	double bearing;
@@ -1694,7 +1743,9 @@ struct strModel
 	int nExtraNoGoAreasBase;
 	strExtraNoGoBase* extraNoGoAreaBase;
 	int nExtraNoGoAreas;
+	int nExtraNoGoPolygons;
 	strExtraNoGo* extraNoGoArea;
+	strExtraNoGoPolygon* extraNoGoPolygon;
 
 	int nExtraCostAreas;
 	strExtraNoGo* extraCostArea;
@@ -1872,8 +1923,8 @@ double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, d
 double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel);
 
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
-void eval_safety(double iceCover);
-void eval_safety_nazanin(double shipSpeedOverLand, double shipSpeedRelWater, double windspeed, double absWindDirDiff, double waveHeight,
+void eval_safety(int legNr, double iceCover);
+void eval_safety_nazanin(int legNr, double shipSpeedOverLand, double shipSpeedRelWater, double windspeed, double absWindDirDiff, double waveHeight,
 	double wavePeriod, double relWaveDirection, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
 int calcWeatherPosAlongChannel(int cNr);
@@ -2044,7 +2095,7 @@ time_t getFirstSecondOfDay(long long seconds);
 int getManadDagFranUTCSeconds(long long seconds, int* dag);
 void getBastSpeedPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
 void getBastConsumptionPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
-double evalWeatherDataAlongArc(int arcNr, int startSlutArc, double timeExact, int speedSettingGiven = -1);
+double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact, int speedSettingGiven = -1);
 int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc = 0);
 void 	initModelStatusValues();
 long long make_gmtime_fromDateTimeString(std::string tidpkt, strParams* params = NULL);
@@ -2069,8 +2120,13 @@ int loadSurfRidingTable(int tableNr);
 int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, int nSpeedSettings,
 	double fuelQualityKvot, double extraAreaCostKvot, int addArc = 1);
 
+int getLegNrFromLevels(int thisLevel, int nextLevel);
+int check_noGoPolygons_ok(double lat1, double lon1, double lat2, double lon2);
+int check_feasibleNode_noGo_polygons(double lat, double lon);
+int add_custom_noGo_areas(json data);
 
 
 
 
 #endif //PCH_H
+
