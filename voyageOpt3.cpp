@@ -1,7 +1,8 @@
 
 
 extern int USE_KVOTKOST;
-int USE_KVOTCOST_CORRIDORS = 1;
+extern int USE_KVOTCOST_CORRIDORS;
+extern double DEFAULT_KVOTMINCOST;
 
 #include "pch.h"
 #include <cstdio>
@@ -1126,247 +1127,6 @@ int genSplitsArcNew(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 }
 */
 
-int genSplitsArc(int arcNr, spherical::Point p1, spherical::Point p2, int prefPath) {
-	double wantedTimeLength = 4.0, distNu, wantedDist, kvot;
-	int nSplit = 0, nWantedSplits;
-	int i, cNr, level, ii;
-	spherical::Point p3, pointLast;
-	double x, y, bearing, distTmp, calmWaterSpeed, distBas;
-	double distLastSplit, distArc = model.arc[arcNr].distance * 1000.0, distTot = 0;
-
-	if (model.network.nCoords + 500 >= model.network.nAllocCoords) {
-		model.network.nAllocCoords += 500;
-		model.network.xCoord = (double*)realloc(model.network.xCoord, model.network.nAllocCoords * sizeof(double));
-		model.network.yCoord = (double*)realloc(model.network.yCoord, model.network.nAllocCoords * sizeof(double));
-	}
-
-	//printf("** genSplitsArc arcNr %d from xy %.3lf %.3lf to %.3lf %.3lf prefPath %d\n", arcNr,
-	//	p1.longitude().degrees(), p1.latitude().degrees(), p2.longitude().degrees(), p2.latitude().degrees(), prefPath);
-	//level = model.arc[arcNr].fromLevel;
-	//if (level >= 0) {
-	//	for (int i3 = 0; i3 < model.network.physicalLev[level].npreferredPathPoints; i3++) {
-	//		printf("prefPath i3 %d lon/lat %.3lf %.3lf\n", i3,
-	//			model.network.physicalLev[level].preferredPathPoint[i3].longitude().degrees(),
-	//			model.network.physicalLev[level].preferredPathPoint[i3].latitude().degrees());
-	//	}
-	//}
-	// if pref path
-
-	if (arcNr == 169)
-		arcNr = arcNr;
-
-	if (prefPath == 1) {
-		nWantedSplits = round(model.arc[arcNr].time / wantedTimeLength);
-		if (model.network.nMaxSplits == 1)
-			nWantedSplits = 1;
-		else {
-			if (nWantedSplits > model.network.nMaxSplits - 1)
-				nWantedSplits = model.network.nMaxSplits - 1;
-		}
-		if (model.arc[arcNr].speedSetting == -1)
-			wantedDist = model.arc[arcNr].distance * 1000.0;
-		else
-			wantedDist = model.arc[arcNr].distance / nWantedSplits * 1000.0;
-		level = model.arc[arcNr].fromLevel;
-		//printf("--- arcNr %d nWantedSplitsPrefPath %d, wantedDist %.2lf level %d\n", arcNr, nWantedSplits, wantedDist, level);
-
-		model.network.yCoord[model.network.nCoords] = p1.latitude().degrees();
-		model.network.xCoord[model.network.nCoords] = p1.longitude().degrees();
-		//printf("/// solPathCoord pos %d added %.3lf %.3lf\n", model.network.nCoords,
-		//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords]);
-		//printf("distLastSplit %.2lf wantedDist %.2lf\n", distLastSplit, wantedDist);
-		model.network.posSplitCoord[nSplit] = model.network.nCoords;
-		//printf("## adderar startSplit nr %d fran pos %d i xy %.3lf %.3lf\n", nSplit, model.network.nCoords,
-		//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords]);
-		model.network.startKvot[nSplit] = 0.0;
-		nSplit++;
-		distLastSplit = 0;
-		(model.network.nCoords)++;
-		pointLast = p1;
-
-		for (int i3 = 0; i3 < model.network.physicalLev[level].npreferredPathPoints; i3++) {
-			//printf("prefPath i3 %d lon/lat %.3lf %.3lf\n", i3,
-			//	model.network.physicalLev[level].preferredPathPoint[i3].longitude().degrees(),
-			//	model.network.physicalLev[level].preferredPathPoint[i3].latitude().degrees());
-			distTmp = pointLast.distanceTo(model.network.physicalLev[level].preferredPathPoint[i3]);
-			distBas = distTmp;
-			distTot += distTmp;
-			//printf("i3 %d distTmp %.2lf distLastSplit %.3lf\n", i3, distTmp, distLastSplit);
-			for (ii = 0; ii < nWantedSplits + 1; ii++) {
-				//printf("ii %d distLastSplit %.2lf distTmp %.2lf\n", ii, distLastSplit, distTmp);
-				if (distLastSplit + distTmp >= 1.7 * wantedDist && (distTot < distArc - 10 || distTmp > 0.5 * wantedDist)) {
-					distLastSplit = 0;
-					if (distBas < wantedDist)
-						pointLast = pointLast.destinationPoint(distBas, pointLast.bearingTo(model.network.physicalLev[level].preferredPathPoint[i3]));
-					else
-						pointLast = pointLast.destinationPoint(wantedDist, pointLast.bearingTo(model.network.physicalLev[level].preferredPathPoint[i3]));
-					// if (nPkter == 0) {
-					model.network.yCoord[model.network.nCoords] = pointLast.latitude().degrees();
-					model.network.xCoord[model.network.nCoords] = pointLast.longitude().degrees();
-					//printf("/// solPathCoord1 pos %d added %.3lf %.3lf\n", model.network.nCoords,
-					//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords]);
-					//fprintf(filtmp, "pkt %d lev1 %d prefPath i %d ii %d distTmp %.3lf xy %.3lf %.3lf codeLine %d\n", nPkter, lev1, i, ii, distTmp, x[nPkter], y[nPkter], __LINE__);
-					model.network.posSplitCoord[nSplit] = model.network.nCoords;
-					model.network.startKvot[nSplit] = (distTot - distTmp + wantedDist) / distArc;
-					model.network.endKvot[nSplit - 1] = (distTot - distTmp + wantedDist) / distArc;
-					//printf("## adderar Split nr %d fran pos %d i3 %d ii %d xy %.3lf %.3lf startKvot %.2lf distTot %.2lf distTmp %.2lf distArc %.2lf\n", 
-					//	nSplit, model.network.nCoords, i3, ii,
-					//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords],
-					//	model.network.startKvot[nSplit], distTot, distTmp, distArc);
-					nSplit++;
-					(model.network.nCoords)++;
-					distTmp -= wantedDist;
-				}
-				else
-					break;
-			}
-			distLastSplit += distTmp;
-
-			model.network.yCoord[model.network.nCoords] = model.network.physicalLev[level].preferredPathPoint[i3].latitude().degrees();
-			model.network.xCoord[model.network.nCoords] = model.network.physicalLev[level].preferredPathPoint[i3].longitude().degrees();
-			//printf("/// solPathCoord2 pos %d added %.3lf %.3lf\n", model.network.nCoords,
-			//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords]);
-			//printf("distLastSplit %.2lf distTmp %.2lf wantedDist %.2lf distTot %.2lf distArc %.2lf\n", distLastSplit, distTmp, wantedDist, distTot, distArc);
-			if (distLastSplit >= wantedDist * 0.8 && distTot < distArc - wantedDist * 0.3) {
-				model.network.posSplitCoord[nSplit] = model.network.nCoords;
-				model.network.startKvot[nSplit] = distTot / distArc;
-				model.network.endKvot[nSplit - 1] = distTot / distArc;
-				//printf("## adderar split nr %d fran pos %d i xy %.3lf %.3lf distTot %.2lf distArc %.2lf\n", nSplit, model.network.nCoords,
-				//	model.network.xCoord[model.network.nCoords], model.network.yCoord[model.network.nCoords], distTot, distArc);
-				nSplit++;
-				distLastSplit = 0;
-			}
-			(model.network.nCoords)++;
-			pointLast = model.network.physicalLev[level].preferredPathPoint[i3];
-		}
-		model.network.endKvot[nSplit - 1] = 1.0;
-		return nSplit;
-	}
-
-	// if corridor
-	if (model.arc[arcNr].fromLevel < 0 && model.arc[arcNr].toLevel < 0) {
-		cNr = -model.arc[arcNr].fromLevel - 1;
-		//printf("--- arcNr %d cNr %d, \n", arcNr, cNr);
-		distTot = 0;
-		if (model.network.channel[cNr].timeThroughChannel > 0) {
-			kvot = model.network.channel[cNr].timeThroughChannel / wantedTimeLength;
-			wantedDist = model.network.channel[cNr].distance_km * 1000.0; // / kvot;
-
-			//printf("++genSplitsArc kvot %.2lf wantedDist %.2lf timeThroughChannel %.2lf wantedTime %.2lf\n", kvot,
-			//	wantedDist, model.network.channel[cNr].timeThroughChannel, wantedTimeLength);
-		}
-		else {
-			if (model.network.nMaxSplits > 1) {
-				calmWaterSpeed = eval_calmWaterSpeed(model.arc[arcNr].speedSetting, model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel);
-				wantedDist = 1000 * calmWaterSpeed * wantedTimeLength;
-				kvot = distArc / wantedDist;
-			}
-			else {
-				kvot = model.network.channel[cNr].timeThroughChannel / wantedTimeLength;
-				wantedDist = model.network.channel[cNr].distance_km * 1000.0; // / kvot;
-			}
-			//printf("++genSplitsArc2 kvot %.2lf wantedDist %.2lf calmWaterSpeed %.2lf\n", kvot,
-			//	wantedDist, calmWaterSpeed, wantedTimeLength);
-		}
-
-
-		distLastSplit = wantedDist * 2;
-		for (i = 0; i < model.network.channel[cNr].nPoints; i++) {
-			if (i > 0) {
-				distTmp = (model.network.channel[cNr].distanceFromStart[i] - model.network.channel[cNr].distanceFromStart[i - 1]) * 1000.0;
-				distBas = distTmp;
-				for (ii = 0; ii < kvot + 1; ii++) {
-					//printf("i %d, ii %d distLastSplit %.2lf distTmp %.2lf 2xwantedDist %.2lf\n", i, ii,
-					//	distLastSplit, distTmp, 2 * wantedDist);
-					if (distLastSplit + distTmp >= 1.7 * wantedDist && distTot + distLastSplit < distArc - 0.5 * wantedDist) {
-						//printf("+++add extra point distTot %.2lf wantedDist %.2lf distArc %.2lf\n", distTot, wantedDist, distArc);
-						distTot += distLastSplit;
-						//printf("--check pointLast %.3lf %.3lf\n", pointLast.longitude().degrees(), pointLast.latitude().degrees());
-						if (distBas < wantedDist)
-							pointLast = pointLast.destinationPoint(distBas, pointLast.bearingTo(model.network.channel[cNr].point[i]));
-						else
-							pointLast = pointLast.destinationPoint(wantedDist, pointLast.bearingTo(model.network.channel[cNr].point[i]));
-						distLastSplit = 0;
-						// if (nPkter == 0) {
-						model.network.yCoord[model.network.nCoords] = pointLast.latitude().degrees();
-						model.network.xCoord[model.network.nCoords] = pointLast.longitude().degrees();
-						//printf("  %d at coord %.3lf %.3lf\n", model.network.nCoords, model.network.xCoord[model.network.nCoords],
-						//	model.network.yCoord[model.network.nCoords]);
-						//fprintf(filtmp, "pkt %d lev1 %d prefPath i %d ii %d distTmp %.3lf xy %.3lf %.3lf codeLine %d\n", nPkter, lev1, i, ii, distTmp, x[nPkter], y[nPkter], __LINE__);
-						model.network.posSplitCoord[nSplit] = model.network.nCoords;
-						model.network.startKvot[nSplit] = (distTot + wantedDist) / distArc;
-						//printf("//sets2 splitPos %d startKvot to %.2lf from distTot %.2lf\n", nSplit, model.network.startKvot[nSplit], distTot);
-						model.network.endKvot[nSplit - 1] = (distTot + wantedDist) / distArc;
-						//printf("//sets2 splitPos %d endKvot to %.2lf from distTot %.2lf\n", nSplit - 1, model.network.endKvot[nSplit - 1], distTot);
-						nSplit++;
-						(model.network.nCoords)++;
-						distTmp -= wantedDist;
-						distTot += wantedDist;
-					}
-					else
-						break;
-				}
-				distLastSplit += distTmp;
-				//distTot += distTmp;
-			}
-			if (i < model.network.channel[cNr].nPoints - 1) {
-				model.network.yCoord[model.network.nCoords] = model.network.channel[cNr].point[i].latitude().degrees();
-				model.network.xCoord[model.network.nCoords] = model.network.channel[cNr].point[i].longitude().degrees();
-				//printf("add point %d coord %.3lf %.3lf distLastSplit %.2lf distTot %.2lf distArc %.2lf\n",
-				//	model.network.nCoords, model.network.xCoord[model.network.nCoords],
-				//	model.network.yCoord[model.network.nCoords], distLastSplit, distTot, distArc);
-				if (distLastSplit >= wantedDist && (distTot + distLastSplit < distArc - wantedDist * 0.3 || i == 0)) {
-					//printf("++use as split points nr %d distLastSplit %.2lf distTot %.2lf distArc %.2lf\n", nSplit, distLastSplit, distTot, distArc);
-					model.network.posSplitCoord[nSplit] = model.network.nCoords;
-					if (nSplit > 0) {
-						distTot += distLastSplit;
-						model.network.endKvot[nSplit - 1] = distTot / distArc;
-						//printf("//sets splitPos %d endKvot to %.2lf from distTot %.2lf\n", nSplit - 1, model.network.endKvot[nSplit - 1], distTot);
-					}
-					model.network.startKvot[nSplit] = distTot / distArc;
-					//printf("//sets splitPos %d startKvot to %.2lf from distTot %.2lf\n", nSplit, model.network.startKvot[nSplit], distTot);
-					nSplit++;
-					distLastSplit = 0;
-				}
-				(model.network.nCoords)++;
-				pointLast = model.network.channel[cNr].point[i];
-			}
-		}
-		model.network.endKvot[nSplit - 1] = 1.0;
-		return nSplit;
-	}
-
-	// else straight arc
-	nWantedSplits = round(model.arc[arcNr].time / wantedTimeLength);
-	bearing = p1.bearingTo(p2);
-	nSplit = nWantedSplits;
-	//printf("--- arcNr %d nWantedSplitsStraight %d\n", arcNr, nWantedSplits);
-	if (nSplit == 0)
-		nSplit = 1;
-	if (nSplit > model.network.nMaxSplits)
-		nSplit = model.network.nMaxSplits;
-	for (i = 0; i < nSplit; i++) {
-		model.network.startKvot[i] = (double)i / nSplit;
-		model.network.endKvot[i] = (double)(i + 1) / nSplit;
-		if (i > 0) {
-			p3 = p1.destinationPoint(model.arc[arcNr].distance * 1000.0 * model.network.startKvot[i], bearing);
-			x = p3.longitude().degrees();
-			y = p3.latitude().degrees();
-		}
-		else {
-			x = p1.longitude().degrees();
-			y = p1.latitude().degrees();
-		}
-		model.network.xCoord[model.network.nCoords] = x;
-		model.network.yCoord[model.network.nCoords] = y;
-		model.network.posSplitCoord[i] = model.network.nCoords;
-		(model.network.nCoords)++;
-	}
-	return nSplit;
-
-}
-
-
 int addCoordsToPath(int arcNr, spherical::Point p1, spherical::Point p2, int prefPath) {
 	double distNu, wantedDist, kvot;
 	int i3b;
@@ -1687,8 +1447,11 @@ double calcNewTime_changeSpeedSetting_delay(int arcDelay, int speedSettingNu, in
 	//double calcSpeed = modelDelay.arc[arcDelay].distance / modelDelay.arc[arcDelay].time;
 	//double calmWaterSpeed = eval_calmWaterSpeed(modelDelay.arc[arcDelay].speedSetting, -1, -100);
 	//double factor = calmWaterSpeed / calcSpeed;
+	int restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].fromPointNr,
+		modelDelay.arc[arcDelay].outNodePos);
+
 	*calmWaterSpeedNy = eval_calmWaterSpeed(speedSettingNu,
-		modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel);
+		modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel, restrictedAreaNr);
 	//double timeArc = modelDelay.arc[arcDelay].distance / calmWaterSpeedNy * factor;
 
 	double factorDelay = 1.0, speedDiffCurrent = 0, waiting = 0, fixTime;
@@ -1766,14 +1529,19 @@ double calcNewTime_changeSpeedSetting_delay_prefPath(int arcDelay, int speedSett
 
 int setAllSpeedAltOK_ifPossible_level(int arcDelay, int posDelay){
 	int chosenSetting = modelDelay.arc[arcDelay].speedSetting;
-	int speedSetting;
+	int speedSetting, legNr;
 	int lev1 = modelDelay.arc[arcDelay].fromLevel;
 	int lev2 = modelDelay.arc[arcDelay].toLevel;
 	
 	int i, pos;
 	strSpeed* speedLevel;
 
-	if (model.functions.nAllocShipSpeedsLevel < model.functions.nShip_speedSettingsBase) {
+	if(lev1 >= 0)
+		legNr = model.network.physicalLev[lev1].legNr;
+	else
+		legNr = model.network.channel[-lev1 - 1].legNr;
+
+	if (model.functions.nAllocShipSpeedsLevel[legNr] < model.functions.nShip_speedSettingsBase) {
 		speedSetting = getClosestSetting_fromBase(chosenSetting, lev1, lev2) + 
 			model.delay.changedSpeed[posDelay];
 	}
@@ -1806,6 +1574,7 @@ int setAllSpeedAltOK_ifPossible_level(int arcDelay, int posDelay){
 
 int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int fullCalc) {
 	int arcNu = model.nArcs, arcDelay, thisLevel, pos1, speedSetting, cNr, legNr;
+	int restrictedAreaNr;
 	double emission, newTime;
 	double fuelConsumption_main, fuelConsumption_aux, fuelUsage_main, fuelUsage_aux;
 	double fuelQualityKvot, fuel_eca, fuel_noEca, fuel_aux, fuel_auxEca, fuelBase, totCost;
@@ -1825,6 +1594,8 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		model.arc[arcNu].fromLevel = modelDelay.arc[arcDelay].fromLevel;
 		model.arc[arcNu].toLevel = modelDelay.arc[arcDelay].toLevel;
 		model.arc[arcNu].fromPointNr = modelDelay.arc[arcDelay].fromPointNr;
+		model.arc[arcNu].outNodePos = modelDelay.arc[arcDelay].outNodePos;
+
 		model.arc[arcNu].toPointNr = modelDelay.arc[arcDelay].toPointNr;
 		model.arc[arcNu].distance = modelDelay.arc[arcDelay].distance;
 		if (fullCalc == 0)
@@ -1849,6 +1620,7 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		model.arc[arcNu].fromLevel = modelDelay_prefPath.arc[arcDelay].fromLevel;
 		model.arc[arcNu].toLevel = modelDelay_prefPath.arc[arcDelay].toLevel;
 		model.arc[arcNu].fromPointNr = modelDelay_prefPath.arc[arcDelay].fromPointNr;
+		model.arc[arcNu].outNodePos = modelDelay_prefPath.arc[arcDelay].outNodePos;
 		model.arc[arcNu].toPointNr = modelDelay_prefPath.arc[arcDelay].toPointNr;
 		model.arc[arcNu].distance = modelDelay_prefPath.arc[arcDelay].distance;
 		if (fullCalc == 0)
@@ -1870,8 +1642,10 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		//	modelDelay.arc[arcDelay].fromLevel, modelDelay.arc[arcDelay].toLevel);
 		//fuelConsumption_main = eval_fuelConsumption_both(speedSetting + model.delay.changedSpeed[posDelay], &fuelConsumption_aux,
 		//	model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel);
+		restrictedAreaNr = get_restrictedAreaNr(model.arc[arcNu].fromLevel, model.arc[arcNu].fromPointNr,
+			model.arc[arcNu].outNodePos);
 		fuelConsumption_main = eval_fuelConsumption_both(speedSetting, &fuelConsumption_aux,
-			model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel);
+			model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel, restrictedAreaNr, calmWaterSpeed);
 		fuelUsage_aux = fuelConsumption_aux * newTime;
 		fuelUsage_main = fuelConsumption_main * newTime;
 		if (model.arc[arcNu].toLevel < 0 && model.arc[arcNu].fromLevel < 0) {
@@ -1938,9 +1712,13 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		}
 
 		totCost *= (1 + extraAreaCostKvot);
-		if (USE_KVOTKOST == 1)
-			totCost *= kvotCost;
-		
+		if (USE_KVOTKOST == 1) {
+			if (USE_KVOTCOST_CORRIDORS == 1)
+				totCost *= kvotCost;
+			else
+				totCost -= kvotCost;
+		}
+
 		model.arc[arcNu].fuelBase = fuelBase;
 		model.arc[arcNu].fuel_aux = fuel_aux;
 		model.arc[arcNu].fuel_auxEca = fuel_auxEca;
@@ -4101,6 +3879,7 @@ int checkChannels() {
 		model.network.channel[cNr].nAllocOutNodes = model.params.nPkterOrto * 2;
 		model.network.channel[cNr].outNode = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 		model.network.channel[cNr].outLevel = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 
 		if (model.network.channel[cNr].type == 1)
 			continue; // only normal channels need to be checked, not tss 
@@ -4812,6 +4591,7 @@ void copyChannelFromTmp(int cNr, int pos) {
 	model.network.channel[cNr].earliestStartLevel = model.network.channelTmp[pos].earliestStartLevel;
 	model.network.channel[cNr].latestEndLevel = model.network.channelTmp[pos].latestEndLevel;
 	model.network.channel[cNr].kvotCost = model.network.channelTmp[pos].kvotCost;
+	model.network.channel[cNr].kvotMinCost = model.network.channelTmp[pos].kvotMinCost;
 	model.network.channel[cNr].preferredPathPoint_posConnectFrom = model.network.channelTmp[pos].preferredPathPoint_posConnectFrom;
 	model.network.channel[cNr].preferredPathPoint_posConnectTo = model.network.channelTmp[pos].preferredPathPoint_posConnectTo;
 
@@ -4834,6 +4614,7 @@ int sortChannelsInOrder(int* order, int nC) {
 		model.network.channel[cNr].nOutNodes = 0;
 		model.network.channel[cNr].outNode = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
 		model.network.channel[cNr].outLevel = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
+		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
 
 		model.network.channel[cNr].extraCostChannel = 0.0;
 		model.network.channel[cNr].ID = str_alloc_cpy("tss");
@@ -5032,11 +4813,11 @@ int load_tss_optiNav()
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.01;
-	double default_kvotMinCost = 1.0, kvotMinCost;
-	if (USE_KVOTCOST_CORRIDORS == 0) {
-		default_kvotCost = 1.0;
-		default_kvotMinCost = 0.0;
-	}
+	double kvotMinCost;
+
+	if (USE_KVOTCOST_CORRIDORS == 0)
+		default_kvotCost = DEFAULT_KVOTMINCOST;
+
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.tssName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -5134,10 +4915,10 @@ int load_tss_optiNav()
 					kvotCost = default_kvotCost;
 			}
 			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotCost = 1.0;
 				kvotMinCost = kvotCost;
+				kvotCost = 0.0;
 			}else
-				kvotMinCost = -1.0;
+				kvotMinCost = 0.0;
 
 			addSplitTss(&cNr, kvotCost, kvotMinCost, firstPoints, lastPoints);
 			// cNr++;
@@ -6075,8 +5856,8 @@ int findAreaIDpos_inBaseOld(std::string ID) {
 int findAreaIDpos_inBase(char* ID) {
 	int i;
 
-	if (strcmp(ID, "custom") == 0)
-		return -2; // custom polygon area
+	//if (strcmp(ID, "custom") == 0)
+	//	return -2; // custom polygon area
 	for (i = 0; i < model.nExtraNoGoAreasBase; i++) {
 		if (strcmp(ID, model.extraNoGoAreaBase[i].areaID) == 0)
 			break;
@@ -7529,8 +7310,8 @@ int getNextTraff_speedPos(int lastKvotTraff, int minPos, int maxPos, double minS
 }
 
 void setupUsableSpeedSettings() {
-	int nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver, i1;
-	int nextTraff;
+	int *nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver, i1;
+	int nextTraff, legNr;
 	double min_rpm, max_rpm, midVal, diff, min_diff, delta, target, kvot;
 
 	model.functions.speedLevel = (strSpeed*)malloc2(model.network.nPhysicalLevels * sizeof(strSpeed));
@@ -7540,8 +7321,13 @@ void setupUsableSpeedSettings() {
 	model.functions.rpmSetting_gerFuelConsumption_mainDelay = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
 	model.functions.rpmSetting_gerFuelConsumption_auxDelay = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
 
-	int nShip_speedSettings;
 	double maxSpeed = 0, minSpeed = 1e10, speedInterval;
+
+	int* nShip_speedSettings = (int*)malloc(model.params.nLegs * sizeof(int));
+	nAlloc = (int*)malloc(model.params.nLegs * sizeof(int));
+	model.functions.nAllocShipSpeedsLevel = (int*)malloc(model.params.nLegs * sizeof(int));
+	model.functions.speedSetting95MCR_use = (int*)malloc(model.params.nLegs * sizeof(int));
+	//model.functions.nShip_speedSettingsDelay = (int*)malloc(model.params.nLegs * sizeof(int));
 
 	for (i = 0; i < model.functions.nShip_speedSettingsBase; i++) {
 		if (minSpeed > model.functions.rpmSetting_gerCalmWaterSpeedBase[i]) {
@@ -7557,275 +7343,358 @@ void setupUsableSpeedSettings() {
 	if (speedInterval < 0.01)
 		speedInterval = 0.01;
 
-	if (model.params.commercialAllowedVariation < 0 && model.results.forecastTypeOrig <= 1000) {
-		// not commercial
-		nShip_speedSettings = model.params.nSpeedSettingDivideIter1 + 2;
-		nAlloc = model.functions.nShip_speedSettingsBase; //  5;
-	}
-	else {
-		// commercial version
-		if (model.params.commercialAllowedVariation < 0.001 || model.results.forecastTypeOrig > 1000) {
-			model.params.commercialAllowedVariation = 0;
-			nShip_speedSettings = 1;
-			nAlloc = 1;
-		}
-		else {
-			nShip_speedSettings = 5;
-			nAlloc = model.functions.nShip_speedSettingsBase;
-		}
-	}
-	model.functions.nAllocShipSpeedsLevel = nAlloc;
-	if (nShip_speedSettings > model.functions.nShip_speedSettingsBase)
-		nShip_speedSettings = model.functions.nShip_speedSettingsBase;
-
-	for (i = 0; i < model.network.nPhysicalLevels; i++) {
-		model.functions.speedLevel[i].rpm = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedLevel[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedLevel[i].settingGerBaseSetting = (int*)malloc2(nAlloc * sizeof(int));
-		model.functions.speedLevel[i].nShip_speedSettings = nShip_speedSettings;
-	}
-
-	model.functions.speedSetting95MCR_use = model.functions.speedSetting95MCR_base;
-	if (model.functions.speedSetting95MCR_use < nShip_speedSettings && (model.params.commercialAllowedVariation >= 0 ||
-		model.results.forecastTypeOrig > 1000))
-		model.functions.speedSetting95MCR_use = nShip_speedSettings;
-
-	nAlloc = model.functions.nShip_speedSettingsBase;
-	if (nAlloc <= model.functions.speedSetting95MCR_use)
-		nAlloc = model.functions.speedSetting95MCR_use + 1;
-	for (i = 0; i < model.network.nChannels; i++) {
-		model.functions.speedChannel[i].rpm = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannel[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannel[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannel[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannel[i].settingGerBaseSetting = (int*)malloc2(nAlloc * sizeof(int));
-		model.functions.speedChannel[i].nShip_speedSettings = nShip_speedSettings;
-
-		model.functions.speedChannelOut[i].rpm = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannelOut[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannelOut[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannelOut[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAlloc * sizeof(double));
-		model.functions.speedChannelOut[i].settingGerBaseSetting = (int*)malloc2(nAlloc * sizeof(int));
-		model.functions.speedChannelOut[i].nShip_speedSettings = nShip_speedSettings;
-	}
-
-	double consumption, speed, kvotTraff;
-	if (model.params.commercialAllowedVariation < 0 && model.results.forecastTypeOrig <= 1000) {
-		errlog("Not commercial opt, using %d speed settings of %d",
-			nShip_speedSettings, model.functions.nShip_speedSettingsBase);
-
-		model.functions.nShip_speedSettingsDelay = model.functions.nShip_speedSettingsBase;
-		i = 0;
-
-		//addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, int nSpeedSettings, double fuelQualityKvot, double extraAreaCostKvot) {
-		//	minSpeed = model.functions.rpmSetting_gerCalmWaterSpeedBase[i];
-		kvotTraff = 1.0 / (double)model.params.nSpeedSettingDivideIter1;
-		nextTraff = getNextTraff_speedPos(0, minPos, maxPos, minSpeed, speedInterval, kvotTraff);
-		//nextTraff = roundUp(model.functions.nShip_speedSettingsBase / (double)model.params.nSpeedSettingDivideIter1);
-		//if (nextTraff == maxPos)
-		//	nextTraff--;
-
-		if (model.params.useSimulering == 1) {
-			target = model.params.simulationSpeed_kmh;
-			getBastSpeedPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
-		}
-		else
-			indexUnder = -1;
-
-		for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
-			set_speedSettingsFromBase(NULL, iUse, iUse);
-			if (iUse == minPos || iUse == maxPos || iUse == nextTraff || iUse == indexUnder) {
-				if (iUse == nextTraff) {
-					kvotTraff += 1.0 / (double)model.params.nSpeedSettingDivideIter1;
-					nextTraff = getNextTraff_speedPos(nextTraff, minPos, maxPos, minSpeed, speedInterval, kvotTraff);
-					//nextTraff += roundUp(model.functions.nShip_speedSettingsBase / (double)model.params.nSpeedSettingDivideIter1);
-				}
-				for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
-					if(iUse == indexUnder && kvot >= 0)
-						set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder, indexOver, kvot);
-					else
-						set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
-					if (i1 == 0)
-						errlog(" %d %.2lf", i, model.functions.speedLevel[i1].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
-				}
-				for (i1 = 0; i1 < model.network.nChannels; i1++) {
-					if (model.network.channel[i1].timeThroughChannel > 0) {
-						if (i == 0) {
-							consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
-							speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-							model.functions.speedChannel[i1].nShip_speedSettings = 1;
-							model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-							model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-						}
-					}
-					if (iUse == indexUnder && kvot >= 0) {
-						if (model.network.channel[i1].timeThroughChannel <= 0)
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
-						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
-					}
-					else {
-						if (model.network.channel[i1].timeThroughChannel <= 0)
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
-						if (iUse == maxPos) {
-							if (model.network.channel[i1].timeThroughChannel <= 0)
-								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, iUse);
-							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, iUse);
-						}
-					}
-				}
-				i++;
-			}
-		}
-		errlog(" knots\n");
-		model.functions.speedSetting95MCR_base = maxPos;
-
-		if (i < nShip_speedSettings) {
-			nShip_speedSettings = i;
-			for (i = 0; i < model.network.nPhysicalLevels; i++) {
-				model.functions.speedLevel[i].nShip_speedSettings = nShip_speedSettings;
-			}
-			for (i = 0; i < model.network.nChannels; i++) {
-				if (model.functions.speedChannel[i].nShip_speedSettings > nShip_speedSettings)
-					model.functions.speedChannel[i].nShip_speedSettings = nShip_speedSettings;
-				if (model.functions.speedChannelOut[i].nShip_speedSettings > nShip_speedSettings)
-					model.functions.speedChannelOut[i].nShip_speedSettings = nShip_speedSettings;
-			}
-		}
-
-	}
-	else {
-		// commercial version or fix speed forecast
-		model.functions.nShip_speedSettingsDelay = nShip_speedSettings;
-
-		if (model.results.forecastTypeOrig > 1000) {
-			// fix speed forecast
-			iUse = (int)(model.results.forecastTypeOrig / 1000) - 1;
-			if (iUse >= model.functions.nShip_speedSettingsBase)
-				iUse = model.functions.nShip_speedSettingsBase - 1;
-			i = 0;
-			set_speedSettingsFromBase(NULL, i, iUse);
-			for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
-				set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
-			}
-			for (i1 = 0; i1 < model.network.nChannels; i1++) {
-				if (model.network.channel[i1].timeThroughChannel > 0) {
-					consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
-					speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
-					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-					model.functions.speedChannel[i1].nShip_speedSettings = 1;
-					model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-					model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-				}
-				else {
-					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
-				}
-				set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
-			}
-			i++;
-
-			iUse = model.functions.speedSetting95MCR_use;
-			for (i1 = 0; i1 < model.network.nChannels; i1++) {
-				set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, model.functions.speedSetting95MCR_base);
-				set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, model.functions.speedSetting95MCR_base);
-			}
-
-			errlog("OBS! fix speed, using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
-				model.functions.speedLevel[0].nShip_speedSettings, model.params.commercialAllowedVariation, model.params.commercialSpeed, model.params.commercialFuel);
-			for (i = 0; i < model.functions.speedLevel[0].nShip_speedSettings; i++)
-				errlog(" %d %.2lf", i, model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
-
+	for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+		if (model.params.legCommercial[legNr].commercialAllowedVariation < 0 && model.results.forecastTypeOrig <= 1000) {
+			// not commercial
+			nShip_speedSettings[legNr] = model.params.nSpeedSettingDivideIter1 + 2;
+			nAlloc[legNr] = model.functions.nShip_speedSettingsBase; //  5;
 		}
 		else {
 			// commercial version
-
-			for (i = 0; i < nShip_speedSettings; i++) {
-				if (i == 0)
-					delta = 1 - model.params.commercialAllowedVariation / 100.0;
-				else if (i == 1)
-					delta = 1 - model.params.commercialAllowedVariation / 100.0 / 2.0;
-				else if (i == 2)
-					delta = 1;
-				else if (i == 3)
-					delta = 1 + model.params.commercialAllowedVariation / 100.0 / 2.0;
-				else
-					delta = 1 + model.params.commercialAllowedVariation / 100.0;
-				if (model.params.commercialSpeed > 0) {
-					target = model.params.commercialSpeed * model.params.knots_to_km * delta;
-					getBastSpeedPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
-				}
-				else {
-					target = model.params.commercialFuel * delta / 24.0;
-					getBastConsumptionPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
-				}
-
-				if (kvot < 0) {
-					set_speedSettingsFromBase(NULL, i, indexUnder);
-					for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
-						set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder);
-						set_speedSettingsFromBase(NULL, i, indexUnder);
-					}
-					for (i1 = 0; i1 < model.network.nChannels; i1++) {
-						if (model.network.channel[i1].timeThroughChannel > 0) {
-							if (i == 0) {
-								consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
-								speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
-								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, i);
-								model.functions.speedChannel[i1].nShip_speedSettings = 1;
-								model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-								model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-							}
-						}
-						else {
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder);
-						}
-						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder);
-					}
-				}
-				else {
-					set_speedSettingsFromBase(NULL, i, indexUnder, indexOver, kvot);
-					for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
-						set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder, indexOver, kvot);
-					}
-					for (i1 = 0; i1 < model.network.nChannels; i1++) {
-						if (model.network.channel[i1].timeThroughChannel > 0) {
-							if (i == 0) {
-								consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
-								speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
-								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, i);
-								model.functions.speedChannel[i1].nShip_speedSettings = 1;
-								model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
-								model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
-							}
-						}
-						else {
-							set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
-						}
-						set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
-					}
-				}
+			if (model.params.legCommercial[legNr].commercialAllowedVariation < 0.001 || model.results.forecastTypeOrig > 1000) {
+				model.params.legCommercial[legNr].commercialAllowedVariation = 0;
+				nShip_speedSettings[legNr] = 1;
+				nAlloc[legNr] = 1;
 			}
-
-			iUse = model.functions.speedSetting95MCR_use;
-			for (i1 = 0; i1 < model.network.nChannels; i1++) {
-				set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, model.functions.speedSetting95MCR_base);
-				set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, model.functions.speedSetting95MCR_base);
+			else {
+				nShip_speedSettings[legNr] = 5;
+				nAlloc[legNr] = model.functions.nShip_speedSettingsBase;
 			}
-
-			errlog("OBS! commercial opt, using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
-				model.functions.speedLevel[0].nShip_speedSettings, model.params.commercialAllowedVariation, model.params.commercialSpeed, model.params.commercialFuel);
-			for (i = 0; i < model.functions.speedLevel[0].nShip_speedSettings; i++)
-				errlog(" %d %.2lf", i, model.functions.speedLevel[0].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
 		}
-		errlog(" knots, fuel consumption main/aux ");
-		for (i = 0; i < model.functions.speedLevel[0].nShip_speedSettings; i++)
-			errlog(" %d %.2lf %.2lf", i, model.functions.speedLevel[0].rpmSetting_gerFuelConsumption_main[i] * 24.0,
-				model.functions.speedLevel[0].rpmSetting_gerFuelConsumption_aux[i] * 24.0);
-		errlog(" mpd\n");
+		model.functions.nAllocShipSpeedsLevel[legNr] = nAlloc[legNr];
+		if (nShip_speedSettings[legNr] > model.functions.nShip_speedSettingsBase)
+			nShip_speedSettings[legNr] = model.functions.nShip_speedSettingsBase;
+
+		model.functions.speedSetting95MCR_use[legNr] = model.functions.speedSetting95MCR_base;
+		if (model.functions.speedSetting95MCR_use[legNr] < nShip_speedSettings[legNr] && (model.params.legCommercial[legNr].commercialAllowedVariation >= 0 ||
+			model.results.forecastTypeOrig > 1000))
+			model.functions.speedSetting95MCR_use[legNr] = nShip_speedSettings[legNr];
 	}
+
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		legNr = model.network.physicalLev[i].legNr;
+		model.functions.speedLevel[i].rpm = (double*)malloc2(nAlloc[legNr] * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAlloc[legNr] * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAlloc[legNr] * sizeof(double));
+		model.functions.speedLevel[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAlloc[legNr] * sizeof(double));
+		model.functions.speedLevel[i].settingGerBaseSetting = (int*)malloc2(nAlloc[legNr] * sizeof(int));
+		model.functions.speedLevel[i].nShip_speedSettings = nShip_speedSettings[legNr];
+	}
+
+	int nAllocNu, usedLevel, usedLevelChannel;
+	for (i = 0; i < model.network.nChannels; i++) {
+		legNr = model.network.channel[i].legNr;
+		nAllocNu = model.functions.nShip_speedSettingsBase;
+		if (nAllocNu <= model.functions.speedSetting95MCR_use[legNr])
+			nAllocNu = model.functions.speedSetting95MCR_use[legNr] + 1;
+
+		model.functions.speedChannel[i].rpm = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannel[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannel[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannel[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannel[i].settingGerBaseSetting = (int*)malloc2(nAllocNu * sizeof(int));
+		model.functions.speedChannel[i].nShip_speedSettings = nShip_speedSettings[legNr];
+
+		model.functions.speedChannelOut[i].rpm = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannelOut[i].rpmSetting_gerCalmWaterSpeed = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannelOut[i].rpmSetting_gerFuelConsumption_main = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannelOut[i].rpmSetting_gerFuelConsumption_aux = (double*)malloc2(nAllocNu * sizeof(double));
+		model.functions.speedChannelOut[i].settingGerBaseSetting = (int*)malloc2(nAllocNu * sizeof(int));
+		model.functions.speedChannelOut[i].nShip_speedSettings = nShip_speedSettings[legNr];
+	}
+
+	double consumption, speed, kvotTraff;
+
+	for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+		if (model.params.legCommercial[legNr].commercialAllowedVariation < 0 && model.results.forecastTypeOrig <= 1000) {
+			errlog("leg %d Not commercial opt, using %d speed settings of %d", legNr,
+				nShip_speedSettings[legNr], model.functions.nShip_speedSettingsBase);
+
+			//model.functions.nShip_speedSettingsDelay[legNr] = model.functions.nShip_speedSettingsBase;
+			i = 0;
+
+			//addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, int nSpeedSettings, double fuelQualityKvot, double extraAreaCostKvot) {
+			//	minSpeed = model.functions.rpmSetting_gerCalmWaterSpeedBase[i];
+			kvotTraff = 1.0 / (double)model.params.nSpeedSettingDivideIter1;
+			nextTraff = getNextTraff_speedPos(0, minPos, maxPos, minSpeed, speedInterval, kvotTraff);
+			//nextTraff = roundUp(model.functions.nShip_speedSettingsBase / (double)model.params.nSpeedSettingDivideIter1);
+			//if (nextTraff == maxPos)
+			//	nextTraff--;
+
+			if (model.params.useSimulering == 1) {
+				target = model.params.simulationSpeed_kmh;
+				getBastSpeedPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
+			}
+			else
+				indexUnder = -1;
+
+			for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
+				set_speedSettingsFromBase(NULL, iUse, iUse);
+				if (iUse == minPos || iUse == maxPos || iUse == nextTraff || iUse == indexUnder) {
+					if (iUse == nextTraff) {
+						kvotTraff += 1.0 / (double)model.params.nSpeedSettingDivideIter1;
+						nextTraff = getNextTraff_speedPos(nextTraff, minPos, maxPos, minSpeed, speedInterval, kvotTraff);
+						//nextTraff += roundUp(model.functions.nShip_speedSettingsBase / (double)model.params.nSpeedSettingDivideIter1);
+					}
+					for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+						if (model.network.physicalLev[i1].legNr != legNr)
+							continue;
+						if (iUse == indexUnder && kvot >= 0)
+							set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder, indexOver, kvot);
+						else
+							set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
+						if (i1 == 0)
+							errlog(" %d %.2lf", i, model.functions.speedLevel[i1].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+					}
+					for (i1 = 0; i1 < model.network.nChannels; i1++) {
+						if (model.network.channel[i1].legNr != legNr)
+							continue;
+						if (model.network.channel[i1].timeThroughChannel > 0) {
+							if (i == 0) {
+								consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
+								speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
+								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
+								model.functions.speedChannel[i1].nShip_speedSettings = 1;
+								model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
+								model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
+							}
+						}
+						if (iUse == indexUnder && kvot >= 0) {
+							if (model.network.channel[i1].timeThroughChannel <= 0)
+								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
+							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
+						}
+						else {
+							if (model.network.channel[i1].timeThroughChannel <= 0)
+								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
+							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
+							if (iUse == maxPos) {
+								if (model.network.channel[i1].timeThroughChannel <= 0)
+									set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, iUse);
+								set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, iUse);
+							}
+						}
+					}
+					i++;
+				}
+			}
+			errlog(" knots\n");
+			model.functions.speedSetting95MCR_base = maxPos;
+
+			if (i < nShip_speedSettings[legNr]) {
+				nShip_speedSettings[legNr] = i;
+				for (i = 0; i < model.network.nPhysicalLevels; i++) {
+					if (model.network.physicalLev[i].legNr != legNr)
+						continue;
+					model.functions.speedLevel[i].nShip_speedSettings = nShip_speedSettings[legNr];
+				}
+				for (i = 0; i < model.network.nChannels; i++) {
+					if (model.network.channel[i].legNr != legNr)
+						continue;
+					if (model.functions.speedChannel[i].nShip_speedSettings > nShip_speedSettings[legNr])
+						model.functions.speedChannel[i].nShip_speedSettings = nShip_speedSettings[legNr];
+					if (model.functions.speedChannelOut[i].nShip_speedSettings > nShip_speedSettings[legNr])
+						model.functions.speedChannelOut[i].nShip_speedSettings = nShip_speedSettings[legNr];
+				}
+			}
+
+		}
+		else {
+			// commercial version or fix speed forecast
+			// model.functions.nShip_speedSettingsDelay[legNr] = nShip_speedSettings[legNr];
+
+			usedLevel = -1;
+			usedLevelChannel = -1;
+			if (model.results.forecastTypeOrig > 1000) {
+				// fix speed forecast
+				iUse = (int)(model.results.forecastTypeOrig / 1000) - 1;
+				if (iUse >= model.functions.nShip_speedSettingsBase)
+					iUse = model.functions.nShip_speedSettingsBase - 1;
+				i = 0;
+				set_speedSettingsFromBase(NULL, i, iUse);
+				for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+					if (model.network.physicalLev[i1].legNr != legNr)
+						continue;
+					set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, iUse);
+					usedLevel = i1;
+				}
+				for (i1 = 0; i1 < model.network.nChannels; i1++) {
+					if (model.network.channel[i1].legNr != legNr)
+						continue;
+					if (model.network.channel[i1].timeThroughChannel > 0) {
+						consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
+						speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
+						set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
+						model.functions.speedChannel[i1].nShip_speedSettings = 1;
+						model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
+						model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
+					}
+					else {
+						set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, iUse);
+					}
+					usedLevelChannel = i1;
+					set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, iUse);
+				}
+				i++;
+
+				iUse = model.functions.speedSetting95MCR_use[legNr];
+				for (i1 = 0; i1 < model.network.nChannels; i1++) {
+					if (model.network.channel[i1].legNr != legNr)
+						continue;
+					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, model.functions.speedSetting95MCR_base);
+					set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, model.functions.speedSetting95MCR_base);
+				}
+
+				if (usedLevel >= 0) {
+					errlog("OBS! leg %d fix speed, using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
+						legNr, model.functions.speedLevel[usedLevel].nShip_speedSettings, model.params.legCommercial[legNr].commercialAllowedVariation, 
+						model.params.legCommercial[legNr].commercialSpeed, model.params.legCommercial[legNr].commercialFuel);
+					for (i = 0; i < model.functions.speedLevel[usedLevel].nShip_speedSettings; i++)
+						errlog(" %d %.2lf", i, model.functions.speedLevel[usedLevel].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+				}
+				else {
+					if (usedLevelChannel >= 0) {
+						errlog("OBS! leg %d fix speed (only channel), using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
+							legNr, model.functions.speedChannel[usedLevelChannel].nShip_speedSettings, model.params.legCommercial[legNr].commercialAllowedVariation,
+							model.params.legCommercial[legNr].commercialSpeed, model.params.legCommercial[legNr].commercialFuel);
+						for (i = 0; i < model.functions.speedChannel[usedLevelChannel].nShip_speedSettings; i++)
+							errlog(" %d %.2lf", i, model.functions.speedChannel[usedLevelChannel].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+					}
+					else
+						postRequest("ERROR! leg " + std::to_string(legNr) + " has no used speed level. I quit", 1);
+				}
+
+			}
+			else {
+				// commercial version
+
+				for (i = 0; i < nShip_speedSettings[legNr]; i++) {
+					if (i == 0)
+						delta = 1 - model.params.legCommercial[legNr].commercialAllowedVariation / 100.0;
+					else if (i == 1)
+						delta = 1 - model.params.legCommercial[legNr].commercialAllowedVariation / 100.0 / 2.0;
+					else if (i == 2)
+						delta = 1;
+					else if (i == 3)
+						delta = 1 + model.params.legCommercial[legNr].commercialAllowedVariation / 100.0 / 2.0;
+					else
+						delta = 1 + model.params.legCommercial[legNr].commercialAllowedVariation / 100.0;
+					if (model.params.legCommercial[legNr].commercialSpeed > 0) {
+						target = model.params.legCommercial[legNr].commercialSpeed * model.params.knots_to_km * delta;
+						getBastSpeedPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
+					}
+					else {
+						target = model.params.legCommercial[legNr].commercialFuel * delta / 24.0;
+						getBastConsumptionPos(model.functions.nShip_speedSettingsBase, target, &indexUnder, &indexOver, &kvot);
+					}
+
+					if (kvot < 0) {
+						set_speedSettingsFromBase(NULL, i, indexUnder);
+						for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+							if (model.network.physicalLev[i1].legNr != legNr)
+								continue;
+							set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder);
+							set_speedSettingsFromBase(NULL, i, indexUnder);
+							usedLevel = i1;
+						}
+						for (i1 = 0; i1 < model.network.nChannels; i1++) {
+							if (model.network.channel[i1].legNr != legNr)
+								continue;
+							if (model.network.channel[i1].timeThroughChannel > 0) {
+								if (i == 0) {
+									consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
+									speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
+									set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, i);
+									model.functions.speedChannel[i1].nShip_speedSettings = 1;
+									model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
+									model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
+								}
+							}
+							else {
+								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder);
+							}
+							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder);
+							usedLevelChannel = i1;
+						}
+					}
+					else {
+						set_speedSettingsFromBase(NULL, i, indexUnder, indexOver, kvot);
+						for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+							if (model.network.physicalLev[i1].legNr != legNr)
+								continue;
+							set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder, indexOver, kvot);
+							usedLevel = i1;
+						}
+						for (i1 = 0; i1 < model.network.nChannels; i1++) {
+							if (model.network.channel[i1].legNr != legNr)
+								continue;
+							if (model.network.channel[i1].timeThroughChannel > 0) {
+								if (i == 0) {
+									consumption = model.network.channel[i1].totalConsumption / model.network.channel[i1].timeThroughChannel;
+									speed = model.network.channel[i1].distance_km / model.network.channel[i1].timeThroughChannel;
+									set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, i);
+									model.functions.speedChannel[i1].nShip_speedSettings = 1;
+									model.functions.speedChannel[i1].rpmSetting_gerCalmWaterSpeed[i] = speed;
+									model.functions.speedChannel[i1].rpmSetting_gerFuelConsumption_main[i] = consumption;
+								}
+							}
+							else {
+								set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), i, indexUnder, indexOver, kvot);
+							}
+							set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), i, indexUnder, indexOver, kvot);
+							usedLevelChannel = i1;
+						}
+					}
+				}
+
+				iUse = model.functions.speedSetting95MCR_use[legNr];
+				for (i1 = 0; i1 < model.network.nChannels; i1++) {
+					if (model.network.channel[i1].legNr != legNr)
+						continue;
+					set_speedSettingsFromBase(&(model.functions.speedChannel[i1]), iUse, model.functions.speedSetting95MCR_base);
+					set_speedSettingsFromBase(&(model.functions.speedChannelOut[i1]), iUse, model.functions.speedSetting95MCR_base);
+					usedLevelChannel = i1;
+				}
+
+				if(usedLevel >= 0){
+					errlog("OBS! leg %d commercial opt, using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
+						legNr, model.functions.speedLevel[usedLevel].nShip_speedSettings, model.params.legCommercial[legNr].commercialAllowedVariation, 
+						model.params.legCommercial[legNr].commercialSpeed, model.params.legCommercial[legNr].commercialFuel);
+					for (i = 0; i < model.functions.speedLevel[usedLevel].nShip_speedSettings; i++)
+						errlog(" %d %.2lf", i, model.functions.speedLevel[usedLevel].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+				}
+				else {
+					if (usedLevelChannel >= 0) {
+						errlog("OBS! leg %d commercial opt (only channel), using %d speed settings with allowedVariation %.2lf Speed %.2lf fuel %.2lf, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds",
+							legNr, model.functions.speedChannel[usedLevelChannel].nShip_speedSettings, model.params.legCommercial[legNr].commercialAllowedVariation,
+							model.params.legCommercial[legNr].commercialSpeed, model.params.legCommercial[legNr].commercialFuel);
+						for (i = 0; i < model.functions.speedChannel[usedLevelChannel].nShip_speedSettings; i++)
+							errlog(" %d %.2lf", i, model.functions.speedChannel[usedLevelChannel].rpmSetting_gerCalmWaterSpeed[i] / model.params.knots_to_km);
+					}
+					else
+						postRequest("ERROR! legB " + std::to_string(legNr) + " has no used speed level. I quit", 1);
+				}
+			}
+			errlog(" knots, fuel consumption main/aux ");
+			if (usedLevel >= 0) {
+				for (i = 0; i < model.functions.speedLevel[usedLevel].nShip_speedSettings; i++)
+					errlog(" %d %.2lf %.2lf", i, model.functions.speedLevel[usedLevel].rpmSetting_gerFuelConsumption_main[i] * 24.0,
+						model.functions.speedLevel[usedLevel].rpmSetting_gerFuelConsumption_aux[i] * 24.0);
+			}
+			else {
+				if (usedLevelChannel >= 0) {
+					for (i = 0; i < model.functions.speedChannel[usedLevelChannel].nShip_speedSettings; i++)
+					errlog(" %d %.2lf %.2lf", i, model.functions.speedChannel[usedLevelChannel].rpmSetting_gerFuelConsumption_main[i] * 24.0,
+						model.functions.speedChannel[usedLevelChannel].rpmSetting_gerFuelConsumption_aux[i] * 24.0);
+				}
+				else
+					postRequest("ERROR! legC " + std::to_string(legNr) + " has no used speed level. I quit", 1);
+			}
+			errlog(" mpd\n");
+		}
+	}
+
+
 
 	double averSpeed = 0;
 	minSpeed = 1e10;
@@ -9324,7 +9193,7 @@ void calc_stormsNearby() {
 	double timeFromStart, dist, minTid, maxTid, minDistToStorm, maxSpeed = 0, minSpeed = 9999, speed;
 
 	for (i = 0; i < model.functions.nShip_speedSettingsBase; i++) {
-		speed = eval_calmWaterSpeed(i, -1, -100);
+		speed = eval_calmWaterSpeed(i, -1, -100, -1);
 		if (minSpeed > speed + model.params.minSpeedDiffWeatherFactor + model.params.minSpeedDiffCurrent)
 			minSpeed = speed + model.params.minSpeedDiffWeatherFactor + model.params.minSpeedDiffCurrent;
 		if(maxSpeed < speed + model.params.maxSpeedDiffWeatherFactor + model.params.maxSpeedDiffCurrent)
@@ -9784,7 +9653,7 @@ int setup_noGo_polygons_GDAL() {
 			}
 			if (model.extraNoGoPolygon[i].polygon[i1].x[i2 - 1] != model.extraNoGoPolygon[i].polygon[i1].x[0] ||
 				model.extraNoGoPolygon[i].polygon[i1].y[i2 - 1] != model.extraNoGoPolygon[i].polygon[i1].y[0]) {
-				postRequest("ERROR! useOptionalExtraNoGoAreas given extraAreaID custom customAreaID " + std::string(model.extraNoGoPolygon[i].customAreaID) + " the first and last coordinates are not the same, I close the ring", 0);
+				postRequest("ERROR! useOptionalExtraNoGoAreas given extraAreaID custom customAreaID " + std::string(model.extraNoGoPolygon[i].id) + " the first and last coordinates are not the same, I close the ring", 0);
 				ring->closeRings();
 			}
 			//(model.extraNoGoPolygon[i].polygon_GDAL[i1])->addRingDirectly(ring);
@@ -9792,6 +9661,40 @@ int setup_noGo_polygons_GDAL() {
 		}
 	}
 
+
+	return 0;
+}
+
+int setup_restrictedArea_polygons_GDAL() {
+	int i, i1, i2;
+	double min_x, max_x, delta_x;
+	// create the GDAL polygons
+	for (i = 0; i < model.nRestrictedAreas; i++) {
+		model.restrictedArea[i].polygon_GDAL = (OGRPolygon**)malloc(model.restrictedArea[i].nPolygons * sizeof(OGRPolygon*));
+		for (i1 = 0; i1 < model.restrictedArea[i].nPolygons; i1++) {
+			model.restrictedArea[i].polygon_GDAL[i1] = new OGRPolygon();
+			OGRLinearRing* ring = new OGRLinearRing();
+			min_x = 1e10;
+			max_x = -1e10;
+			for (i2 = 0; i2 < model.restrictedArea[i].polygon[i1].nCoords; i2++) {
+				if (min_x > model.restrictedArea[i].polygon[i1].x[i2])
+					min_x = model.restrictedArea[i].polygon[i1].x[i2];
+				if (max_x < model.restrictedArea[i].polygon[i1].x[i2])
+					max_x = model.restrictedArea[i].polygon[i1].x[i2];
+			}
+			delta_x = get_bast_longitude_fit_to_physicalMapA(min_x, max_x);
+
+			for (i2 = 0; i2 < model.restrictedArea[i].polygon[i1].nCoords; i2++) {
+				ring->addPoint(model.restrictedArea[i].polygon[i1].y[i2], model.restrictedArea[i].polygon[i1].x[i2] + delta_x);
+			}
+			if (model.restrictedArea[i].polygon[i1].x[i2 - 1] != model.restrictedArea[i].polygon[i1].x[0] ||
+				model.restrictedArea[i].polygon[i1].y[i2 - 1] != model.restrictedArea[i].polygon[i1].y[0]) {
+				postRequest("ERROR! restrictedArea given id " + std::string(model.restrictedArea[i].id) + " the first and last coordinates are not the same, I close the ring", 0);
+				ring->closeRings();
+			}
+			(model.restrictedArea[i].polygon_GDAL[i1])->addRing(ring);
+		}
+	}
 
 	return 0;
 }
@@ -9842,6 +9745,7 @@ int openNeededRasterFilesNew(int alt)
 	checkMinnesAnvandning(__LINE__);
 
 	setup_noGo_polygons_GDAL();
+	setup_restrictedArea_polygons_GDAL();
 
 	if (alt == -10)
 		return 0;
@@ -9914,16 +9818,24 @@ double get_fuelQualityKvot(int thisLevel, int pos1, int nextLevel, int pos2)
 			//p2 = model.network.physicalLev[nextLevel].point[pos2];
 		}
 		else {
-			if (model.network.channel[-thisLevel - 1].ECA_type >= 0)
-				return 1 - model.network.channel[-thisLevel - 1].ECA_type; // return the given ECA type if a corridor
+			if (thisLevel == nextLevel) {
+				if (model.network.channel[-thisLevel - 1].ECA_type >= 0)
+					return 1 - model.network.channel[-thisLevel - 1].ECA_type; // return the given ECA type if a corridor
 
-			// if no given value, then use the ECA map
-			x1 = model.network.channel[-thisLevel - 1].point_x[0];
-			y1 = model.network.channel[-thisLevel - 1].point_y[0];
-			//p1 = model.network.channel[-thisLevel - 1].point[0];
-			x2 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
-			y2 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
-			//p2 = model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1];
+				// if no given value, then use the ECA map
+				x1 = model.network.channel[-thisLevel - 1].point_x[0];
+				y1 = model.network.channel[-thisLevel - 1].point_y[0];
+				//p1 = model.network.channel[-thisLevel - 1].point[0];
+				x2 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
+				y2 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
+				//p2 = model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1];
+			}
+			else {
+				x1 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
+				y1 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
+				x2 = model.network.channel[-nextLevel - 1].point_x[0];
+				y2 = model.network.channel[-nextLevel - 1].point_y[0];
+			}
 		}
 	}
 
@@ -9973,16 +9885,25 @@ double get_extraAreaKvot(int thisLevel, int pos1, int nextLevel, int pos2, int p
 			//p2 = model.network.physicalLev[nextLevel].point[pos2];
 		}
 		else {
-			if (model.network.channel[-thisLevel - 1].ECA_type >= 0)
-				return model.network.channel[-thisLevel - 1].ECA_type; // return the given ECA type if a corridor
+			if (thisLevel == nextLevel) {
+				if (model.network.channel[-thisLevel - 1].ECA_type >= 0)
+					return model.network.channel[-thisLevel - 1].ECA_type; // return the given ECA type if a corridor
 
-			// if no given value, then use the ECA map
-			x1 = model.network.channel[-thisLevel - 1].point_x[0];
-			y1 = model.network.channel[-thisLevel - 1].point_y[0];
-			//p1 = model.network.channel[-thisLevel - 1].point[0];
-			x2 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
-			y2 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
-			//p2 = model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1];
+				// if no given value, then use the ECA map
+				x1 = model.network.channel[-thisLevel - 1].point_x[0];
+				y1 = model.network.channel[-thisLevel - 1].point_y[0];
+				//p1 = model.network.channel[-thisLevel - 1].point[0];
+				x2 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
+				y2 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
+				//p2 = model.network.channel[-thisLevel - 1].point[model.network.channel[-thisLevel - 1].nPoints - 1];
+			}
+			else {
+				x1 = model.network.channel[-thisLevel - 1].point_x[model.network.channel[-thisLevel - 1].nPoints - 1];
+				y1 = model.network.channel[-thisLevel - 1].point_y[model.network.channel[-thisLevel - 1].nPoints - 1];
+				x2 = model.network.channel[-nextLevel - 1].point_x[0];
+				y2 = model.network.channel[-nextLevel - 1].point_y[0];
+
+			}
 		}
 	}
 
@@ -10299,19 +10220,9 @@ int check_feasibleNode_noGo_polygons(double lat, double lon) {
 int check_noGoPolygons_ok(double lat1, double lon1, double lat2, double lon2) {
 	int i, pos_noGoPoly;
 
-	OGRLineString line;// = new OGRLineString();
+	OGRLineString line;
 	line.addPoint(lat1, lon1);
 	line.addPoint(lat2, lon2);
-
-
-	//int numPoints = line->getNumPoints();
-	//std::cout << "Number of points: " << numPoints << std::endl;
-	//for (int i = 0; i < numPoints; ++i) {
-	//	OGRPoint point;
-	//	line->getPoint(i, &point); //  &x, & y);
-	//	std::cout << "Point " << i << ": (" << point.getX() << ", " << point.getY() << ")"
-	//		<< std::endl;
-	//}
 
 	for (pos_noGoPoly = 0; pos_noGoPoly < model.nExtraNoGoPolygons; pos_noGoPoly++) {
 		for (i = 0; i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons; i++) {
@@ -10322,11 +10233,34 @@ int check_noGoPolygons_ok(double lat1, double lon1, double lat2, double lon2) {
 			break;
 	}
 
-	// Clean up
-	//OGRGeometryFactory::destroyGeometry(line);
 	if (pos_noGoPoly < model.nExtraNoGoPolygons)
 		return 0;
 	return 1;
+}
+
+int getMost_restrictedAreaCoords(double lat1, double lon1, double lat2, double lon2) {
+	int i, pos, minPos = -1;
+	double min_speed = 1e10;
+
+	OGRLineString line;
+	line.addPoint(lat1, lon1);
+	line.addPoint(lat2, lon2);
+
+	for (pos = 0; pos < model.nRestrictedAreas; pos++) {
+		for (i = 0; i < model.restrictedArea[pos].nPolygons; i++) {
+			if (line.Intersects(model.restrictedArea[pos].polygon_GDAL[i])) {
+				break;
+			}
+		}
+		if (i < model.restrictedArea[pos].nPolygons) {
+			if (min_speed > model.restrictedArea[pos].max_speed) {
+				minPos = pos;
+				min_speed = model.restrictedArea[pos].max_speed;
+			}
+		}
+	}
+
+	return minPos;
 }
 
 int check_extraNoGoMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap) {
@@ -10973,8 +10907,14 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 					pos1 = model.network.channel[-startLevel - 1].nPoints - 1;
 				x1 = model.network.channel[-startLevel - 1].point_x[pos1];
 				y1 = model.network.channel[-startLevel - 1].point_y[pos1];
-				x2 = model.network.channel[-slutLevel - 1].point_x[pos2];
-				y2 = model.network.channel[-slutLevel - 1].point_y[pos2];
+				if (startLevel != slutLevel) {
+					x2 = model.network.channel[-slutLevel - 1].point_x[pos2];
+					y2 = model.network.channel[-slutLevel - 1].point_y[pos2];
+				}
+				else {
+					x2 = model.network.channel[-slutLevel - 1].point_x[model.network.channel[-slutLevel - 1].nPoints - 1];
+					y2 = model.network.channel[-slutLevel - 1].point_y[model.network.channel[-slutLevel - 1].nPoints - 1];
+				}
 				connectChannels = 1;
 			}
 		}
@@ -11063,9 +11003,9 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
 		}
 	}
-			
-			//int isOk = check_physicalMap_ok(y1, x1, y2, x2p1.latitude().degrees(), p1.longitude().degrees(),
-	//	p2.latitude().degrees(), p2.longitude().degrees(), 0);
+
+	//int isOk = check_physicalMap_ok(y1, x1, y2, x2p1.latitude().degrees(), p1.longitude().degrees(),
+//	p2.latitude().degrees(), p2.longitude().degrees(), 0);
 
 	if (printGlobal == 1)
 		printf("++check_isPhysicalArcOK xy %.3lf %.3lf %.3lf %.3lf isOk %d\n", x1, y1, x2, y2, isOk);
@@ -11084,6 +11024,74 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 	//}
 
 	return isOk;
+}
+
+int getMostRestrictedArea(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc = 0)
+{
+	int areaNr, level1, level2;
+	double x1, y1, x2, y2;
+
+	if (startLevel >= 0 && slutLevel >= 0) {
+		x1 = model.network.physicalLev[startLevel].point_x[pos1];
+		y1 = model.network.physicalLev[startLevel].point_y[pos1];
+		x2 = model.network.physicalLev[slutLevel].point_x[pos2];
+		y2 = model.network.physicalLev[slutLevel].point_y[pos2];
+		level1 = startLevel - 1;
+		if (startLevel == slutLevel - 1) {
+			level2 = slutLevel + 1;
+		}
+		else {
+			level2 = slutLevel;
+		}
+	}
+	else {
+		if (slutLevel < 0) {
+			if (startLevel >= 0) {
+				x1 = model.network.physicalLev[startLevel].point_x[pos1];
+				y1 = model.network.physicalLev[startLevel].point_y[pos1];
+				//if (posPoly >= 0) {
+				//	x2 = model.network.channel[-slutLevel - 1].polygonUse_x[pos2][posPoly];
+				//	y2 = model.network.channel[-slutLevel - 1].polygonUse_y[pos2][posPoly];
+				//}
+				//else {
+				if (pos2 == 1)
+					pos2 = model.network.channel[-slutLevel - 1].nPoints - 1;
+				x2 = model.network.channel[-slutLevel - 1].point_x[pos2];
+				y2 = model.network.channel[-slutLevel - 1].point_y[pos2];
+				//}
+				level1 = startLevel - 1;
+				level2 = startLevel;
+			}
+			else {
+				if (pos1 == 1)
+					pos1 = model.network.channel[-startLevel - 1].nPoints - 1;
+				x1 = model.network.channel[-startLevel - 1].point_x[pos1];
+				y1 = model.network.channel[-startLevel - 1].point_y[pos1];
+				if(startLevel != slutLevel) {
+					x2 = model.network.channel[-slutLevel - 1].point_x[pos2];
+					y2 = model.network.channel[-slutLevel - 1].point_y[pos2];
+				}
+				else {
+					x2 = model.network.channel[-slutLevel - 1].point_x[model.network.channel[-slutLevel - 1].nPoints - 1];
+					y2 = model.network.channel[-slutLevel - 1].point_y[model.network.channel[-slutLevel - 1].nPoints - 1];
+				}
+			}
+		}
+		else {
+			if (pos1 == 1)
+				pos1 = model.network.channel[-startLevel - 1].nPoints - 1;
+			x1 = model.network.channel[-startLevel - 1].point_x[pos1];
+			y1 = model.network.channel[-startLevel - 1].point_y[pos1];
+			x2 = model.network.physicalLev[slutLevel].point_x[pos2];
+			y2 = model.network.physicalLev[slutLevel].point_y[pos2];
+			level1 = slutLevel;
+			level2 = slutLevel + 1;
+		}
+	}
+
+	areaNr = getMost_restrictedAreaCoords(y1, x1, y2, x2);
+
+	return areaNr;
 }
 
 int check_isPhysicalArcOK_alongPrefPath(int startLevel, int slutLevel, int pos1, int pos2, double noDataVal)
@@ -11151,7 +11159,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 	int nChangeFactor;
 
 	checkNextLevel = 0;
-	if (thisLevel == 34 && nextLevel == thisLevel + 1)
+	if (thisLevel == 16)
 		thisLevel = thisLevel;
 	if (nextLevel > 0) { // next physical level
 		if (nextLevel == 20)
@@ -11206,6 +11214,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
 				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = i2;
 				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = nextLevel;
+				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, nextLevel, pointPos, i2);
 				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 				(model.network.physicalLev[nextLevel].nInNodes[i2])++;
 			}
@@ -11248,23 +11257,25 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 			if (model.network.channel[i2].type == 0)
 				i2 = i2;
 			arcOK = check_isPhysicalArcOK(thisLevel, -i2 - 1, pointPos, 0, 1);
-				if (arcOK == 1) {
+			if (arcOK == 1) {
+				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
+				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
+				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+			}
+			else {
+				if (model.params.preferredPathOrtoPos[thisLevel] == pointPos && model.network.channel[i2].bastStartLevel == thisLevel &&
+					model.network.channel[i2].type == 0) {
+					model.network.channel[i2].straightArcFeasible_toChannelFromPrefPath = 0;
+					// add an arc from pref path to channel since the pref path needs to be able to use the channel if it passes it
 					arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
 					model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
 					model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
+					model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
 					(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 				}
-				else {
-					if (model.params.preferredPathOrtoPos[thisLevel] == pointPos && model.network.channel[i2].bastStartLevel == thisLevel &&
-						model.network.channel[i2].type == 0) {
-						model.network.channel[i2].straightArcFeasible_toChannelFromPrefPath = 0;
-						// add an arc from pref path to channel since the pref path needs to be able to use the channel if it passes it
-						arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
-						model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
-						model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
-						(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
-					}
-				}
+			}
 		
 		}
 	}
@@ -11293,11 +11304,6 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 			cNr = cNr;
 
 		for (i1 = 0; i1 < model.network.physicalLev[toLevel].nPoints; i1++) {
-			if (toLevel >= 11) {
-				checkMinnesAnvandning(__LINE__);
-				if (i1 == 28)
-					i1 = i1;
-			}
 			if (model.network.physicalLev[toLevel].allowedPoint[i1] == 0)
 				continue; // node not okay
 
@@ -11324,19 +11330,13 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 					model.network.channel[cNr].nAllocOutNodes += 50;
 					model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr].outRestrictedAreaNr, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 				}
-				if (toLevel >= 11)
-					checkMinnesAnvandning(__LINE__);
 				model.network.channel[cNr].outNode[arcPos] = i1;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
-				if (toLevel >= 11)
-					checkMinnesAnvandning(__LINE__);
 				model.network.channel[cNr].outLevel[arcPos] = toLevel;
-				if (toLevel >= 11)
-					checkMinnesAnvandning(__LINE__);
+				model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
 				(model.network.channel[cNr].nOutNodes)++;
-				if (toLevel >= 11)
-					checkMinnesAnvandning(__LINE__);
 				(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				if (toLevel >= 11)
 					checkMinnesAnvandning(__LINE__);
@@ -11353,16 +11353,16 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 						model.network.channel[cNr].nAllocOutNodes += 50;
 						model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 						model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+						model.network.channel[cNr].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr].outRestrictedAreaNr, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 					}
 					model.network.channel[cNr].outNode[arcPos] = i1;
 					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 					model.network.channel[cNr].outLevel[arcPos] = toLevel;
+					model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
 					(model.network.channel[cNr].nOutNodes)++;
 					(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				}
 			}
-			if (toLevel >= 11)
-				checkMinnesAnvandning(__LINE__);
 
 		}
 	}
@@ -11386,10 +11386,12 @@ int try_addPhysicalArcsBetweenChannels()
 					model.network.channel[cNr1].nAllocOutNodes += 50;
 					model.network.channel[cNr1].outNode = (int*)realloc(model.network.channel[cNr1].outNode, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr1].outLevel = (int*)realloc(model.network.channel[cNr1].outLevel, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr1].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr1].outRestrictedAreaNr, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
 				}
 				model.network.channel[cNr1].outNode[arcPos] = 0;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr1].outLevel[arcPos] = -cNr2 - 1;
+				model.network.channel[cNr1].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr1 - 1, -cNr2 - 1, pos, 0, 1);
 				(model.network.channel[cNr1].nOutNodes)++;
 			}
 		}
@@ -11417,6 +11419,8 @@ int addArcsToNetwork()
 			model.network.physicalLev[i].nPoints * sizeof(int*));
 		model.network.physicalLev[i].outLevel = (int**)malloc2(
 			model.network.physicalLev[i].nPoints * sizeof(int*));
+		model.network.physicalLev[i].outRestrictedAreaNr = (int**)malloc2(
+			model.network.physicalLev[i].nPoints * sizeof(int*));
 		//model.network.physicalLev[i].outArc = (strArcInfo**)malloc2(
 		//	model.network.physicalLev[i].nPoints * sizeof(strArcInfo*));
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
@@ -11431,6 +11435,8 @@ int addArcsToNetwork()
 				model.network.physicalLev[i].outNode[i1] = (int*)malloc2(
 					model.network.physicalLev[i + 1].nPoints * sizeof(int));
 				model.network.physicalLev[i].outLevel[i1] = (int*)malloc2(
+					model.network.physicalLev[i + 1].nPoints * sizeof(int));
+				model.network.physicalLev[i].outRestrictedAreaNr[i1] = (int*)malloc2(
 					model.network.physicalLev[i + 1].nPoints * sizeof(int));
 				//model.network.physicalLev[i].outArc[i1] = (strArcInfo*)malloc2(
 				//	model.network.physicalLev[i].nAllocOutArcs[i1] * sizeof(strArcInfo));
@@ -13560,36 +13566,46 @@ int getDelayPosFrom_tidp(int tidp) {
 }
 
 
-double eval_factorDelayedAlongPath(int level, int tidp, double* speedDiffCurrent)
+double eval_factorDelayedAlongPath(int level1, int level2, int tidp, double* speedDiffCurrent)
 {
-	int i, pos_latLon, dir1, dir2, posLast, pointPos2, pos1, delayNr;
+	int i, pos_latLon, dir1, dir2, posLast, pointPos2, pos1, delayNr, pos2;
 	double totDist, dist, distHittils, bearing, rowDbl, colDbl, delay = 0;
 	double factor1, factor2, direction, speedDiff = 0;
 	spherical::Point p1, pMid;
 	double x0, y0;
 
-	if (level >= 0) {
-		pos1 = model.params.preferredPathOrtoPos[level];
+	if (level1 >= 0) {
+		pos1 = model.params.preferredPathOrtoPos[level1];
 		if (pos1 < 0)
 			pos1 = -pos1 - 1;
-		p1 = model.network.physicalLev[level].point[pos1];
+		p1 = model.network.physicalLev[level1].point[pos1];
 		totDist = 0;
 		pMid = p1;
-		for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
+		for (i = 0; i < model.network.physicalLev[level1].npreferredPathPoints; i++) {
 			if (printGlobal == 1)
 				printf("i %d innan totDist %.3lf\n", i, totDist);
-			totDist += pMid.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
+			totDist += pMid.distanceTo(model.network.physicalLev[level1].preferredPathPoint[i]) / 1000.0;
 			//if (i < model.network.physicalLev[level].npreferredPathPoints - 1)
-			pMid = model.network.physicalLev[level].preferredPathPoint[i];
+			pMid = model.network.physicalLev[level1].preferredPathPoint[i];
 		}
-		if (model.network.physicalLev[level].npreferredPathPoints == 0)
-			errlog("ERROR! no npreferredPathPoints but trying to use the first one for level %d\n", level);
+		if (model.network.physicalLev[level1].npreferredPathPoints == 0)
+			errlog("ERROR! no npreferredPathPoints but trying to use the first one for level %d\n", level1);
 	}
 	else {
-		p1 = model.network.channel[-level-1].point[0];
-		totDist = model.network.channel[-level - 1].distance_km;
-		pointPos2 = model.network.channel[-level - 1].nPoints - 1;
+		p1 = model.network.channel[-level1-1].point[0];
+		pos1 = 1;
+		totDist = model.network.channel[-level1 - 1].distance_km;
+		pointPos2 = model.network.channel[-level1 - 1].nPoints - 1;
 	}
+	if (level2 >= 0) {
+		pos2 = model.params.preferredPathOrtoPos[level2];
+		if (pos2 < 0)
+			pos2 = -pos2 - 1;
+	}
+	else {
+		pos2 = 0;
+	}
+
 	y0 = p1.latitude().degrees();
 	x0 = p1.longitude().degrees();
 
@@ -13612,24 +13628,24 @@ double eval_factorDelayedAlongPath(int level, int tidp, double* speedDiffCurrent
 		else
 			delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
 		if (delayVersion == 4)
-			speedDiff += getSpeedDiff_currentDelayedFromBearing(level, level + 1, delayNr, direction, pMid.latitude().degrees(), pMid.longitude().degrees());
+			speedDiff += getSpeedDiff_currentDelayedFromBearing(level1, pos1, level2, pos2, delayNr, direction, pMid.latitude().degrees(), pMid.longitude().degrees());
 
 		if (distHittils + dist * 1.05 < totDist) {
 			distHittils += dist;
-			if(level >= 0)
-				pMid = getNextPointAlongpreferredPathArc(pMid, level, &posLast, distHittils, dist);
+			if(level1 >= 0)
+				pMid = getNextPointAlongpreferredPathArc(pMid, level1, &posLast, distHittils, dist);
 			else
-				pMid = getNextPointAlongChannel(-level - 1, &posLast, pointPos2, distHittils, dist);
+				pMid = getNextPointAlongChannel(-level1 - 1, &posLast, pointPos2, distHittils, dist);
 		}
 		else {
 			i++;
 			break;
 		}
 	}
-	model.network.physicalLev[level].factorDelayedPrefPath = delay / i;
+	model.network.physicalLev[level1].factorDelayedPrefPath = delay / i;
 	*speedDiffCurrent = speedDiff / i;
 	
-	return model.network.physicalLev[level].factorDelayedPrefPath;
+	return model.network.physicalLev[level1].factorDelayedPrefPath;
 }
 
 double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2, int tidp)
@@ -13723,9 +13739,9 @@ void getCurrent_fromCurrentDelayed(int delayNr, double lat, double lon, double* 
 }
 
 
-double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int delayNr, double bearing_grader, double lat, double lon, double calmWaterSpeed) {
+double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int pos1, int toLevel, int pos2, int delayNr, double bearing_grader, double lat, double lon, double calmWaterSpeed) {
 	double currentDirection, currentSpeed, baseGroundSpeed;
-	int i, pos_latLon, row, col;
+	int i, pos_latLon, row, col, restrictedAreaNr;
 	double uCurrent, vCurrent;
 
 	for (i = 0; i < 2; i++) {
@@ -13756,8 +13772,10 @@ double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int de
 		currentSpeed = 0;
 	}
 
-	if(calmWaterSpeed < -0.5)
-		calmWaterSpeed = eval_calmWaterSpeed(-1, fromLevel, toLevel);
+	if (calmWaterSpeed < -0.5) {
+		restrictedAreaNr = get_restrictedAreaNr(fromLevel, pos1, -1, toLevel, pos2);
+		calmWaterSpeed = eval_calmWaterSpeed(-1, fromLevel, toLevel, restrictedAreaNr);
+	}
 
 	baseGroundSpeed = eval_baseGroundSpeed(calmWaterSpeed, bearing_grader / 180 * M_PI,
 		currentDirection, currentSpeed);
@@ -13819,7 +13837,7 @@ double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nex
 		else
 			delay += 1 + (model.delayedGrid[delayNr].valueCell[dir1][pos_latLon] * factor1 + model.delayedGrid[delayNr].valueCell[dir2][pos_latLon] * factor2 - 1) * model.scaledDelay;
 		if (delayVersion == 4)
-			speedDiff += getSpeedDiff_currentDelayedFromBearing(thisLevel, nextLevel, delayNr, bearingRadians, pMid.latitude().degrees(), pMid.longitude().degrees(), calmWaterSpeed);
+			speedDiff += getSpeedDiff_currentDelayedFromBearing(thisLevel, pos1, nextLevel, pos2, delayNr, bearingRadians, pMid.latitude().degrees(), pMid.longitude().degrees(), calmWaterSpeed);
 
 
 		if (distHittils + dist * 1.05 < totDist) {
@@ -13889,7 +13907,7 @@ double eval_speedDiffCurrent_delayedAlongArc(int thisLevel, int pos1, int nextLe
 		colDbl = get_colDblFromWeatherFile(-1, pMid.longitude().degrees());
 		pos_latLon = (int)rowDbl * model.delayedGrid[0].nCols + (int)colDbl;
 
-		speedDiff += getSpeedDiff_currentDelayedFromBearing(thisLevel, nextLevel, delayNr, bearingRadians, pMid.latitude().degrees(), pMid.longitude().degrees(), calmWaterSpeed);
+		speedDiff += getSpeedDiff_currentDelayedFromBearing(thisLevel, pos1, nextLevel, pos2, delayNr, bearingRadians, pMid.latitude().degrees(), pMid.longitude().degrees(), calmWaterSpeed);
 		if (distHittils + dist * 1.05 < totDist) {
 			distHittils += dist;
 			pMid = p1.destinationPoint(distHittils * 1000, bearing);
@@ -14226,7 +14244,52 @@ double getStormValue(int t, double lat, double lon, int saveStormData)
 	return varde;
 }
 
-double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel) {
+int determine_nSpeedSettingsToUse(int level1, int level2, int restrictedAreaNr) {
+	int nSettings, speedNr;
+	double maxSpeed;
+	if (level1 >= 0) {
+		nSettings = model.functions.speedLevel[level1].nShip_speedSettings;
+		if (restrictedAreaNr >= 0) {
+			maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
+			for (speedNr = 0; speedNr < nSettings; speedNr++) {
+				if (maxSpeed <= model.functions.speedLevel[level1].rpmSetting_gerCalmWaterSpeed[speedNr])
+					break;
+			}
+			if (speedNr < nSettings)
+				nSettings = speedNr + 1;
+		}
+	}
+	else {
+		if (level2 >= 0) {
+			nSettings = model.functions.speedChannelOut[-level1 - 1].nShip_speedSettings;
+			if (restrictedAreaNr >= 0) {
+				maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
+				for (speedNr = 0; speedNr < nSettings; speedNr++) {
+					if (maxSpeed <= model.functions.speedChannelOut[-level1 - 1].rpmSetting_gerCalmWaterSpeed[speedNr])
+						break;
+				}
+				if (speedNr < nSettings)
+					nSettings = speedNr + 1;
+			}
+		}
+		else {
+			nSettings = model.functions.speedChannel[-level2 - 1].nShip_speedSettings;
+			if (restrictedAreaNr >= 0) {
+				maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
+				for (speedNr = 0; speedNr < nSettings; speedNr++) {
+					if (maxSpeed <= model.functions.speedChannel[-level2 - 1].rpmSetting_gerCalmWaterSpeed[speedNr])
+						break;
+				}
+				if (speedNr < nSettings)
+					nSettings = speedNr + 1;
+			}
+		}
+	}
+	return nSettings;
+}
+
+
+double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel, int restrictedAreaNr) {
 	double varde;
 
 	if (speedNr < 0) {
@@ -14266,6 +14329,12 @@ double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel) {
 		//+ model.functions.calmWaterSpeed.c1_rpm * model.functions.rpm[speedNr]
 		//+ model.functions.calmWaterSpeed.c2_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];
 	}
+
+	if (restrictedAreaNr >= 0) {
+		if (varde > model.restrictedArea[restrictedAreaNr].max_speed)
+			varde = model.restrictedArea[restrictedAreaNr].max_speed;
+	}
+
 	return varde;
 }
 
@@ -14295,7 +14364,7 @@ int get_speedSettingBase(int arcNr) {
 //	return varde;
 //}
 
-double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel) {
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed) {
 	double vardeMain, vardeAux, factor;
 
 	if (speedNr < 0) {
@@ -14352,6 +14421,11 @@ double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLe
 				}
 			}
 		}
+		if (restrictedAreaNr >= 0){
+			if (calmWaterSpeed >= model.restrictedArea[restrictedAreaNr].max_speed - 0.001 && model.restrictedArea[restrictedAreaNr].main_fuelConsumption > -0.5)
+				vardeMain = model.restrictedArea[restrictedAreaNr].main_fuelConsumption;
+		}
+
 	//+ model.functions.fuelConsumption.c1_rpm * model.functions.rpm[speedNr]
 		//+ model.functions.fuelConsumption.c2_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr]
 		//+ model.functions.fuelConsumption.c3_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];

@@ -131,6 +131,13 @@ struct strVisuell {
 	double oldY;
 };
 
+struct strLegCommercial {
+	double commercialSpeed;
+	double commercialFuel;
+	double commercialAllowedVariation;
+
+};
+
 struct strParams
 {
 	int useSimulering;
@@ -238,9 +245,7 @@ struct strParams
 
 	double epsilon;
 	int save_weatherNodes;
-	double commercialSpeed;
-	double commercialFuel;
-	double commercialAllowedVariation;
+	strLegCommercial* legCommercial;
 	double report_minBearingDiff;
 	double report_minBearingDiffWpt;
 
@@ -395,6 +400,7 @@ struct strArcInfo
 {
 	int fromPointNr;
 	int fromLevel;
+	int outNodePos;
 	int toLevel;
 	int toPointNr;
 	int fromTime;
@@ -460,6 +466,7 @@ struct strChannel {
 	int type; // 0 - normal corridor, 1 - tss
 	double kvotCost; // used to give discount on tss paths
 	double kvotMinCost;
+	double minCost;
 
 	int ECA_type;
 	int followExactly;
@@ -496,12 +503,14 @@ struct strChannel {
 	int* outNode;
 	//int* outPolyPoint;
 	int* outLevel;
+	int* outRestrictedAreaNr;
 	int nArcsToPoint;
 	int* nAllocTimeIntervals;
 	int* nTimeIntervals;
 	int** timeInterval;
 	int** nodNr_from_pt;
 	double* distanceFromStart;
+	double* minCostOutLevel;
 
 	int nodDelay[2];
 	int nodDelay_prefPath[2];
@@ -530,6 +539,7 @@ struct strNodeSeq
 	int* nInNodes;
 	int** outNode;
 	int** outLevel;
+	int** outRestrictedAreaNr;
 
 	double* minDistPrevNode;
 	int* minDistPrevNode_level;
@@ -966,17 +976,17 @@ struct strFunc2 {
 	double* rpmSetting_gerCalmWaterSpeedBase;
 	double* rpmSetting_gerFuelConsumption_mainBase;
 	double* rpmSetting_gerFuelConsumption_auxBase;
-	int nShip_speedSettingsDelay;
+	// int* nShip_speedSettingsDelay;
 	double* rpmSetting_gerCalmWaterSpeedDelay;
 	double* rpmSetting_gerFuelConsumption_mainDelay;
 	double* rpmSetting_gerFuelConsumption_auxDelay;
 	int speedSetting95MCR_base;
-	int speedSetting95MCR_use;
+	int* speedSetting95MCR_use;
 
 	strSpeed* speedLevel;
 	strSpeed* speedChannelOut;
 	strSpeed* speedChannel;
-	int nAllocShipSpeedsLevel;
+	int* nAllocShipSpeedsLevel;
 
 	double* varValue;
 	double* varValueAverage;
@@ -1291,8 +1301,10 @@ struct strPolygon {
 	double* y;
 };
 
-struct strExtraNoGoPolygon {
-	char* customAreaID;
+struct strPolygonArea{
+	char* id;
+	double max_speed;
+	double main_fuelConsumption;
 	int nPolygons;
 	strPolygon* polygon;
 	OGRPolygon** polygon_GDAL;
@@ -1328,6 +1340,9 @@ struct strCorridorSoft {
 };
 
 struct strParamsAutoRoute {
+	double* cost_route;
+	double* dist_route;
+
 	int nCorridors_noGoSoft;
 	strCorridorSoft* corridors_noGoSoft;
 
@@ -1337,6 +1352,7 @@ struct strParamsAutoRoute {
 	int* setSmallCell[2];
 
 	int routeAlternative;
+	char* zone_id;
 
 	double startBas_lon;
 	double startBas_lat;
@@ -1446,7 +1462,6 @@ struct strTss {
 	double lastTraffCoordKvot;
 	int autoPathNr;
 	double kvotCost;
-	double kvotMinCost;
 };
 
 struct strAutoPath {
@@ -1459,7 +1474,7 @@ struct strAutoPath {
 			  // 2 - connector to tss/corridor, 
 			  // 3 - new connectors to nodes along SP
 	double kvotCost;
-	double kvotMinCost;
+	//double kvotMinCost;
 };
 
 struct strKaoutarData {
@@ -1745,7 +1760,10 @@ struct strModel
 	int nExtraNoGoAreas;
 	int nExtraNoGoPolygons;
 	strExtraNoGo* extraNoGoArea;
-	strExtraNoGoPolygon* extraNoGoPolygon;
+	strPolygonArea* extraNoGoPolygon;
+
+	int nRestrictedAreas;
+	strPolygonArea* restrictedArea;
 
 	int nExtraCostAreas;
 	strExtraNoGo* extraCostArea;
@@ -1920,7 +1938,7 @@ double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double curren
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
 //double eval_fuelConsumption_main(int speedNr);
 //double eval_fuelConsumption_aux(int speedNr);
-double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel);
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed);
 
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 void eval_safety(int legNr, double iceCover);
@@ -1928,7 +1946,7 @@ void eval_safety_nazanin(int legNr, double shipSpeedOverLand, double shipSpeedRe
 	double wavePeriod, double relWaveDirection, double iceCover);
 int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level);
 int calcWeatherPosAlongChannel(int cNr);
-double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel);
+double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel, int restrictedAreaNr);
 double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
 double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
 
@@ -1977,11 +1995,12 @@ int loadVariables(int alt = 0);
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt);
 int adderaNod(int physicalLevel, int pointNr, int timeInterval);
 int check_useRaster_longitude(int weatherNr, int filNr);
-int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2);
+int addEndBage(int thisLevel, int pos1, int nextLevel, int i3, int nodNr2, int i2b);
 double estimateLargeCircleDistance_km(double lat1, double lon1, double lat0, double lon0);
 double estimateLargeCircleDistance2_km(double lat1, double lon1, double lat0, double lon0);
 int adderaArc(int nodNr1, int nodNr2, double cost, int speedSetting);
-int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, double extraAreaCostKvot, int runAlt = 0);
+int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, 
+	int* setupCheckPoints, int min_t, int max_t, double fuelQualityKvot, double extraAreaCostKvot, int runAlt = 0);
 int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName, int useFixCalmWaterSpeed = 0, int iter = 0);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
@@ -2012,8 +2031,8 @@ int solve_SP_delay();
 int solve_SP_delayPrefPath();
 
 int testAnrop(strModel* modelDelay, int nod2);
-double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int toLevel, int delayNr, double bearing, double lat, double lon, double calmWaterSpeed = -1.0);
-double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, double* calmWaterSpeed, double fuelFactorMain = -1.0);
+double getSpeedDiff_currentDelayedFromBearing(int fromLevel, int pos1, int toLevel, int pos2, int delayNr, double bearing, double lat, double lon, double calmWaterSpeed = -1.0);
+double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLevel, int restrictedAreaNr, double* calmWaterSpeed, double fuelFactorMain = -1.0);
 int checkWeatherCoverOK(int xPos, int yPos);
 int getClosestSetting_fromBase(int baseSetting, int fromLevel, int toLevel);
 int determineBastSpeedDelay_routeToEnd_eta(strDelayToEnd* routeToEnd, double startTidp);
@@ -2066,21 +2085,19 @@ int addArcDelayToGeojson(FILE* filpek, strDelayToEnd* routeToEnd);
 int addArcDelayToGeojson(FILE* filpek, strDelayToEnd* routeToEnd);
 int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int i4, int* setupCheckPoints, int min_t, int max_t,
 	double fuelQualityKvot, double extraAreaCostKvot, int runAlt);
-int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int nSpeedSettings, double fuelQualityKvot,
+int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int tPos, int nSpeedSettings, double fuelQualityKvot,
 	double extraAreaCostKvot, double* delayFactor, double* distArc);
-int genArcsTo_delayedPreferredPath(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int nSpeedSettings, double fuelQualityKvot,
-	double extraAreaCostKvot, double* delayFactor, double* distArc);
-int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int i4, int min_t, int max_t, double fuelQualityKvot,
+int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int restrictedAreaNr, int tPos, int i4, int min_t, int max_t, double fuelQualityKvot,
 	double extraAreaCostKvot, double dist, double delayFactor);
-double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, double* calmWaterSpeed);
-double calcDelayedArcTimeCost(int fromLevel, int toLevel, int speedSettingNr, double calmWaterSpeed, double fuelFactorMain, double factorDelay, double dist, double speedDiff);
+double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int restrictedAreaNr, double* calmWaterSpeed);
+double calcDelayedArcTimeCost(int fromLevel, int toLevel, int restrictedAreaNr, int speedSettingNr, double calmWaterSpeed, double fuelFactorMain, double factorDelay, double dist, double speedDiff);
 int freeAllNodData();
 int getTidIntForecast(double tidTot);
 float ApproxAtan(float z);
 float ApproxAtan2(float y, float x);
 int addTimeTo_timeInterval(int levPrev, int levNr, int pointNr, int tidInt);
 double eval_speedDiffCurrent_delayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2, int tidp, double calmWaterSpeed);
-double eval_factorDelayedAlongPath(int level, int tidp, double* speedDiffCurrent);
+double eval_factorDelayedAlongPath(int level1, int level2, int tidp, double* speedDiffCurrent);
 int sparaLastWaypoint(FILE* filpekG, int* posReport, std::string solName);
 int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int iter, int nFinalRoutes = 0);
 double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvot, int startSlutArc, double timeExact, double delayFactor, int useFixCalmWaterSpeed);
@@ -2095,7 +2112,7 @@ time_t getFirstSecondOfDay(long long seconds);
 int getManadDagFranUTCSeconds(long long seconds, int* dag);
 void getBastSpeedPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
 void getBastConsumptionPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
-double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact, int speedSettingGiven = -1);
+double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact); //  , int speedSettingGiven = -1);
 int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc = 0);
 void 	initModelStatusValues();
 long long make_gmtime_fromDateTimeString(std::string tidpkt, strParams* params = NULL);
@@ -2117,15 +2134,30 @@ int get_isSeaFavorable(double waveHeight, double rel_waveDir);
 int loadRollingTable(int tableNr);
 int loadSurfRidingTable(int tableNr);
 
-int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, int nSpeedSettings,
+//int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int tidInt, int nSpeedSettings,
+//	double fuelQualityKvot, double extraAreaCostKvot, int addArc = 1);
+int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int tidInt, int nSpeedSettings,
 	double fuelQualityKvot, double extraAreaCostKvot, int addArc = 1);
 
 int getLegNrFromLevels(int thisLevel, int nextLevel);
 int check_noGoPolygons_ok(double lat1, double lon1, double lat2, double lon2);
 int check_feasibleNode_noGo_polygons(double lat, double lon);
 int add_custom_noGo_areas(json data);
+int testIntersect();
+double intersect_kvot(OGRLineString line, OGRPolygon* polygon);
+int determine_nSpeedSettingsToUse(int level1, int level2, int restrictedAreaNr);
+int get_restrictedAreaNr(int level1, int fromPointNr, int outNodePos, int level2 = -1, int toPointNr = -1);
+
+/*
+restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcNr].fromLevel, modelDelay.arc[arcNr].fromPointNr,
+	modelDelay.arc[arcNr].outNodePos);
+	restrictedAreaNr = get_restrictedAreaNr(model.arc[arcNr].fromLevel, model.arc[arcNr].fromPointNr,
+		model.arc[arcNr].outNodePos);
 
 
+	extraAreaCostKvot = get_totalExtraAreaCostKvot(i, i1, nextLevel, i2, &fuelQualityKvot); // only calculate this for physical arcs!!! use model.arc[xx].outNodePos...
+
+	*/
 
 
 #endif //PCH_H

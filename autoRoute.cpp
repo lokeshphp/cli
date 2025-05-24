@@ -11,12 +11,13 @@
 extern strModel model;
 extern std::string resultPath;
 extern int SKRIV_UT_NOTHING;
-extern int USE_KVOTCOST_CORRIDORS;
 
 double DIST_SPLIT = 100.0; // 250.0;
 
 int nMAX_ITER = 3;
 int nMAX_ADD_NODES;
+extern int USE_KVOTCOST_CORRIDORS;
+extern double DEFAULT_KVOTMINCOST;
 
 
 strModel modelSea;
@@ -83,6 +84,23 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 	else
 		params->routeAlternative = -1;
 
+	params->zone_id = (char*)malloc(256 * sizeof(char));
+	if (!data["use_zone_name"].is_null()) {
+		if (data["use_zone_name"].type() == json::value_t::string) {
+			std::string zone_id = data["use_zone_name"];
+			sprintf(params->zone_id, "%s", zone_id.c_str());
+		}
+		else {
+			postRequest("ERROR! wronge use_zone_name type, must be string. I skip the use_zone_name", 0);
+			sprintf(params->zone_id, "-1");
+		}
+		//printf("stormNr %d\n", stormNr);
+	}
+	else {
+		sprintf(params->zone_id, "-1");
+	}
+
+
 	if (!data["useOptionalExtraNoGoAreas"].is_null()) {
 		json dataExtra = data["useOptionalExtraNoGoAreas"];
 		model.nExtraNoGoAreas = dataExtra.size();
@@ -100,14 +118,14 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 			model.extraNoGoArea[pos].areaID = str_alloc_cpy(namnID.c_str());
 			posBase = findAreaIDpos_inBase(model.extraNoGoArea[pos].areaID);
 			if (posBase < 0) {
-				if (posBase != -2) {
+				//if (posBase != -2) {
 					errlog("ERROR! extra noGoAreaID %s is not defined in file_params.json. Add this area. I ignore it for now.\n",
 						model.extraNoGoArea[pos].areaID);
 					postRequest("ERROR! extra noGoAreaID " + std::string(model.extraNoGoArea[pos].areaID) + " is not defined in file_paramsFeasibility.json. Add this area. I ignore it for now and keep running.", 0);
-				}
-				else {
-					add_custom_noGo_areas(dataNu);
-				}
+				//}
+				//else {
+				//	add_custom_noGo_areas(dataNu);
+				//}
 				continue;
 			}
 			model.extraNoGoArea[pos].posBase = posBase;
@@ -136,6 +154,12 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		}
 		model.nExtraNoGoAreas = pos;
 	}
+
+	if (!data["noGo_areas_polygons"].is_null()) {
+		dataGeo = data["noGo_areas_polygons"];
+		add_custom_noGo_areas(dataGeo);
+	}
+
 
 	model.paramsAutoRoute.nCorridors_noGoSoft = 0;
 	if (nAllocSoft > 0) {
@@ -837,11 +861,9 @@ int load_tss()
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.01;
-	double default_kvotMinCost = 1.0, kvotMinCost;
-	if (USE_KVOTCOST_CORRIDORS == 0) {
-		default_kvotCost = 1.0;
-		default_kvotMinCost = 0.01;
-	}
+	if (USE_KVOTCOST_CORRIDORS == 0)
+		default_kvotCost = 1 - DEFAULT_KVOTMINCOST;
+
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.tssName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -925,14 +947,9 @@ int load_tss()
 				else
 					kvotCost = default_kvotCost;
 			}
-			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotCost = 1.0;
-				kvotMinCost = kvotCost;
-			}
-			else
-				kvotMinCost = -1.0;
+			if (USE_KVOTCOST_CORRIDORS == 0)
+				kvotCost = 1 - kvotCost;
 			model.tss[nTss].kvotCost = kvotCost;
-			model.tss[nTss].kvotMinCost = kvotMinCost;
 			nTss++;
 		}
 		else {
@@ -976,11 +993,6 @@ int load_autoCorridorsOld()
 	std::string namnStr;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.5;
-	double default_kvotMinCost = 1.0, kvotMinCost;
-	if (USE_KVOTCOST_CORRIDORS == 0) {
-		default_kvotCost = 1.0;
-		default_kvotMinCost = 0.01;
-	}
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsName.c_str());
 	errlog("trying to open %s\n", namn);
@@ -1076,18 +1088,11 @@ int load_autoCorridorsOld()
 			}
 			else
 				kvotCost = default_kvotCost;
-			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotCost = 1.0;
-				kvotMinCost = kvotCost;
-			}
-			else
-				kvotMinCost = -1.0;
 
 			if (oneWay == 0 || useCorridor == 1) {
 				if (useCorridor == 2)
 					autoCorridor_create_oppositeDirection(nAutoCorridors);
 				model.autoCorridors[nAutoCorridors].kvotCost = kvotCost;
-				model.autoCorridors[nAutoCorridors].kvotMinCost = kvotMinCost;
 				nAutoCorridors++;
 			}
 			else {
@@ -1113,11 +1118,10 @@ int load_autoCorridors(int alt)
 	std::string namnStr;
 	namn = (char*)malloc2(256 * sizeof(char));
 	double kvotCost, default_kvotCost = 0.5;
-	double default_kvotMinCost = 1.0, kvotMinCost;
-	if (USE_KVOTCOST_CORRIDORS == 0) {
-		default_kvotCost = 1.0;
-		default_kvotMinCost = 0.01;
-	}
+
+	if (USE_KVOTCOST_CORRIDORS == 0)
+		default_kvotCost = 1 - DEFAULT_KVOTMINCOST;
+
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	if(alt == 0)
 		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
@@ -1218,18 +1222,11 @@ int load_autoCorridors(int alt)
 			//}
 			//else
 			kvotCost = default_kvotCost;
-			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotCost = 1.0;
-				kvotMinCost = kvotCost;
-			}
-			else
-				kvotMinCost = -1.0;
 
 			if (oneWay == 0 || useCorridor == 1) {
 				if(useCorridor == 2)
 					autoCorridor_create_oppositeDirection(nAutoCorridors);
 				model.autoCorridors[nAutoCorridors].kvotCost = kvotCost;
-				model.autoCorridors[nAutoCorridors].kvotMinCost = kvotMinCost;
 				nAutoCorridors++;
 			}
 			else {
@@ -2292,6 +2289,24 @@ int checkIsCompleteLand(double y1, double x1, double y2, double x2) {
 
 double check_map_badKvot_polygons_auto(double lat1, double lon1, double lat2, double lon2, int pos_noGoPoly) {
 	int i;
+	double kvot = 0.0;
+
+	OGRLineString line;
+	line.addPoint(lat1, lon1);
+	line.addPoint(lat2, lon2);
+
+	for (i = 0; i < model.extraNoGoPolygon[pos_noGoPoly].nPolygons; i++) {
+		kvot += intersect_kvot(line, model.extraNoGoPolygon[pos_noGoPoly].polygon_GDAL[i]);
+	}
+
+	if (kvot > 1)
+		return 1.0;
+	else
+		return kvot;
+}
+
+double check_map_badKvot_polygons_auto_old(double lat1, double lon1, double lat2, double lon2, int pos_noGoPoly) {
+	int i;
 	OGRLineString* line = new OGRLineString();
 	line->addPoint(lon1, lat1);
 	line->addPoint(lon2, lat2);
@@ -2338,6 +2353,7 @@ double check_map_badKvot_polygons_auto(double lat1, double lon1, double lat2, do
 			break;
 		}
 	}
+	checkMinnesAnvandning(__LINE__);
 
 	// Clean up
 	OGRGeometryFactory::destroyGeometry(line);
@@ -2592,7 +2608,7 @@ double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, doub
 				//	break;
 			}
 			for (int i = 0; i < model.nExtraNoGoPolygons; i++) {
-				kvotBadExtra += 1 - check_map_badKvot_polygons_auto(y1, x1, y2, x2, i);
+				kvotBadExtra += check_map_badKvot_polygons_auto(y1, x1, y2, x2, i);
 				//if (kvotBadExtra >= 1)
 				//	break;
 			}
@@ -3016,7 +3032,6 @@ int addArcs_tss() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 0;
 		model.autoPath[pathNr].kvotCost = model.tss[i].kvotCost; // 0.01;
-		model.autoPath[pathNr].kvotMinCost = model.tss[i].kvotMinCost; // 0.01;
 
 		if (i == 11)
 			i = i;
@@ -3062,7 +3077,6 @@ int addArcs_corridors() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 1;
 		model.autoPath[pathNr].kvotCost = model.autoCorridors[i].kvotCost; // 0.01;
-		model.autoPath[pathNr].kvotMinCost = model.autoCorridors[i].kvotMinCost; // 0.01;
 
 		if (i == 11)
 			i = i;
@@ -3110,7 +3124,6 @@ int addArcs_corridors_noGoSoft() {
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 2;
 		model.autoPath[pathNr].kvotCost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist; // model.autoCorridors[i].kvotCost; // 0.01;
-		model.autoPath[pathNr].kvotMinCost = model.paramsAutoRoute.corridors_noGoSoft[i].costFactorDist; // model.autoCorridors[i].kvotCost; // 0.01;
 
 		firstTraff = 0;
 		for (i1 = 1; i1 < model.paramsAutoRoute.corridors_noGoSoft[i].nPkter; i1++) {
@@ -3230,14 +3243,8 @@ int addArcs_viaPaths(int ruttAlt) {
 		model.autoPath[pathNr].nodCoord_x = (double*)malloc(model.autoPath[pathNr].nAllocNoder * sizeof(double));
 		model.autoPath[pathNr].nNoder = 0;
 		model.autoPath[pathNr].type = 10;
-		if (USE_KVOTCOST_CORRIDORS == 1) {
-			model.autoPath[pathNr].kvotCost = 0.5;
-			model.autoPath[pathNr].kvotMinCost = -1.0;
-		}
-		else {
-			model.autoPath[pathNr].kvotCost = 1.0;
-			model.autoPath[pathNr].kvotMinCost = 0.5;
-		}
+		model.autoPath[pathNr].kvotCost = 0.5;
+
 		firstTraff = 0;
 		for (i1 = 0; i1 < model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].nPoints; i1++) {
 			x2 = model.paramsAutoRoute.altRutt[ruttAlt].sekvens[i].x[i1];
@@ -4289,6 +4296,7 @@ double addAutoArcSmall(int cellPos1, int cellSmall1, int posTmp1, int cellPos2, 
 double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPos, int cellSmall, int posTmp, double dist, int direction, double costBas) {
 	double cost, kvotCost = 1.0, costFactorArea, x2, y2, x1, y1;
 	int xIndex;
+
 	if (model.nArcs >= model.nAllocArcs) {
 		model.nAllocArcs += 1000000;
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
@@ -4350,6 +4358,7 @@ double addAutoArcSmallPath(int pathNr, int posItss, int prev_posItss, int cellPo
 
 double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
 	double cost, kvotCost = 1.0, costFactorArea, x2, y2, x1, y1;
+
 	if (model.nArcs >= model.nAllocArcs) {
 		model.nAllocArcs += 1000000;
 		model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
@@ -4374,10 +4383,11 @@ double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2){
 	model.arc[model.nArcs].toPointNr = path2;
 	model.arc[model.nArcs].toTime = posPath2;
 
-	if(model.autoPath[path1].kvotCost < model.autoPath[path2].kvotCost)
+	if (model.autoPath[path1].kvotCost < model.autoPath[path2].kvotCost)
 		kvotCost = model.autoPath[path2].kvotCost;
 	else
 		kvotCost = model.autoPath[path1].kvotCost;
+
 	if (model.nArcs == 301242)
 		path1 = path1;
 	//if (model.autoPath[path2].type == 0)
@@ -6209,7 +6219,9 @@ int writeSolutionToJson_autoRoute_alternatives(std::string filename, int callNr)
 	for (int i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
 		if (i > 0)
 			fprintf(filpekG, ",\n");
-		fprintf(filpekG, "{\"routeAlt\":%d,\n\"name\":\"%s\"}", i, model.paramsAutoRoute.altRutt[i].routeID);
+		fprintf(filpekG, "{\"routeAlt\":%d,\n\"name\":\"%s\"\n,", i, model.paramsAutoRoute.altRutt[i].routeID);
+		fprintf(filpekG, "\"route_cost_est\":%.2lf,\n\"route_length_est_nm\":%.2lf}", 
+			model.paramsAutoRoute.cost_route[i], model.paramsAutoRoute.dist_route[i] / model.params.knots_to_km);
 	}
 	fprintf(filpekG, "]\n");
 	fprintf(filpekG, "}\n");
@@ -7341,6 +7353,10 @@ int setUpViaPartsForAltRoute(strAltRutt* altRutt, int ruttNr, json data) {
 		posNu++;
 	}
 	altRutt[ruttNr].nParts = posNu;
+	if (strcmp(model.paramsAutoRoute.zone_id, altRutt[ruttNr].routeID) == 0) {
+		errlog("OBS! Only saving the route for zone %s, zoneNr %d\n", altRutt[ruttNr].routeID, ruttNr);
+		model.paramsAutoRoute.routeAlternative = ruttNr;
+	}
 
 	return 0;
 }
@@ -7701,7 +7717,7 @@ int evalSeaRoutePaths(std::string inputPath) {
 	return 0;
 }
 
-int genAutoRoute(std::string inputPath, std::string resultName) {
+int genAutoRoute_old(std::string inputPath, std::string resultName) {
 	int nod1, nod2, i0, ii0;
 	double dist, dist1, dist2;
 	long long Cost;
@@ -7786,7 +7802,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 				nod1 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.startPoint_lat[i0], model.paramsAutoRoute.startPoint_lon[i0], &dist1);
 			else
 				nod1 = model.paramsAutoRoute.startNod;
-			if(model.paramsAutoRoute.endNod == -1)
+			if (model.paramsAutoRoute.endNod == -1)
 				nod2 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.endPoint_lat[i0], model.paramsAutoRoute.endPoint_lon[i0], &dist2);
 			else
 				nod2 = model.paramsAutoRoute.endNod;
@@ -7813,12 +7829,12 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 
 		writeSolutionToJson_seaRoute("seaRoute.geojson", ii0);//  model.params.resultPath + "/resAutoRoute.json");
 
-		createCells_new(); 
+		createCells_new();
 		checkMinnesAnvandning(__LINE__);
 
 		createCellNetwork();
 		checkMinnesAnvandning(__LINE__);
-		
+
 		if (model.paramsAutoRoute.tssName != "-")
 			load_tss();
 		if (model.paramsAutoRoute.corridorsNameNew != "-")
@@ -7880,7 +7896,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 						checkMinnesAnvandning(__LINE__);
 					}
 				}
-			} 
+			}
 			else {
 				errlog("ERROR! Did not manage to find a route from start to finish...\n");
 				printf("\nERROR! Did not manage to find a route from start to finish...\n");
@@ -7907,6 +7923,256 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 		if (model.paramsAutoRoute.routeAlternative != -1)
 			ii0 = model.paramsAutoRoute.nAltRutter;
 	}
+
+	writeSolutionToJson_autoRoute_alternatives(resultName, 1);
+
+	return 0;
+}
+
+int genAutoRoute(std::string inputPath, std::string resultName) {
+	int nod1, nod2, i0, ii0;
+	double dist, dist1, dist2;
+	long long Cost;
+	bool Reached;
+
+	reset_errlog();
+	model.params.resultPath = splitFilename(resultName);
+	model.params.resultName = resultName;
+	model.params.indataPathName = inputPath;
+	model.params.indataPath = splitFilename(inputPath);
+	model.params.errorCode = 0;
+	model.params.failedTime = 0;
+
+	initLookUpTables();
+
+	loadParams_theRestOld(&(model.params));
+	loadFileParams_feasibilityAuto(&(model.paramsAutoRoute));
+	loadParams_autoRoute(&(model.paramsAutoRoute));
+
+	identifyZonesStartEnd();
+	identifyAltRutter();
+
+	if (model.paramsAutoRoute.routeAlternative == -3) {
+		writeSolutionToJson_autoRoute_alternatives(resultName, 0);
+		return 0;
+	}
+
+
+	modelSea.Dijkstra.nodes = NULL;
+	model.paramsAutoRoute.startNod = -1;
+	model.paramsAutoRoute.endNod = -1;
+
+	checkMinnesAnvandning(__LINE__);
+	if (model.paramsAutoRoute.newSeaRoutePathData == 1)
+		load_searoutes();
+	else
+		load_saved_searoutes();
+	updateCostsSeaRouteArcs();
+
+	checkMinnesAnvandning(__LINE__);
+	SattUppDijkstraNatverk3(&modelSea);
+
+	modelSea.BVArc = (int*)malloc2(modelSea.nNoder * sizeof(int));
+	modelSea.BVtempNodOrder = (int*)malloc2(modelSea.nNoder * sizeof(int));
+	modelSea.BVArcUse = (int*)malloc(modelSea.nNoder * sizeof(int));
+	model.paramsAutoRoute.nAllocSet[0] == 0;
+	model.paramsAutoRoute.nAllocSet[1] == 0;
+
+	int nAlloc = 0;
+	for (int i = 0; i < model.paramsAutoRoute.nAltRutter; i++) {
+		if (nAlloc < model.paramsAutoRoute.altRutt[i].nParts)
+			nAlloc = model.paramsAutoRoute.altRutt[i].nParts;
+	}
+	nAlloc++;
+
+	model.paramsAutoRoute.startPoint_lat = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.startPoint_lon = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.endPoint_lat = (double*)malloc(nAlloc * sizeof(double));
+	model.paramsAutoRoute.endPoint_lon = (double*)malloc(nAlloc * sizeof(double));
+
+	model.paramsAutoRoute.cost_route = (double*)malloc(model.paramsAutoRoute.nAltRutter * sizeof(double));
+	model.paramsAutoRoute.dist_route = (double*)malloc(model.paramsAutoRoute.nAltRutter * sizeof(double));
+
+	int nActualIter = 0, minPos = -1, iTmp;
+	double minCost = 1e10, minDist = 1e10;
+
+	for (iTmp = 0; iTmp < model.paramsAutoRoute.nAltRutter; iTmp++) {
+		model.paramsAutoRoute.cost_route[iTmp] = -1.0;
+		model.paramsAutoRoute.dist_route[iTmp] = -1.0 * model.params.knots_to_km;
+	}
+
+	for (iTmp = 0; iTmp < model.paramsAutoRoute.nAltRutter + 1; iTmp++) {
+		if (model.paramsAutoRoute.routeAlternative >= 0) {
+			if (iTmp == 0)
+				ii0 = model.paramsAutoRoute.routeAlternative; // only calculate for one route
+			else
+				break;
+		}
+		else {
+			if (iTmp < model.paramsAutoRoute.nAltRutter)
+				ii0 = iTmp;
+			else {
+				if (minPos >= 0)
+					ii0 = minPos;
+				else {
+					break;
+				}
+			}
+		}
+		model.paramsAutoRoute.cost_route[ii0] = 0.0;
+		model.paramsAutoRoute.dist_route[ii0] = 0.0;
+		if (model.paramsAutoRoute.routeAlternative >= 0) {
+			if (model.paramsAutoRoute.routeAlternative < model.paramsAutoRoute.nAltRutter)
+				ii0 = model.paramsAutoRoute.routeAlternative;
+			else {
+				errlog("ERROR! routeAlternative %d given in input file for autoRoute but must be < %d. I ignore the given routeAlternative\n",
+					model.paramsAutoRoute.routeAlternative, model.paramsAutoRoute.nAltRutter);
+				postRequest("ERROR! routeAlternative " + std::to_string(model.paramsAutoRoute.routeAlternative) +
+					" given in input file for autoRoute but must be < " + std::to_string(model.paramsAutoRoute.nAltRutter) + ".I ignore the given routeAlternative", 0);
+				model.paramsAutoRoute.routeAlternative = -1;
+			}
+		}
+		setStartSlutCoords(ii0);
+		checkMinnesAnvandning(__LINE__);
+		if (nActualIter > 0)
+			releaseMemoryIter();
+
+		for (i0 = 0; i0 < model.paramsAutoRoute.nStartSlut; i0++) {
+			if (model.paramsAutoRoute.startNod == -1)
+				nod1 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.startPoint_lat[i0], model.paramsAutoRoute.startPoint_lon[i0], &dist1);
+			else
+				nod1 = model.paramsAutoRoute.startNod;
+			if (model.paramsAutoRoute.endNod == -1)
+				nod2 = identify_nearestNode_toSearoutes(model.paramsAutoRoute.endPoint_lat[i0], model.paramsAutoRoute.endPoint_lon[i0], &dist2);
+			else
+				nod2 = model.paramsAutoRoute.endNod;
+
+			checkMinnesAnvandning(__LINE__);
+
+			printf("\nsolving dijkstra's algorithm for searoute..");
+			checkMinnesAnvandning(__LINE__);
+			AnropDijkstra2(nod1, nod2, &modelSea, &Reached);
+			checkMinnesAnvandning(__LINE__);
+			printf("..done. Obj %I64d\n", modelSea.Dijkstra.OptCost);
+			if (Reached == true) {
+				dist = NystaUppBV_MassTest(&modelSea, Reached, nod1, nod2, &Cost);
+				model.paramsAutoRoute.cost_route[ii0] += Cost;
+				model.paramsAutoRoute.dist_route[ii0] += dist;
+				if (ii0 == 3)
+					ii0 = ii0;
+				sparaSeaRoutePart(i0);//  model.params.resultPath + "/resAutoRoute.json");
+				checkMinnesAnvandning(__LINE__);
+			}
+			else {
+				errlog("ERROR! Did not manage to find a route from start to finish for seaRoute...\n");
+				printf("\nERROR! Did not manage to find a route from start to finish for seaRoute...\n");
+				model.paramsAutoRoute.cost_route[ii0] += 1e10;
+				model.paramsAutoRoute.dist_route[ii0] += 1e10;
+			}
+		}
+		writeSolutionToJson_seaRoute("seaRoute.geojson", ii0);//  model.params.resultPath + "/resAutoRoute.json");
+		if (minCost > model.paramsAutoRoute.cost_route[ii0]) {
+			minCost = model.paramsAutoRoute.cost_route[ii0];
+			minPos = ii0;
+		}
+	}
+
+	if (minPos >= 0)
+		ii0 = minPos;
+	else
+		ii0 = 0;
+
+
+	createCells_new();
+	checkMinnesAnvandning(__LINE__);
+
+	createCellNetwork();
+	checkMinnesAnvandning(__LINE__);
+		
+	if (model.paramsAutoRoute.tssName != "-")
+		load_tss();
+	if (model.paramsAutoRoute.corridorsNameNew != "-")
+		load_autoCorridors(0);
+	else {
+		if (model.paramsAutoRoute.corridorsName != "-")
+			load_autoCorridorsOld();
+	}
+	if (SKRIV_UT_NOTHING == 0)
+		save_tss_geojson(ii0);
+	addArcs_tss();
+	addArcs_corridors();
+	checkMinnesAnvandning(__LINE__);
+	addArcs_corridors_noGoSoft();
+	checkMinnesAnvandning(__LINE__);
+	addArcs_viaPaths(ii0);
+	addArcs_betweenPaths();
+	checkMinnesAnvandning(__LINE__);
+
+	int saveNodes = 0;
+	if (saveNodes == 1)
+		writeAllAutoNodesToGeojson(1);
+
+	int saveArcs = 0;
+	if (saveArcs == 1)
+		writeAllAutoArcsToGeojson(1);
+	checkMinnesAnvandning(__LINE__);
+
+	model.Dijkstra.nodes = NULL;
+	for (int iter = 0; iter < nMAX_ITER; iter++) {
+
+
+		checkMinnesAnvandning(__LINE__);
+		SattUppDijkstraNatverk3(&model);
+		checkMinnesAnvandning(__LINE__);
+
+		nod1 = model.autoRoute_startNod;
+		nod2 = model.autoRoute_endNod;
+
+		if (nActualIter == 0) {
+			model.BVArc = (int*)malloc2(model.nNoder * sizeof(int));
+			model.BVtempNodOrder = (int*)malloc2(model.nNoder * sizeof(int));
+		}
+
+		printf("\nsolving dijkstra's algorithm ii0 %d iter %d ..", ii0, iter);
+
+		AnropDijkstra2(nod1, nod2, &model, &Reached);
+
+
+		printf("..done. Obj %lld\n", model.Dijkstra.OptCost);
+		if (Reached == true) {
+			dist = NystaUppBV_MassTest(&model, Reached, nod1, nod2, &Cost);
+			if (model.nBVArcs < 2) {
+				errlog("ERROR! Too few arcs %d in Dijkstra solution\n", model.nBVArcs);
+			}
+			else {
+				if (SKRIV_UT_NOTHING == 0 || iter == nMAX_ITER - 1) {
+					writeSolutionToJson_autoRoute(resultName, iter, ii0);//  model.params.resultPath + "/resAutoRoute.json");
+					checkMinnesAnvandning(__LINE__);
+				}
+			}
+		} 
+		else {
+			errlog("ERROR! Did not manage to find a route from start to finish...\n");
+			printf("\nERROR! Did not manage to find a route from start to finish...\n");
+			if (iter == nMAX_ITER - 1) {
+				writeErrorSolutionToJson_autoRoute(resultName);
+				return 0;
+
+			}
+		}
+		if (iter == 0) {
+			// saveGoodCells();
+			// createCellNetwork2();
+			addArcsAroundSolution();
+		}
+		if (iter == 1) {
+			addArcsAroundSolution2();
+			// writeAllPathNodesToGeojson(model.nAutoPaths + model.nBVArcs);
+			// writeAllPathArcsToGeojson();
+
+		}
+	}
+	nActualIter++;
 
 	writeSolutionToJson_autoRoute_alternatives(resultName, 1);
 

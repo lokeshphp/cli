@@ -488,6 +488,7 @@ int setupNodesArcsNoTime_delay() {
 				model.arc[arcNr].fromLevel = i;
 				model.arc[arcNr].toLevel = nextLev;
 				model.arc[arcNr].fromPointNr = i2;
+				model.arc[arcNr].outNodePos = i1;
 				model.arc[arcNr].toPointNr = pos2;
 				model.arc[arcNr].fromTime = 0;
 				model.arc[arcNr].toTime = 0;
@@ -525,7 +526,7 @@ int setupNodesArcsNoTime_delay() {
 	nodNu = usedLevPos[i][model.network.physicalLev[i].nPoints - 1] - 1;
 	adderaNod(i + 1, 0, 0);
 	nodNext = model.nNoder - 1;
-	addEndBage(i, 0, i + 1, 0, nodNext);
+	addEndBage(i, 0, i + 1, 0, nodNext, 0);
 
 
 
@@ -1385,10 +1386,18 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 		}
 		else {
 			if (model.arc[arcNr].toLevel < 0) {
-				x1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_x[0];
-				y1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_y[0];
-				x2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_x[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints - 1];
-				y2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_y[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints - 1];
+				if (model.arc[arcNr].fromLevel == model.arc[arcNr].toLevel) {
+					x1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_x[0];
+					y1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_y[0];
+					x2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_x[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints - 1];
+					y2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_y[model.network.channel[-model.arc[arcNr].toLevel - 1].nPoints - 1];
+				}
+				else {
+					x1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_x[model.network.channel[-model.arc[arcNr].fromLevel - 1].nPoints - 1];
+					y1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_y[model.network.channel[-model.arc[arcNr].fromLevel - 1].nPoints - 1];
+					x2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_x[0];
+					y2 = model.network.channel[-model.arc[arcNr].toLevel - 1].point_y[0];
+				}
 			}
 			else {
 				x1 = model.network.channel[-model.arc[arcNr].fromLevel - 1].point_x[model.network.channel[-model.arc[arcNr].fromLevel - 1].nPoints - 1];
@@ -2165,7 +2174,7 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 				setupCheckPoints = 1;
 				fuelQualityKvot = 1;
 				// get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(i, i1, nextLevel, i2, &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
+				addBagar_AB_speedSTid(i, i1, nextLevel, i2, i2b, &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
 			}
 		}
 		model.tmpTid2[1] = std::chrono::high_resolution_clock::now();
@@ -2179,11 +2188,11 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 				if (nextLevel != i + 1 && nextLevel >= 0)
 					continue;
 				if (nextLevel < 0 && i > 0)
-					continue;
+					continue; // i > 0 since onle add these arcs once...
 				setupCheckPoints = 1;
 				fuelQualityKvot = 1;
 				// get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);
-				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
+				addBagar_AB_speedSTid(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], i2b, &setupCheckPoints, min_t, max_t, fuelQualityKvot, 0.0);
 			}
 		}
 
@@ -2200,13 +2209,13 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 	nodNr2 = adderaNod(i + 1, 0, 0);
 	i1 = 0;
 	for (i3 = 0; i3 < model.network.physicalLev[i].nTimeIntervals[i1]; i3++) {
-		addEndBage(i, i1, i + 1, i3, nodNr2);
+		addEndBage(i, i1, i + 1, i3, nodNr2, i3);
 		nArcsNu++;
 	}
 
 	nodNr1 = nodNr2;
 	nodNr2 = adderaNod(i + 1, 0, 0);
-	addEndBage(i + 1, 0, i + 2, 0, nodNr2);
+	addEndBage(i + 1, 0, i + 2, 0, nodNr2, 0);
 
 	nArcsTot += nArcsNu;
 	free(namn);
@@ -2286,7 +2295,14 @@ void setupUsableSpeedSettings_delay() {
 	}
 	errlog(" knots\n");
 	model.functions.speedSetting95MCR_base = model.functions.nShip_speedSettingsBase - 1;
-	model.functions.speedSetting95MCR_use = model.functions.speedSetting95MCR_base;
+
+	if (model.params.nLegs != 1) {
+		errlog("ERROR! Only one leg can be used (now %d) when setting up speed settings for delay - creating delay maps\n", 
+			model.params.nLegs);
+		postRequest("ERROR! Only one leg can be used (now " + std::to_string(model.params.nLegs) + ") when setting up speed settings for delay - creating delay maps", 1);
+	}
+	model.functions.speedSetting95MCR_use = (int*)malloc(model.params.nLegs * sizeof(int));
+	model.functions.speedSetting95MCR_use[0] = model.functions.speedSetting95MCR_base;
 
 	double averSpeed = 0;
 	minSpeed = 1e10;
@@ -2340,7 +2356,7 @@ void setupUsableSpeedSettings_delayOld() {
 	}
 	errlog(" knots\n");
 	model.functions.speedSetting95MCR_base = model.functions.nShip_speedSettingsBase - 1;
-	model.functions.speedSetting95MCR_use = model.functions.speedSetting95MCR_base;
+	model.functions.speedSetting95MCR_use[0] = model.functions.speedSetting95MCR_base;
 
 	double averSpeed = 0;
 	minSpeed = 1e10;
@@ -3342,7 +3358,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 						if (pos_XYr == 93296)
 							i1 = i1;
 						calcWeatherPosAlongArc(p1, p2, timep);
-						tid = calcArcTimeCost(timep, -1, 0, 1, &calmWaterSpeed);
+						tid = calcArcTimeCost(timep, -1, 0, 1, -1, &calmWaterSpeed);
 						tidBas = model.functions.valuesNow.distance / calmWaterSpeed;
 						factor = tid / tidBas;
 						if (factor > maxAllowedFactor)

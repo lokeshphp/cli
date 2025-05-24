@@ -469,7 +469,10 @@ int main(int argc, char* argv[])
 	FILE* filpek;
 	int retVal = 0;
 
-	testing(2);
+	//testing(2);
+	
+	testIntersect();
+
 
 	//cout << "Hello CMake. Test 2" << endl;
 	//cout << "nArgc " << argc << endl;
