@@ -19780,7 +19780,8 @@ int add_restricted_areas(json data) {
 					postRequest("ERROR! restricted_area missing id, I set it to " + namnID, 0);
 				}
 				if (!dataProp["max_calmWaterSpeed_kts"].is_null()) {
-					speed = dataProp["max_calmWaterSpeed_kts"] * model.params.knots_to_km;
+					speed = dataProp["max_calmWaterSpeed_kts"];
+					speed *= model.params.knots_to_km;
 				}
 				else {
 					postRequest("ERROR! restricted_area " + namnID + " missing max_calmWaterSpeed_kts so I skip it", 0);
