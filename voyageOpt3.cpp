@@ -4788,7 +4788,7 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	else
 		model.network.channelTmp[cNr].earliestStartLevel = pos0; // -2;
 
-	model.network.physicalLev[model.network.channelTmp[cNr].earliestStartLevel].onlyPrefPath = 1;
+	// model.network.physicalLev[model.network.channelTmp[cNr].earliestStartLevel].onlyPrefPath = 1; //pfg 20250529
 
 
 	if (pos1 >= model.network.nPhysicalLevels)
@@ -11518,7 +11518,7 @@ int addArcsToNetwork()
 			i = i;
 		try_addPhysicalArcsFromChannel(i);
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			if (i == 34 && i1 == 23)
+			if (i == 8 && i1 == 24)
 				i = i;
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;

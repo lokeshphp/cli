@@ -1099,6 +1099,8 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int 
 		if (model.nArcs == 7)
 			pos1 = pos1;
 		//printf("level %d nArcs %d", -thisLevel - 1, model.nArcs);
+		if (tPos == 62)
+			tPos = tPos;
 		tid = calcArcTimeCostChannel(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
 			i4, -thisLevel - 1, restrictedAreaNr, &calmWaterSpeed);
 		tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)round(tid * model.params.nTidsperioder_perH);
@@ -1241,15 +1243,28 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int 
 			printf("thisLevel %d pos1 %d nextLevel %d pos2 %d tPos %d i4 %d\n",
 				thisLevel, pos1, nextLevel, pos2, tPos, i4);
 			printf("thisLevel %d\n", thisLevel);
-			printf("tidInt %d\n",
-				model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
-			printf("cPoint %d\n",
-				*setupCheckPoints);
-			printf("lon/lat %.2lf %.2lf to lon/lat %.2lf %.2lf\n",
-				model.network.physicalLev[thisLevel].point[pos1].longitude().degrees(),
-				model.network.physicalLev[thisLevel].point[pos1].latitude().degrees(),
-				model.network.physicalLev[nextLevel].point[pos2].longitude().degrees(),
-				model.network.physicalLev[nextLevel].point[pos2].latitude().degrees());
+			if (thisLevel >= 0) {
+				printf("tidInt %d\n",
+					model.network.physicalLev[thisLevel].timeInterval[pos1][tPos]);
+				printf("cPoint %d\n",
+					*setupCheckPoints);
+				printf("lon/lat %.2lf %.2lf to lon/lat %.2lf %.2lf\n",
+					model.network.physicalLev[thisLevel].point[pos1].longitude().degrees(),
+					model.network.physicalLev[thisLevel].point[pos1].latitude().degrees(),
+					model.network.physicalLev[nextLevel].point[pos2].longitude().degrees(),
+					model.network.physicalLev[nextLevel].point[pos2].latitude().degrees());
+			}
+			else {
+				printf("tidInt %d\n",
+					model.network.channel[-thisLevel-1].timeInterval[pos1][tPos]);
+				printf("cPoint %d\n",
+					*setupCheckPoints);
+				printf("lon/lat %.2lf %.2lf to lon/lat %.2lf %.2lf\n",
+					model.network.channel[-thisLevel - 1].point[pos1].longitude().degrees(),
+					model.network.channel[-thisLevel - 1].point[pos1].latitude().degrees(),
+					model.network.channel[-thisLevel - 1].point[pos2].longitude().degrees(),
+					model.network.channel[-thisLevel - 1].point[pos2].latitude().degrees());
+			}
 		}
 
 		posNy = adderaArc(nodNr1, nodNr2, totCost, i4);
@@ -12508,13 +12523,13 @@ int get_restrictedAreaNr(int level1, int fromPointNr, int outNodePos, int level2
 		if (outNodePos >= 0)
 			areaNr = model.network.channel[cNr].outRestrictedAreaNr[outNodePos];
 		else {
-			for (i = 0; i < model.network.channel[level1].nOutNodes; i++) {
-				if (model.network.channel[level1].outLevel[i] == level2 &&
-					model.network.channel[level1].outNode[i] == toPointNr)
+			for (i = 0; i < model.network.channel[cNr].nOutNodes; i++) {
+				if (model.network.channel[cNr].outLevel[i] == level2 &&
+					model.network.channel[cNr].outNode[i] == toPointNr)
 					break;
 			}
-			if (i < model.network.channel[level1].nOutNodes)
-				areaNr = model.network.channel[level1].outRestrictedAreaNr[i];
+			if (i < model.network.channel[cNr].nOutNodes)
+				areaNr = model.network.channel[cNr].outRestrictedAreaNr[i];
 			else
 				areaNr = -1;
 		}
@@ -13326,13 +13341,15 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 			}
 		}
 		else {
+			restrictedAreaNr = get_restrictedAreaNr(nextLevel, 0, 0);
+			nSpeedSettings = determine_nSpeedSettingsToUse(nextLevel, nextLevel, restrictedAreaNr);
 			if (model.network.channel[-nextLevel - 1].timeThroughChannel > -0.5)
 				nSpeedSettings = 1; // only one speed option if fix speed through channel
 			for (i3 = 0; i3 < model.network.channel[-nextLevel - 1].nTimeIntervals[0]; i3++) {
 				firstArcNu = model.nArcs;
 				if (model.network.channel[-nextLevel - 1].timeInterval[0][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
 					for (i4 = 0; i4 < nSpeedSettings; i4++)
-						arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, i2b, restrictedAreaNr, i3, i4, setupCheckPoints, 0, 99999, fuelQualityKvot, extraAreaCostKvot, runAlt);
+						arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, 0, restrictedAreaNr, i3, i4, setupCheckPoints, 0, 99999, fuelQualityKvot, extraAreaCostKvot, runAlt);
 					if (USE_KVOTCOST_CORRIDORS == 1) { // this should not be needed with the new way 20250519
 						kvotCost = model.network.channel[-nextLevel - 1].kvotCost;
 						if (kvotCost < 1) {
@@ -13365,15 +13382,15 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 							delayFactor = 1;
 						distArc = model.network.channel[-nextLevel - 1].distance_km;
 						for (i4 = 0; i4 < nSpeedSettings; i4++) {
-							nArcsNu += addEnBage_delayAB(nextLevel, 0, nextLevel, 1, i2b, restrictedAreaNr, i3, i4, 0, 1e10, fuelQualityKvot, extraAreaCostKvot, distArc, delayFactor);
+							nArcsNu += addEnBage_delayAB(nextLevel, 0, nextLevel, 1, 0, restrictedAreaNr, i3, i4, 0, 1e10, fuelQualityKvot, extraAreaCostKvot, distArc, delayFactor);
 						}
 					}
 					else {
 						if (runAlt != 1) {// && model.results.onlyPrefPath_kaoutar != 1)
-							arcNr = genArcsToEnd_delayed(nextLevel, 0, nextLevel, 1, i2b, i3, nSpeedSettings);
+							arcNr = genArcsToEnd_delayed(nextLevel, 0, nextLevel, 1, 0, i3, nSpeedSettings);
 						}
 						else
-							arcNr = genArcsToEnd_delayed_prefPath(nextLevel, 0, nextLevel, 1, i2b, i3);
+							arcNr = genArcsToEnd_delayed_prefPath(nextLevel, 0, nextLevel, 1, 0, i3);
 					}
 				}
 			}
