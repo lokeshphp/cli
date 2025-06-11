@@ -4,7 +4,11 @@
 
 int USE_KVOTKOST = 1;
 int USE_KVOTCOST_CORRIDORS = 0; // 1 if a factor should be multiplied to a corridor cost (old way), 0 if a minCostValue should be deducted;
-double DEFAULT_KVOTMINCOST = 0.8;
+//double DEFAULT_KVOTMINCOST = 1.0; // 0.8;
+double DEFAULT_KVOTMINCOST_TSS = 0.85; // 1.0;// 0.85;
+double DEFAULT_KVOTMINCOST_CORRIDORS = 0.8;
+double KVOTMINCOST_ALLOWED = 0.5;
+double DEFAULT_TSS_ATTACTIONDISTANCE = 5.0;
 
 #include "pch.h"
 #include <cstdio>
@@ -437,7 +441,8 @@ double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLeve
 
 
 		//if (fuelFactorMain < 0)
-		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, fromLevel, toLevel, restrictedAreaNr, *calmWaterSpeed);
+		fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, fromLevel, toLevel, restrictedAreaNr, *calmWaterSpeed, fuelFactorMain);
 		//else
 		//	fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_base, &fuelConsumption_aux, -1, -100) * fuelFactorMain;
 
@@ -516,9 +521,9 @@ double calcDelayedArcTimeCost(int fromLevel, int toLevel, int restrictedAreaNr, 
 		speedNu = 0.1;
 	timeArc = dist / speedNu; // in hours
 	if (fuelFactorMain < 0)
-		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, fromLevel, toLevel, restrictedAreaNr, calmWaterSpeed);
+		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, fromLevel, toLevel, restrictedAreaNr, calmWaterSpeed, 1.0);
 	else
-		fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use[legNr], &fuelConsumption_aux, -1, -100, restrictedAreaNr, calmWaterSpeed) * fuelFactorMain;
+		fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use[legNr], &fuelConsumption_aux, -1, -100, restrictedAreaNr, calmWaterSpeed, 1.0) * fuelFactorMain;
 	fuelUsage_main = fuelConsumption_main * timeArc;
 	fuelUsage_aux = fuelConsumption_aux * timeArc;
 
@@ -549,7 +554,7 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int rest
 
 	double tidStart = t * model.params.tIndexGerH, tidTot = tidStart, distNu, fuelTot_main = 0, fuelTot_aux = 0, safetyTot = 0;
 	double uWind, vWind, uCurrent, vCurrent;// , uVessel, vVessel; //  , uSpeed, vSpeed;
-	double dist = 0;
+	double dist = 0, fuelFactorMain;
 	double windDirection, windSpeed;
 	double currentDirection, currentSpeed, rel_windSpeed;
 	int i, badSpeed = 0, legNr;
@@ -712,7 +717,8 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int rest
 			}
 			timeArc = distNu / speedOverGround; // in hours
 
-			fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1, restrictedAreaNr, *calmWaterSpeed);
+			fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+			fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1, restrictedAreaNr, *calmWaterSpeed, fuelFactorMain);
 			fuelUsage_main = fuelConsumption_main * timeArc;
 			fuelUsage_aux = fuelConsumption_aux * timeArc;
 
@@ -747,7 +753,7 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int rest
 			// channel without speed optimizing
 			timeArc = distNu / (*calmWaterSpeed); // in hours
 			// fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1);
-			fuelConsumption_main = eval_fuelConsumption_both(0, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1, restrictedAreaNr, *calmWaterSpeed);
+			fuelConsumption_main = eval_fuelConsumption_both(0, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1, restrictedAreaNr, *calmWaterSpeed, 1.0);
 			fuelUsage_main = fuelConsumption_main * timeArc;
 			fuelUsage_aux = fuelConsumption_aux * timeArc;
 
@@ -811,7 +817,7 @@ double calcDelayedArcTimeCostChannel(int t, int restrictedAreaNr, int speedSetti
 	tidTot += timeArc;
 
 	//if (model.network.channel[channelNr].totalConsumption < 0) {
-	fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, channelNr, channelNr, restrictedAreaNr, *calmWaterSpeed);
+	fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, channelNr, channelNr, restrictedAreaNr, *calmWaterSpeed, 1.0);
 	//}
 	//else {
 	//	fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_use, &fuelConsumption_aux, -1, -100);
@@ -1101,6 +1107,8 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int 
 		//printf("level %d nArcs %d", -thisLevel - 1, model.nArcs);
 		if (tPos == 62)
 			tPos = tPos;
+		if (thisLevel == -3 && nextLevel == -4 && i4 == 3)
+			i4 = i4;
 		tid = calcArcTimeCostChannel(model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos],
 			i4, -thisLevel - 1, restrictedAreaNr, &calmWaterSpeed);
 		tidInt = model.network.channel[-thisLevel - 1].timeInterval[pos1][tPos] + (int)round(tid * model.params.nTidsperioder_perH);
@@ -1125,11 +1133,9 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int 
 				kvotCost = model.network.channel[-thisLevel - 1].kvotCost;
 			else {
 				if (thisLevel == nextLevel)
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
-					model.network.channel[-thisLevel - 1].minCost;
+					kvotCost = model.network.channel[-thisLevel - 1].minCost;
 				else
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
-					model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
+					kvotCost = model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
 			}
 		}
 		else {
@@ -1455,11 +1461,9 @@ int addEnBage_delayAB(int thisLevel, int pos1, int nextLevel, int pos2, int i2b,
 				kvotCost = model.network.channel[-thisLevel - 1].kvotCost;
 			else {
 				if (thisLevel == nextLevel)
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
-					model.network.channel[-thisLevel - 1].minCost;
+					kvotCost = model.network.channel[-thisLevel - 1].minCost;
 				else
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
-					model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
+					kvotCost = model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
 			}
 		}
 		else {
@@ -3723,7 +3727,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 	double waveHeightBase, waveDirectionBase, fuelTot_main = 0, fuelTot_aux = 0;
 	double timeArcSTW, kvotTimeUse, absWindDirDiff = 0, timeArcUse;
 	int favorableWind, favorableWave, legNr;
-	double tidTotArc, tidTotArc0, startKvot_dist, endKvot_dist;
+	double tidTotArc, tidTotArc0, startKvot_dist, endKvot_dist, fuelFactorMain;
 
 	if (arcNr == 36)
 		arcNr = arcNr;
@@ -4016,6 +4020,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 					if (dist <= distStart) {
 						continue;
 					}
+					fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
 
 					if (tidTotArc + timeArc > model.functions.timeNextWayPoint)
 						kvotTimeUse = (model.functions.timeNextWayPoint - (tidTotArc)) / timeArc;
@@ -4053,6 +4058,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 					if (dist <= distStart) {
 						continue;
 					}
+					fuelFactorMain = 1.0;
 
 					if (tidTotArc + timeArc > model.functions.timeNextWayPoint)
 						kvotTimeUse = (model.functions.timeNextWayPoint - (tidTotArc)) / timeArc;
@@ -4133,7 +4139,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 				model.functions.valuesNow.sumWaveHeight += waveHeight * timeArcUse;
 
 				fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
-					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed);
+					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed, fuelFactorMain);
 				if (arcNr == 22)
 					arcNr = arcNr; // checkpfg
 				fuelUsage_main = fuelConsumption_main * timeArcUse;
@@ -4292,7 +4298,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 				//}
 				//else {
 				fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
-					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed);
+					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed, 1.0);
 				fuelUsage_main = fuelConsumption_main * timeArcUse;
 				//}
 
@@ -6015,6 +6021,11 @@ int modify_nWaypoints(int iter) {
 	double timeExact;
 	spherical::Point p1;
 
+	double max_bowSlamAllowed = 0.9999, max_greenWaterAllowed = 0.9999, max_dynamicStabilityAllowed = 0.9999;
+	double max_rollingAllowed = 0.9999, max_surfRidingAllowed = 0.9999;
+	int max_bowSlamAllowed_wp = -1, max_greenWaterAllowed_wp = -1, max_dynamicStabilityAllowed_wp = -1;
+	int max_rollingAllowed_wp = -1, max_surfRidingAllowed_wp = -1;
+
 	if (model.waypoint == NULL) {
 		nAlloc = 2 * (model.network.nPhysicalLevels + 1);
 		model.waypoint = (strWaypoint*)malloc(nAlloc * sizeof(strWaypoint));
@@ -6066,6 +6077,29 @@ int modify_nWaypoints(int iter) {
 					model.network.physicalLev[model.arc[arcNr].fromLevel - 1].legNr != model.network.physicalLev[model.arc[arcNr].fromLevel].legNr)
 					model.waypoint[posNu].type = 1;
 			}
+			if (model.params.includeNazanin_safety == 1) {
+				if (model.arc[arcNr].bowSlam > max_bowSlamAllowed) {
+					max_bowSlamAllowed = model.arc[arcNr].bowSlam;
+					max_bowSlamAllowed_wp = posNu;
+				}
+				if (model.arc[arcNr].greenWater > max_greenWaterAllowed) {
+					max_greenWaterAllowed = model.arc[arcNr].greenWater;
+					max_greenWaterAllowed_wp = posNu;
+				}
+				if (model.arc[arcNr].dynamicStability > max_dynamicStabilityAllowed) {
+					max_dynamicStabilityAllowed = model.arc[arcNr].dynamicStability;
+					max_dynamicStabilityAllowed_wp = posNu;
+				}
+				if (model.arc[arcNr].rolling > max_rollingAllowed) {
+					max_rollingAllowed = model.arc[arcNr].rolling;
+					max_rollingAllowed_wp = posNu;
+				}
+				if (model.arc[arcNr].surfRiding > max_surfRidingAllowed) {
+					max_surfRidingAllowed = model.arc[arcNr].surfRiding;
+					max_surfRidingAllowed_wp = posNu;
+				}
+			}
+				
 			model.waypoint[posNu].use = 0;
 			posNu++;
 		}
@@ -6084,6 +6118,21 @@ int modify_nWaypoints(int iter) {
 		timeExact += model.arc[arcNr].time;
 	}
 	model.nWaypoints = posNu;
+
+	if (model.params.includeNazanin_safety == 1) {
+		if (max_bowSlamAllowed >= 1.0)
+			model.waypoint[max_bowSlamAllowed_wp].type = 1;
+		if (max_greenWaterAllowed >= 1.0)
+			model.waypoint[max_greenWaterAllowed_wp].type = 1;
+		if (max_dynamicStabilityAllowed >= 1.0)
+			model.waypoint[max_dynamicStabilityAllowed_wp].type = 1;
+		if (max_rollingAllowed >= 1.0)
+			model.waypoint[max_rollingAllowed_wp].type = 1;
+		if (max_surfRidingAllowed >= 1.0)
+			model.waypoint[max_surfRidingAllowed_wp].type = 1;
+	}
+
+
 
 	char* namn;
 	int saveWaypoints = 1;
@@ -10670,11 +10719,9 @@ double calcEndTime_withLowestCostSpeedAlongArc(int level1, int pointNr1, int lev
 			kvotCost = model.network.channel[-level1 - 1].kvotCost;
 		else {
 			if (level1 == level2)
-				kvotCost = model.network.channel[-level1 - 1].kvotMinCost *
-				model.network.channel[-level1 - 1].minCost;
+				kvotCost = model.network.channel[-level1 - 1].minCost;
 			else
-				kvotCost = model.network.channel[-level1 - 1].kvotMinCost *
-				model.network.channel[-level1 - 1].minCostOutLevel[-level2 - 1];
+				kvotCost = model.network.channel[-level1 - 1].minCostOutLevel[-level2 - 1];
 		}
 	}
 
@@ -10777,6 +10824,8 @@ int evaluate_baseCost_corridors() {
 		// loop through all channels and calculate an estimated cost for each if factorMinCost > 0
 		for (i = 0; i < model.network.nChannels; i++) {
 			model.network.channel[i].minCostOutLevel = (double*)calloc(model.network.nChannels, sizeof(double));
+			if (i == 2)
+				i = i;
 			if (model.network.channel[i].kvotMinCost > 0.00001) {
 				for (i1 = -1; i1 < model.network.channel[i].nOutNodes; i1++) {
 					if (i1 == -1) {
@@ -10824,10 +10873,23 @@ int evaluate_baseCost_corridors() {
 						if (totCost < minCost)
 							minCost = totCost;
 					}
-					if(i1 == -1)
-						model.network.channel[i].minCost = minCost;
+					if (i1 == -1) {
+						if (i == 12)
+							i = i;
+						if ((1 - model.network.channel[i].kvotMinCost) * model.network.channel[i].distance_km <= model.params.tss_attractionDistance_km) {
+							if (model.network.channel[i].distance_km * KVOTMINCOST_ALLOWED > model.params.tss_attractionDistance_km)
+								model.network.channel[i].minCost = minCost * model.params.tss_attractionDistance_km / model.network.channel[i].distance_km;
+							else
+								model.network.channel[i].minCost = minCost * KVOTMINCOST_ALLOWED;
+						}
+						else {
+							model.network.channel[i].minCost = minCost * (1 - model.network.channel[i].kvotMinCost);
+						}
+						// minCost *= model.params.tss_attractionDistance_km / model.network.channel[i].distance_km;
+						// model.network.channel[i].minCost = minCost;
+					}
 					else
-						model.network.channel[i].minCostOutLevel[-nextLevel - 1] = minCost;
+						model.network.channel[i].minCostOutLevel[-nextLevel - 1] = 0.0; //  minCost;
 				}
 			}else
 				model.network.channel[i].minCost = 0.0;
@@ -12539,10 +12601,77 @@ int get_restrictedAreaNr(int level1, int fromPointNr, int outNodePos, int level2
 	return areaNr;
 }
 
+int addChannelArcs(int cNr, int runAlt) {
+	int nextLevel = -cNr - 1, nArcsNu = 0;
+	int firstArcNu, i4, arcNr, utNodPos, nodNr1, i3;
+	double kvotCost, minCost, newCost, diffCost, delayFactor, speedDiffCurrent, distArc;
+	double fuelQualityKvot = 0.0;
+
+	int restrictedAreaNr = get_restrictedAreaNr(nextLevel, 0, 0);
+	int nSpeedSettings = determine_nSpeedSettingsToUse(nextLevel, nextLevel, restrictedAreaNr);
+
+	int setupCheckPoints = 1;
+	double extraAreaCostKvot = get_totalExtraAreaCostKvot(nextLevel, 0, nextLevel, 1, &fuelQualityKvot);
+
+	if (model.network.channel[-nextLevel - 1].timeThroughChannel > -0.5)
+		nSpeedSettings = 1; // only one speed option if fix speed through channel
+	for (i3 = 0; i3 < model.network.channel[-nextLevel - 1].nTimeIntervals[0]; i3++) {
+		firstArcNu = model.nArcs;
+		if (model.network.channel[-nextLevel - 1].timeInterval[0][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
+			for (i4 = 0; i4 < nSpeedSettings; i4++)
+				arcNr = addEnBage_AB(nextLevel, 0, nextLevel, 1, 0, restrictedAreaNr, i3, i4, &setupCheckPoints, 0, 99999, fuelQualityKvot, extraAreaCostKvot, runAlt);
+			if (USE_KVOTCOST_CORRIDORS == 1) { // this should not be needed with the new way 20250519
+				kvotCost = model.network.channel[-nextLevel - 1].kvotCost;
+				if (kvotCost < 1) {
+					minCost = 1e20;
+					for (arcNr = firstArcNu; arcNr < model.nArcs; arcNr++) {
+						if (minCost > model.arc[arcNr].totCost)
+							minCost = model.arc[arcNr].totCost;
+					}
+					newCost = minCost;
+					if (USE_KVOTKOST == 1)
+						newCost *= kvotCost;
+					diffCost = minCost - newCost;
+					for (arcNr = firstArcNu; arcNr < model.nArcs; arcNr++) {
+						model.arc[arcNr].totCost -= diffCost;
+						nodNr1 = model.arc[arcNr].nodNr1;
+						utNodPos = model.arc[arcNr].nodNr1_utNodPos;
+						model.Noder[nodNr1].UtNodCost[utNodPos] -= diffCost;
+						if (model.Noder[nodNr1].UtNodCost[utNodPos] < 0)
+							printf("ERROR code row %d!\n", __LINE__);
+					}
+				}
+			}
+		}
+		else {
+			if (delayVersion < 3) {
+				if (model.network.channel[-nextLevel - 1].timeThroughChannel <= -0.5) {
+					delayFactor = eval_factorDelayedAlongPath(nextLevel, nextLevel, model.network.channel[-nextLevel - 1].timeInterval[0][i3], &speedDiffCurrent);
+				}
+				else
+					delayFactor = 1;
+				distArc = model.network.channel[-nextLevel - 1].distance_km;
+				for (i4 = 0; i4 < nSpeedSettings; i4++) {
+					nArcsNu += addEnBage_delayAB(nextLevel, 0, nextLevel, 1, 0, restrictedAreaNr, i3, i4, 0, 1e10, fuelQualityKvot, extraAreaCostKvot, distArc, delayFactor);
+				}
+			}
+			else {
+				if (runAlt != 1) {// && model.results.onlyPrefPath_kaoutar != 1)
+					arcNr = genArcsToEnd_delayed(nextLevel, 0, nextLevel, 1, 0, i3, nSpeedSettings);
+				}
+				else
+					arcNr = genArcsToEnd_delayed_prefPath(nextLevel, 0, nextLevel, 1, 0, i3);
+			}
+		}
+	}
+
+	return 0;
+}
+
 
 int createTimeArcs(int runAlt)
 {
-	int i, i1, i2, i3, setupCheckPoints;
+	int i, i1, i2, i3, setupCheckPoints, i10;
 	int tidInt, nArcsTot, min_t, max_t, n_added_t, nArcsNu;
 	int i2b, nodNr1, nodNr2, posNy, arcNr, nextLevel;
 	int cNr, tidInt0, restrictedAreaNr;
@@ -12726,6 +12855,11 @@ int createTimeArcs(int runAlt)
 					if (runAlt == 1 && i2 != model.params.preferredPathOrtoPos[nextLevel])
 						continue; // only along preferred path in this opt
 				}
+				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2b] == -2) {
+					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
+					//	i2 != model.params.preferredPathOrtoPos[nextLevel]))
+						continue; // do not include this arc as a tss should be used instead.
+				}
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(i, i1, nextLevel, i2, &fuelQualityKvot);
@@ -12744,7 +12878,10 @@ int createTimeArcs(int runAlt)
 
 		if (i + 1 == 7)
 			i = i;
-		for (i1 = 0; i1 < model.network.nChannels; i1++) {
+		for (i10 = 0; i10 < model.network.nChannels; i10++) {
+			i1 = model.network.channelOrder[i10];
+			if (model.network.channel[i1].earliestStartLevel == i)
+				addChannelArcs(i1, runAlt);
 			cNr = i1;
 			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
 				nextLevel = model.network.channel[cNr].outLevel[i2b];
@@ -12764,6 +12901,13 @@ int createTimeArcs(int runAlt)
 					if (model.network.channel[cNr].earliestStartLevel != i)
 						continue;
 				}
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+					continue; // do not include this arc as a tss should be used instead.
+				}
+				if (i1 == 3)
+					i1 = i1;
+				if (i1 == 4)
+					i1 = i1;
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &fuelQualityKvot);
@@ -13173,6 +13317,8 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 	int restrictedAreaNr = get_restrictedAreaNr(thisLevel, pos1, i2b);
 	//if (thisLevel == 6)
 	//	printf("thisLev %d\n", thisLevel);
+	if (thisLevel == -3 && nextLevel == -4)
+		thisLevel = thisLevel;
 	nSpeedSettings = determine_nSpeedSettingsToUse(thisLevel, nextLevel, restrictedAreaNr);
 	if (thisLevel >= 0) {
 		//if (model.nArcs == 36039 && thisLevel == 17) {
@@ -13253,6 +13399,8 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 	else {
 		for (i3 = 0; i3 < model.network.channel[-thisLevel - 1].nTimeIntervals[1]; i3++) {
 			firstArcNu = model.nArcs;
+			if (model.network.channel[-thisLevel - 1].timeInterval[pos1][i3] == 561)
+				i3 = i3;
 			if (model.network.channel[-thisLevel - 1].timeInterval[pos1][i3] * model.params.tIndexGerH < model.network.tidp_startHistoricDataOnly) {
 				for (i4 = 0; i4 < nSpeedSettings; i4++)
 					arcNr = addEnBage_AB(thisLevel, pos1, nextLevel, pos2, i2b, restrictedAreaNr, i3, i4, setupCheckPoints, min_t, max_t, fuelQualityKvot, extraAreaCostKvot, runAlt);
@@ -13341,6 +13489,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 			}
 		}
 		else {
+			/*
 			restrictedAreaNr = get_restrictedAreaNr(nextLevel, 0, 0);
 			nSpeedSettings = determine_nSpeedSettingsToUse(nextLevel, nextLevel, restrictedAreaNr);
 			if (model.network.channel[-nextLevel - 1].timeThroughChannel > -0.5)
@@ -13394,6 +13543,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 					}
 				}
 			}
+			*/
 		}
 	}
 	return nArcsNu;
@@ -13615,6 +13765,12 @@ int createTimeArcs_kaoutar(int runAlt, int iter0)
 					if ((runAlt == 1 || model.results.onlyPrefPath_kaoutar == 1) && i2 != model.params.preferredPathOrtoPos[nextLevel])
 						continue; // only along preferred path in this opt
 				}
+				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2b] == -2) {
+					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
+					//	i2 != model.params.preferredPathOrtoPos[nextLevel]))
+						continue; // do not include this arc as a tss should be used instead.
+				}
+
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(i, i1, nextLevel, i2, &fuelQualityKvot);
@@ -13641,6 +13797,9 @@ int createTimeArcs_kaoutar(int runAlt, int iter0)
 		if (i + 1 == 21)
 			i = i;
 		for (i1 = 0; i1 < model.network.nChannels; i1++) {
+			if (model.network.channel[i1].earliestStartLevel == i)
+				addChannelArcs(i1, runAlt);
+
 			cNr = i1;
 			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
 				nextLevel = model.network.channel[cNr].outLevel[i2b];
@@ -13657,6 +13816,9 @@ int createTimeArcs_kaoutar(int runAlt, int iter0)
 						continue; // only along preferred path in this opt
 					if (model.network.channel[cNr].earliestStartLevel != i)
 						continue;
+				}
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+					continue; // do not include this arc as a tss should be used instead.
 				}
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
@@ -14486,9 +14648,9 @@ int loadTablesInfo(int useFactor)
 		postRequest("ERROR! json file " + std::string(namn) + " is not valid.Fix it and run OptiNav again.", 1);
 	}
 
-	int typeNr, pos, paramsError, i, nTypes = 3;
+	int typeNr, pos, paramsError, i, nTypes = 4;
 	if (model.params.includeNazanin_safety >= 1) {
-		nTypes = 7;
+		nTypes = 8;
 	}
 
 	model.tables.nBasAlloc = 20;
@@ -14516,16 +14678,18 @@ int loadTablesInfo(int useFactor)
 				typeNr = 0;
 			else if (tableType == "wave")
 				typeNr = 1;
-			else if (tableType == "stability")
+			else if (tableType == "fuelFactor")
 				typeNr = 2;
-			else if (tableType == "bowSlamming")
+			else if (tableType == "stability")
 				typeNr = 3;
-			else if (tableType == "greenWater")
+			else if (tableType == "bowSlamming")
 				typeNr = 4;
-			else if (tableType == "rolling")
+			else if (tableType == "greenWater")
 				typeNr = 5;
-			else if (tableType == "surfRiding")
+			else if (tableType == "rolling")
 				typeNr = 6;
+			else if (tableType == "surfRiding")
+				typeNr = 7;
 
 			if (useFactor == 1) {
 				if (typeNr == 0)
@@ -14533,14 +14697,16 @@ int loadTablesInfo(int useFactor)
 				else if (typeNr == 1)
 					namnID = model.functions.waveTableID;
 				else if (typeNr == 2)
-					namnID = model.functions.stabilityTableID;
+					namnID = model.functions.fuelFactorTableID;
 				else if (typeNr == 3)
-					namnID = model.functions.bowSlammingTableID;
+					namnID = model.functions.stabilityTableID;
 				else if (typeNr == 4)
-					namnID = model.functions.greenWaterTableID;
+					namnID = model.functions.bowSlammingTableID;
 				else if (typeNr == 5)
-					namnID = model.functions.rollingTableID;
+					namnID = model.functions.greenWaterTableID;
 				else if (typeNr == 6)
+					namnID = model.functions.rollingTableID;
+				else if (typeNr == 7)
 					namnID = model.functions.surfRidingTableID;
 				if (namnID != tableID)
 					continue;
@@ -14611,25 +14777,31 @@ int loadTablesInfo(int useFactor)
 						model.tables.tableTyp[typeNr][pos].maxWaveHeight_warning = maxWaveHeight_warning;
 					}
 				}
-				else if (typeNr == 2) { // stability
+				else if (typeNr == 2) { // fuelFactor
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "absoluteWindSpeed_knots", useFactor, model.params.knots_to_km);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "windDirectionDiff", useFactor, M_PI / 180.0);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
+					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveDirection), "relativeWaveDirection", useFactor, M_PI / 180.0);
+				}
+				else if (typeNr == 3) { // stability
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windSpeed), "absoluteWindSpeed_knots", useFactor, model.params.knots_to_km);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].windDirection), "windDirectionDiff", useFactor, M_PI / 180.0); // changed 250509
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].shipSpeedOverGround), "shipSpeedOverGround_knots", useFactor, model.params.knots_to_km);
 				}
-				else if (typeNr == 3) { // bowSlamming
+				else if (typeNr == 4) { // bowSlamming
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].wavePeriod), "meanWavePeriod_s", useFactor);
 				}
-				else if (typeNr == 4) { // greenWater
+				else if (typeNr == 5) { // greenWater
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
 				}
-				else if (typeNr == 5) { // rolling
+				else if (typeNr == 6) { // rolling
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].relShipSpeed), "shipSpeed_relative_knots", useFactor, model.params.knots_to_km);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].wavePeriod), "meanWavePeriod_s", useFactor);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveDirection), "relativeWaveDirection", useFactor, M_PI / 180.0);
 				}
-				else if (typeNr == 6) { // surfRiding
+				else if (typeNr == 7) { // surfRiding
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].relShipSpeed), "shipSpeed_relative_knots", useFactor, model.params.knots_to_km);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].waveHeight), "significantWaveHeight_m", useFactor);
 					paramsError += readParameterInfoForTable(dataTable["parameters"], &(model.tables.tableTyp[typeNr][pos].wavePeriod), "meanWavePeriod_s", useFactor);
@@ -14654,8 +14826,8 @@ int loadTablesInfo(int useFactor)
 	for (i = 0; i < 3; i++) {
 		if (model.tables.nTableTyp[i] < 1) {
 			if (useFactor == 0) {
-				errlog("ERROR! No tables in %s of type %d (0 wind, 1 wave, 2 stability). There must be at least one. I quit\n", namn, i);
-				postRequest("ERROR! No tables in " + std::string(namn) + " of type " + std::to_string(i) + " (0 wind, 1 wave, 2 stability).There must be at least one.I quit", 1);
+				errlog("ERROR! No tables in %s of type %d (0 wind, 1 wave, 2 fuelFactor). There must be at least one. I quit\n", namn, i);
+				postRequest("ERROR! No tables in " + std::string(namn) + " of type " + std::to_string(i) + " (0 wind, 1 wave, 2 fuelFactor).There must be at least one.I quit", 1);
 			}
 			else {
 				if (i == 0)
@@ -14663,7 +14835,7 @@ int loadTablesInfo(int useFactor)
 				else if (i == 1)
 					namnID = model.functions.waveTableID;
 				else if (i == 2)
-					namnID = model.functions.stabilityTableID;
+					namnID = model.functions.fuelFactorTableID;
 				errlog("ERROR! Table %s typ %d is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit\n", namnID.c_str(), i);
 				postRequest("ERROR! Table " + namnID + " is not defined in table_parameters.json. Fix this, generate new redis values and then try again. I quit", 1);
 			}
@@ -14671,7 +14843,7 @@ int loadTablesInfo(int useFactor)
 		for (int i1 = 0; i1 < model.tables.nTableTyp[i]; i1++) {
 			for (int i2 = i1 + 1; i2 < model.tables.nTableTyp[i]; i2++) {
 				if (strcmp(model.tables.tableTyp[i][i1].tableID, model.tables.tableTyp[i][i2].tableID) == 0) {
-					errlog("ERROR! Two tables in %s with the same tableID (%S) type %d (0 wind, 1 wave, 2 stability). The first one will be used.\n",
+					errlog("ERROR! Two tables in %s with the same tableID (%S) type %d (0 wind, 1 wave, 2 fuelFactor). The first one will be used.\n",
 						namn, model.tables.tableTyp[i][i2].tableID, i);
 					break;
 				}
@@ -14679,11 +14851,11 @@ int loadTablesInfo(int useFactor)
 		}
 	}
 
-	if (useFactor == 1) {
-		model.functions.windTableNr = 0;
-		model.functions.waveTableNr = 0;
-		model.functions.stabilityTableNr = 0;
-	}
+	//if (useFactor == 1) {
+	//	model.functions.windTableNr = 0;
+	//	model.functions.waveTableNr = 0;
+	//	model.functions.stabilityTableNr = 0;
+	//}
 
 
 	fil.close();
@@ -14801,6 +14973,7 @@ int setSafetyTableIDsFromWaveTable() {
 		lastStorlek += "large";
 	// ballast 0, laden 1
 
+	model.functions.fuelFactorTableID = "fuelFactor_table";
 	//model.functions.stabilityTableID = cleanString(dataShip["tableID_stability"]);
 	model.functions.stabilityTableID = "dynamicStability_table_" + lastStorlek;
 	model.functions.bowSlammingTableID = "bowSlamming_table_" + lastStorlek;
@@ -14854,6 +15027,12 @@ int loadVesselTableIDs_nazanin() {
 	}
 	else {
 		errlog("OBS No stabilityTableID given in vesselTableIDs_nazanin.json in tag 'ship_specification', I use the one from the input data file.\n");
+	}
+	if (!dataShip["tableID_fuelFactor"].is_null()) {
+		model.functions.fuelFactorTableID = cleanString(dataShip["tableID_fuelFactor"]);
+	}
+	else {
+		errlog("OBS No fuelFactorTableID given in vesselTableIDs_nazanin.json in tag 'ship_specification', I use the one from the input data file.\n");
 	}
 	if (!dataShip["tableID_bowSlamming"].is_null()) {
 		model.functions.bowSlammingTableID = cleanString(dataShip["tableID_bowSlamming"]);
@@ -16619,10 +16798,10 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 				kvotCost = model.network.channel[-thisLevel - 1].kvotCost;
 			else {
 				if (thisLevel == nextLevel)
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
+					kvotCost = //model.network.channel[-thisLevel - 1].kvotMinCost *
 					model.network.channel[-thisLevel - 1].minCost;
 				else
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
+					kvotCost = //model.network.channel[-thisLevel - 1].kvotMinCost *
 					model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
 			}
 			fuelWaitCorridor_main = model.network.channel[-thisLevel - 1].waiting_consumption_main;
@@ -16645,7 +16824,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 	for (i4 = 0; i4 < nShipSpeedSettings; i4++) {
 			// if (model.params.commercialAllowedVariation >= 0 && i4 >= model.functions.speedLevel[0].nShip_speedSettings)
 		//	break;
-
+		if (thisLevel == -3 && i4 == 1)
+			i4 = i4;
 
 		if (modelDelay.nArcs == 14)
 			modelDelay.nArcs = modelDelay.nArcs;
@@ -16671,7 +16851,7 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 			timeArc = dist / speedNow; // in hours
 
 			//if (model.params.commercialAllowedVariation < 0)
-			fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -1000, restrictedAreaNr, calmWaterSpeed);
+			fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -1000, restrictedAreaNr, calmWaterSpeed, 1.0);
 			//else
 			//	fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -1);
 		}
@@ -16690,7 +16870,7 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 			timeArc = fixTime; // in hours
 			calmWaterSpeed = dist / fixTime;
 
-			fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, thisLevel, -1, restrictedAreaNr, calmWaterSpeed);
+			fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, thisLevel, -1, restrictedAreaNr, calmWaterSpeed, 1.0);
 
 		}
 
@@ -16728,6 +16908,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 		}
 
 
+		if (thisLevel == -12)
+			nextLevel = nextLevel;
 
 		totCost *= (1 + extraAreaCostKvot);
 		if (USE_KVOTKOST == 1) {
@@ -16780,6 +16962,8 @@ int addBastSpeed_arcDelayed(int thisLevel, int pos1, int nextLevel, int pos2, in
 		if (arcNr == 4810)
 			arcNr = arcNr;
 		modelDelay.arc[arcNr].fromLevel = thisLevel;
+		modelDelay.arc[arcNr].fromTime = 0;
+		modelDelay.arc[arcNr].toTime = 0;
 		modelDelay.arc[arcNr].toLevel = nextLevel;
 		modelDelay.arc[arcNr].fromPointNr = pos1;
 		modelDelay.arc[arcNr].outNodePos = i2b;
@@ -16979,6 +17163,11 @@ int solve_SP_delay() {
 					if (model.results.onlyPrefPath_kaoutar == 1 && model.params.preferredPathOrtoPos[nextLevel] != i2)
 						continue;
 				}
+				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2b] == -2) {
+					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
+					//	i2 != model.params.preferredPathOrtoPos[nextLevel]))
+						continue; // do not include this arc as a tss should be used instead.
+				}
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(i, i1, nextLevel, i2, &fuelQualityKvot);
@@ -17000,6 +17189,9 @@ int solve_SP_delay() {
 				if (nextLevel >= 0) {
 					if (model.results.onlyPrefPath_kaoutar == 1 && model.params.preferredPathOrtoPos[nextLevel] != model.network.channel[cNr].outNode[i2b])
 						continue;
+				}
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+					continue; // do not include this arc as a tss should be used instead.
 				}
 
 				// fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
@@ -17217,10 +17409,10 @@ int addBastSpeed_arcDelayed_prefPath(int thisLevel, int pos1, int nextLevel, int
 				kvotCost = model.network.channel[-thisLevel - 1].kvotCost;
 			else {
 				if (thisLevel == nextLevel)
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
+					kvotCost = //model.network.channel[-thisLevel - 1].kvotMinCost *
 					model.network.channel[-thisLevel - 1].minCost;
 				else
-					kvotCost = model.network.channel[-thisLevel - 1].kvotMinCost *
+					kvotCost = //model.network.channel[-thisLevel - 1].kvotMinCost *
 					model.network.channel[-thisLevel - 1].minCostOutLevel[-nextLevel - 1];
 			}
 		}
@@ -17243,7 +17435,7 @@ int addBastSpeed_arcDelayed_prefPath(int thisLevel, int pos1, int nextLevel, int
 		else
 			calmWaterSpeed = 10;
 	}
-	fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -100, restrictedAreaNr, calmWaterSpeed);
+	fuelConsumption_main = eval_fuelConsumption_both(i4, &fuelConsumption_aux, -1, -100, restrictedAreaNr, calmWaterSpeed, 1.0);
 
 	fuelUsage_main = fuelConsumption_main * timeArc + fuelWaitCorridor_main;
 	fuelUsage_aux = fuelConsumption_aux * timeArc + fuelWaitCorridor_aux;
@@ -17295,6 +17487,8 @@ int addBastSpeed_arcDelayed_prefPath(int thisLevel, int pos1, int nextLevel, int
 
 	arcNr = modelDelay_prefPath.nArcs;
 	modelDelay_prefPath.arc[arcNr].fromLevel = thisLevel;
+	modelDelay_prefPath.arc[arcNr].fromTime = 0;
+	modelDelay_prefPath.arc[arcNr].toTime = 0;
 	modelDelay_prefPath.arc[arcNr].toLevel = nextLevel;
 	modelDelay_prefPath.arc[arcNr].fromPointNr = pos1;
 	modelDelay_prefPath.arc[arcNr].outNodePos = i2b;
@@ -17390,6 +17584,11 @@ int solve_SP_delayPrefPath() {
 					if (model.params.preferredPathOrtoPos[nextLevel] != i2)
 						continue;
 				}
+				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2b] == -2) {
+					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
+					//	i2 != model.params.preferredPathOrtoPos[nextLevel]))
+						continue; // do not include this arc as a tss should be used instead.
+				}
 				setupCheckPoints = 1;
 				// fuelQualityKvot = get_fuelQualityKvot(i, i1, nextLevel, i2);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(i, i1, nextLevel, i2, &fuelQualityKvot);
@@ -17406,6 +17605,9 @@ int solve_SP_delayPrefPath() {
 					continue;
 				if (model.params.preferredPathOrtoPos[nextLevel] != model.network.channel[cNr].outNode[i2b])
 					continue;
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+					continue; // do not include this arc as a tss should be used instead.
+				}
 
 				// fuelQualityKvot = get_fuelQualityKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b]);
 				extraAreaCostKvot = get_totalExtraAreaCostKvot(-cNr - 1, 1, nextLevel, model.network.channel[cNr].outNode[i2b], &fuelQualityKvot);
@@ -17573,6 +17775,12 @@ int loadKaoutarShipSpeeds(std::string inputPath) {
 		model.kaoutar[i].waveTableID = str_alloc_cpyString(cleanString(namnID));
 		namnID = dataSpec["tableID_stability"];
 		model.kaoutar[i].stabilityTableID = str_alloc_cpyString(cleanString(namnID));
+		
+		if (!dataSpec["tableID_fuelFactor"].is_null())
+			namnID = dataSpec["tableID_fuelFactor"];
+		else
+			namnID = "fuelFactor_table";
+		model.kaoutar[i].fuelFactorTableID = str_alloc_cpyString(cleanString(namnID));
 
 		json dataSpeed = dataSpec["shipSpeedSettings"];
 		model.kaoutar[i].nShip_speedSettingsBase = dataSpeed.size();
@@ -17681,6 +17889,7 @@ int evalKaoutarData(std::string inputPath) {
 		model.functions.windTableID = model.kaoutar[i].windTableID;
 		model.functions.waveTableID = model.kaoutar[i].waveTableID;
 		model.functions.stabilityTableID = model.kaoutar[i].stabilityTableID;
+		model.functions.fuelFactorTableID = model.kaoutar[i].fuelFactorTableID;
 		model.functions.nShip_speedSettingsBase = model.kaoutar[i].nShip_speedSettingsBase;
 		model.functions.rpmBase = model.kaoutar[i].rpmBase;
 		model.functions.rpmSetting_gerCalmWaterSpeedBase = model.kaoutar[i].rpmSetting_gerCalmWaterSpeedBase;
@@ -19262,6 +19471,7 @@ int loadChannelsFromInfile(json data)
 		}
 
 		model.network.channel[pos].type = 0;
+		model.network.channel[pos].keepPrefPath_tss = 0;
 		pos++;
 		(model.network.nChannels)++;
 	}
@@ -19420,11 +19630,12 @@ int load_geometry(strPolygonArea* polygon, json dataGeo3, int pos) {
 	return 0;
 }
 
+
 double intersect_kvot(OGRLineString line, OGRPolygon* polygon) {
 	double kvot = 0, line_dist;
 	int skrivUtKoords = 0, p_inside[2], i, skrivUtAny = 0;
 
-	for(i = 0; i < 2; i++)
+	for (i = 0; i < 2; i++)
 		p_inside[i] = 0;
 
 	for (i = 0; i < line.getNumPoints() && i < 2; i++) {
@@ -19501,6 +19712,111 @@ double intersect_kvot(OGRLineString line, OGRPolygon* polygon) {
 					//printf("i0 %d kvot %.2lf line_dist %.2lf intersectLine %.2lf\n", i0, kvot, line_dist, intersectingLine->get_Length());
 				}
 				skrivUtKoords = 1;
+			}
+			else {
+				std::cout << "Intersection is of an unknown type." << intersection->getGeometryType() << std::endl;
+			}
+
+			// Destroy the intersection geometry
+			OGRGeometryFactory::destroyGeometry(intersection);
+		}
+
+	}
+	//else
+	//	printf("NO intersect\n");
+
+	if (skrivUtKoords == 10) {
+		int numPoints = line.getNumPoints();
+		std::cout << "Number of points in given line: " << numPoints << std::endl;
+		// Iterate through the points and print their coordinates
+		for (int i = 0; i < numPoints; ++i) {
+			OGRPoint point;
+			line.getPoint(i, &point);
+			std::cout << "Point " << i + 1 << ": (" << point.getX() << ", " << point.getY() << ")" << std::endl;
+		}
+
+		// Get the exterior ring (assuming it's a simple polygon)
+		OGRLinearRing* exteriorRing = polygon->getExteriorRing();
+		// Get the number of points in the ring
+		numPoints = exteriorRing->getNumPoints();
+		// Iterate through the points and print coordinates
+		std::cout << "Polygon Coordinates:" << std::endl;
+		for (int i = 0; i < numPoints; ++i) {
+			OGRPoint point;
+			exteriorRing->getPoint(i, &point);
+			std::cout << "(" << point.getX() << ", " << point.getY() << ")" << std::endl;
+		}
+	}
+
+
+	return kvot;
+}
+
+int find_first_intersect(OGRLineString line, OGRPolygon* polygon, double* yBad, double* xBad) {
+	double kvot = 0, line_dist;
+	int skrivUtKoords = 0, i, skrivUtAny = 0;
+
+
+	for (i = 0; i < line.getNumPoints() && i < 1; i++) {
+		OGRPoint point;
+		line.getPoint(i, &point);
+		if (polygon->Contains(&point)) {
+			*yBad = point.getY();
+			*xBad = point.getX();
+			return 1;
+		}
+	}
+
+	line_dist = line.get_Length();
+	if (line_dist < 0.0001) {
+			return 0;
+	}
+
+	if (line.Intersects(polygon)) {
+		OGRGeometry* intersection = line.Intersection(polygon);
+		// Check the type of intersection
+		if (intersection != nullptr)
+		{
+			if (intersection->getGeometryType() == wkbPoint) {
+				OGRPoint* point = (OGRPoint*)intersection;
+				std::cout << "Intersection is a point: (" << point->getX() << ", " << point->getY() << ")" << std::endl;
+				*yBad = point->getY();
+				*xBad = point->getX();
+				return 1;
+			}
+			else if (intersection->getGeometryType() == wkbMultiPoint) {
+				OGRMultiPoint* multiPoint = (OGRMultiPoint*)intersection;
+				for (int i = 0; i < multiPoint->getNumGeometries(); i++) {
+					OGRPoint* point = (OGRPoint*)multiPoint->getGeometryRef(i);
+					std::cout << "Intersection point " << i + 1 << ": (" << point->getX() << ", " << point->getY() << ")" << std::endl;
+					*yBad = point->getY();
+					*xBad = point->getX();
+					return 1;
+				}
+			}
+			else if (intersection->getGeometryType() == wkbLineString) {
+				OGRLineString* intersectingLine = (OGRLineString*)intersection;
+				for (int i = 0; i < intersectingLine->getNumPoints(); i++) {
+					OGRPoint point;
+					intersectingLine->getPoint(i, &point); //  &x, & y);
+					*yBad = point.getY();
+					*xBad = point.getX();
+					return 1;
+				}
+			}
+			else if (intersection->getGeometryType() == wkbMultiLineString) {
+				OGRMultiLineString* multiIntersectingLine = (OGRMultiLineString*)intersection;
+				// std::cout << "Intersection is a multiline string." << std::endl;
+				for (int i0 = 0; i0 < multiIntersectingLine->getNumGeometries(); i0++) {
+					OGRLineString* intersectingLine = (OGRLineString*)multiIntersectingLine->getGeometryRef(i0);
+					for (int i = 0; i < intersectingLine->getNumPoints(); i++) {
+						OGRPoint point;
+						intersectingLine->getPoint(i, &point); //  &x, & y);
+						*yBad = point.getY();
+						*xBad = point.getX();
+						return 1;
+					}
+				}
 			}
 			else {
 				std::cout << "Intersection is of an unknown type." << intersection->getGeometryType() << std::endl;
@@ -20653,7 +20969,7 @@ int loadParams_new(strParams* params)
 			errlog("OBS! max rpm is taken from %.2lf rpm setting\n", model.functions.rpmBase[closestI]);
 
 		calmWaterSpeed = eval_calmWaterSpeed(model.functions.speedSetting95MCR_base, -1, -100, -1);
-		fuelMain = eval_fuelConsumption_both(model.functions.speedSetting95MCR_base, &fuelAux, -1, -100, -1, calmWaterSpeed);
+		fuelMain = eval_fuelConsumption_both(model.functions.speedSetting95MCR_base, &fuelAux, -1, -100, -1, calmWaterSpeed, 1.0);
 		errlog("max rpm gives a calmWaterSpeed of %.2lf knots and a fuel consumption of (main/aux) %.2lf %.2lf ton/hour\n",
 			calmWaterSpeed / params->knots_to_km, fuelMain, fuelAux);
 
@@ -20678,6 +20994,13 @@ int loadParams_new(strParams* params)
 		else {
 			errlog("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.\n");
 			postRequest("ERROR No stabilityTableID given in input data in tag 'ship_specification'. It must exist. I quit.", 1);
+		}
+		if (!dataShip["tableID_fuelFactor"].is_null()) {
+			model.functions.fuelFactorTableID = cleanString(dataShip["tableID_fuelFactor"]);
+		}
+		else {
+			model.functions.fuelFactorTableID = cleanString("fuelFactor_table");
+			errlog("OBS No fuelFactorTableID given in input data in tag 'ship_specification'. I use the default one 'fuelFactor_table'.\n");
 		}
 		/*
 #ifdef NAZANIN_SAFETY
@@ -21032,15 +21355,16 @@ int loadAllNeededTablesFromSQLite() {
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
 	float* tableValue = NULL;
-	int tableNr, nAlloc, nTables = 3;
+	int tableNr, nAlloc, nTables = 4;
 
 	if (model.params.includeNazanin_safety >= 1) {
-		nTables = 7; // 5;
+		nTables = 8; // 5;
 	}
 
+	tableNr = 0;
 	for (int ii = 0; ii < nTables; ii++) {
 		if (ii == 0) { // wind
-			tableNr = model.functions.windTableNr;
+			//tableNr = model.functions.windTableNr;
 			copyAddTableInfo(model.tables.tableTyp[0][tableNr].shipSpeedCalmWater, &(model.functions.windFactor.shipSpeedCalmWater));
 			copyAddTableInfo(model.tables.tableTyp[0][tableNr].windSpeed, &(model.functions.windFactor.windSpeed));
 			copyAddTableInfo(model.tables.tableTyp[0][tableNr].windDirection, &(model.functions.windFactor.windDirection));
@@ -21053,7 +21377,7 @@ int loadAllNeededTablesFromSQLite() {
 				model.params.userLimit_maxWindSpeed_kmh = model.tables.tableTyp[0][tableNr].maxWindSpeed;
 		}
 		else if (ii == 1) {
-			tableNr = model.functions.waveTableNr;
+			//tableNr = model.functions.waveTableNr;
 			copyAddTableInfo(model.tables.tableTyp[1][tableNr].shipSpeedCalmWater, &(model.functions.waveFactor.shipSpeedCalmWater));
 			copyAddTableInfo(model.tables.tableTyp[1][tableNr].waveHeight, &(model.functions.waveFactor.waveHeight));
 			copyAddTableInfo(model.tables.tableTyp[1][tableNr].wavePeriod, &(model.functions.waveFactor.wavePeriod));
@@ -21067,8 +21391,20 @@ int loadAllNeededTablesFromSQLite() {
 			model.functions.waveFactor.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 			tableValue = model.functions.waveFactor.tableValue;
 		}
-		else if (ii == 2) {
-			tableNr = model.functions.stabilityTableNr;
+		if (ii == 2) { // fuelFactorMain
+			//tableNr = model.functions.fuelFactorTableNr;
+			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].windSpeed, &(model.functions.fuelFactorMain.windSpeed));
+			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].windDirection, &(model.functions.fuelFactorMain.windDirection));
+			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveHeight, &(model.functions.fuelFactorMain.waveHeight));
+			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveDirection, &(model.functions.fuelFactorMain.waveDirection));
+			nAlloc = model.functions.fuelFactorMain.windSpeed.nIndex *
+				model.functions.fuelFactorMain.windDirection.nIndex * model.functions.fuelFactorMain.waveHeight.nIndex *
+				model.functions.fuelFactorMain.waveDirection.nIndex;
+			model.functions.fuelFactorMain.tableValue = (float*)malloc2(nAlloc * sizeof(float));
+			tableValue = model.functions.fuelFactorMain.tableValue;
+		}
+		else if (ii == 3) {
+			//tableNr = model.functions.stabilityTableNr;
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].windSpeed, &(model.functions.dynStability.windSpeed));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].windDirection, &(model.functions.dynStability.windDirection));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].shipSpeedOverGround, &(model.functions.dynStability.shipSpeedOverGround));
@@ -21077,8 +21413,8 @@ int loadAllNeededTablesFromSQLite() {
 			model.functions.dynStability.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 			tableValue = model.functions.dynStability.tableValue;
 		}
-		else if (ii == 3) {
-			tableNr = model.functions.stabilityTableNr;
+		else if (ii == 4) {
+			//tableNr = model.functions.stabilityTableNr;
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveHeight, &(model.functions.bowSlamming.waveHeight));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].wavePeriod, &(model.functions.bowSlamming.wavePeriod));
 
@@ -21086,16 +21422,16 @@ int loadAllNeededTablesFromSQLite() {
 			model.functions.bowSlamming.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 			tableValue = model.functions.bowSlamming.tableValue;
 		}
-		else if (ii == 4) {
-			tableNr = model.functions.stabilityTableNr;
+		else if (ii == 5) {
+			//tableNr = model.functions.stabilityTableNr;
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveHeight, &(model.functions.greenWater.waveHeight));
 
 			nAlloc = model.functions.greenWater.waveHeight.nIndex;
 			model.functions.greenWater.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 			tableValue = model.functions.greenWater.tableValue;
 		}
-		else if (ii == 5) {
-			tableNr = model.functions.stabilityTableNr;
+		else if (ii == 6) {
+			//tableNr = model.functions.stabilityTableNr;
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveHeight, &(model.functions.rolling.waveHeight));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].wavePeriod, &(model.functions.rolling.wavePeriod));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveDirection, &(model.functions.rolling.waveDirection));
@@ -21106,8 +21442,8 @@ int loadAllNeededTablesFromSQLite() {
 			model.functions.rolling.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 			tableValue = model.functions.rolling.tableValue;
 		}
-		else if (ii == 6) {
-			tableNr = model.functions.stabilityTableNr;
+		else if (ii == 7) {
+			//tableNr = model.functions.stabilityTableNr;
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].relShipSpeed, &(model.functions.surfRiding.relShipSpeed));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveDirection, &(model.functions.surfRiding.waveDirection));
 			copyAddTableInfo(model.tables.tableTyp[ii][tableNr].waveHeight, &(model.functions.surfRiding.waveHeight));
@@ -21142,7 +21478,7 @@ static int callbackDB(void* NotUsed, int argc, char** argv, char** azColName) {
 }
 
 int readSQLiteAllTablesInfo() {
-	int nTypes = 7;
+	int nTypes = 8;
 
 	model.sqliteTables = (strSQLiteTables*)malloc2(nTypes * sizeof(strSQLiteTables));
 	for (int type = 0; type < nTypes; type++) {
@@ -21437,14 +21773,16 @@ int saveFactorTableToSQLite(int type, int tablePos, int modified, int nAlloc) {
 	else if (type == 1)
 		tableValue = model.functions.waveFactor.tableValue;
 	else if (type == 2)
-		tableValue = model.functions.dynStability.tableValue;
+		tableValue = model.functions.fuelFactorMain.tableValue;
 	else if (type == 3)
-		tableValue = model.functions.bowSlamming.tableValue;
+		tableValue = model.functions.dynStability.tableValue;
 	else if (type == 4)
-		tableValue = model.functions.greenWater.tableValue;
+		tableValue = model.functions.bowSlamming.tableValue;
 	else if (type == 5)
-		tableValue = model.functions.rolling.tableValue;
+		tableValue = model.functions.greenWater.tableValue;
 	else if (type == 6)
+		tableValue = model.functions.rolling.tableValue;
+	else if (type == 7)
 		tableValue = model.functions.surfRiding.tableValue;
 
 	int pos = 0, retval;
@@ -21490,11 +21828,11 @@ int saveTablesToSQLite(std::string inputPath) {
 	model.functions.windFactor.tableValue = NULL;
 	model.functions.windFactor.tableValue = NULL;
 
-	int i, modified, nAlloc = 0, nTables = 3;
+	int i, modified, nAlloc = 0, nTables = 4;
 	json mDataParam;
 
 	if (model.params.includeNazanin_safety >= 1) {
-		nTables = 7; // 5;
+		nTables = 8;
 	}
 
 	for (ii = 0; ii < nTables; ii++) {
@@ -21510,18 +21848,21 @@ int saveTablesToSQLite(std::string inputPath) {
 				nAlloc = loadWeatherFactorTableWave(i);
 			}
 			else if (ii == 2) {
-				nAlloc = loadDynamicStabilityTable(i);
+				nAlloc = loadFuelFactorMainTable(i);
 			}
 			else if (ii == 3) {
-				nAlloc = loadBowSlammingTable(i);
+				nAlloc = loadDynamicStabilityTable(i);
 			}
 			else if (ii == 4) {
-				nAlloc = loadGreenWaterTable(i);
+				nAlloc = loadBowSlammingTable(i);
 			}
 			else if (ii == 5) {
-				nAlloc = loadRollingTable(i);
+				nAlloc = loadGreenWaterTable(i);
 			}
 			else if (ii == 6) {
+				nAlloc = loadRollingTable(i);
+			}
+			else if (ii == 7) {
 				nAlloc = loadSurfRidingTable(i);
 			}
 			saveFactorTableToSQLite(ii, i, modified, nAlloc);
@@ -21824,7 +22165,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 	double rel_waveDir, iceCover, waveDirection, speedDiffWind, speedDiffWave;
 	double fixTime = -1, distStart, distEnd, useKvotNu, kvotBort;
 	double waveHeightBase, waveDirectionBase, fuelTot_main = 0, fuelTot_aux = 0;
-	double timeArcSTW, absWindDirDiff = 0, startKvot_dist, endKvot_dist;
+	double timeArcSTW, absWindDirDiff = 0, startKvot_dist, endKvot_dist, fuelFactorMain;
 	int favorableWind, favorableWave, legNr;
 	double tidTotArc, tidTotArc0, tidWait, kvotUse, kvotWait, kvot1, kvot2, tidWait_init;
 
@@ -22194,6 +22535,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					if (dist <= distStart) {
 						continue;
 					}
+					fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
 
 					timeArcSTW = distNu / calmWaterSpeed * useKvotNu; // in hours
 					model.functions.valuesNow.WindF -= speedDiffWind * timeArcSTW;
@@ -22241,6 +22583,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					if (dist <= distStart) {
 						continue;
 					}
+					fuelFactorMain = 1.0;
 					
 					timeArcSTW = distNu / calmWaterSpeed * useKvotNu; // in hours
 
@@ -22358,7 +22701,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 				//	waveDirection, rel_waveDir, speedDiffWind, speedDiffWave, speedOverGround, timeArc);
 
 				fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
-					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed);
+					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed, fuelFactorMain);
 				//if (model.arc[arcNr].fromLevel < 0) {
 				//	if (model.network.channel[-model.arc[arcNr].fromLevel - 1].totalConsumption >= 0)
 				//		fuelConsumption_main = model.network.channel[-model.arc[arcNr].fromLevel - 1].totalConsumption;
@@ -22517,7 +22860,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 				//}
 				//else {
 				fuelConsumption_main = eval_fuelConsumption_both(model.arc[arcNr].speedSetting, &fuelConsumption_aux,
-					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed);
+					model.arc[arcNr].fromLevel, model.arc[arcNr].toLevel, restrictedAreaNr, calmWaterSpeed, 1.0);
 				fuelUsage_main = fuelConsumption_main * timeArc;
 				//}
 

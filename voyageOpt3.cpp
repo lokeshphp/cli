@@ -2,7 +2,9 @@
 
 extern int USE_KVOTKOST;
 extern int USE_KVOTCOST_CORRIDORS;
-extern double DEFAULT_KVOTMINCOST;
+extern double DEFAULT_KVOTMINCOST_TSS;
+extern double DEFAULT_KVOTMINCOST_CORRIDORS;
+extern double DEFAULT_TSS_ATTACTIONDISTANCE;
 
 #include "pch.h"
 #include <cstdio>
@@ -543,11 +545,17 @@ int writeAllArcsToGeojson(char* pszFilename)
 		for (int i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
-			if (i == 3 && i1 > 56)
+			if (i == 27 && i1 ==23)
 				i = i;
 			for (int i2 = 0; i2 < model.network.physicalLev[i].nOutNodes[i1]; i2++) {
 				nod2 = model.network.physicalLev[i].outNode[i1][i2];
 				nextLevel = model.network.physicalLev[i].outLevel[i1][i2];
+
+				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2] == -2) {
+					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
+					//	nod2 != model.params.preferredPathOrtoPos[nextLevel]))
+						continue; // do not include this arc as a tss should be used instead.
+				}
 
 				if (nextLevel > 0) {
 					if (i1 == model.params.preferredPathOrtoPos[i] &&
@@ -631,6 +639,10 @@ int writeAllArcsToGeojson(char* pszFilename)
 				if(nextLevel < 0 && i > 0)
 					continue;
 				nod2 = model.network.channel[cNr].outNode[i2b];
+
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2)
+					continue; // do not include this arc as a tss should be used instead.
+
 				if (i1 == 0)
 					i1 = i1;
 				//if (model.network.channel[cNr].outPolyPoint[i2b] == -1)
@@ -1645,7 +1657,7 @@ int copyToArcFromDelay(int posDelay, int arcNr, double timeExact, int iter, int 
 		restrictedAreaNr = get_restrictedAreaNr(model.arc[arcNu].fromLevel, model.arc[arcNu].fromPointNr,
 			model.arc[arcNu].outNodePos);
 		fuelConsumption_main = eval_fuelConsumption_both(speedSetting, &fuelConsumption_aux,
-			model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel, restrictedAreaNr, calmWaterSpeed);
+			model.arc[arcNu].fromLevel, model.arc[arcNu].toLevel, restrictedAreaNr, calmWaterSpeed, 1.0);
 		fuelUsage_aux = fuelConsumption_aux * newTime;
 		fuelUsage_main = fuelConsumption_main * newTime;
 		if (model.arc[arcNu].toLevel < 0 && model.arc[arcNu].fromLevel < 0) {
@@ -2413,7 +2425,8 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 	double x, y, y1;
 
 	identify_startEndOnChannel(cNr, alt);
-
+	if (cNr == 8)
+		cNr = cNr;
 	if (alt == 0) {
 		x = model.network.channel[cNr].point_x[0];
 		y = model.network.channel[cNr].point_y[0];
@@ -2537,6 +2550,7 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 			model.network.channel[cNr].preferredPathPoint_posConnectTo = bastPos;
 		}else
 			model.network.channel[cNr].preferredPathPoint_posConnectTo = -1;
+		model.network.channel[cNr].bastStartDist = bastDist;
 		returnLevel = firstPos;
 	}
 	else { // end of channel
@@ -2678,9 +2692,9 @@ int findClosestNextPointAlongPrefPath(int cNr, int posTss, int levelPrefP, int r
 
 
 	*levelNy = -1;
-	x = model.network.channelTmp[cNr].point_x[posTss];
-	y = model.network.channelTmp[cNr].point_y[posTss];
-	dirChannel = getDirChannelTmp(cNr, riktning);
+	x = model.network.channel[cNr].point_x[posTss];
+	y = model.network.channel[cNr].point_y[posTss];
+	dirChannel = getDirChannel(cNr, riktning);
 
 	startP = 0;
 	if (riktning == 1) {
@@ -2775,6 +2789,87 @@ int findClosestNextPointAlongPrefPath(int cNr, int posTss, int levelPrefP, int r
 }
 
 int extendTssAlongPrefPath(int cNr, int posTss, int* levelPrefP, int alt) {
+	int i, level1, posPP, i1, nAlloc, startP, pos;
+	double totDist;
+	// find next point (closest to posTss point, along prefPath => level + pos
+	if (cNr == 8)
+		alt = alt;
+	findClosestNextPointAlongPrefPath(cNr, posTss, *levelPrefP, alt, &level1, &startP);
+	if (level1 < 0) {
+		*levelPrefP = -1;
+		return -1;
+	}
+
+	nAlloc = model.network.channel[cNr].nPoints;
+	// add the points and update the tss
+	if (alt == 1) {
+		nAlloc += model.network.physicalLev[level1].npreferredPathPoints - startP;
+		model.network.channel[cNr].point_x = (double*)realloc(model.network.channel[cNr].point_x, nAlloc * sizeof(double));
+		model.network.channel[cNr].point_y = (double*)realloc(model.network.channel[cNr].point_y, nAlloc * sizeof(double));
+		model.network.channel[cNr].distanceFromStart = (double*)realloc(model.network.channel[cNr].distanceFromStart, nAlloc * sizeof(double));
+		model.network.channel[cNr].point = (spherical::Point*)realloc(model.network.channel[cNr].point, nAlloc * sizeof(spherical::Point));
+		pos = model.network.channel[cNr].nPoints;
+		totDist = model.network.channel[cNr].distance_km;
+		for (i1 = startP; i1 < model.network.physicalLev[level1].npreferredPathPoints; i1++) {
+			model.network.channel[cNr].point_x[pos] = model.network.physicalLev[level1].preferredPathPoint[i1].longitude().degrees();
+			model.network.channel[cNr].point_y[pos] = model.network.physicalLev[level1].preferredPathPoint[i1].latitude().degrees();
+			model.network.channel[cNr].point[pos] = spherical::Point(model.network.channel[cNr].point_y[pos], model.network.channel[cNr].point_x[pos]);
+			totDist += model.network.channel[cNr].point[pos].distanceTo(model.network.channel[cNr].point[pos - 1]) / 1000.0;
+			model.network.channel[cNr].distanceFromStart[pos] = totDist;
+			pos++;
+		}
+		*levelPrefP = level1 + 1;
+		model.network.channel[cNr].distance_km = model.network.channel[cNr].distanceFromStart[pos - 1];
+		model.network.channel[cNr].nPoints = pos;
+		model.network.channel[cNr].bastEndPointPos = 0;
+		model.network.channel[cNr].preferredPathPoint_posConnectFrom = -1;
+		model.network.channel[cNr].bastEndDist = 0;
+	}
+	else {
+		nAlloc += startP + 2;
+		model.network.channel[cNr].point_x = (double*)realloc(model.network.channel[cNr].point_x, nAlloc * sizeof(double));
+		model.network.channel[cNr].point_y = (double*)realloc(model.network.channel[cNr].point_y, nAlloc * sizeof(double));
+		model.network.channel[cNr].distanceFromStart = (double*)realloc(model.network.channel[cNr].distanceFromStart, nAlloc * sizeof(double));
+		model.network.channel[cNr].point = (spherical::Point*)realloc(model.network.channel[cNr].point, nAlloc * sizeof(spherical::Point));
+		pos = startP + 2;
+		for (i1 = model.network.channel[cNr].nPoints - 1; i1 >= 0; i1--) {
+			model.network.channel[cNr].point_x[i1 + pos] = model.network.channel[cNr].point_x[i1];
+			model.network.channel[cNr].point_y[i1 + pos] = model.network.channel[cNr].point_y[i1];
+			model.network.channel[cNr].point[i1 + pos] = spherical::Point(model.network.channel[cNr].point_y[i1 + pos], model.network.channel[cNr].point_x[i1 + pos]);
+			model.network.channel[cNr].distanceFromStart[i1 + pos] = model.network.channel[cNr].distanceFromStart[i1];
+		}
+		totDist = 0;
+		pos = 0;
+		model.network.channel[cNr].point_x[pos] = model.network.physicalLev[level1].point_x[model.params.preferredPathOrtoPos[level1]];
+		model.network.channel[cNr].point_y[pos] = model.network.physicalLev[level1].point_y[model.params.preferredPathOrtoPos[level1]];
+		model.network.channel[cNr].point[pos] = spherical::Point(model.network.channel[cNr].point_y[pos], model.network.channel[cNr].point_x[pos]);
+		*levelPrefP = level1;
+		pos++;
+		for (i1 = 0; i1 <= startP; i1++) {
+			model.network.channel[cNr].point_x[pos] = model.network.physicalLev[level1].preferredPathPoint[i1].longitude().degrees();
+			model.network.channel[cNr].point_y[pos] = model.network.physicalLev[level1].preferredPathPoint[i1].latitude().degrees();
+			model.network.channel[cNr].point[pos] = spherical::Point(model.network.channel[cNr].point_y[pos], model.network.channel[cNr].point_x[pos]);
+			totDist += model.network.channel[cNr].point[pos].distanceTo(model.network.channel[cNr].point[pos - 1]) / 1000.0;
+			model.network.channel[cNr].distanceFromStart[pos] = totDist;
+			pos++;
+		}
+		model.network.channel[cNr].nPoints += startP + 2;
+		for (i1 = startP + 2; i1 < model.network.channel[cNr].nPoints; i1++) {
+			if (i1 == startP + 2)
+				totDist += model.network.channel[cNr].point[i1].distanceTo(model.network.channel[cNr].point[i1 - 1]) / 1000.0;
+			model.network.channel[cNr].distanceFromStart[i1] += totDist;
+		}
+		model.network.channel[cNr].distance_km = model.network.channel[cNr].distanceFromStart[i1 - 1];
+		model.network.channel[cNr].bastStartPointPos = 0;
+		model.network.channel[cNr].preferredPathPoint_posConnectTo = -1;
+		model.network.channel[cNr].bastStartDist = 1e20;
+		model.network.channel[cNr].bastStartDist = 0;
+	}
+
+	return 0;
+}
+
+int extendTssAlongPrefPath_old(int cNr, int posTss, int* levelPrefP, int alt) {
 	int i, level1, posPP, i1, nAlloc, startP, pos;
 	double totDist;
 	// find next point (closest to posTss point, along prefPath => level + pos
@@ -2918,6 +3013,8 @@ int getBastPhysLevelToConnectToChannel_tss(int alt, int cNr) {
 		x = model.network.channelTmp[cNr].point_x[nCoords - 1];
 		y = model.network.channelTmp[cNr].point_y[nCoords - 1];
 	}
+	if (cNr == 9)
+		cNr = cNr;
 	dirChannel = getDirChannelTmp(cNr, alt);
 
 	// startSlut, 0 start, 1 end
@@ -3041,7 +3138,7 @@ int getBastPhysLevelToConnectToChannel_tss(int alt, int cNr) {
 		//	if (isAllowed == -2) {
 				// extend the tss to next node along prefPath
 			posTss = 0;
-				extendTssAlongPrefPath(cNr, posTss, &bastLevel, alt);
+				// extendTssAlongPrefPath(cNr, posTss, &bastLevel, alt);
 		//	}
 		}
 		model.network.channelTmp[cNr].bastStartLevel = bastLevel;
@@ -3139,7 +3236,7 @@ int getBastPhysLevelToConnectToChannel_tss(int alt, int cNr) {
 			//}
 			//if (isAllowed == -2) {
 				// extend the tss to next node along prefPath
-				extendTssAlongPrefPath(cNr, posTss, &bastLevel, alt);
+				// extendTssAlongPrefPath(cNr, posTss, &bastLevel, alt);
 			//}
 		}
 		model.network.channelTmp[cNr].bastEndLevel = bastLevel;
@@ -3881,9 +3978,19 @@ int checkChannels() {
 		model.network.channel[cNr].outLevel = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 
-		if (model.network.channel[cNr].type == 1)
-			continue; // only normal channels need to be checked, not tss 
+		if (model.network.channel[cNr].type == 1) {
+			// tss
+			model.network.channel[cNr].nConnectTo = 0;
+			model.network.channel[cNr].nAllocConnectTo = 100;
+			model.network.channel[cNr].connectTo_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+			model.network.channel[cNr].connectTo_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+			model.network.channel[cNr].nConnectFrom = 0;
+			model.network.channel[cNr].nAllocConnectFrom = 100;
+			model.network.channel[cNr].connectFrom_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
+			model.network.channel[cNr].connectFrom_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
 
+			continue; // only normal channels need to be checked, not tss 
+		}
 
 		//}
 		nCoords = model.network.channel[cNr].nPoints;
@@ -3969,6 +4076,34 @@ int checkChannels() {
 				model.network.channel[cNr].earliestStartLevel, model.network.channel[cNr].latestEndLevel,
 				model.network.channel[cNr].bastStartLevel, model.network.channel[cNr].bastEndLevel);
 	}
+
+
+	int i, j, pos_i, pos_i1;
+	model.network.channelOrder = (int*)malloc(model.network.nChannels * sizeof(int));
+	for (i = 0; i < model.network.nChannels; i++) {
+		model.network.channelOrder[i] = i;
+	}
+
+	for (j = 0; j < model.network.nChannels; j++) {
+		for (i = 0; i < model.network.nChannels - 1; i++) {
+			pos_i = model.network.channelOrder[i];
+			pos_i1 = model.network.channelOrder[i + 1];
+			if (model.network.channel[pos_i].bastStartLevel > model.network.channel[pos_i1].bastStartLevel ||
+				(model.network.channel[pos_i].bastStartLevel == model.network.channel[pos_i1].bastStartLevel &&
+					model.network.channel[pos_i].preferredPathPoint_posConnectTo > model.network.channel[pos_i1].preferredPathPoint_posConnectTo) ||
+				(model.network.channel[pos_i].bastStartLevel == model.network.channel[pos_i1].bastStartLevel &&
+					model.network.channel[pos_i].preferredPathPoint_posConnectTo == model.network.channel[pos_i1].preferredPathPoint_posConnectTo &&
+					model.network.channel[pos_i].bastStartDist > model.network.channel[pos_i1].bastStartDist))
+				SwapArray(model.network.channelOrder, i, i + 1);
+		}
+	}
+	//for (j = 0; j < model.network.nChannels; j++) {
+	//	pos_i = model.network.channelOrder[j];
+	//		printf("i %d cNr %d level %d posPref %d dist %.2lf\n", j, pos_i,
+	//			model.network.channel[pos_i].bastStartLevel,
+	//			model.network.channel[pos_i].preferredPathPoint_posConnectTo,
+	//			model.network.channel[pos_i].bastStartDist);
+	//}
 
 	return 0;
 }
@@ -4141,8 +4276,10 @@ double getClosestPointLines(double y1a, double x1a, double y1b, double x1b, doub
 		}
 
 		if (changed1 == 1 && changed2 == 0) {
-			xp1 = x1a * (*kvot1) + (1 - (*kvot1)) * x1b;
-			yp1 = y1a * (*kvot1) + (1 - (*kvot1)) * y1b;
+			//xp1 = x1a * (*kvot1) + (1 - (*kvot1)) * x1b;
+			//yp1 = y1a * (*kvot1) + (1 - (*kvot1)) * y1b;
+			xp1 = x1b * (*kvot1) + (1 - (*kvot1)) * x1a;
+			yp1 = y1b * (*kvot1) + (1 - (*kvot1)) * y1a;
 			vx = x2b - x2a;
 			vy = y2b - y2a;
 			ux = x2a - xp1;
@@ -4154,8 +4291,10 @@ double getClosestPointLines(double y1a, double x1a, double y1b, double x1b, doub
 		}
 		else {
 			if (changed2 == 1 && changed1 == 0) {
-				xp2 = x2a * (*kvot2) + (1 - (*kvot2)) * x2b;
-				yp2 = y2a * (*kvot2) + (1 - (*kvot2)) * y2b;
+				//xp2 = x2a * (*kvot2) + (1 - (*kvot2)) * x2b;
+				//yp2 = y2a * (*kvot2) + (1 - (*kvot2)) * y2b;
+				xp2 = x2b * (*kvot2) + (1 - (*kvot2)) * x2a;
+				yp2 = y2b * (*kvot2) + (1 - (*kvot2)) * y2a;
 				vx = x1b - x1a;
 				vy = y1b - y1a;
 				ux = x1a - xp2;
@@ -4371,35 +4510,47 @@ int getNextPointPrefPath(strClosePoints* point, double riktning, double* y, doub
 }
 
 int findPreviousNext_closePoint_prefPathToCoords(strClosePoints* point, int riktning) {
-	double maxDist0 = 1.0, distNu, dist1, dist2, maxDist2 = 5.0;
+	double maxDist0 = 1.0, distNu, distNu1, distNu2, dist1, dist2, maxDist2 = 25.0;
 	double y1a, y1b, y2a, y2b, x1a, x1b, x2a, x2b;
 
 	// get previous point in tss
 	getNextPointCoords(point, riktning, &y1b, &x1b, 0);
 	// get previous point in prefPath
 	getNextPointPrefPath(point, riktning, &y2b, &x2b, 0);
-	distNu = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
-	if (distNu > maxDist0) {
+	// printf("tss %.3lf %.3lf prefPath %.3lf %.3lf\n", y1b, x1b, y2b, x2b);
+	distNu1 = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
+	if (distNu1 > maxDist0) {
 		getNextPointCoords(point, 0, &y1a, &x1a, 0);
 		getNextPointPrefPath(point, 0, &y2a, &x2a, 0);
 		dist1 = estimateLargeCircleDistance_km(y1a, x1a, y1b, x1b);
 		dist2 = estimateLargeCircleDistance_km(y2a, x2a, y2b, x2b);
+		distNu2 = estimateLargeCircleDistance_km(y1a, x1a, y2a, x2a);
 		// identifiera den som ar mest begransande i hur langt man kan ga
 		// ga sa langt
 		// om inte for langt mellan punkterna sa uppdatera punkten och return 1, annars return 0
 		if (dist1 <= dist2) {
 			getNextPointPrefPath(point, riktning * dist1 / dist2, &y2b, &x2b, 0);
 			distNu = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
-			if (distNu > maxDist2 || (distNu > dist1 && distNu > maxDist0))
+			if (distNu > maxDist2 || (distNu > dist1 && distNu > maxDist0)) {
+				if (distNu < distNu2 + dist1 * 0.25 + 0.01) {
+					getNextPointCoords(point, riktning, &y1b, &x1b, 1);
+					getNextPointPrefPath(point, riktning * dist1 / dist2, &y2b, &x2b, 1);
+				}
 				return 0;
+			}
 			getNextPointCoords(point, riktning, &y1b, &x1b, 1);
 			getNextPointPrefPath(point, riktning * dist1 / dist2, &y2b, &x2b, 1);
 		}
 		else {
 			getNextPointCoords(point, riktning * dist2 / dist1, &y1b, &x1b, 0);
 			distNu = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
-			if (distNu > maxDist2 || (distNu > dist2 && distNu > maxDist0))
+			if (distNu > maxDist2 || (distNu > dist2 && distNu > maxDist0)) {
+				if (distNu < distNu2 + dist2 * 0.25 + 0.01) {
+					getNextPointCoords(point, riktning * dist2 / dist1, &y1b, &x1b, 1);
+					getNextPointPrefPath(point, riktning, &y2b, &x2b, 1);
+				}
 				return 0;
+			}
 			getNextPointPrefPath(point, riktning, &y2b, &x2b, 1);
 			getNextPointCoords(point, riktning * dist2 / dist1, &y1b, &x1b, 1);
 		}
@@ -4415,7 +4566,8 @@ int findPreviousNext_closePoint_prefPathToCoords(strClosePoints* point, int rikt
 
 int findClosePoints_prefPathToCoords(strClosePoints* closePoints) {
 	int i, i1, minPos_i, minPos_i1, min_i, min_i1;
-	double dist, minDist = 1e20, minDistKrav2 = 1, minKvot_i, minKvot_i1, kvot_i, kvot_i1;
+	double dist, minDist = 1e20, minKvot_i, minKvot_i1, kvot_i, kvot_i1;
+	double minDistKrav2 = 30; // changed pfg 20250530 from  1;
 
 	for (i = 0; i < model.network.nCoords; i++) {
 		i1 = 0;
@@ -4504,7 +4656,7 @@ int comparePathsNetworkCoords(strClosePoints* firstPoints, strClosePoints* lastP
 	}
 	copyClosePoints(lastPoints, closePoints);
 	for (i = 0; i < nMaxIter; i++) {
-		if (i == 21)
+		if (i == 5)
 			i = i;
 		newPointsFound = findPreviousNext_closePoint_prefPathToCoords(lastPoints, 1);
 		if (newPointsFound == 0)
@@ -4549,8 +4701,15 @@ int checkIfSwapChannelsTmp(int i, int i1) {
 		return 0;
 
 	// samma bastStartPointPos
-	if (model.network.channelTmp[i].bastStartDist < model.network.channelTmp[i1].bastStartDist)
+	if (model.network.channelTmp[i].bastStartDist > model.network.channelTmp[i1].bastStartDist + 0.001)
 		return 1;
+
+	if (model.network.channelTmp[i].bastStartDist < model.network.channelTmp[i1].bastStartDist - 0.001)
+		return 0;
+
+	if (model.network.channelTmp[i].distance_km > model.network.channelTmp[i1].distance_km + 0.001)
+		return 1;
+
 
 	return 0;
 }
@@ -4581,6 +4740,8 @@ void copyChannelFromTmp(int cNr, int pos) {
 	model.network.channel[cNr].StartLevelOnlyPrefPath = model.network.channelTmp[pos].StartLevelOnlyPrefPath;
 	model.network.channel[cNr].EndLevelOnlyPrefPath = model.network.channelTmp[pos].EndLevelOnlyPrefPath;
 
+	if (cNr == 8)
+		cNr = cNr;
 	model.network.channel[cNr].bastStartLevel = model.network.channelTmp[pos].bastStartLevel;
 	model.network.channel[cNr].legNr = model.network.channelTmp[pos].legNr;
 	model.network.channel[cNr].bastEndLevel = model.network.channelTmp[pos].bastEndLevel;
@@ -4594,17 +4755,53 @@ void copyChannelFromTmp(int cNr, int pos) {
 	model.network.channel[cNr].kvotMinCost = model.network.channelTmp[pos].kvotMinCost;
 	model.network.channel[cNr].preferredPathPoint_posConnectFrom = model.network.channelTmp[pos].preferredPathPoint_posConnectFrom;
 	model.network.channel[cNr].preferredPathPoint_posConnectTo = model.network.channelTmp[pos].preferredPathPoint_posConnectTo;
+	model.network.channel[cNr].keepPrefPath_tss = model.network.channelTmp[pos].keepPrefPath_tss;
 
 }
 
+
+int check_if_include_tss(int* order, int i, int nC) {
+	int i1, pos1, pos2, include_tss = 1;
+	pos1 = order[i];
+
+	if (i < nC - 1) {
+		pos2 = order[i + 1];
+		if(model.network.channelTmp[pos1].bastStartLevel == model.network.channelTmp[pos2].bastStartLevel &&
+			model.network.channelTmp[pos1].bastStartPointPos == model.network.channelTmp[pos2].bastStartPointPos &&
+			abs(model.network.channelTmp[pos1].bastStartDist - model.network.channelTmp[pos2].bastStartDist) < 0.001)
+			include_tss = 0;
+	}
+	for (i1 = i - 1; i1 >= 0; i1--) {
+		pos2 = order[i1];
+		if (model.network.channelTmp[pos2].include_tssTmp == 1 &&
+			model.network.channelTmp[pos1].bastEndLevel == model.network.channelTmp[pos2].bastEndLevel &&
+			model.network.channelTmp[pos1].bastEndPointPos == model.network.channelTmp[pos2].bastEndPointPos &&
+			abs(model.network.channelTmp[pos1].bastEndDist - model.network.channelTmp[pos2].bastEndDist) < 0.001) {
+			include_tss = 0;
+			break;
+		}
+	}
+
+	return include_tss;
+}
+
 int sortChannelsInOrder(int* order, int nC) {
-	int i, cNr = model.network.nChannels;
+	int i, cNr = model.network.nChannels, include_tss;
 
 	if (nC + model.network.nChannels > model.network.nAllocChannels) {
 		model.network.nAllocChannels = nC + model.network.nChannels;
 		model.network.channel = (strChannel*)realloc(model.network.channel, model.network.nAllocChannels * sizeof(strChannel));
 	}
+
 	for (i = 0; i < nC; i++) {
+		include_tss = check_if_include_tss(order, i, nC);
+		model.network.channelTmp[order[i]].include_tssTmp = include_tss;
+	}
+
+	for (i = 0; i < nC; i++) {
+		if (model.network.channelTmp[order[i]].include_tssTmp == 0)
+			continue; // do not include this tss, pref path follows another one longer
+
 		copyChannelFromTmp(cNr, order[i]);
 
 		model.network.channel[cNr].type = 1;
@@ -4668,8 +4865,11 @@ int sort_tssChannels(int nC) {
 	//}
 
 	int* order = (int*)malloc(nC * sizeof(int));
-	for (j = 0; j < nC; j++)
+	for (j = 0; j < nC; j++) {
+		//printf("tss %d nPkter %d last_x %lf\n", j, model.network.channelTmp[j].nPoints,
+		//	model.network.channelTmp[j].point_x[model.network.channelTmp[j].nPoints - 1]);
 		order[j] = j;
+	}
 	for (j = 0; j < nC; j++) {
 		for (i = 0; i < nC - 1; i++) {
 			if(checkIfSwapChannelsTmp(order[i], order[i + 1]) == 1){
@@ -4697,7 +4897,7 @@ int sort_tssChannels(int nC) {
 }
 
 
-int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints firstPoints, strClosePoints lastPoints) {
+int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints firstPoints, strClosePoints lastPoints, int keepPrefPath) {
 
 	// add the tss from firstPoints to lastPoints
 	int nAlloc = lastPoints.posCoords - firstPoints.posCoords + 2, pos;
@@ -4722,6 +4922,8 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	model.network.channelTmp[cNr].point = (spherical::Point*)malloc(nAlloc * sizeof(spherical::Point));
 	model.network.channelTmp[cNr].distanceFromStart = (double*)malloc2(nAlloc * sizeof(double));
 
+	if (cNr == 9)
+		cNr = cNr;
 	pos = 0;
 	double distance;
 	for (i = firstPoints.posCoords; i < lastPoints.posCoords + 2; i++) {
@@ -4757,7 +4959,8 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 		else
 			distance += model.network.channelTmp[cNr].point[pos - 1].distanceTo(model.network.channelTmp[cNr].point[pos]) / 1000.0;
 		model.network.channelTmp[cNr].distanceFromStart[pos] = distance;
-
+		//printf("cNr %d pos %d (i %d) xy %.3lf %.3lf\n", cNr, pos, i, model.network.channelTmp[cNr].point_y[pos],
+		//	model.network.channelTmp[cNr].point_x[pos]);
 		pos++;
 	}
 	model.network.channelTmp[cNr].nPoints = pos;
@@ -4798,12 +5001,74 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 
 	model.network.channelTmp[cNr].kvotCost = kvotCost;
 	model.network.channelTmp[cNr].kvotMinCost = kvotMinCost;
+	model.network.channelTmp[cNr].keepPrefPath_tss = keepPrefPath;
 
 
 	*cNrUse = cNr + 1;
 	return 0;
 
 
+}
+
+int ok_connect_tss_to_channel(int cNr, int alt) {
+	int cNr2, pos, arcOK = 0, pos2;
+	if (alt == 0) {
+		pos = 0;
+		for (cNr2 = 0; cNr2 < model.network.nChannels; cNr2++) {
+			if (cNr == cNr2)
+				continue;
+			pos2 = model.network.channel[cNr2].nPoints - 1;
+			arcOK = check_isPhysicalArcOK(-cNr2 - 1, -cNr - 1, pos2, pos, 1);
+			if (arcOK == 1)
+				break;
+		}
+	}
+	else {
+		pos = model.network.channel[cNr].nPoints - 1;
+		for (cNr2 = 0; cNr2 < model.network.nChannels; cNr2++) {
+			if (cNr == cNr2)
+				continue;
+			pos2 = 0;
+			arcOK = check_isPhysicalArcOK(-cNr - 1, -cNr2 - 1, pos, pos2, 1);
+			if (arcOK == 1)
+				break;
+		}
+	}
+	return arcOK;
+}
+
+
+int check_tss_startSlutLevelOnlyPrefPath() {
+	int cNr, isAllowed, posTss, bastLevel;
+
+	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
+		if (cNr == 8)
+			cNr = cNr;
+		if (model.network.channel[cNr].StartLevelOnlyPrefPath == 1) {
+			isAllowed = ok_connect_tss_to_channel(cNr, 0);
+			if (isAllowed == 0) {
+				posTss = 0;
+				bastLevel = model.network.channel[cNr].bastStartLevel;
+				extendTssAlongPrefPath(cNr, posTss, &bastLevel, 0);
+				model.network.channel[cNr].bastStartLevel = bastLevel;
+			}
+			else
+				model.network.channel[cNr].StartLevelOnlyPrefPath = 0;
+		}
+
+		if (model.network.channel[cNr].EndLevelOnlyPrefPath == 1) {
+			isAllowed = ok_connect_tss_to_channel(cNr, 1);
+			if (isAllowed == 0) {
+				posTss = model.network.channel[cNr].nPoints - 1;
+				bastLevel = model.network.channel[cNr].bastEndLevel;
+				extendTssAlongPrefPath(cNr, posTss, &bastLevel, 1);
+				model.network.channel[cNr].bastEndLevel = bastLevel;
+			}
+			else
+				model.network.channel[cNr].EndLevelOnlyPrefPath = 0;
+		}
+	}
+	return 0;
 }
 
 
@@ -4816,7 +5081,7 @@ int load_tss_optiNav()
 	double kvotMinCost;
 
 	if (USE_KVOTCOST_CORRIDORS == 0)
-		default_kvotCost = DEFAULT_KVOTMINCOST;
+		default_kvotCost = 0; //  DEFAULT_KVOTMINCOST_TSS;
 
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.tssName.c_str());
@@ -4829,7 +5094,7 @@ int load_tss_optiNav()
 	//printf("opens %s\n", namn);
 	fil.open(namn);
 
-	int cNr, pos2, useTss, nAllocLast = -1;
+	int cNr, pos2, useTss, nAllocLast = -1, keepPrefPath;
 	json data, geom, coords, dataIt2, prop;
 	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, posBase;
 	try {
@@ -4901,34 +5166,43 @@ int load_tss_optiNav()
 			pos2++;
 		}
 		model.network.nCoords = pos2;
-		if (pos == 5)
+		if (pos == 55)
 			pos = pos;
 		useTss = checkTssRightArea(&firstPoints, &lastPoints);
 		if (useTss != 0)
 			pos = pos;
 		if (useTss == 1) {
+			keepPrefPath = 0;
 			if (!(dataNu["properties"].is_null())) {
 				prop = dataNu["properties"];
 				if (!(prop["kvotCost"].is_null()))
 					kvotCost = prop["kvotCost"];
 				else
 					kvotCost = default_kvotCost;
+				if (!(prop["keepPrefPath"].is_null()))
+					keepPrefPath = prop["keepPrefPath"];
 			}
 			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotMinCost = kvotCost;
+				kvotMinCost = 0.0; // kvotCost;
 				kvotCost = 0.0;
 			}else
 				kvotMinCost = 0.0;
 
-			addSplitTss(&cNr, kvotCost, kvotMinCost, firstPoints, lastPoints);
+			addSplitTss(&cNr, kvotCost, kvotMinCost, firstPoints, lastPoints, keepPrefPath);
+			// printf("cNr %d origPos %d\n\n", cNr - 1, pos);
 			// cNr++;
 		}
 	}
 	free(namn);
 
+
+
+
 	// set other channel data
 
 	sort_tssChannels(cNr);
+
+	check_tss_startSlutLevelOnlyPrefPath();
 
 	// model.network.nChannels = cNr;
 
@@ -5600,6 +5874,15 @@ int loadFileParams_feasibilityOptiNav(strParams* params)
 		params->tssName = "-";
 	}
 
+	if (!data["tss_attractionDistance_nm"].is_null()) {
+		params->tss_attractionDistance_km = data["tss_attractionDistance_nm"];
+		params->tss_attractionDistance_km *= 1.852;
+		if (params->tss_attractionDistance_km < 0.001)
+			params->tss_attractionDistance_km = 0.001;
+	}
+	else
+		params->tss_attractionDistance_km = DEFAULT_TSS_ATTACTIONDISTANCE * 1.852;
+
 
 	//if (!data["physicalMap_noDataValue"].is_null())
 	//	params->physicalMap_noDataValue = data["physicalMap_noDataValue"];
@@ -6165,17 +6448,17 @@ int loadRollingTable(int tableNr) {
 	auto tid0 = std::chrono::high_resolution_clock::now();
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wave factor table file %s\n", namn);
 		postRequest("ERROR! Could not open wave factor table file " + std::string(namn), 1);
 	}
 
-	copyAddTableInfo(model.tables.tableTyp[5][tableNr].relShipSpeed, &(model.functions.rolling.relShipSpeed));
-	copyAddTableInfo(model.tables.tableTyp[5][tableNr].waveHeight, &(model.functions.rolling.waveHeight));
-	copyAddTableInfo(model.tables.tableTyp[5][tableNr].wavePeriod, &(model.functions.rolling.wavePeriod));
-	copyAddTableInfo(model.tables.tableTyp[5][tableNr].waveDirection, &(model.functions.rolling.waveDirection));
+	copyAddTableInfo(model.tables.tableTyp[6][tableNr].relShipSpeed, &(model.functions.rolling.relShipSpeed));
+	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveHeight, &(model.functions.rolling.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[6][tableNr].wavePeriod, &(model.functions.rolling.wavePeriod));
+	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveDirection, &(model.functions.rolling.waveDirection));
 	nAlloc = model.functions.rolling.relShipSpeed.nIndex * model.functions.rolling.waveHeight.nIndex *
 		model.functions.rolling.wavePeriod.nIndex * model.functions.rolling.waveDirection.nIndex;
 	if (model.functions.rolling.tableValue != NULL)
@@ -6199,76 +6482,76 @@ int loadRollingTable(int tableNr) {
 		relShipSpeedI = get_tableIndex(relShipSpeed, model.functions.rolling.relShipSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (relShipSpeedI < 0) {
 			errlog("ERROR! relShipSpeed %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.relShipSpeed.minValue);
 			postRequest("ERROR! relShipSpeed " + std::to_string(relShipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.rolling.relShipSpeed.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (relShipSpeedI >= model.functions.rolling.relShipSpeed.nIndex) {
 			errlog("ERROR! relShipSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.relShipSpeed.maxValue);
 			postRequest("ERROR! relShipSpeed " + std::to_string(relShipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.rolling.relShipSpeed.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveI = get_tableIndex(wave, model.functions.rolling.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveI < 0) {
 			errlog("ERROR! wave %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wave, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.waveHeight.minValue);
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.rolling.waveHeight.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveI >= model.functions.rolling.waveHeight.nIndex) {
 			errlog("ERROR! wave %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wave, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.waveHeight.maxValue);
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.rolling.waveHeight.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveDirI = get_tableIndexDirection(waveDir, model.functions.rolling.waveDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveDirI < 0) {
 			errlog("ERROR! waveDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.waveDirection.minValue);
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.rolling.waveDirection.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveDirI >= model.functions.rolling.waveDirection.nIndex) {
 			errlog("ERROR! waveDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.waveDirection.maxValue);
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.rolling.waveDirection.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		wavePeriodI = get_tableIndex(wavePeriod, model.functions.rolling.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (wavePeriodI < 0) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.wavePeriod.minValue);
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.rolling.wavePeriod.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (wavePeriodI >= model.functions.rolling.wavePeriod.nIndex) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[5][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
 				model.functions.rolling.wavePeriod.maxValue);
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[5][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.rolling.wavePeriod.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -6285,7 +6568,7 @@ int loadRollingTable(int tableNr) {
 
 	auto tid1 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
-	printf("loading %s took %.3lf\n", model.tables.tableTyp[5][tableNr].fileName, fp_ms);
+	printf("loading %s took %.3lf\n", model.tables.tableTyp[6][tableNr].fileName, fp_ms);
 
 	for (i = 0; i < nAlloc; i++) {
 		if (model.functions.rolling.tableValue[i] < -9998) {
@@ -6299,23 +6582,23 @@ int loadRollingTable(int tableNr) {
 
 int loadSurfRidingTable(int tableNr) {
 	FILE* filpek;
-	int nAlloc, i, pos, relShipSpeedI, waveI, wavePeriodI, waveDirI, antal;
+	int nAlloc, i, pos, relShipSpeedI, waveI, wavePeriodI, waveDirI, antal, nr = 7;
 	double varde, wave, wavePeriod, waveDir, relShipSpeed;
 
 	auto tid0 = std::chrono::high_resolution_clock::now();
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open wave factor table file %s\n", namn);
 		postRequest("ERROR! Could not open wave factor table file " + std::string(namn), 1);
 	}
 
-	copyAddTableInfo(model.tables.tableTyp[6][tableNr].relShipSpeed, &(model.functions.surfRiding.relShipSpeed));
-	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveHeight, &(model.functions.surfRiding.waveHeight));
-	copyAddTableInfo(model.tables.tableTyp[6][tableNr].wavePeriod, &(model.functions.surfRiding.wavePeriod));
-	copyAddTableInfo(model.tables.tableTyp[6][tableNr].waveDirection, &(model.functions.surfRiding.waveDirection));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].relShipSpeed, &(model.functions.surfRiding.relShipSpeed));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveHeight, &(model.functions.surfRiding.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].wavePeriod, &(model.functions.surfRiding.wavePeriod));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveDirection, &(model.functions.surfRiding.waveDirection));
 	nAlloc = model.functions.surfRiding.relShipSpeed.nIndex * model.functions.surfRiding.waveHeight.nIndex *
 		model.functions.surfRiding.wavePeriod.nIndex * model.functions.surfRiding.waveDirection.nIndex;
 	if (model.functions.surfRiding.tableValue != NULL)
@@ -6339,57 +6622,57 @@ int loadSurfRidingTable(int tableNr) {
 		relShipSpeedI = get_tableIndex(relShipSpeed, model.functions.surfRiding.relShipSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (relShipSpeedI < 0) {
 			errlog("ERROR! relShipSpeed %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.relShipSpeed.minValue);
 			postRequest("ERROR! relShipSpeed " + std::to_string(relShipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.surfRiding.relShipSpeed.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (relShipSpeedI >= model.functions.surfRiding.relShipSpeed.nIndex) {
 			errlog("ERROR! relShipSpeed %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				relShipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.relShipSpeed.maxValue);
 			postRequest("ERROR! relShipSpeed " + std::to_string(relShipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.surfRiding.relShipSpeed.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveI = get_tableIndex(wave, model.functions.surfRiding.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveI < 0) {
 			errlog("ERROR! wave %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wave, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.waveHeight.minValue);
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.surfRiding.waveHeight.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveI >= model.functions.surfRiding.waveHeight.nIndex) {
 			errlog("ERROR! wave %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wave, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.waveHeight.maxValue);
 			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.surfRiding.waveHeight.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		waveDirI = get_tableIndexDirection(waveDir, model.functions.surfRiding.waveDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (waveDirI < 0) {
 			errlog("ERROR! waveDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.waveDirection.minValue);
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.surfRiding.waveDirection.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (waveDirI >= model.functions.surfRiding.waveDirection.nIndex) {
 			errlog("ERROR! waveDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.waveDirection.maxValue);
 			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.surfRiding.waveDirection.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -6397,19 +6680,19 @@ int loadSurfRidingTable(int tableNr) {
 		wavePeriodI = get_tableIndex(wavePeriod, model.functions.surfRiding.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (wavePeriodI < 0) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.wavePeriod.minValue);
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.surfRiding.wavePeriod.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (wavePeriodI >= model.functions.surfRiding.wavePeriod.nIndex) {
 			errlog("ERROR! wavePeriod %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[6][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.surfRiding.wavePeriod.maxValue);
 			postRequest("ERROR! wavePeriod " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[6][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.surfRiding.wavePeriod.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -6427,7 +6710,7 @@ int loadSurfRidingTable(int tableNr) {
 
 	auto tid1 = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> fp_ms = tid1 - tid0;
-	printf("loading %s took %.3lf\n", model.tables.tableTyp[6][tableNr].fileName, fp_ms);
+	printf("loading %s took %.3lf\n", model.tables.tableTyp[nr][tableNr].fileName, fp_ms);
 
 	for (i = 0; i < nAlloc; i++) {
 		if (model.functions.surfRiding.tableValue[i] < -9998) {
@@ -6837,25 +7120,25 @@ int loadWeatherFactorTableWind(int tableNr) {
 
 int  loadDynamicStabilityTable(int tableNr) {
 	FILE* filpek;
-	int nAlloc, i, pos, windI, windDirI, shipSpeedI, antal;
+	int nAlloc, i, pos, windI, windDirI, shipSpeedI, antal, nr = 3;
 	double varde, wind, windDir, shipSpeed;
 
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open dynamic stability table file %s\n", namn);
 		postRequest("ERROR! Could not open dynamic stability table file " + std::string(namn), 1);
 	}
 
-	copyAddTableInfo(model.tables.tableTyp[2][tableNr].windSpeed, &(model.functions.dynStability.windSpeed));
-	copyAddTableInfo(model.tables.tableTyp[2][tableNr].windDirection, &(model.functions.dynStability.windDirection));
-	copyAddTableInfo(model.tables.tableTyp[2][tableNr].shipSpeedOverGround, &(model.functions.dynStability.shipSpeedOverGround));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].windSpeed, &(model.functions.dynStability.windSpeed));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].windDirection, &(model.functions.dynStability.windDirection));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].shipSpeedOverGround, &(model.functions.dynStability.shipSpeedOverGround));
 
 	if (model.functions.dynStability.tableValue != NULL)
 		free(model.functions.dynStability.tableValue);
-	nAlloc = model.functions.dynStability.windSpeed.nIndex * model.functions.dynStability.windDirection.nIndex * 
+	nAlloc = model.functions.dynStability.windSpeed.nIndex * model.functions.dynStability.windDirection.nIndex *
 		model.functions.dynStability.shipSpeedOverGround.nIndex;
 	model.functions.dynStability.tableValue = (float*)malloc2(nAlloc * sizeof(float));
 	for (i = 0; i < nAlloc; i++) {
@@ -6875,57 +7158,57 @@ int  loadDynamicStabilityTable(int tableNr) {
 		windI = get_tableIndex(wind, model.functions.dynStability.windSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (windI < 0) {
 			errlog("ERROR! wind %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wind, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				wind, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.windSpeed.minValue);
 			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.windSpeed.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windI >= model.functions.dynStability.windSpeed.nIndex) {
 			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wind, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				wind, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.windSpeed.maxValue);
 			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.windSpeed.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		windDirI = get_tableIndexDirection(windDir, model.functions.dynStability.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (windDirI < 0) {
 			errlog("ERROR! windDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.windDirection.minValue);
 			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.windDirection.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (windDirI >= model.functions.dynStability.windDirection.nIndex) {
 			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.windDirection.maxValue);
 			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.windDirection.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		shipSpeedI = get_tableIndex(shipSpeed, model.functions.dynStability.shipSpeedOverGround, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (shipSpeedI < 0) {
 			errlog("ERROR! shipSpeedOverGround %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.shipSpeedOverGround.minValue);
 			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.dynStability.shipSpeedOverGround.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (shipSpeedI >= model.functions.dynStability.shipSpeedOverGround.nIndex) {
 			errlog("ERROR! shipSpeedOverGround %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[2][tableNr].fileName,
+				shipSpeed, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.dynStability.shipSpeedOverGround.maxValue);
 			postRequest("ERROR3! shipSpeedOverGround " + std::to_string(shipSpeed) + " given in " +
-				std::string(model.tables.tableTyp[2][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.dynStability.shipSpeedOverGround.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -6948,22 +7231,158 @@ int  loadDynamicStabilityTable(int tableNr) {
 	return nAlloc;
 }
 
+int  loadFuelFactorMainTable(int tableNr) {
+	FILE* filpek;
+	int nAlloc, i, pos, windI, windDirI, shipSpeedI, antal, nr = 2, waveI, waveDirI;
+	double varde, wind, windDir, wave, waveDir;
+
+	char* namn;
+	namn = (char*)malloc2(256 * sizeof(char));
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName);
+	filpek = fopen(namn, "r");
+	if (filpek == NULL) {
+		errlog("ERROR! Could not open fuel factor table file %s\n", namn);
+		postRequest("ERROR! Could not open fuel factor table file " + std::string(namn), 1);
+	}
+
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].windSpeed, &(model.functions.fuelFactorMain.windSpeed));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].windDirection, &(model.functions.fuelFactorMain.windDirection));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveHeight, &(model.functions.fuelFactorMain.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveDirection, &(model.functions.fuelFactorMain.waveDirection));
+
+	if (model.functions.fuelFactorMain.tableValue != NULL)
+		free(model.functions.fuelFactorMain.tableValue);
+	nAlloc = model.functions.fuelFactorMain.windSpeed.nIndex * model.functions.fuelFactorMain.windDirection.nIndex *
+		model.functions.fuelFactorMain.waveHeight.nIndex * model.functions.fuelFactorMain.waveDirection.nIndex;
+	model.functions.fuelFactorMain.tableValue = (float*)malloc2(nAlloc * sizeof(float));
+	for (i = 0; i < nAlloc; i++) {
+		model.functions.fuelFactorMain.tableValue[i] = -9999;
+	}
+
+	antal = fscanf(filpek, "%s\t", namn);
+	antal = fscanf(filpek, "%s\t", namn);
+	antal = fscanf(filpek, "%s\t", namn);
+	antal = fscanf(filpek, "%s\t", namn);
+	antal = fscanf(filpek, "%s\n", namn);
+	free(namn);
+
+	for (i = 0; i < nAlloc; i++) {
+		antal = fscanf(filpek, "%lf\t%lf\t%lf\t%lf\t%lf", &wind, &windDir, &wave, &waveDir, &varde);
+		if (antal <= 0)
+			break;
+		windI = get_tableIndex(wind, model.functions.fuelFactorMain.windSpeed, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
+		if (windI < 0) {
+			errlog("ERROR! wind %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wind, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.windSpeed.minValue);
+			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.fuelFactorMain.windSpeed.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		if (windI >= model.functions.fuelFactorMain.windSpeed.nIndex) {
+			errlog("ERROR! wind %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wind, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.windSpeed.maxValue);
+			postRequest("ERROR3! wind " + std::to_string(wind) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.fuelFactorMain.windSpeed.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		windDirI = get_tableIndexDirection(windDir, model.functions.fuelFactorMain.windDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
+		if (windDirI < 0) {
+			errlog("ERROR! windDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.windDirection.minValue);
+			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.fuelFactorMain.windDirection.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		if (windDirI >= model.functions.fuelFactorMain.windDirection.nIndex) {
+			errlog("ERROR! windDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				windDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.windDirection.maxValue);
+			postRequest("ERROR3! windDir " + std::to_string(windDir) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.fuelFactorMain.windDirection.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		waveI = get_tableIndex(wave, model.functions.fuelFactorMain.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
+		if (waveI < 0) {
+			errlog("ERROR! wave %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.waveHeight.minValue);
+			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.fuelFactorMain.waveHeight.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		if (waveI >= model.functions.fuelFactorMain.waveHeight.nIndex) {
+			errlog("ERROR! wave %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				wave, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.waveHeight.maxValue);
+			postRequest("ERROR! wave " + std::to_string(wave) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.fuelFactorMain.waveHeight.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		waveDirI = get_tableIndexDirection(waveDir, model.functions.fuelFactorMain.waveDirection, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
+		if (waveDirI < 0) {
+			errlog("ERROR! waveDir %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.waveDirection.minValue);
+			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
+				std::to_string(model.functions.fuelFactorMain.waveDirection.minValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+		if (waveDirI >= model.functions.fuelFactorMain.waveDirection.nIndex) {
+			errlog("ERROR! waveDir %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
+				waveDir, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
+				model.functions.fuelFactorMain.waveDirection.maxValue);
+			postRequest("ERROR! waveDir " + std::to_string(waveDir) + " given in " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
+				std::to_string(model.functions.fuelFactorMain.waveDirection.maxValue) +
+				" given in table_parameters.json. Fix and run again, i quit!", 1);
+		}
+
+		pos = windDirI + model.functions.fuelFactorMain.windDirection.nIndex * (windI +
+			model.functions.fuelFactorMain.windSpeed.nIndex * (waveDirI +
+				model.functions.fuelFactorMain.waveDirection.nIndex * waveI));
+		if (model.functions.fuelFactorMain.tableValue[pos] > -9998)
+			errlog("ERROR! More than one value for dynamic stability table pos %d, before %lf, now %lf. I use the later one.\n", pos,
+				model.functions.fuelFactorMain.tableValue[pos], varde);
+		model.functions.fuelFactorMain.tableValue[pos] = varde;
+	}
+	fclose(filpek);
+
+	for (i = 0; i < nAlloc; i++) {
+		if (model.functions.fuelFactorMain.tableValue[i] < -9998) {
+			errlog("ERROR! No value given for fuel factor table pos %d. I set it to 0.\n", i);
+			model.functions.fuelFactorMain.tableValue[i] = 0;
+		}
+	}
+
+	return nAlloc;
+}
+
 int  loadBowSlammingTable(int tableNr) {
 	FILE* filpek;
-	int nAlloc, i, pos, heightI, periodI, antal;
+	int nAlloc, i, pos, heightI, periodI, antal, nr = 4;
 	double varde, waveHeight, wavePeriod;
 
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open bow slamming table file %s\n", namn);
 		postRequest("ERROR! Could not open bow slamming table file " + std::string(namn), 1);
 	}
 
-	copyAddTableInfo(model.tables.tableTyp[3][tableNr].waveHeight, &(model.functions.bowSlamming.waveHeight));
-	copyAddTableInfo(model.tables.tableTyp[3][tableNr].wavePeriod, &(model.functions.bowSlamming.wavePeriod));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveHeight, &(model.functions.bowSlamming.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].wavePeriod, &(model.functions.bowSlamming.wavePeriod));
 
 	if (model.functions.bowSlamming.tableValue != NULL)
 		free(model.functions.bowSlamming.tableValue);
@@ -6985,39 +7404,39 @@ int  loadBowSlammingTable(int tableNr) {
 		heightI = get_tableIndex(waveHeight, model.functions.bowSlamming.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (heightI < 0) {
 			errlog("ERROR! wave height %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName,
+				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.bowSlamming.waveHeight.minValue);
 			postRequest("ERROR3! wave height " + std::to_string(waveHeight) + " given in " +
-				std::string(model.tables.tableTyp[3][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.bowSlamming.waveHeight.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (heightI >= model.functions.bowSlamming.waveHeight.nIndex) {
 			continue;
 			errlog("ERROR! wave height %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName,
+				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.bowSlamming.waveHeight.maxValue);
 			postRequest("ERROR3! wave height " + std::to_string(waveHeight) + " given in " +
-				std::string(model.tables.tableTyp[3][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.bowSlamming.waveHeight.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		periodI = get_tableIndex(wavePeriod, model.functions.bowSlamming.wavePeriod, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (periodI < 0) {
 			errlog("ERROR! wave period %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.bowSlamming.wavePeriod.minValue);
 			postRequest("ERROR3! wave period " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[3][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.bowSlamming.wavePeriod.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (periodI >= model.functions.bowSlamming.wavePeriod.nIndex) {
 			errlog("ERROR! wave period %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[3][tableNr].fileName,
+				wavePeriod, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.bowSlamming.wavePeriod.maxValue);
 			postRequest("ERROR3! wave period " + std::to_string(wavePeriod) + " given in " +
-				std::string(model.tables.tableTyp[3][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.bowSlamming.wavePeriod.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -7041,19 +7460,19 @@ int  loadBowSlammingTable(int tableNr) {
 
 int  loadGreenWaterTable(int tableNr) {
 	FILE* filpek;
-	int nAlloc, i, pos, heightI, antal;
+	int nAlloc, i, pos, heightI, antal, nr = 5;
 	double varde, waveHeight;
 
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[4][tableNr].fileName);
+	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName);
 	filpek = fopen(namn, "r");
 	if (filpek == NULL) {
 		errlog("ERROR! Could not open bow slamming table file %s\n", namn);
 		postRequest("ERROR! Could not open bow slamming table file " + std::string(namn), 1);
 	}
 
-	copyAddTableInfo(model.tables.tableTyp[4][tableNr].waveHeight, &(model.functions.greenWater.waveHeight));
+	copyAddTableInfo(model.tables.tableTyp[nr][tableNr].waveHeight, &(model.functions.greenWater.waveHeight));
 
 	if (model.functions.greenWater.tableValue != NULL)
 		free(model.functions.greenWater.tableValue);
@@ -7074,19 +7493,19 @@ int  loadGreenWaterTable(int tableNr) {
 		heightI = get_tableIndex(waveHeight, model.functions.greenWater.waveHeight, 1); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors, 1);
 		if (heightI < 0) {
 			errlog("ERROR! wave height %lf given in %s/%s is less than min %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[4][tableNr].fileName,
+				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.greenWater.waveHeight.minValue);
 			postRequest("ERROR3! wave height " + std::to_string(waveHeight) + " given in " +
-				std::string(model.tables.tableTyp[4][tableNr].fileName) + " is less than min " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is less than min " +
 				std::to_string(model.functions.greenWater.waveHeight.minValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
 		if (heightI >= model.functions.greenWater.waveHeight.nIndex) {
 			errlog("ERROR! wave height %lf given in %s/%s is more than max %lf given in table_parameters.json.\nFix and run again, i quit!\n",
-				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[4][tableNr].fileName,
+				waveHeight, model.params.indataPath.c_str(), model.tables.tableTyp[nr][tableNr].fileName,
 				model.functions.greenWater.waveHeight.maxValue);
 			postRequest("ERROR3! wave height " + std::to_string(waveHeight) + " given in " +
-				std::string(model.tables.tableTyp[4][tableNr].fileName) + " is more than max " +
+				std::string(model.tables.tableTyp[nr][tableNr].fileName) + " is more than max " +
 				std::to_string(model.functions.greenWater.waveHeight.maxValue) +
 				" given in table_parameters.json. Fix and run again, i quit!", 1);
 		}
@@ -11216,6 +11635,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = nextLevel;
 				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, nextLevel, pointPos, i2);
 				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+				(model.network.physicalLev[thisLevel].nOutNodesTot)++;
 				(model.network.physicalLev[nextLevel].nInNodes[i2])++;
 			}
 			if (arcOK == -2) {
@@ -11262,7 +11682,20 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
 				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
 				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+				if (model.network.channel[i2].type != 0) { // tss
+					if (model.network.channel[i2].nConnectFrom >= model.network.channel[i2].nAllocConnectFrom) {
+						model.network.channel[i2].nAllocConnectFrom += 100;
+						model.network.channel[i2].connectFrom_outLevel = (int*)realloc(
+							model.network.channel[i2].connectFrom_outLevel, model.network.channel[i2].nAllocConnectFrom * sizeof(int));
+						model.network.channel[i2].connectFrom_outNode = (int*)realloc(
+							model.network.channel[i2].connectFrom_outNode, model.network.channel[i2].nAllocConnectFrom * sizeof(int));
+					}
+					model.network.channel[i2].connectFrom_outLevel[model.network.channel[i2].nConnectFrom] = thisLevel;
+					model.network.channel[i2].connectFrom_outNode[model.network.channel[i2].nConnectFrom] = pointPos;
+					(model.network.channel[i2].nConnectFrom)++;
+				}
 				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+				(model.network.physicalLev[thisLevel].nOutNodesTot)++;
 			}
 			else {
 				if (model.params.preferredPathOrtoPos[thisLevel] == pointPos && model.network.channel[i2].bastStartLevel == thisLevel &&
@@ -11273,7 +11706,11 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 					model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
 					model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
 					model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+					model.network.channel[i2].connectFrom_outLevel[model.network.channel[i2].nConnectFrom] = thisLevel;
+					model.network.channel[i2].connectFrom_outNode[model.network.channel[i2].nConnectFrom] = pointPos;
+					(model.network.channel[i2].nConnectFrom)++;
 					(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
+					(model.network.physicalLev[thisLevel].nOutNodesTot)++;
 				}
 			}
 		
@@ -11336,6 +11773,20 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr].outLevel[arcPos] = toLevel;
 				model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
+
+				if (model.network.channel[cNr].type != 0) { // tss
+					if (model.network.channel[cNr].nConnectTo >= model.network.channel[cNr].nAllocConnectTo) {
+						model.network.channel[cNr].nAllocConnectTo += 100;
+						model.network.channel[cNr].connectTo_outLevel = (int*)realloc(
+							model.network.channel[cNr].connectTo_outLevel, model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+						model.network.channel[cNr].connectTo_outNode = (int*)realloc(
+							model.network.channel[cNr].connectTo_outNode, model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+					}
+					model.network.channel[cNr].connectTo_outLevel[model.network.channel[cNr].nConnectTo] = toLevel;
+					model.network.channel[cNr].connectTo_outNode[model.network.channel[cNr].nConnectTo] = i1;
+					(model.network.channel[cNr].nConnectTo)++;
+				}
+
 				(model.network.channel[cNr].nOutNodes)++;
 				(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				if (toLevel >= 11)
@@ -11359,6 +11810,20 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 					model.network.channel[cNr].outLevel[arcPos] = toLevel;
 					model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
+
+					if (model.network.channel[cNr].type != 0) { // tss
+						if (model.network.channel[cNr].nConnectTo >= model.network.channel[cNr].nAllocConnectTo) {
+							model.network.channel[cNr].nAllocConnectTo += 100;
+							model.network.channel[cNr].connectTo_outLevel = (int*)realloc(
+								model.network.channel[cNr].connectTo_outLevel, model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+							model.network.channel[cNr].connectTo_outNode = (int*)realloc(
+								model.network.channel[cNr].connectTo_outNode, model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+						}
+						model.network.channel[cNr].connectTo_outLevel[model.network.channel[cNr].nConnectTo] = toLevel;
+						model.network.channel[cNr].connectTo_outNode[model.network.channel[cNr].nConnectTo] = i1;
+						(model.network.channel[cNr].nConnectTo)++;
+					}
+
 					(model.network.channel[cNr].nOutNodes)++;
 					(model.network.physicalLev[toLevel].nInNodes[i1])++;
 				}
@@ -11392,10 +11857,466 @@ int try_addPhysicalArcsBetweenChannels()
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr1].outLevel[arcPos] = -cNr2 - 1;
 				model.network.channel[cNr1].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr1 - 1, -cNr2 - 1, pos, 0, 1);
+
+				if (model.network.channel[cNr1].type != 0) { // tss
+					if (model.network.channel[cNr1].nConnectTo >= model.network.channel[cNr1].nAllocConnectTo) {
+						model.network.channel[cNr1].nAllocConnectTo += 100;
+						model.network.channel[cNr1].connectTo_outLevel = (int*)realloc(
+							model.network.channel[cNr1].connectTo_outLevel, model.network.channel[cNr1].nAllocConnectTo * sizeof(int));
+						model.network.channel[cNr1].connectTo_outNode = (int*)realloc(
+							model.network.channel[cNr1].connectTo_outNode, model.network.channel[cNr1].nAllocConnectTo * sizeof(int));
+					}
+					model.network.channel[cNr1].connectTo_outLevel[model.network.channel[cNr1].nConnectTo] = -cNr2 - 1;
+					model.network.channel[cNr1].connectTo_outNode[model.network.channel[cNr1].nConnectTo] = 0;
+					(model.network.channel[cNr1].nConnectTo)++;
+				}
+				if (model.network.channel[cNr2].type != 0) { // tss
+					if (model.network.channel[cNr2].nConnectFrom >= model.network.channel[cNr2].nAllocConnectFrom) {
+						model.network.channel[cNr2].nAllocConnectFrom += 100;
+						model.network.channel[cNr2].connectFrom_outLevel = (int*)realloc(
+							model.network.channel[cNr2].connectFrom_outLevel, model.network.channel[cNr2].nAllocConnectFrom * sizeof(int));
+						model.network.channel[cNr2].connectFrom_outNode = (int*)realloc(
+							model.network.channel[cNr2].connectFrom_outNode, model.network.channel[cNr2].nAllocConnectFrom * sizeof(int));
+					}
+					model.network.channel[cNr2].connectFrom_outLevel[model.network.channel[cNr2].nConnectFrom] = -cNr1 - 1;
+					model.network.channel[cNr2].connectFrom_outNode[model.network.channel[cNr2].nConnectFrom] = 1;
+					(model.network.channel[cNr2].nConnectFrom)++;
+				}
+
 				(model.network.channel[cNr1].nOutNodes)++;
 			}
 		}
 	}
+	return 0;
+}
+
+int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int toNodeEnd, double dist_max, double distTot, int prefPathStart, int nivaBas, int keepPrefPath) { // not used
+	int i, toLev, toNode, arcPos, i1, nOutNodes, outLevel, maxLevel;
+	double distNu, x0, y0, x1, y1;
+
+	if (fromLev >= 0) {
+		x0 = model.network.physicalLev[fromLev].point_x[fromNode];
+		y0 = model.network.physicalLev[fromLev].point_y[fromNode];
+		nOutNodes = model.network.physicalLev[fromLev].nOutNodes[fromNode];
+	}
+	else {
+		x0 = model.network.channel[-fromLev - 1].point_x[model.network.channel[-fromLev - 1].nPoints - 1];
+		y0 = model.network.channel[-fromLev - 1].point_y[model.network.channel[-fromLev - 1].nPoints - 1];
+		nOutNodes = model.network.channel[-fromLev - 1].nOutNodes;
+	}
+	if(toLevEnd >= 0)
+		maxLevel = toLevEnd;
+	else
+		maxLevel = model.network.channel[-toLevEnd - 1].bastStartLevel;
+
+	for (i = 0; i < nOutNodes; i++) {
+		if (fromLev >= 0) 
+			outLevel = model.network.physicalLev[fromLev].outLevel[fromNode][i];
+		else
+			outLevel = model.network.channel[-fromLev - 1].outLevel[i];
+		if (outLevel <= maxLevel) {
+			if (fromLev >= 0) {
+				if (model.network.physicalLev[fromLev].outLevel[fromNode][i] == toLevEnd &&
+					model.network.physicalLev[fromLev].outNode[fromNode][i] != toNodeEnd)
+					continue; // not the right end node so skip this one
+				toLev = model.network.physicalLev[fromLev].outLevel[fromNode][i];
+				if (toLev < 0 && toLevEnd != toLev)
+					continue; // do not connect to other channels
+				toNode = model.network.physicalLev[fromLev].outNode[fromNode][i];
+			}
+			else {
+				if (model.network.channel[-fromLev - 1].outLevel[i] == toLevEnd &&
+					model.network.channel[-fromLev - 1].outNode[i] != toNodeEnd)
+					continue; // not the right end node so skip this one
+				toLev = model.network.channel[-fromLev - 1].outLevel[i];
+				if (toLev < 0 && toLevEnd != toLev)
+					continue; // do not connect to other channels
+				toNode = model.network.channel[-fromLev - 1].outNode[i];
+			}
+			if (toLev >= 0) {
+				x1 = model.network.physicalLev[toLev].point_x[toNode];
+				y1 = model.network.physicalLev[toLev].point_y[toNode];
+			}
+			else {
+				x1 = model.network.channel[-toLev - 1].point_x[toNode];
+				y1 = model.network.channel[-toLev - 1].point_y[toNode];
+			}
+			distNu = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+			// distTot += distNu;
+			model.temp_data.arr_fromLev[niva] = fromLev;
+			model.temp_data.arr_fromNode[niva] = fromNode;
+			model.temp_data.arr_fromPos[niva] = i;
+			//printf("fromLev %d fromNode %d fromPos %d nAlloc %d nAlloc2 %d\n", fromLev, fromNode, i,
+			//	model.network.physicalLev[fromLev].nPoints, model.network.physicalLev[fromLev + 1].nPoints);
+			if (outLevel != toLevEnd && niva + 1 < model.temp_data.nMax_recursive_arcsLevels &&
+				prefPathStart == 1) {
+				recursive_arcsLevels(niva + 1, toLev, toNode, toLevEnd, toNodeEnd, dist_max, distTot + distNu, prefPathStart, nivaBas, keepPrefPath);
+			}
+			else {
+				// done, compare the costs
+				if (distTot + distNu >= dist_max && toLevEnd == toLev && toNodeEnd == toNode) {
+					// do not use this set of arcs as they are too close to tss distance, set to not be used
+					for (i1 = 0; i1 < niva + 1; i1++) {
+						fromLev = model.temp_data.arr_fromLev[i1];
+						fromNode = model.temp_data.arr_fromNode[i1];
+						arcPos = model.temp_data.arr_fromPos[i1];
+						if (fromLev == 9 && fromNode == 26 && arcPos >= 4)
+							i1 = i1;
+						if (i1 < nivaBas && fromLev == model.temp_data.arrBas_fromLev[i1] &&
+							fromNode == model.temp_data.arrBas_fromNode[i1] && arcPos == model.temp_data.arrBas_fromPos[i1])
+							continue; // used in the tss route
+						if (fromLev >= 0) {
+							toLev = model.network.physicalLev[fromLev].outLevel[fromNode][arcPos];
+							if (toLev < 0)
+								continue; // do not remove connection to channel
+							toNode = model.network.physicalLev[fromLev].outNode[fromNode][arcPos];
+							if (fromLev == 15 && fromNode == 23 && toLev == 16 && toNode == 23)
+								toNode = toNode;
+							if (fromLev == 33 && fromNode == 23 &&
+								model.network.physicalLev[fromLev].outLevel[fromNode][arcPos] == 34 &&
+								model.network.physicalLev[fromLev].outNode[fromNode][arcPos] == 23)
+								arcPos = arcPos;
+
+							if (model.params.preferredPathOrtoPos[fromLev] == fromNode &&
+								toLev >= 0 && model.params.preferredPathOrtoPos[toLev] == toNode) {
+								if (fromNode == 25 && toLev == 28 && toNode == 23)
+									toNode = toNode;
+								// require to follow pref path exactly
+								model.params.preferredPathStraightLineFeasibleFrom[fromLev] = 0;
+								if (model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] == -2)
+									model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -1;
+								continue; // do not remove arcs along prefPath for certain tss (given for the tss)
+							}
+
+							//if ((keepPrefPath == 1 || model.params.preferredPathStraightLineFeasibleFrom[fromLev] == 0) && 
+							//	model.params.preferredPathOrtoPos[fromLev] == fromNode &&
+							//	toLev >= 0 && model.params.preferredPathOrtoPos[toLev] == toNode) {
+							//	if (fromNode == 25 && toLev == 28 && toNode == 23)
+							//		toNode = toNode;
+							//	// require to follow pref path exactly
+							//	model.params.preferredPathStraightLineFeasibleFrom[fromLev] = 0;
+							//	if (model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] == -2)
+							//		model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -1;
+							//	continue; // do not remove arcs along prefPath for certain tss (given for the tss)
+							//}
+							if (fromNode == 25 && toLev == 28 && toNode == 23)
+								toNode = toNode;
+							model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -2;
+						}
+						// do not remove connection from channel here, it's done elsewhere
+						//else
+						//	model.network.channel[-fromLev - 1].outRestrictedAreaNr[arcPos] = -2;
+						// 
+						//printf("niva_i1 %d arc not OK lev %d fromNode %d arcPos %d nAllocTimeInt %d\n", i1, fromLev, fromNode, arcPos,
+						//	model.network.physicalLev[fromLev].nPoints);
+					}
+				}
+			}
+		}
+	}
+
+
+	return 0;
+}
+
+int identify_arcsNoUse_tss_levels(int level, int cNr, double dist_tss_ext, int fromLev, int fromNode, int pos2, int prefPathStart, int keepPrefPath) { // not used 
+	int toLev, i1, i2, toNode, toLev2, toNode2, fromLev2, fromNode2, pos_prefPathEnd, keepPrefPath2;
+	double y0, x0, y1, x1, dist, x2, y2;
+
+	toLev = model.network.channel[cNr].connectTo_outLevel[pos2];
+	toNode = model.network.channel[cNr].connectTo_outNode[pos2];
+
+	// totDist = p1.distanceTo(p2) / 1000;
+	if (toLev >= 0) {
+		x1 = model.network.physicalLev[toLev].point_x[toNode];
+		y1 = model.network.physicalLev[toLev].point_y[toNode];
+	}
+	else {
+		x1 = model.network.channel[-toLev - 1].point_x[toNode];
+		y1 = model.network.channel[-toLev - 1].point_y[toNode];
+		if(keepPrefPath == 0)
+			keepPrefPath = model.network.channel[-toLev - 1].keepPrefPath_tss;
+	}
+	x0 = model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1];
+	y0 = model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 1];
+	dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+	dist_tss_ext += dist;
+
+	model.temp_data.arrBas_fromLev[level] = fromLev;
+	model.temp_data.arrBas_fromNode[level] = fromNode;
+	model.temp_data.arrBas_fromPos[level] = pos2;
+
+	recursive_arcsLevels(0, fromLev, fromNode, toLev, toNode, dist_tss_ext, 0.0, prefPathStart, level, keepPrefPath);
+
+	if (toLev == fromLev + 1 && fromLev >= 0 && prefPathStart == 1) { // preferably add a check that the tss is close to the end of the level as well
+		// check one leavel after as well along preferred path
+		pos_prefPathEnd = -1;
+		for (i1 = 0; i1 < model.network.physicalLev[toLev].nOutNodes[toNode]; i1++) {
+			toLev2 = model.network.physicalLev[toLev].outLevel[toNode][i1];
+			toNode2 = model.network.physicalLev[toLev].outNode[toNode][i1];
+			if (toLev2 >= 0) {
+				x2 = model.network.physicalLev[toLev2].point_x[toNode2];
+				y2 = model.network.physicalLev[toLev2].point_y[toNode2];
+				dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+				model.temp_data.arrBas_fromLev[level + 1] = toLev;
+				model.temp_data.arrBas_fromNode[level + 1] = toNode;
+				model.temp_data.arrBas_fromPos[level + 1] = i1;
+				recursive_arcsLevels(0, fromLev, fromNode, toLev2, toNode2, dist_tss_ext + dist, 0.0, prefPathStart, level + 1, keepPrefPath);
+				if (model.params.preferredPathOrtoPos[toLev2] == toNode2)
+					pos_prefPathEnd = i1;
+			}
+		}
+
+		// check one leavel before as well along preferred path
+		if (pos_prefPathEnd >= 0) {
+			toLev2 = model.network.physicalLev[toLev].outLevel[toNode][pos_prefPathEnd];
+			toNode2 = model.network.physicalLev[toLev].outNode[toNode][pos_prefPathEnd];
+			x2 = model.network.physicalLev[toLev2].point_x[toNode2];
+			y2 = model.network.physicalLev[toLev2].point_y[toNode2];
+			dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+			model.temp_data.arrBas_fromLev[level + 1] = toLev;
+			model.temp_data.arrBas_fromNode[level + 1] = toNode;
+			model.temp_data.arrBas_fromPos[level + 1] = i1;
+			dist_tss_ext += dist;
+
+			x1 = model.network.channel[cNr].point_x[0];
+			y1 = model.network.channel[cNr].point_y[0];
+			if (fromLev >= 0) {
+				x0 = model.network.physicalLev[fromLev].point_x[fromNode];
+				y0 = model.network.physicalLev[fromLev].point_y[fromNode];
+			}
+			else {
+				x0 = model.network.channel[-fromLev - 1].point_x[model.network.channel[-fromLev - 1].nPoints - 1];
+				y0 = model.network.channel[-fromLev - 1].point_y[model.network.channel[-fromLev - 1].nPoints - 1];
+			}
+			dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+			dist_tss_ext -= dist;
+
+			for (i1 = 0; i1 < model.network.channel[cNr].nConnectFrom; i1++) {
+				fromLev2 = model.network.channel[cNr].connectFrom_outLevel[i1];
+				fromNode2 = model.network.channel[cNr].connectFrom_outNode[i1];
+				keepPrefPath2 = keepPrefPath;
+				if (fromLev2 >= 0) {
+					x0 = model.network.physicalLev[fromLev2].point_x[fromNode2];
+					y0 = model.network.physicalLev[fromLev2].point_y[fromNode2];
+				}
+				else {
+					x0 = model.network.channel[-fromLev2 - 1].point_x[model.network.channel[-fromLev2 - 1].nPoints - 1];
+					y0 = model.network.channel[-fromLev2 - 1].point_y[model.network.channel[-fromLev2 - 1].nPoints - 1];
+					if (keepPrefPath == 0)
+						keepPrefPath2 = model.network.channel[-fromLev2 - 1].keepPrefPath_tss;
+				}
+				dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+
+				model.temp_data.arrBas_fromLev[level] = fromLev2;
+				model.temp_data.arrBas_fromNode[level] = fromNode2;
+				model.temp_data.arrBas_fromPos[level] = i1;
+				recursive_arcsLevels(0, fromLev2, fromNode2, toLev2, toNode2, dist_tss_ext + dist, 0.0, prefPathStart, level + 1, keepPrefPath2);
+			}
+
+		}
+
+
+		for (i1 = 0; i1 < model.network.physicalLev[toLev].nOutNodes[toNode]; i1++) {
+			toLev2 = model.network.physicalLev[toLev].outLevel[toNode][i1];
+			toNode2 = model.network.physicalLev[toLev].outNode[toNode][i1];
+			if (toLev2 >= 0) {
+				x2 = model.network.physicalLev[toLev2].point_x[toNode2];
+				y2 = model.network.physicalLev[toLev2].point_y[toNode2];
+				dist = estimateLargeCircleDistance_km(y1, x1, y2, x2);
+				model.temp_data.arrBas_fromLev[level + 1] = toLev;
+				model.temp_data.arrBas_fromNode[level + 1] = toNode;
+				model.temp_data.arrBas_fromPos[level + 1] = i1;
+				recursive_arcsLevels(0, fromLev, fromNode, toLev2, toNode2, dist_tss_ext + dist, 0.0, prefPathStart, level + 1, keepPrefPath);
+			}
+		}
+
+
+	}
+
+	return 0;
+}
+
+int recursive_arcsNoUse_tss_tss(int cNr, double dist_tss_ext, int fromLev, int fromNode, int pos2, int cNrLevel, int prefPathStart, int keepPrefPath) { // not used
+	int toLev, i1, i2, toNode, cNr2;
+	double y0, x0, y1, x1, dist;
+
+	if (pos2 >= 0)
+		cNr2 = -model.network.channel[cNr].connectTo_outLevel[pos2] - 1;
+	else
+		cNr2 = cNr;
+	if (cNr2 < 0)
+		return 0; // only continue if it is a corridor
+	if (model.network.channel[cNr2].type == 0)
+		return 0; // not a tss
+
+	for (i1 = 0; i1 < cNrLevel; i1++) {
+		if (cNr2 == model.temp_data.arr_cNr[i1])
+			return 0; // do not go back to a corridor that has already been checked
+	}
+
+	if (keepPrefPath == 0)
+		keepPrefPath = model.network.channel[cNr2].keepPrefPath_tss;
+
+	if (pos2 >= 0) {
+		identify_arcsNoUse_tss_levels(cNrLevel - 1, cNr, dist_tss_ext, fromLev, fromNode, pos2, prefPathStart, keepPrefPath);
+		x0 = model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1];
+		y0 = model.network.channel[cNr].point_y[model.network.channel[cNr].nPoints - 1];
+		x1 = model.network.channel[cNr2].point_x[0];
+		y1 = model.network.channel[cNr2].point_y[0];
+		dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+		dist_tss_ext += dist;
+	}
+
+	dist_tss_ext += model.network.channel[cNr2].distance_km;
+	dist_tss_ext -= model.params.tss_attractionDistance_km;
+
+	for (i2 = 0; i2 < model.network.channel[cNr2].nConnectTo; i2++) {
+		if (model.network.channel[cNr2].connectTo_outLevel[i2] >= 0) {
+			identify_arcsNoUse_tss_levels(cNrLevel - 1, cNr2, dist_tss_ext, fromLev, fromNode, i2, prefPathStart, keepPrefPath);
+		}
+		else {
+			// connected to another channel .. handle this
+			model.temp_data.arr_cNr[cNrLevel] = cNr2;
+			recursive_arcsNoUse_tss_tss(cNr2, dist_tss_ext, fromLev, fromNode, i2, cNrLevel + 1, prefPathStart, keepPrefPath);
+		}
+		if(cNr==5)
+			checkMinnesAnvandning(__LINE__);
+	}
+	return 0;
+}
+
+int remove_all_arcs_nonPrefPath_level(int lev, int alt) {
+	int i1, i2b, i2, nextLev;
+
+	for (i1 = 0; i1 < model.network.physicalLev[lev].nPoints; i1++) {
+		for (i2b = 0; i2b < model.network.physicalLev[lev].nOutNodes[i1]; i2b++) {
+			i2 = model.network.physicalLev[lev].outNode[i1][i2b];
+			nextLev = model.network.physicalLev[lev].outLevel[i1][i2b];
+			if (i1 == model.params.preferredPathOrtoPos[lev] && nextLev == lev + 1 &&
+				i2 == model.params.preferredPathOrtoPos[nextLev])
+				continue; // keep the preferred path
+			if (alt == 0 && (nextLev < 0))
+				continue; // for the first level, keep the arcs going to prefpath or going to corridors
+			//if (alt == 0 && (nextLev == lev + 1 && i2 == model.params.preferredPathOrtoPos[nextLev] || nextLev < 0))
+			//	continue; // for the first level, keep the arcs going to prefpath or going to corridors
+			//if (alt == 2 && i1 == model.params.preferredPathOrtoPos[lev])
+			//	continue; // for the level before tss connection, keep the arcs going from prefpath
+			model.network.physicalLev[lev].outRestrictedAreaNr[i1][i2b] = -2;
+		}
+	}
+	//if(alt == 1)
+		model.params.preferredPathStraightLineFeasibleFrom[lev] = 0;
+
+
+	return 0;
+}
+
+int identify_arcsNoUse_tss() {
+	int cNr, i1, i2, fromLev, fromNode, prefPathStart, keepPrefPath, connected_to_tss;
+	int i_start, i_end, alt;
+	double dist_tss_ext, x0, y0, x1, y1, dist;
+
+	model.temp_data.nMax_recursive_arcsLevels = 4;
+	model.temp_data.arr_fromLev = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+	model.temp_data.arr_fromNode = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+	model.temp_data.arr_fromPos = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+	model.temp_data.arrBas_fromLev = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+	model.temp_data.arrBas_fromNode = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+	model.temp_data.arrBas_fromPos = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
+
+	model.temp_data.arr_cNr = (int*)malloc(model.network.nChannels * sizeof(int));
+
+	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
+		if (model.network.channel[cNr].type == 0)
+			continue; // not a tss
+		i_start = model.network.channel[cNr].bastStartLevel;
+		i_end = model.network.channel[cNr].bastEndLevel;
+		if (i_start >= 0 && i_start < model.network.nPhysicalLevels &&
+			i_end >= 0 && i_end < model.network.nPhysicalLevels) {
+			for (i1 = i_start; i1 <= i_end; i1++) {
+				if (model.network.physicalLev[i1].nOutNodesTot < 2) {
+					break;
+				}
+			}
+			if (i1 <= i_end) {
+				alt = 0;
+				for (i1 = i_start; i1 < i_end; i1++) {
+					if (model.network.physicalLev[i1].nOutNodesTot >= 2) {
+						if (i1 == i_end - 1)
+							alt = 2;
+						remove_all_arcs_nonPrefPath_level(i1, alt);
+						model.network.physicalLev[i1].nOutNodesTot = -model.network.physicalLev[i1].nOutNodesTot;
+					}
+					alt = 1;
+				}
+				continue; // do not need to do any other removal of arcs for this tss so go to next one
+			}
+		}
+
+
+		keepPrefPath = model.network.channel[cNr].keepPrefPath_tss;
+
+		dist_tss_ext = 0;
+		//recursive_arcsNoUse_tss_tss(cNr, dist_tss_ext, -cNr - 1, 1, -1, 1, 1);
+		model.temp_data.arr_cNr[0] = cNr;
+		if (cNr == 7)
+			cNr = cNr;
+		for (i1 = 0; i1 < model.network.channel[cNr].nConnectFrom; i1++) {
+			fromLev = model.network.channel[cNr].connectFrom_outLevel[i1];
+			fromNode = model.network.channel[cNr].connectFrom_outNode[i1];
+			if(fromLev >= 0 && model.params.preferredPathOrtoPos[fromLev] != fromNode)
+				prefPathStart = 0;
+			else
+				prefPathStart = 1;
+			dist_tss_ext = model.network.channel[cNr].distance_km;
+			dist_tss_ext -= model.params.tss_attractionDistance_km;
+			if (fromLev >= 0) {
+				x0 = model.network.physicalLev[fromLev].point_x[fromNode];
+				y0 = model.network.physicalLev[fromLev].point_y[fromNode];
+			}
+			else {
+				x0 = model.network.channel[-fromLev - 1].point_x[model.network.channel[-fromLev - 1].nPoints - 1];
+				y0 = model.network.channel[-fromLev - 1].point_y[model.network.channel[-fromLev - 1].nPoints - 1];
+			}
+			x1 = model.network.channel[cNr].point_x[0];
+			y1 = model.network.channel[cNr].point_y[0];
+			dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+			dist_tss_ext += dist;
+
+			for (i2 = 0; i2 < model.network.channel[cNr].nConnectTo; i2++) {
+				if (model.network.channel[cNr].connectTo_outLevel[i2] >= 0) {
+					identify_arcsNoUse_tss_levels(0, cNr, dist_tss_ext, fromLev, fromNode, i2, prefPathStart, keepPrefPath);
+				}
+				else {
+					// connected to another channel .. handle this
+					model.temp_data.arr_cNr[0] = cNr;
+					recursive_arcsNoUse_tss_tss(cNr, dist_tss_ext, fromLev, fromNode, i2, 1, prefPathStart, keepPrefPath);
+
+
+				}
+
+			}
+		}
+
+		connected_to_tss = 0;
+		for (i2 = 0; i2 < model.network.channel[cNr].nOutNodes; i2++) {
+			if (model.network.channel[cNr].outLevel[i2] < 0) {
+				connected_to_tss = 1;
+				break;
+			}
+		}
+		if (connected_to_tss == 1) {
+			for (i2 = 0; i2 < model.network.channel[cNr].nOutNodes; i2++) {
+				if (model.network.channel[cNr].outLevel[i2] >= 0) {
+					model.network.channel[cNr].outRestrictedAreaNr[i2] = -2;
+				}
+			}
+		}
+
+	}
+
+
 	return 0;
 }
 
@@ -11405,6 +12326,7 @@ int addArcsToNetwork()
 	int checkNextLevel;
 
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		model.network.physicalLev[i].nOutNodesTot = 0;
 		model.network.physicalLev[i].nOutNodes = (int*)malloc2(
 			model.network.physicalLev[i].nPoints * sizeof(int));
 		model.network.physicalLev[i].nInNodes = (int*)malloc2(
@@ -11506,6 +12428,7 @@ int addArcsToNetwork()
 		else
 			break;
 	}
+	checkMinnesAnvandning(__LINE__);
 
 	if (SKRIV_UT_NOTHING == 0)
 		printf("nCorridors %d\n", model.network.nChannels);
@@ -11540,7 +12463,7 @@ int addArcsToNetwork()
 						break;
 				}
 			}
-			// check if arcs can be added to a channel, men INTE fran preferred path
+			// check if arcs can be added to a channel, but NOT from preferred path
 			checkNextLevel = try_addPhysicalArcsLevel(i, i1, -1);
 		}
 	}
@@ -11550,14 +12473,25 @@ int addArcsToNetwork()
 	// then extend the corridor if the pref path is not allowed till other arcs attach
 	identify_onlyPrefPathAllowedOnPhysicalLevel();
 
+	//errlog("OBS! I don't close arcs because of close to tss as it doesn't work\n");
+	int nNoder = 0, nBagar = 0, pointNr1, pointNr2;
+	errlog("Fysiskt natverk: %d noder och %d bagar\n", nNoder, nBagar);
+	
+	model.params.preferredPathStraightLineFeasibleFrom = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		model.params.preferredPathStraightLineFeasibleFrom[i] = 1;
+		// printf("level %d nArcsOut %d\n", i, model.network.physicalLev[i].nOutNodesTot);
+	}
+	identify_arcsNoUse_tss();
+
 
 	//for (i = 0; i < model.network.nChannels; i++){//  .nUsedChannels; i++) {
 	//	cNr = i; // model.network.usedChannel[i];
 	//	try_addPhysicalArcsFromChannel(cNr, noDataVal);
 	//}
 
-	model.params.preferredPathStraightLineFeasibleFrom = (int*)malloc2(model.network.nPhysicalLevels * sizeof(int));
-	int nNoder = 0, nBagar = 0, pointNr1, pointNr2;
+	checkMinnesAnvandning(__LINE__);
+
 	double maxDist = 0, dist;
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
 		for (i2 = 0; i2 < model.network.physicalLev[i].nPoints; i2++) {
@@ -11577,13 +12511,11 @@ int addArcsToNetwork()
 			arcOK = check_isPhysicalArcOK(i, i + 1, pointNr1, pointNr2);
 			if (arcOK <= 0)
 				model.params.preferredPathStraightLineFeasibleFrom[i] = 0;
-			else
-				model.params.preferredPathStraightLineFeasibleFrom[i] = 1;
-		}else
-			model.params.preferredPathStraightLineFeasibleFrom[i] = 1;
+		}
 	}
 	model.network.nPhysicalNodes = nNoder;
 	model.network.nPhysicalArcs = nBagar;
+	checkMinnesAnvandning(__LINE__);
 	errlog("Fysiskt natverk: %d noder och %d bagar\n", nNoder, nBagar);
 
 
@@ -12184,7 +13116,7 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 
 		if (isAllowed > 0) {
 			if (isAllowed == 2) { // point i is allowed
-				if (i == 1)
+				if (i == model.preferredPath.nPoints - 1)
 					*endDistBad = 0;
 				else {
 					if (prevDistOK + distNu >= minKravOKdist)
@@ -12231,6 +13163,9 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		dist = model.preferredPath.point[i - 1].distanceTo(model.preferredPath.point[i]) / 1000;
 		model.preferredPath.distToPrevPoint[i] = dist;
 		distTot += dist;
+		//printf("from %d to %d %.4lf %.4lf to %.4lf %.4lf dist %.3lf %.3lf\n", i - 1, i,
+		//	model.preferredPath.point_y[i - 1], model.preferredPath.point_x[i - 1],
+		//	model.preferredPath.point_y[i], model.preferredPath.point_x[i], dist, distTot);
 	}
 	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n",
 		distTot, model.preferredPath.nPoints);
@@ -12562,10 +13497,12 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	// loadChannels();
 	checkChannels();
 	addArcsToNetwork();
+	checkMinnesAnvandning(__LINE__);
 
 	if (model.params.hindCast == 0)
 		calc_stormsNearby();
 
+	checkMinnesAnvandning(__LINE__);
 
 	if (SKRIV_UT_NOTHING == 0){
 		writeAllChannelsToGeojson();
@@ -12573,6 +13510,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		writeAllNodesToGeojson((char*)"networkNodes");
 		writeAllArcsToGeojson((char*)"networkArcs");
 	}
+	checkMinnesAnvandning(__LINE__);
 
 	return 0;
 }
@@ -12782,7 +13720,7 @@ int addTimeTo_timeInterval(int levPrev, int levNr, int pointNr, int tidInt)
 			}
 			model.network.channel[-levNr - 1].timeInterval[pointNr][i] = tidInt;
 			(model.network.channel[-levNr - 1].nTimeIntervals[pointNr])++;
-			if (levNr == 1)
+			if (levNr == -4 && pointNr == 1)
 				levNr = levNr;
 			return adderaNod(levNr, pointNr, i);
 		}
@@ -14273,11 +15211,11 @@ int determine_nSpeedSettingsToUse(int level1, int level2, int restrictedAreaNr) 
 			}
 		}
 		else {
-			nSettings = model.functions.speedChannel[-level2 - 1].nShip_speedSettings;
+			nSettings = model.functions.speedChannel[-level1 - 1].nShip_speedSettings;
 			if (restrictedAreaNr >= 0) {
 				maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
 				for (speedNr = 0; speedNr < nSettings; speedNr++) {
-					if (maxSpeed <= model.functions.speedChannel[-level2 - 1].rpmSetting_gerCalmWaterSpeed[speedNr])
+					if (maxSpeed <= model.functions.speedChannel[-level1 - 1].rpmSetting_gerCalmWaterSpeed[speedNr])
 						break;
 				}
 				if (speedNr < nSettings)
@@ -14364,7 +15302,7 @@ int get_speedSettingBase(int arcNr) {
 //	return varde;
 //}
 
-double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed) {
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed, double fuelFactorMain) {
 	double vardeMain, vardeAux, factor;
 
 	if (speedNr < 0) {
@@ -14431,7 +15369,7 @@ double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLe
 		//+ model.functions.fuelConsumption.c3_rpm * model.functions.rpm[speedNr] * model.functions.rpm[speedNr] * model.functions.rpm[speedNr];
 	}
 	*consumptionAux = vardeAux;
-	return vardeMain;
+	return vardeMain * fuelFactorMain;
 	//return model.functions.rpmSetting_gerFuelConsumption[speedNr];
 }
 
@@ -14945,6 +15883,22 @@ double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, doubl
 	return model.functions.waveFactor.tableValue[pos]; // wave, wavePeriod, waveDir, calmWaterSpeed
 
 }
+
+double lookup_fuelFactorMainTable(double rel_windSpeed, double rel_windDir, double waveHeight, double rel_waveDir) {
+	int iWindDir = get_tableIndexDirection(rel_windDir, model.functions.fuelFactorMain.windDirection);
+	int iWindSpeed = get_tableIndex(rel_windSpeed, model.functions.fuelFactorMain.windSpeed);
+	int iWaveDir = get_tableIndexDirection(rel_waveDir, model.functions.fuelFactorMain.waveDirection);
+	int iWaveHeight = get_tableIndex(waveHeight, model.functions.fuelFactorMain.waveHeight);
+	int pos;
+
+	if (printGlobal == 1)
+		printf("** fuelFactor table index wind dir %d windspeed %d wave dir %d wave height %d\n", iWindDir, iWindSpeed, iWaveDir, iWaveHeight);
+	pos = iWindDir + model.functions.fuelFactorMain.windDirection.nIndex * (iWindSpeed +
+		model.functions.fuelFactorMain.windSpeed.nIndex * (iWaveDir +
+			model.functions.fuelFactorMain.waveDirection.nIndex * iWaveHeight));
+	return model.functions.fuelFactorMain.tableValue[pos];
+}
+
 
 int getHoursSinceMidnight(int t) {
 	return (t + model.params.startHoursSinceMidnight) - 24 * (int)((t + model.params.startHoursSinceMidnight) / 24);

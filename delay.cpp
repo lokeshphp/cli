@@ -2182,6 +2182,8 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 		tid2 = std::chrono::high_resolution_clock::now();
 
 		for (i1 = 0; i1 < model.network.nChannels; i1++) {
+			if (i == 0 && model.network.channel[i1].earliestStartLevel == i)
+				addChannelArcs(i1, 0);
 			cNr = i1;
 			for (i2b = 0; i2b < model.network.channel[cNr].nOutNodes; i2b++) {
 				nextLevel = model.network.channel[cNr].outLevel[i2b];
@@ -2189,6 +2191,9 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 					continue;
 				if (nextLevel < 0 && i > 0)
 					continue; // i > 0 since onle add these arcs once...
+				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+					continue; // do not include this arc as a tss should be used instead.
+				}
 				setupCheckPoints = 1;
 				fuelQualityKvot = 1;
 				// get_minMax_timeFromLevel(nextLevel, &min_t, &max_t);

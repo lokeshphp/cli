@@ -107,12 +107,13 @@ int SattUppDijkstraNatverk3(strModel* model) {
 			for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
 				if (model->Noder[i].outArcNr[i1] == 6)
 					i = i;
-				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d speed %d cost %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
+				fprintf(pek, "i %d i1 %d head %d arcNr %d from %d %d %d to %d %d %d speed %d cost %.3lf dist %.3lf\n", i, i1, model->Noder[i].UtNod[i1],
 					model->Noder[i].outArcNr[i1], model->arc[model->Noder[i].outArcNr[i1]].fromLevel,
 					model->arc[model->Noder[i].outArcNr[i1]].fromTime, model->arc[model->Noder[i].outArcNr[i1]].fromPointNr,
 					model->arc[model->Noder[i].outArcNr[i1]].toLevel, model->arc[model->Noder[i].outArcNr[i1]].toTime,
 					model->arc[model->Noder[i].outArcNr[i1]].toPointNr, 
-					model->arc[model->Noder[i].outArcNr[i1]].speedSetting, model->Noder[i].UtNodCost[i1]);
+					model->arc[model->Noder[i].outArcNr[i1]].speedSetting, model->Noder[i].UtNodCost[i1], 
+					model->arc[model->Noder[i].outArcNr[i1]].distance);
 			}
 		}
 		fclose(pek);
@@ -143,12 +144,22 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				//fprintf(pek, "i1 %d head %d\n", i1, head);
 				if (tail >= n || head >= n)
 					i = i;
-				length = (long long)(model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK);
+				if (model->Noder[i].UtNodCost[i1] >= 0)
+					length = (long long)(model->Noder[i].UtNodCost[i1] * model->Dijkstra.FAKTOR_NATVERK);
+				else {
+					length = (long long)0;
+					printf("ERROR: arc fran nod %d till nodpos %d har neg kostn utNodCost %.2lf, andrar den till 0, ",
+						i, i1, model->Noder[i].UtNodCost[i1]);
+					errlog("ERROR: arc fran nod %d till nodpos %d har neg kostn utNodCost %.2lf, andrar den till 0, ",
+						i, i1, model->Noder[i].UtNodCost[i1]);
+					fprintf(stdout, "utnodcost %.3lf faktor %.3lf\n",
+						model->Noder[i].UtNodCost[i1], model->Dijkstra.FAKTOR_NATVERK);
+				}
 
 				if (length < 0) {
 					printf("ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d utNodCost %.2lf, andrar den till 1e16, ",
 						i, i1, length, model->Noder[i].UtNodCost[i1]);
-					errlog(0, "ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d, andrar den till 1e16, ",
+					errlog("ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d, andrar den till 1e16, ",
 						i, i1, length);
 					fprintf(stdout, "utnodcost %.3lf faktor %.3lf\n",
 						model->Noder[i].UtNodCost[i1], model->Dijkstra.FAKTOR_NATVERK);
@@ -178,6 +189,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				/* searching minimumu and maximum node */
 				if (head < node_min) node_min = head;
 				if (tail < node_min) node_min = tail;
+				if (node_min < -10)
+					node_min = node_min;
 				if (head > node_max) node_max = head;
 				if (tail > node_max) node_max = tail;
 				if (node_max > 4000)
@@ -458,7 +471,7 @@ int SattUppDijkstraNatverk3tmp(strModel* model) {
 				if (length < 0) {
 					printf("ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d utNodCost %.2lf, andrar den till 1e16, ",
 						i, i1, length, model->Noder[i].UtNodCost[i1]);
-					errlog(0, "ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d, andrar den till 1e16, ",
+					errlog("ERROR: arc fran nod %d till nodpos %d har neg kostn %I64d, andrar den till 1e16, ",
 						i, i1, length);
 					fprintf(stdout, "utnodcost %.3lf faktor %.3lf\n",
 						model->Noder[i].UtNodCost[i1], model->Dijkstra.FAKTOR_NATVERK);

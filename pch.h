@@ -140,6 +140,7 @@ struct strLegCommercial {
 
 struct strParams
 {
+	double tss_attractionDistance_km;
 	int useSimulering;
 	double simulationSpeed_kmh;
 	double userSimulation_maxWaveHeight;
@@ -449,6 +450,7 @@ struct strArcInfo
 };
 
 struct strChannel {
+	int include_tssTmp;
 	int straightArcFeasible_toChannelFromPrefPath;
 	int preferredPathPoint_posConnectTo;
 	int straightArcFeasible_fromChannelToPrefPath;
@@ -467,6 +469,7 @@ struct strChannel {
 	double kvotCost; // used to give discount on tss paths
 	double kvotMinCost;
 	double minCost;
+	int keepPrefPath_tss;
 
 	int ECA_type;
 	int followExactly;
@@ -512,6 +515,15 @@ struct strChannel {
 	double* distanceFromStart;
 	double* minCostOutLevel;
 
+	int nConnectTo;
+	int nAllocConnectTo;
+	int* connectTo_outLevel;
+	int* connectTo_outNode;
+	int nConnectFrom;
+	int nAllocConnectFrom;
+	int* connectFrom_outLevel;
+	int* connectFrom_outNode;
+
 	int nodDelay[2];
 	int nodDelay_prefPath[2];
 
@@ -531,6 +543,7 @@ struct strChannel {
 
 struct strNodeSeq
 {
+	int nOutNodesTot;
 	int nPoints;
 	spherical::Point *point;
 	double* point_x;
@@ -577,6 +590,7 @@ struct strNodeSeq
 
 struct strNetwork
 {
+	int* channelOrder;
 	int nPhysicalLevels;
 	strNodeSeq *physicalLev;
 	//int useLongitudeKvadrant[4];
@@ -946,9 +960,9 @@ struct strSimulering {
 
 struct strTables {
 	int nBasAlloc;
-	int nAllocTableTyp[7];
-	int nTableTyp[7];
-	strTableTyp* tableTyp[7]; // 0 wind, 1 wave, 2 stability, 3 bow slamming, 4 green water, 5 rolling, 6 surfRiding
+	int nAllocTableTyp[8];
+	int nTableTyp[8];
+	strTableTyp* tableTyp[8]; // 0 wind, 1 wave, 2, fuelFactorMain, 3 stability, 4 bow slamming, 5 green water, 6 rolling, 7 surfRiding
 };
 
 struct strSpeed {
@@ -995,6 +1009,7 @@ struct strFunc2 {
 	std::string waveTableID_orig;
 	std::string waveTableID;
 	std::string stabilityTableID;
+	std::string fuelFactorTableID;
 	std::string bowSlammingTableID;
 	std::string greenWaterTableID;
 	std::string rollingTableID;
@@ -1003,6 +1018,7 @@ struct strFunc2 {
 	int windTableNr;
 	int  waveTableNr;
 	int stabilityTableNr;
+	int fuelFactorTableNr;
 	//double maxWaveHeight;
 	//double maxWaveHeight_warning;
 	//double maxWindSpeed;
@@ -1075,6 +1091,7 @@ struct strFunc2 {
 	// weather factors
 	strFunkData windFactor;
 	strFunkData waveFactor;
+	strFunkData fuelFactorMain;
 
 	// safety
 	double iceCoverMaxFree;
@@ -1395,6 +1412,8 @@ struct strParamsAutoRoute {
 	std::string corridorsNameNew;
 	std::string corridorsName;
 
+	double tss_attractionDistance_km;
+
 	int nStartSlut;
 	strAltRutt* altRutt;
 	int nAltRutter;
@@ -1500,6 +1519,7 @@ struct strKaoutar {
 	char* windTableID;
 	char* waveTableID;
 	char* stabilityTableID;
+	char* fuelFactorTableID;
 	int nShip_speedSettingsBase;
 	double* rpmBase;
 	double* rpmSetting_gerCalmWaterSpeedBase;
@@ -1724,8 +1744,20 @@ struct strWaypointResults {
 	double yCoord;
 };
 
+struct strTempData {
+	int nMax_recursive_arcsLevels;
+	int* arr_fromLev;
+	int* arr_fromNode;
+	int* arr_fromPos;
+	int* arrBas_fromLev;
+	int* arrBas_fromNode;
+	int* arrBas_fromPos;
+	int* arr_cNr;
+};
+
 struct strModel
 {
+	strTempData temp_data;
 	char* nameTmp;
 	strWaypointResults waypointResult;
 	strWaypoint* waypoint;
@@ -1938,7 +1970,7 @@ double eval_baseGroundSpeed(double calmWaterSpeed, double bearing, double curren
 double lookup_speedDiffWindWaveTable(double rel_windSpeed, double rel_windDir, double waveHeight, double wavePeriod, double rel_waveDir);
 //double eval_fuelConsumption_main(int speedNr);
 //double eval_fuelConsumption_aux(int speedNr);
-double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed);
+double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLevel, int toLevel, int restrictedAreaNr, double calmWaterSpeed, double fuelFactorMain);
 
 double eval_relWindSpeed(double baseGroundSpeed, double bearing, double windDir, double windSpeed, double* rel_windDir);
 void eval_safety(int legNr, double iceCover);
@@ -1949,6 +1981,8 @@ int calcWeatherPosAlongChannel(int cNr);
 double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel, int restrictedAreaNr);
 double lookup_speedDiffWaveTable(double calmWaterSpeed, double waveHeight, double wavePeriod, double rel_waveDir);
 double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, double rel_windDir);
+double lookup_fuelFactorMainTable(double rel_windSpeed, double rel_windDir, double waveHeight, double rel_waveDir);
+
 
 int get_tableIndex(double value, strTableParam param, int alt = 0);
 int get_tableIndexDirection(double value, strTableParam param, int alt = 0);
@@ -2057,7 +2091,7 @@ void getRowColDblFromNoGoMap(Raster::strPhysRaster physicalMap, double lat1, dou
 int fixStormFiles(std::string inputPath);
 double get_nextKvotHeltal(double x, double xBas, double dx);
 int addAutoNodePath(int tssNr, double y, double x);
-int addArcsInOutFromPathNode(int nodNr, int tssNr, int prevNodNr, double distPrev);
+int addArcsInOutFromPathNode(int nodNr, int tssNr, int prevNodNr, double distPrev, int firstLastNode);
 double addAutoArcBetweenPaths(int path1, int posPath1, int path2, int posPath2);
 int checkAllocNode(int nodNr);
 int checkSameDir(double dY, double dX, double dY2, double dX2);
@@ -2066,7 +2100,7 @@ int evalSeaRoutePaths(std::string inputPath);
 int addSmallerCellsToCell(int pos, int i, int i1, int mustUse = 0);
 double getCostKvotFromBadKvots_feasibility(double y1, double x1, double y2, double x2, int includeCostFeasible = 1);
 int openNoGoAreas_local(int i, char* namn2);
-double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea = 0);
+double check_map_badKvot_auto(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap, int costArea = 0, double* yBad = NULL, double* xBad = NULL);
 void init_tmBas();
 int fixReportDateNew();
 int get_speedSettingBase(int arcNr);
@@ -2124,6 +2158,7 @@ int  loadDynamicStabilityTable(int tableNr);
 int  loadBowSlammingTable(int tableNr);
 int  loadGreenWaterTable(int tableNr);
 int loadWeatherFactorTableWave(int tableNr);
+int  loadFuelFactorMainTable(int tableNr);
 int getBastPhysLevelToConnectToChannel(int alt, int cNr);
 void addStatisticsSafety(int arcNr);
 
@@ -2147,6 +2182,15 @@ int testIntersect();
 double intersect_kvot(OGRLineString line, OGRPolygon* polygon);
 int determine_nSpeedSettingsToUse(int level1, int level2, int restrictedAreaNr);
 int get_restrictedAreaNr(int level1, int fromPointNr, int outNodePos, int level2 = -1, int toPointNr = -1);
+int addArcsSmallToEndNode(int yPos, int xPos, int level, int nodEnd, int pathNr, int firstLastNode);
+int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int pathNr, int firstLastNode);
+int find_first_intersect(OGRLineString line, OGRPolygon* polygon, double* yBad, double* xBad);
+
+int addChannelArcs(int cNr, int runAlt);
+int genArcsToEnd_delayed(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int tPos, int nSpeedSettings);
+int genArcsToEnd_delayed_prefPath(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int tPos);
+void SwapArray(int* Array, int a, int b);
+
 
 /*
 restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcNr].fromLevel, modelDelay.arc[arcNr].fromPointNr,
