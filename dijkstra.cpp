@@ -50,8 +50,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	}
 	if (maxCost > 0) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-		if (model->Dijkstra.FAKTOR_NATVERK > 1e10)
-			model->Dijkstra.FAKTOR_NATVERK = 1e10; // 0000;
+		if (model->Dijkstra.FAKTOR_NATVERK > 1e8)
+			model->Dijkstra.FAKTOR_NATVERK = 1e8; // 0000;
 		if (model->Dijkstra.FAKTOR_NATVERK < 1) {
 			printf("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
 			errlog("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
@@ -120,7 +120,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	}
 
 	//pek = fopen("checkDijkst.txt", "w");
-	checkMinnesAnvandning(__LINE__);
+	//checkMinnesAnvandning(__LINE__);
 
 	//	model->OmvandlDijkstraToNodeNr = (int*)calloc(model->nNoder, sizeof(int));
 	maxCost = 0;
@@ -305,6 +305,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	model->Dijkstra.cLevels = 0;
 	model->Dijkstra.logDelta = 0;
 	model->Dijkstra.doBFS = false;
+	//checkMinnesAnvandning(__LINE__);
 
 	model->Dijkstra.sp = new SP(model->Dijkstra.nNoder, model->Dijkstra.nodes,
 		model->Dijkstra.cLevels, model->Dijkstra.logDelta,

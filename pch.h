@@ -1562,7 +1562,34 @@ struct strIterKaoutar {
 
 };
 
+struct strLegRes {
+	double startTidPkt;
+	double slutTidPkt;
+	double channelCost;
+	double totObjCost;
+
+	double accumRPM;
+	double accumRPM_time;
+
+	double totWindF;
+	double totWaveF;
+	double totCurrentF;
+	double totDelayF;
+
+	double fuel_eca;
+	double fuel_noEca;
+	double fuel_aux;
+	double fuel_auxEca;
+	double distance;
+	double totWaitingTime;
+	int nCoords;
+	int nAllocCoords;
+	double* x;
+	double* y;
+
+};
 struct strResults {
+	strLegRes* leg;
 	double bowSlam_notAllowed;
 	double greenWater_notAllowed;
 	double rolling_notAllowed;
@@ -1953,6 +1980,8 @@ int testing(int a);
 
 int voyageOpt(std::string inputName, std::string resultName);
 int voyageOpt_fixPartSol(std::string inputPath, std::string resultName);
+int dump_weatherForecasts(std::string inputPath, std::string resultName);
+
 int generateDelayedFactors(std::string inputName, int node, int manad);
 int extractGribInfo(std::string inputPath);
 int exitKontrollerat(int codeLine, int callType = 1);
@@ -2191,6 +2220,7 @@ int genArcsToEnd_delayed(int thisLevel, int pos1, int nextLevel, int pos2, int i
 int genArcsToEnd_delayed_prefPath(int thisLevel, int pos1, int nextLevel, int pos2, int i2b, int tPos);
 void SwapArray(int* Array, int a, int b);
 
+int check_realloc_coords(int nUsed);
 
 /*
 restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcNr].fromLevel, modelDelay.arc[arcNr].fromPointNr,

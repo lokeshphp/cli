@@ -1357,12 +1357,18 @@ int writeSolutionToJson_delay(int node, int alt, int yearPos, int startPos)
 				y1 = model.network.physicalLev[model.arc[arcNr].fromLevel].point_y[model.arc[arcNr].fromPointNr];
 				model.network.xCoord[model.network.nCoords] = x1;
 				model.network.yCoord[model.network.nCoords] = y1;
+				model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+				model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+				(model.results.leg[legNr].nCoords)++;
 				(model.network.nCoords)++;
 			}
 			x1 = model.network.physicalLev[model.arc[arcNr].toLevel].point_x[model.arc[arcNr].toPointNr];
 			y1 = model.network.physicalLev[model.arc[arcNr].toLevel].point_y[model.arc[arcNr].toPointNr];
 			model.network.xCoord[model.network.nCoords] = x1;
 			model.network.yCoord[model.network.nCoords] = y1;
+			model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+			model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+			(model.results.leg[legNr].nCoords)++;
 			(model.network.nCoords)++;
 		}
 

@@ -462,6 +462,9 @@ int call_api_corridors(std::string inputPath) {
 //				  if XX < 0 then evaluate already optimized solutions against a specific weather
 //							-1 (standard forecast - redis), -2 (real historical/hindCast weather), 
 
+// --forecast=10000 ger dump forecast values for given dates and points
+//            --input=data\test_kaoutar.json --output=data/forecastTest/res_kaoutar.json --forecast=10000
+
 int main(int argc, char* argv[])
 {
 	string dataName, inputPath, outputPath, weatherPath, pathUse;
@@ -666,10 +669,10 @@ int main(int argc, char* argv[])
 			if (runAltForecast == 0)
 				retVal = voyageOpt(inputPath, outputPath);
 			else {
-				//if (runAltForecast > 0)
-				retVal = voyageOpt_fixPartSol(inputPath, outputPath);
-				//else
-				//	voyageEval_fixSol(inputPath, outputPath);
+				if (runAltForecast != 10000)
+					retVal = voyageOpt_fixPartSol(inputPath, outputPath);
+				else
+					retVal = dump_weatherForecasts(inputPath, outputPath);
 			}
 		}
 

@@ -89,6 +89,7 @@ bool check_file_exist(char* name) {
 void 	initModelStatusValues() {
 	model.status.weatherHistoryOpenFile_fail = 0;
 	model.functions.valuesNow.deltaArcStart = 0;
+	model.results.leg = NULL;
 }
 
 std::string splitFilename(std::string namn, int alt) {
@@ -1139,24 +1140,70 @@ int genSplitsArcNew(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 }
 */
 
+int check_realloc_coords(int nUsed) {
+	int legNr;
+
+	if (nUsed == -1) {
+		model.network.nAllocCoords = 500;
+		model.network.xCoord = (double*)malloc2(model.network.nAllocCoords * sizeof(double));
+		model.network.yCoord = (double*)malloc2(model.network.nAllocCoords * sizeof(double));
+		//if (model.results.leg == NULL) {
+			model.results.leg = (strLegRes*)malloc(model.params.nLegs * sizeof(strLegRes));
+			for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+				model.results.leg[legNr].nAllocCoords = 100;
+				model.results.leg[legNr].nCoords = 0;
+				model.results.leg[legNr].x = (double*)malloc(model.results.leg[legNr].nAllocCoords * sizeof(double));
+				model.results.leg[legNr].y = (double*)malloc(model.results.leg[legNr].nAllocCoords * sizeof(double));
+			}
+		//}
+		//else {
+		//	for (legNr = 0; model.params.nLegs; legNr++) {
+		//		model.results.leg[legNr].x = (double*)malloc(model.network.nAllocCoords * sizeof(double));
+		//		model.results.leg[legNr].y = (double*)malloc(model.network.nAllocCoords * sizeof(double));
+		//	}
+		//}
+	}
+	else {
+
+		if (nUsed + 500 >= model.network.nAllocCoords) {
+			if(nUsed < model.network.nAllocCoords)
+				model.network.nAllocCoords += 500;
+			else
+				model.network.nAllocCoords = nUsed + 500;
+			model.network.xCoord = (double*)realloc(model.network.xCoord, model.network.nAllocCoords * sizeof(double));
+			model.network.yCoord = (double*)realloc(model.network.yCoord, model.network.nAllocCoords * sizeof(double));
+			for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+				model.results.leg[legNr].x = (double*)realloc(model.results.leg[legNr].x, model.network.nAllocCoords * sizeof(double));
+				model.results.leg[legNr].y = (double*)realloc(model.results.leg[legNr].y, model.network.nAllocCoords * sizeof(double));
+			}
+		}
+	}
+
+	return 0;
+}
+
+
 int addCoordsToPath(int arcNr, spherical::Point p1, spherical::Point p2, int prefPath) {
 	double distNu, wantedDist, kvot;
-	int i3b;
+	int i3b, legNr;
 	int i, cNr, level, ii, startPos, endPos;
 	spherical::Point p3, pointLast;
 	double x, y, bearing, distTmp, calmWaterSpeed, distBas;
 	double distLastSplit, distArc = model.arc[arcNr].distance * 1000.0, distTot = 0;
 
-	if (model.network.nCoords + 500 >= model.network.nAllocCoords) {
-		model.network.nAllocCoords += 500;
-		model.network.xCoord = (double*)realloc(model.network.xCoord, model.network.nAllocCoords * sizeof(double));
-		model.network.yCoord = (double*)realloc(model.network.yCoord, model.network.nAllocCoords * sizeof(double));
-	}
+	check_realloc_coords(model.network.nCoords);
 
+	if (model.arc[arcNr].fromLevel >= 0)
+		legNr = model.network.physicalLev[model.arc[arcNr].fromLevel].legNr;
+	else
+		legNr = model.network.channel[-model.arc[arcNr].fromLevel - 1].legNr;
 
 	if (prefPath == 1) {
 		model.network.yCoord[model.network.nCoords] = p1.latitude().degrees();
 		model.network.xCoord[model.network.nCoords] = p1.longitude().degrees();
+		model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+		model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+		(model.results.leg[legNr].nCoords)++;
 		(model.network.nCoords)++;
 		pointLast = p1;
 
@@ -1183,6 +1230,9 @@ int addCoordsToPath(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 		for (int i3 = startPos; i3 < endPos; i3++) {
 			model.network.yCoord[model.network.nCoords] = model.network.physicalLev[level].preferredPathPoint[i3].latitude().degrees();
 			model.network.xCoord[model.network.nCoords] = model.network.physicalLev[level].preferredPathPoint[i3].longitude().degrees();
+			model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+			model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+			(model.results.leg[legNr].nCoords)++;
 			(model.network.nCoords)++;
 		}
 		return 0;
@@ -1195,6 +1245,9 @@ int addCoordsToPath(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 			if (i < model.network.channel[cNr].nPoints - 1) {
 				model.network.yCoord[model.network.nCoords] = model.network.channel[cNr].point[i].latitude().degrees();
 				model.network.xCoord[model.network.nCoords] = model.network.channel[cNr].point[i].longitude().degrees();
+				model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+				model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+				(model.results.leg[legNr].nCoords)++;
 				(model.network.nCoords)++;
 			}
 		}
@@ -1206,6 +1259,9 @@ int addCoordsToPath(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 	y = p1.latitude().degrees();
 	model.network.xCoord[model.network.nCoords] = x;
 	model.network.yCoord[model.network.nCoords] = y;
+	model.results.leg[legNr].y[model.results.leg[legNr].nCoords] = model.network.yCoord[model.network.nCoords];
+	model.results.leg[legNr].x[model.results.leg[legNr].nCoords] = model.network.xCoord[model.network.nCoords];
+	(model.results.leg[legNr].nCoords)++;
 	(model.network.nCoords)++;
 	return 0;
 
@@ -5141,11 +5197,7 @@ int load_tss_optiNav()
 		}
 		coords = geom["coordinates"];
 
-		if (coords.size() > model.network.nAllocCoords) {
-			model.network.nAllocCoords = coords.size() + 10;
-			model.network.xCoord = (double*)realloc(model.network.xCoord, model.network.nAllocCoords * sizeof(double));
-			model.network.yCoord = (double*)realloc(model.network.yCoord, model.network.nAllocCoords * sizeof(double));
-		}
+		check_realloc_coords(coords.size());
 
 		initBoundingBox(&(model.network.boundingbox));
 
