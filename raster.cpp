@@ -1175,7 +1175,7 @@ public:
 
 		if (strcmp(GDALGetDataTypeName(poBand->GetRasterDataType()), "Byte") != 0) {
 			printf("### ERROR! data type is %s but must be Byte or the speed reading of the raster map won't work\n", GDALGetDataTypeName(poBand->GetRasterDataType()));
-			return NULL;
+			return 0;
 		}
 
 		poBand->GetBlockSize(&pnXSize, &pnYSize);
@@ -3295,55 +3295,5 @@ public:
 
 
 
-class Raster2 {
-
-private: // NOTE: "private" keyword is redundant here.  
-		 // we place it here for emphasis. Because these
-		 // variables are declared outside of "public", 
-		 // they are private. 
-
-	const char* filename;        // name of Geotiff
-	GDALDataset *rasterDataset; // Geotiff GDAL datset object. 
-	double geotransform[6];      // 6-element geotranform array.
-	int dimensions[3];           // X,Y, and Z dimensions. 
-	int NROWS, NCOLS, NLEVELS;     // dimensions of data in Geotiff. 
-	double min_lat, min_lon, size_row, size_col;
-
-public:
-
-	// define constructor function to instantiate object
-	// of this Raster class. 
-	Raster2() {
-		GDALAllRegister();
-	}
-
-	Raster2 open(const char* tiffname) {
-		filename = tiffname;
-
-		// set pointer to Geotiff dataset as class member.  
-		rasterDataset = (GDALDataset*)GDALOpen(filename, GA_ReadOnly);
-
-		// set the dimensions of the Geotiff 
-		NROWS = GDALGetRasterYSize(rasterDataset);
-		NCOLS = GDALGetRasterXSize(rasterDataset);
-		NLEVELS = GDALGetRasterCount(rasterDataset);
-		rasterDataset->GetGeoTransform(geotransform);
-		min_lat = geotransform[3] + geotransform[5] * NROWS;
-		min_lon = geotransform[0];
-		size_row = -geotransform[5];
-		if (size_row > 0)
-			errlog("ERROR! size_row is negative for raster, ie a new definition of the size. Fix the raster or change the code!!!\n");
-		size_col = geotransform[1];
-	}
-
-	// define destructor function to close dataset, 
-	// for when object goes out of scope or is removed
-	// from memory. 
-	~Raster2() {
-		// close the Geotiff dataset, free memory for array.  
-		GDALClose(rasterDataset);
-		GDALDestroyDriverManager();
-	}
-};
 
 #endif //RASTER_CPP

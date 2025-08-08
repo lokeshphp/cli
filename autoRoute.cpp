@@ -1160,7 +1160,7 @@ int load_autoCorridors(int alt)
 		model.nAutoCorridors = 0;
 		return 0;
 	}
-	printf("opens %s\n", namn);
+	printf("opens %s", namn);
 	fil.open(namn);
 
 	int nAutoCorridors, pos2, useCorridor;
@@ -1176,6 +1176,7 @@ int load_autoCorridors(int alt)
 		return 0;
 	}
 	fil.close();
+	printf("..");
 
 	if (data["Data"].is_null()) {
 		postRequest("ERROR! no data in corridors file. I continue without corridors.", 0);
@@ -1268,6 +1269,7 @@ int load_autoCorridors(int alt)
 	}
 	model.nAutoCorridors = nAutoCorridors;
 	free(namn);
+	printf("done\n");
 
 	return 0;
 }
@@ -2896,8 +2898,12 @@ int writeAllAutoNodesToGeojson(int iter)
 	namn = (char*)malloc2(256 * sizeof(char));
 	sprintf(namn, "%s/autoNodesBig_%d.geojson", model.params.indataPath.c_str(), iter);
 	filpekG = fopen(namn, "w");
+	if (filpekG == NULL)
+		printf("ERROR! Failed to open %s\n", namn);
 	initGeoJsonFil(filpekG, "allPhysicalNodesBig");
 
+	if (SKRIV_UT_NOTHING == 0)
+		printf("i writeAllAutoNodesToGeojson, efter init\n");
 	int i, i1, pos = 0, level, small;
 	double x, y, xNy, yNy;
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
@@ -2918,6 +2924,9 @@ int writeAllAutoNodesToGeojson(int iter)
 	}
 	fprintf(filpekG, "]}\n");
 	fclose(filpekG);
+
+	if (SKRIV_UT_NOTHING == 0)
+		printf("i writeAllAutoNodesToGeojson, innan autoNodesSmall_\n");
 
 	sprintf(namn, "%s/autoNodesSmall_%d.geojson", model.params.indataPath.c_str(), iter);
 	filpekG = fopen(namn, "w");
@@ -3093,6 +3102,9 @@ int addArcs_tss() {
 	int i, i1, pathNr = 0, nAlloc, firstTraff;
 	double x1 = -1, y1 = -1, x2, y2;
 
+	if (SKRIV_UT_NOTHING == 0)
+		printf("addArcs_tss..");
+
 	nAlloc = model.nTss + model.nAutoCorridors + model.paramsAutoRoute.nStartSlut + model.paramsAutoRoute.nCorridors_noGoSoft - 1;
 	model.autoPath = (strAutoPath*)malloc(nAlloc * sizeof(strAutoPath));
 
@@ -3133,6 +3145,8 @@ int addArcs_tss() {
 		pathNr++;
 	}
 	model.nAutoPaths = pathNr;
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done nAutoPaths %d\n", pathNr);
 
 	return 0;
 }
@@ -8382,22 +8396,38 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 	addArcs_tss();
 	checkMinnesAnvandning(__LINE__);
 	addArcs_corridors();
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with addArcs_corridors\n");
 	addArcs_corridors_noGoSoft();
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with addArcs_corridors_noGoSoft\n");
 	checkMinnesAnvandning(__LINE__);
 	addArcs_viaPaths(ii0);
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with addArcs_viaPaths\n");
 	addArcs_betweenPaths();
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with addArcs_betweenPaths\n");
 	addArcs_betweenPaths_bast();
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with addArcs_betweenPaths_bast\n");
 	checkMinnesAnvandning(__LINE__);
 
-	int saveNodes = 1;
+	int saveNodes = 0;
+	if (SKRIV_UT_NOTHING == 0)
+		saveNodes = 1;
 	if (saveNodes == 1)
 		writeAllAutoNodesToGeojson(1);
 
-	int saveArcs = 1;
-	if (saveArcs == 1)
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done with writeAllAutoNodesToGeojson\n");
+	int saveArcs = 0;
+	if (SKRIV_UT_NOTHING == 0 && saveArcs == 1)
 		writeAllAutoArcsToGeojson(1);
 	checkMinnesAnvandning(__LINE__);
 
+	if (SKRIV_UT_NOTHING == 0)
+		printf("done saving nodes and maybe arcs\n");
 	model.Dijkstra.nodes = NULL;
 	for (int iter = 0; iter < nMAX_ITER; iter++) {
 
@@ -8405,6 +8435,8 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 		checkMinnesAnvandning(__LINE__);
 		SattUppDijkstraNatverk3(&model);
 		checkMinnesAnvandning(__LINE__);
+		if (SKRIV_UT_NOTHING == 0)
+			printf("done SattUppDijkstraNatverk3 iter %d\n", iter);
 
 		nod1 = model.autoRoute_startNod;
 		nod2 = model.autoRoute_endNod;
@@ -8452,8 +8484,12 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 			// writeAllPathArcsToGeojson();
 
 		}
+		if (SKRIV_UT_NOTHING == 0)
+			printf("iter %d done\n", iter);
 	}
 	nActualIter++;
+	if (SKRIV_UT_NOTHING == 0)
+		printf("before final writeSolutionToJson_autoRoute_alternatives\n");
 
 	writeSolutionToJson_autoRoute_alternatives(resultName, 1);
 

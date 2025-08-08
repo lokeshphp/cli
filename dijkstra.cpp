@@ -1,6 +1,6 @@
 #include "pch.h"
 
-long long MAXVARDE_NATVERK = 10000000000000000; // 100000000000;
+long long MAXVARDE_NATVERK = 100000000000000; // 100000000000;
 int skrivUtWarning = 0;
 
 
@@ -50,13 +50,14 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	}
 	if (maxCost > 0) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-		if (model->Dijkstra.FAKTOR_NATVERK > 1e8)
-			model->Dijkstra.FAKTOR_NATVERK = 1e8; // 0000;
+		if (model->Dijkstra.FAKTOR_NATVERK > 1e3)
+			model->Dijkstra.FAKTOR_NATVERK = 1e3; // 0000;
 		if (model->Dijkstra.FAKTOR_NATVERK < 1) {
 			printf("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
 			errlog("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
 			model->Dijkstra.FAKTOR_NATVERK = 1;
 		}
+		//model->Dijkstra.FAKTOR_NATVERK = 1e10;
 	}
 
 	//errlog("MaxCost in network is %lf which gives FAKTOR_NATVERK %lf.\n MinCost is %.2lf\n",
@@ -74,9 +75,9 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	/* allocating memory for  'nodes', 'arcs'  and internal arrays */
 	nodes = (Node*)calloc(n + 2, sizeof(Node));
 	if (nodes == NULL) printf("Ups1\n");
-	arcs = (Arc2*)calloc(m + 1, sizeof(Arc2));
+	arcs = (Arc2*)calloc(m + 2, sizeof(Arc2));
 	if (arcs == NULL) printf("Ups12\n");
-	arc_tail = (long*)calloc(m, sizeof(long));
+	arc_tail = (long*)calloc(m + 1, sizeof(long));
 	if (arc_tail == NULL) printf("Ups13\n");
 	arc_first = (long*)calloc(n + 2, sizeof(long));
 	if (arc_first == NULL) printf("Ups14\n");
@@ -88,7 +89,7 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	{
 		printf("Need %lld bytes for data and %lld bytes temp. data\n",
 			((long long)(n + 2)) * ((long long)sizeof(Node)) +
-			((long long)(m + 1)) * ((long long)sizeof(Arc2)),
+			((long long)(m + 2)) * ((long long)sizeof(Arc2)),
 			((long long)(n + m + 2)) * ((long long)sizeof(long)));
 		printf("n %d, m %d storl Node %d, storl Arc2 %d, storl long %d\n",
 			n, m, sizeof(Node), sizeof(Arc2), sizeof(long));
@@ -123,8 +124,10 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	//checkMinnesAnvandning(__LINE__);
 
 	//	model->OmvandlDijkstraToNodeNr = (int*)calloc(model->nNoder, sizeof(int));
-	maxCost = 0;
+	maxCost = 0; 
 	minCost = 1e30;
+	long lastHead, lastTail;
+	long long lastLength = -100;
 	for (i = 0; i < model->nNoder; i++) {
 		if (i == 779)
 			i = i;
@@ -180,6 +183,10 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				arc_current->head = nodes + head;
 				arc_current->len = length;
 
+				lastTail = tail;
+				lastHead = head;
+				lastLength = length;
+
 				if (length > maxCost)
 					maxCost = length;
 				if (length < minCost)
@@ -200,6 +207,29 @@ int SattUppDijkstraNatverk3(strModel* model) {
 			}
 		}
 	}
+
+	if (lastLength > -1) {
+		lastLength = length;
+		arc_first[lastTail + 1]++; /* no of arcs outgoing from tail
+								is stored in arc_first[tail+1] */
+
+								/* storing information about the arc */
+		arc_tail[nBagarNatv] = lastTail;
+		arc_current->head = nodes + lastHead;
+		arc_current->len = length * 2.5 + 10;
+
+		if (length > maxCost)
+			maxCost = length;
+		if (length < minCost)
+			minCost = length;
+
+		nBagarNatv++;
+		arc_current++;
+	}
+	else {
+		errlog("ERROR! No arcs in network");
+	}
+
 
 	(nodes + node_min)->first = arcs;
 

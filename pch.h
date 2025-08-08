@@ -985,15 +985,16 @@ struct strClosePoints {
 
 struct strFunc2 {
 	double timeNextWayPoint;
+	int* nSpeedSettingsDelay;
 
 	int nShip_speedSettingsBase;
 	double* rpmSetting_gerCalmWaterSpeedBase;
 	double* rpmSetting_gerFuelConsumption_mainBase;
 	double* rpmSetting_gerFuelConsumption_auxBase;
 	// int* nShip_speedSettingsDelay;
-	double* rpmSetting_gerCalmWaterSpeedDelay;
-	double* rpmSetting_gerFuelConsumption_mainDelay;
-	double* rpmSetting_gerFuelConsumption_auxDelay;
+	double** rpmSetting_gerCalmWaterSpeedDelay;
+	double** rpmSetting_gerFuelConsumption_mainDelay;
+	double** rpmSetting_gerFuelConsumption_auxDelay;
 	int speedSetting95MCR_base;
 	int* speedSetting95MCR_use;
 
@@ -2067,7 +2068,7 @@ int addBagar_AB_speedSTid(int thisLevel, int pos1, int nextLevel, int pos2, int 
 int addPositionDataToReport(FILE* filpekG, int *posReport, int arcNr, int startSlutArc, double* timeExact, std::string solName, int useFixCalmWaterSpeed = 0, int iter = 0);
 double getCorrect_longitude(double x);
 void fixPositionString_latLon(double y, double x, char* namn);
-int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0);
+int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver = -1, double kvot = 0, int legNr = 0);
 long long getSecondsFromUTC(const char* time);
 
 int testCallWeatherFile();

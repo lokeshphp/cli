@@ -530,7 +530,7 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 //#endif
    FILE *FilPek = NULL; // , *filcheck;
 
-//   filcheck = fopen("checkSP.txt", "w");
+   //FILE* filcheck = fopen("checkSP.txt", "w");
 
 	sp->curTime++;
 	tmStamp = sp->curTime;
@@ -570,11 +570,13 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 		if (F->IsEmpty()) {
 			currentNode = RemoveMin();
 			if (currentNode == NULL) {
-				//		   fprintf(filcheck, "fran IsEmpty %d\n",
-				//			   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
+						   //fprintf(filcheck, "fran IsEmpty currentNode == NULL\n");
 				assert(F->IsEmpty());
 				break;
 			}
+			//fprintf(filcheck, "fran IsEmpty %d nodCost %I64d\n",
+			//	(int)(model.Dijkstra.sp->nodeId(currentNode) + model.Dijkstra.node_min - 1),
+			//	currentNode->dist);
 
 			if (source != sink){
 				// check if done
@@ -586,8 +588,9 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 		}
 		else {
 			currentNode = (Node *) F->Pop();
-			//	   fprintf(filcheck, "fran Pop %d\n",
-			//		   (int)(model->Dijkstra->sp->nodeId(currentNode) + model->Dijkstra->node_min - 1));
+			//fprintf(filcheck, "fran Pop %d nodCost %I64d\n",
+			//	(int)(model.Dijkstra.sp->nodeId(currentNode) + model.Dijkstra.node_min - 1),
+			//	currentNode->dist);
 
 			if (source != sink){
 				// check if done
@@ -660,6 +663,9 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 					fprintf(stdout, "franNodcost %I64d, dist %I64d (tot %I64d), tillnodCost %I64d\n",
 						currentNode->dist, arc->len, (currentNode->dist + arc->len),
 						newNode->dist);
+					//fflush(filcheck);
+					postRequest("Failed in Dijkstras alg, bucket error", 0);
+
 				}
 				assert(newNode->where != IN_SCANNED);
 				bckOld = BUCKET(newNode);       // NULL if node not in a bucket
@@ -671,9 +677,9 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 #ifndef MLB
 			   if (newNode->dist <= mu + CALIBER(newNode)) {
 					// the node must go to F
-					//		   fprintf(filcheck, "newNode %d till F caliber %d\n",
-					//			   (int)(model->Dijkstra->sp->nodeId(newNode) + model->Dijkstra->node_min - 1),
-					//			   (newNode)->sBckInfo.caliber);
+							   //fprintf(filcheck, "TO F newNode %d cost %I64d mu %I64d caliber %I64d\n",
+								//   (int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1),
+								 //  newNode->dist, mu, (newNode)->sBckInfo.caliber);
 					if (InBucket(newNode)) {
 						Delete(newNode, bckOld);
 					}
@@ -695,6 +701,8 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 				}
 				else {
 #endif
+				   if ((int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1) == 1878)
+					   printf("har nu\n");
 					// relocate the node in B if needed
 					bckNew = DistToBucket(&(newNode->dist),
 					DistToLevel(&(newNode->dist)));
@@ -713,6 +721,30 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 
 						if ( InBucket(newNode) ) {        // a move, not an insert
 							Delete(newNode, bckOld);
+							//fprintf(filcheck, "MOVE IN B newNode %d from %d %d %d cost %I64d mu %I64d caliber %I64d\n",
+							//	(int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1),
+							//	bckOld->pLevel->cNodes, bckOld->pLevel->digMask, bckOld->pLevel->digShift,
+							//	newNode->dist, mu, (newNode)->sBckInfo.caliber);
+							//if (bckOld->pNode != NULL)
+							//	fprintf(filcheck, "   position pointing to node %d cost %I64d\n",
+							//		(int)(model.Dijkstra.sp->nodeId(bckOld->pNode) + model.Dijkstra.node_min - 1),
+							//		bckOld->pNode->dist);
+							//fprintf(filcheck, "   to %d %d %d\n",
+							//	bckNew->pLevel->cNodes, bckNew->pLevel->digMask, bckNew->pLevel->digShift);
+							//if (bckNew->pNode != NULL)
+							//	fprintf(filcheck, "   position pointing to node %d cost %I64d\n",
+							//		(int)(model.Dijkstra.sp->nodeId(bckNew->pNode) + model.Dijkstra.node_min - 1),
+							//		bckNew->pNode->dist);
+						}
+						else {
+							//fprintf(filcheck, "ADD TO B newNode %d at %d %d %d cost %I64d mu %I64d caliber %I64d\n",
+							//	(int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1),
+							//	bckNew->pLevel->cNodes, bckNew->pLevel->digMask, bckNew->pLevel->digShift,
+							//	newNode->dist, mu, (newNode)->sBckInfo.caliber);
+							//if(bckNew->pNode != NULL)
+							//	fprintf(filcheck, "   position pointing to node %d cost %I64d\n",
+							//		(int)(model.Dijkstra.sp->nodeId(bckNew->pNode) + model.Dijkstra.node_min - 1),
+							//		bckNew->pNode->dist);
 						}
 						Insert(newNode, bckNew);
 						sp->cUpdates++;
@@ -723,6 +755,7 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 			}
 		}
    } while (1);
+   //fclose(filcheck);
 
      if (source != sink){
 //#ifdef SINGLE_PAIR

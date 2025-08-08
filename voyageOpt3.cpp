@@ -1143,7 +1143,8 @@ int genSplitsArcNew(int arcNr, spherical::Point p1, spherical::Point p2, int pre
 int check_realloc_coords(int nUsed) {
 	int legNr;
 
-	if (nUsed == -1) {
+	//	if (nUsed == -1) {
+	if(model.results.leg == NULL){
 		model.network.nAllocCoords = 500;
 		model.network.xCoord = (double*)malloc2(model.network.nAllocCoords * sizeof(double));
 		model.network.yCoord = (double*)malloc2(model.network.nAllocCoords * sizeof(double));
@@ -2498,6 +2499,8 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 
 
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i == 164)
+			i = i;
 		posMid = (int)model.network.physicalLev[i].nPoints / 2;
 
 		x1 = model.network.physicalLev[i].point_x[posMid];
@@ -2538,6 +2541,8 @@ int getBastPhysLevelToConnectToChannel(int alt, int cNr) {
 			model.network.channel[cNr].bastStartLevel = -1;
 		else
 			model.network.channel[cNr].bastEndLevel = -1;
+		model.network.channel[cNr].legNr = 0;
+
 		printf("ERROR! Could not find a connection to corridor %d alt %d. bast %d bast2 %d\n", cNr, alt, bast, bast2);
 		errlog("ERROR! Could not find a connection to corridor %d alt %d. bast %d bast2 %d\n", cNr, alt, bast, bast2);
 		return -1;
@@ -4034,17 +4039,18 @@ int checkChannels() {
 		model.network.channel[cNr].outLevel = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 
+		model.network.channel[cNr].nConnectTo = 0;
+		model.network.channel[cNr].nAllocConnectTo = 100;
+		model.network.channel[cNr].connectTo_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+		model.network.channel[cNr].connectTo_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
+		model.network.channel[cNr].nConnectFrom = 0;
+		model.network.channel[cNr].nAllocConnectFrom = 100;
+		model.network.channel[cNr].connectFrom_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
+		model.network.channel[cNr].connectFrom_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
+
+
 		if (model.network.channel[cNr].type == 1) {
 			// tss
-			model.network.channel[cNr].nConnectTo = 0;
-			model.network.channel[cNr].nAllocConnectTo = 100;
-			model.network.channel[cNr].connectTo_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
-			model.network.channel[cNr].connectTo_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
-			model.network.channel[cNr].nConnectFrom = 0;
-			model.network.channel[cNr].nAllocConnectFrom = 100;
-			model.network.channel[cNr].connectFrom_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
-			model.network.channel[cNr].connectFrom_outNode = (int*)malloc(model.network.channel[cNr].nAllocConnectFrom * sizeof(int));
-
 			continue; // only normal channels need to be checked, not tss 
 		}
 
@@ -4065,7 +4071,7 @@ int checkChannels() {
 				model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0]);
 			errlog("ERROR! Corridor %d, startpoint %.3lf %.3lf does not give a position in the physical network\n", cNr,
 				model.network.channel[cNr].point_x[0], model.network.channel[cNr].point_y[0]);
-			continue;
+			//continue;
 		}
 
 		// validate start and end node as valid in feasible network
@@ -4842,7 +4848,8 @@ int check_if_include_tss(int* order, int i, int nC) {
 }
 
 int sortChannelsInOrder(int* order, int nC) {
-	int i, cNr = model.network.nChannels, include_tss;
+	int i, include_tss;
+	int cNr = model.network.nChannels;
 
 	if (nC + model.network.nChannels > model.network.nAllocChannels) {
 		model.network.nAllocChannels = nC + model.network.nChannels;
@@ -5034,10 +5041,10 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 
 	int pos0 = getBastPhysLevelToConnectToChannel_tss(0, cNr);
 	if (pos0 < 0)
-		return 0; // not an interesting tss
+		return -1; // not an interesting tss
 	int pos1 = getBastPhysLevelToConnectToChannel_tss(1, cNr);
 	if (pos1 < 0)
-		return 0; // not an interesting tss
+		return -1; // not an interesting tss
 
 	if (pos1 <= pos0)
 		pos0 = pos0;
@@ -6278,8 +6285,8 @@ int loadWeights_leg(strParams* params, int legNr, json dataObj) {
 			//if (dataIt2["useWeight"] == 1)
 				params->legWeights[legNr].weightSafety.iceCoverCost_fix = dataIt2["weight"];
 		}
-		if (!data3["iceCoverCost_thickness"].is_null()) {
-			dataIt2 = data3["iceCoverCost_thickness"];
+		if (!data3["iceCoverCost_thickness_m"].is_null()) {
+			dataIt2 = data3["iceCoverCost_thickness_m"];
 			//if (dataIt2["useWeight"] == 1)
 				params->legWeights[legNr].weightSafety.iceCoverCost_thickness = dataIt2["weight"];
 		}
@@ -7686,7 +7693,7 @@ void getBastConsumptionPos(int nSettings, double target, int* indexUnder, int* i
 	//	*indexUnder, *indexOver, *kvot);
 }
 
-int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver, double kvot) {
+int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver, double kvot, int legNr) {
 	if (iOver == -1) {
 		if (speedSetting != NULL) {
 			speedSetting->rpm[i] = model.functions.rpmBase[iUse];
@@ -7696,9 +7703,9 @@ int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver
 			speedSetting->settingGerBaseSetting[i] = iUse;
 		}
 		else {
-			model.functions.rpmSetting_gerCalmWaterSpeedDelay[i] = model.functions.rpmSetting_gerCalmWaterSpeedBase[iUse];
-			model.functions.rpmSetting_gerFuelConsumption_mainDelay[i] = model.functions.rpmSetting_gerFuelConsumption_mainBase[iUse];
-			model.functions.rpmSetting_gerFuelConsumption_auxDelay[i] = model.functions.rpmSetting_gerFuelConsumption_auxBase[iUse];
+			model.functions.rpmSetting_gerCalmWaterSpeedDelay[legNr][i] = model.functions.rpmSetting_gerCalmWaterSpeedBase[iUse];
+			model.functions.rpmSetting_gerFuelConsumption_mainDelay[legNr][i] = model.functions.rpmSetting_gerFuelConsumption_mainBase[iUse];
+			model.functions.rpmSetting_gerFuelConsumption_auxDelay[legNr][i] = model.functions.rpmSetting_gerFuelConsumption_auxBase[iUse];
 		}
 	}
 	else {
@@ -7713,9 +7720,9 @@ int set_speedSettingsFromBase(strSpeed* speedSetting, int i, int iUse, int iOver
 				speedSetting->settingGerBaseSetting[i] = iOver;
 		}
 		else {
-			model.functions.rpmSetting_gerCalmWaterSpeedDelay[i] = model.functions.rpmSetting_gerCalmWaterSpeedBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerCalmWaterSpeedBase[iOver] * kvot;
-			model.functions.rpmSetting_gerFuelConsumption_mainDelay[i] = model.functions.rpmSetting_gerFuelConsumption_mainBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerFuelConsumption_mainBase[iOver] * kvot;
-			model.functions.rpmSetting_gerFuelConsumption_auxDelay[i] = model.functions.rpmSetting_gerFuelConsumption_auxBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerFuelConsumption_auxBase[iOver] * kvot;
+			model.functions.rpmSetting_gerCalmWaterSpeedDelay[legNr][i] = model.functions.rpmSetting_gerCalmWaterSpeedBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerCalmWaterSpeedBase[iOver] * kvot;
+			model.functions.rpmSetting_gerFuelConsumption_mainDelay[legNr][i] = model.functions.rpmSetting_gerFuelConsumption_mainBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerFuelConsumption_mainBase[iOver] * kvot;
+			model.functions.rpmSetting_gerFuelConsumption_auxDelay[legNr][i] = model.functions.rpmSetting_gerFuelConsumption_auxBase[iUse] * (1 - kvot) + model.functions.rpmSetting_gerFuelConsumption_auxBase[iOver] * kvot;
 		}
 	}
 	return 0;
@@ -7781,16 +7788,23 @@ int getNextTraff_speedPos(int lastKvotTraff, int minPos, int maxPos, double minS
 }
 
 void setupUsableSpeedSettings() {
-	int *nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver, i1;
+	int *nAlloc, minPos = 0, maxPos = 0, midPos, add95, iUse, i, indexUnder, indexOver = -1, i1;
 	int nextTraff, legNr;
 	double min_rpm, max_rpm, midVal, diff, min_diff, delta, target, kvot;
 
 	model.functions.speedLevel = (strSpeed*)malloc2(model.network.nPhysicalLevels * sizeof(strSpeed));
 	model.functions.speedChannel = (strSpeed*)malloc2(model.network.nChannels * sizeof(strSpeed));
 	model.functions.speedChannelOut = (strSpeed*)malloc2(model.network.nChannels * sizeof(strSpeed));
-	model.functions.rpmSetting_gerCalmWaterSpeedDelay = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
-	model.functions.rpmSetting_gerFuelConsumption_mainDelay = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
-	model.functions.rpmSetting_gerFuelConsumption_auxDelay = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
+
+	model.functions.rpmSetting_gerCalmWaterSpeedDelay = (double**)malloc(model.params.nLegs * sizeof(double*));
+	model.functions.rpmSetting_gerFuelConsumption_mainDelay = (double**)malloc(model.params.nLegs * sizeof(double*));
+	model.functions.rpmSetting_gerFuelConsumption_auxDelay = (double**)malloc(model.params.nLegs * sizeof(double*));
+	for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+		model.functions.rpmSetting_gerCalmWaterSpeedDelay[legNr] = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
+		model.functions.rpmSetting_gerFuelConsumption_mainDelay[legNr] = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
+		model.functions.rpmSetting_gerFuelConsumption_auxDelay[legNr] = (double*)malloc(model.functions.nShip_speedSettingsBase * sizeof(double));
+	}
+	model.functions.nSpeedSettingsDelay = (int*)calloc(model.params.nLegs, sizeof(int));
 
 	double maxSpeed = 0, minSpeed = 1e10, speedInterval;
 
@@ -7815,6 +7829,7 @@ void setupUsableSpeedSettings() {
 		speedInterval = 0.01;
 
 	for (legNr = 0; legNr < model.params.nLegs; legNr++) {
+		model.functions.nSpeedSettingsDelay[legNr] = 1;
 		if (model.params.legCommercial[legNr].commercialAllowedVariation < 0 && model.results.forecastTypeOrig <= 1000) {
 			// not commercial
 			nShip_speedSettings[legNr] = model.params.nSpeedSettingDivideIter1 + 2;
@@ -7833,8 +7848,9 @@ void setupUsableSpeedSettings() {
 			}
 		}
 		model.functions.nAllocShipSpeedsLevel[legNr] = nAlloc[legNr];
-		if (nShip_speedSettings[legNr] > model.functions.nShip_speedSettingsBase)
+		if (nShip_speedSettings[legNr] > model.functions.nShip_speedSettingsBase) {
 			nShip_speedSettings[legNr] = model.functions.nShip_speedSettingsBase;
+		}
 
 		model.functions.speedSetting95MCR_use[legNr] = model.functions.speedSetting95MCR_base;
 		if (model.functions.speedSetting95MCR_use[legNr] < nShip_speedSettings[legNr] && (model.params.legCommercial[legNr].commercialAllowedVariation >= 0 ||
@@ -7900,7 +7916,8 @@ void setupUsableSpeedSettings() {
 				indexUnder = -1;
 
 			for (iUse = 0; iUse < model.functions.nShip_speedSettingsBase; iUse++) {
-				set_speedSettingsFromBase(NULL, iUse, iUse);
+				set_speedSettingsFromBase(NULL, iUse, iUse, -1, 0., legNr);
+				model.functions.nSpeedSettingsDelay[legNr] = iUse + 1;
 				if (iUse == minPos || iUse == maxPos || iUse == nextTraff || iUse == indexUnder) {
 					if (iUse == nextTraff) {
 						kvotTraff += 1.0 / (double)model.params.nSpeedSettingDivideIter1;
@@ -7982,7 +7999,8 @@ void setupUsableSpeedSettings() {
 				if (iUse >= model.functions.nShip_speedSettingsBase)
 					iUse = model.functions.nShip_speedSettingsBase - 1;
 				i = 0;
-				set_speedSettingsFromBase(NULL, i, iUse);
+				set_speedSettingsFromBase(NULL, i, iUse, -1, 0., legNr);
+				model.functions.nSpeedSettingsDelay[legNr] = i + 1;
 				for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
 					if (model.network.physicalLev[i1].legNr != legNr)
 						continue;
@@ -8060,12 +8078,13 @@ void setupUsableSpeedSettings() {
 					}
 
 					if (kvot < 0) {
-						set_speedSettingsFromBase(NULL, i, indexUnder);
+						set_speedSettingsFromBase(NULL, i, indexUnder, -1, 0, legNr);
+						model.functions.nSpeedSettingsDelay[legNr] = i + 1;
 						for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
 							if (model.network.physicalLev[i1].legNr != legNr)
 								continue;
 							set_speedSettingsFromBase(&(model.functions.speedLevel[i1]), i, indexUnder);
-							set_speedSettingsFromBase(NULL, i, indexUnder);
+							// set_speedSettingsFromBase(NULL, i, indexUnder);
 							usedLevel = i1;
 						}
 						for (i1 = 0; i1 < model.network.nChannels; i1++) {
@@ -8089,7 +8108,8 @@ void setupUsableSpeedSettings() {
 						}
 					}
 					else {
-						set_speedSettingsFromBase(NULL, i, indexUnder, indexOver, kvot);
+						set_speedSettingsFromBase(NULL, i, indexUnder, indexOver, kvot, legNr);
+						model.functions.nSpeedSettingsDelay[legNr] = i + 1;
 						for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
 							if (model.network.physicalLev[i1].legNr != legNr)
 								continue;
@@ -15238,15 +15258,29 @@ int determine_nSpeedSettingsToUse(int level1, int level2, int restrictedAreaNr) 
 	int nSettings, speedNr;
 	double maxSpeed;
 	if (level1 >= 0) {
-		nSettings = model.functions.speedLevel[level1].nShip_speedSettings;
-		if (restrictedAreaNr >= 0) {
-			maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
-			for (speedNr = 0; speedNr < nSettings; speedNr++) {
-				if (maxSpeed <= model.functions.speedLevel[level1].rpmSetting_gerCalmWaterSpeed[speedNr])
-					break;
+		if (level2 == -1000) {
+			nSettings = model.functions.nSpeedSettingsDelay[level1];
+			if (restrictedAreaNr >= 0) {
+				maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
+				for (speedNr = 0; speedNr < nSettings; speedNr++) {
+					if (maxSpeed <= model.functions.rpmSetting_gerCalmWaterSpeedDelay[level1][speedNr])
+						break;
+				}
+				if (speedNr < nSettings)
+					nSettings = speedNr + 1;
 			}
-			if (speedNr < nSettings)
-				nSettings = speedNr + 1;
+		}
+		else {
+			nSettings = model.functions.speedLevel[level1].nShip_speedSettings;
+			if (restrictedAreaNr >= 0) {
+				maxSpeed = model.restrictedArea[restrictedAreaNr].max_speed;
+				for (speedNr = 0; speedNr < nSettings; speedNr++) {
+					if (maxSpeed <= model.functions.speedLevel[level1].rpmSetting_gerCalmWaterSpeed[speedNr])
+						break;
+				}
+				if (speedNr < nSettings)
+					nSettings = speedNr + 1;
+			}
 		}
 	}
 	else {
@@ -15299,14 +15333,14 @@ double eval_calmWaterSpeed(int speedNr, int fromLevel, int toLevel, int restrict
 		//printf("speed %.2lf arcNr %d\n", varde, arcNr);
 	}
 	else {
-		if (fromLevel >= 0)
-			varde = model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[speedNr];
+		if (toLevel == -1000)
+			varde = model.functions.rpmSetting_gerCalmWaterSpeedDelay[fromLevel][speedNr];
 		else {
-			if (toLevel >= 0)
-				varde = model.functions.speedChannelOut[-fromLevel - 1].rpmSetting_gerCalmWaterSpeed[speedNr];
+			if (fromLevel >= 0)
+				varde = model.functions.speedLevel[fromLevel].rpmSetting_gerCalmWaterSpeed[speedNr];
 			else {
-				if (toLevel == -1000)
-					varde = model.functions.rpmSetting_gerCalmWaterSpeedDelay[speedNr];
+				if (toLevel >= 0)
+					varde = model.functions.speedChannelOut[-fromLevel - 1].rpmSetting_gerCalmWaterSpeed[speedNr];
 				else {
 					if (toLevel != -100)
 						varde = model.functions.speedChannel[-fromLevel - 1].rpmSetting_gerCalmWaterSpeed[speedNr];
@@ -15382,8 +15416,14 @@ double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLe
 	}
 	else {
 		if (fromLevel >= 0) {
-			vardeMain = model.functions.speedLevel[fromLevel].rpmSetting_gerFuelConsumption_main[speedNr];// .functions.fuelConsumption.c0
-			vardeAux = model.functions.speedLevel[fromLevel].rpmSetting_gerFuelConsumption_aux[speedNr];// .functions.fuelConsumption.c0
+			if (toLevel == -1000) {
+				vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainDelay[fromLevel][speedNr];// .functions.fuelConsumption.c0
+				vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxDelay[fromLevel][speedNr];// .functions.fuelConsumption.c0
+			}
+			else {
+				vardeMain = model.functions.speedLevel[fromLevel].rpmSetting_gerFuelConsumption_main[speedNr];// .functions.fuelConsumption.c0
+				vardeAux = model.functions.speedLevel[fromLevel].rpmSetting_gerFuelConsumption_aux[speedNr];// .functions.fuelConsumption.c0
+			}
 		}
 		else {
 			if (toLevel >= 0) {
@@ -15391,23 +15431,16 @@ double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLe
 				vardeAux = model.functions.speedChannelOut[-fromLevel - 1].rpmSetting_gerFuelConsumption_aux[speedNr];// .functions.fuelConsumption.c0
 			}
 			else {
-				if (toLevel == -1000) {
-					vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainDelay[speedNr];// .functions.fuelConsumption.c0
-					vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxDelay[speedNr];// .functions.fuelConsumption.c0
-					// solve_SP_delay
+				if (toLevel != -100) {
+					if (model.network.channel[-fromLevel - 1].totalConsumption >= 0)
+						vardeMain = model.network.channel[-fromLevel - 1].totalConsumption / model.network.channel[-fromLevel - 1].timeThroughChannel;
+					else
+						vardeMain = model.functions.speedChannel[-fromLevel - 1].rpmSetting_gerFuelConsumption_main[speedNr];// .functions.fuelConsumption.c0
+					vardeAux = model.functions.speedChannel[-fromLevel - 1].rpmSetting_gerFuelConsumption_aux[speedNr];// .functions.fuelConsumption.c0
 				}
 				else {
-					if (toLevel != -100) {
-						if (model.network.channel[-fromLevel - 1].totalConsumption >= 0)
-							vardeMain = model.network.channel[-fromLevel - 1].totalConsumption / model.network.channel[-fromLevel - 1].timeThroughChannel;
-						else
-							vardeMain = model.functions.speedChannel[-fromLevel - 1].rpmSetting_gerFuelConsumption_main[speedNr];// .functions.fuelConsumption.c0
-						vardeAux = model.functions.speedChannel[-fromLevel - 1].rpmSetting_gerFuelConsumption_aux[speedNr];// .functions.fuelConsumption.c0
-					}
-					else {
-						vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainBase[speedNr];// .functions.fuelConsumption.c0
-						vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxBase[speedNr];// .functions.fuelConsumption.c0
-					}
+					vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainBase[speedNr];// .functions.fuelConsumption.c0
+					vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxBase[speedNr];// .functions.fuelConsumption.c0
 				}
 			}
 		}
