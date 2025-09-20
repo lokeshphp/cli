@@ -574,6 +574,7 @@ int main(int argc, char* argv[])
 							problTyp, 4);
 					problTyp = 4; // CreateDelayFactors
 				}
+
 			}
 			else if (userGivenOK == 18) { // "--inputSeaRoute="
 				inputPath = dataName;
@@ -582,18 +583,18 @@ int main(int argc, char* argv[])
 			else if (userGivenOK == 20) { // "--forecast="
 				runAltForecast = stoi(dataName);
 			}
-			else if ((problTyp == 3 || problTyp == 4) && i == 3) {
-				node = char_to_int(argv[3]);
-			}
-			else if (problTyp == 4 && i == 4) {
-				manad = char_to_int(argv[4]);
-			}
 			else {
 				errlog("ERROR! Skipping input no %d %s, problType %d\n", i, argv[i], problTyp);
 			}
 		}
 		else {
-			errlog("ERROR2! Skipping input no %d %s, problType %d\n", i, argv[i], problTyp);
+			if ((problTyp == 3 || problTyp == 4) && i == 3) {
+				node = char_to_int(argv[3]);
+			}
+			else if (problTyp == 4 && i == 4) {
+				manad = char_to_int(argv[4]);
+			}else
+				errlog("ERROR2! Skipping input no %d %s, problType %d\n", i, argv[i], problTyp);
 		}
 	}
 
@@ -620,6 +621,8 @@ int main(int argc, char* argv[])
 		}
 
 		if (outputPath == "-") {
+			resultPath = inputPath;
+			SKRIV_UT_NOTHING = 0;
 			LOGFILE = "logfile_setRedisKeys.txt";
 			reset_errlog();
 			printf("input file for redis key generation '%s'\n", inputPath.c_str());

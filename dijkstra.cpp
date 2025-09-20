@@ -1,10 +1,11 @@
 #include "pch.h"
+extern int SKRIV_UT_NOTHING;
 
 long long MAXVARDE_NATVERK = 100000000000000; // 100000000000;
 int skrivUtWarning = 0;
 
 
-int SattUppDijkstraNatverk3(strModel* model) {
+int SattUppDijkstraNatverk3(strModel* model, std::string saveNatvName) {
 	//	int NodNr, antal;
 	//	Arc2 *arc;
 	int n, m, i1, NodNr = 0, Forsta = 0, taMedBage;
@@ -38,6 +39,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	//}
 	//fclose(pek);
 
+	//if (SKRIV_UT_NOTHING == 0)
+	//	printf("-- row %d\n", __LINE__);
 	n = model->nNoder;
 	m = model->nArcs; //  model->nArcsOK;
 	errlog("Dijkstra network, nNodes %d, nArcs %d\n", n, m);
@@ -101,10 +104,22 @@ int SattUppDijkstraNatverk3(strModel* model) {
 	node_max = 0;
 	node_min = n;
 
+//	if (SKRIV_UT_NOTHING == 0)
+//		printf("-- row %d\n", __LINE__);
 	int saveDijkstraNetwork = 0;
 	if (saveDijkstraNetwork == 1) {
-		FILE* pek = fopen("checkDijkst4.txt", "w");
+		char* namn = (char*)malloc(256 * sizeof(char));
+		if(saveNatvName != "")
+			sprintf(namn, "%s/checkDijkstra_n%d.txt", saveNatvName.c_str(), n);
+		else
+			sprintf(namn, "checkDijkstra_n%d.txt", n);
+		FILE* pek = fopen(namn, "w");
+		free(namn);
+		//if (SKRIV_UT_NOTHING == 0)
+		//	printf("-- row %d\n", __LINE__);
 		for (int i = 0; i < model->nNoder; i++) {
+			//if (SKRIV_UT_NOTHING == 0)
+			//	printf("-- i %d nUtn %d row %d\n", i, model->Noder[i].nUtNoder, __LINE__);
 			for (int i1 = 0; i1 < model->Noder[i].nUtNoder; i1++) {
 				if (model->Noder[i].outArcNr[i1] == 6)
 					i = i;
@@ -122,6 +137,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 
 	//pek = fopen("checkDijkst.txt", "w");
 	//checkMinnesAnvandning(__LINE__);
+	//if (SKRIV_UT_NOTHING == 0)
+	//	printf("-- row %d\n", __LINE__);
 
 	//	model->OmvandlDijkstraToNodeNr = (int*)calloc(model->nNoder, sizeof(int));
 	maxCost = 0; 
@@ -207,6 +224,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 			}
 		}
 	}
+	//if (SKRIV_UT_NOTHING == 0)
+	//	printf("-- row %d\n", __LINE__);
 
 	if (lastLength > -1) {
 		lastLength = length;
@@ -357,6 +376,8 @@ int SattUppDijkstraNatverk3(strModel* model) {
 				VERY_FAR);
 		}
 	}
+	//if (SKRIV_UT_NOTHING == 0)
+	//	printf("-- row %d\n", __LINE__);
 
 	/* free internal memory */
 	free(arc_first);

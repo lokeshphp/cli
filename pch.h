@@ -1582,6 +1582,7 @@ struct strLegRes {
 	double fuel_aux;
 	double fuel_auxEca;
 	double distance;
+	double dist_eca;
 	double totWaitingTime;
 	int nCoords;
 	int nAllocCoords;
@@ -1958,7 +1959,7 @@ char* append_str_alloc_cpyString(char* oldName, std::string data);
 
 int write_copyAtoB(char *filnamnUt, char *filExt, char *filenamnIn, char *mode);
 
-int SattUppDijkstraNatverk3(strModel* model);
+int SattUppDijkstraNatverk3(strModel* model, std::string saveNatvName);
 int SattUppDijkstraNatverk3tmp(strModel* model);
 int ChangeArcCosts3(strModel* model);
 int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached);

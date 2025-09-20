@@ -353,13 +353,13 @@ double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLeve
 			rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 				windDirection, windSpeed, &rel_windDir);
 
-			if(model.params.includeNazanin_safety >= 1) 
-				absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
+			absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
 		}
 		else {
 			windSpeed = 0;
 			windDirection = 0;
 			rel_windDir = 0;
+			absWindDirDiff = 0;
 			rel_windSpeed = baseGroundSpeed;
 		}
 
@@ -440,8 +440,8 @@ double calcArcTimeCost(int tidInt, int speedSettingNr, int fromLevel, int toLeve
 		//}
 
 
-		//if (fuelFactorMain < 0)
-		fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+		// fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+		fuelFactorMain = lookup_fuelFactorMainTable(windSpeed, absWindDirDiff, waveHeight, rel_waveDir);
 		fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, fromLevel, toLevel, restrictedAreaNr, *calmWaterSpeed, fuelFactorMain);
 		//else
 		//	fuelConsumption_main = eval_fuelConsumption_both(model.functions.speedSetting95MCR_base, &fuelConsumption_aux, -1, -100) * fuelFactorMain;
@@ -663,12 +663,12 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int rest
 
 				rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 					windDirection, windSpeed, &rel_windDir);
-				if (model.params.includeNazanin_safety >= 1)
-					absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
+				absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
 			}
 			else {
 				windSpeed = 0;
 				rel_windDir = 0;
+				absWindDirDiff = 0;
 			}
 
 			waveHeight = model.functions.varValue[model.functions.pos_waveHeight]; // getVariableValue(model.functions.pos_waveHeight, i, tidTot);
@@ -717,7 +717,8 @@ double calcArcTimeCostChannel(int t, int speedSettingNr, int channelNr, int rest
 			}
 			timeArc = distNu / speedOverGround; // in hours
 
-			fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+			//fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+			fuelFactorMain = lookup_fuelFactorMainTable(windSpeed, absWindDirDiff, waveHeight, rel_waveDir);
 			fuelConsumption_main = eval_fuelConsumption_both(speedSettingNr, &fuelConsumption_aux, -channelNr - 1, -channelNr - 1, restrictedAreaNr, *calmWaterSpeed, fuelFactorMain);
 			fuelUsage_main = fuelConsumption_main * timeArc;
 			fuelUsage_aux = fuelConsumption_aux * timeArc;
@@ -3737,19 +3738,18 @@ int addPositionDataToReport(FILE* filpekG, int* posReport, int arcNr, int startS
 			//(*timeExact) += model.arc[arcNr].time - accumTime;
 		}
 	}
-	if (SKRIV_UT_NOTHING == 0) {
-		if (arcNr == 29303)
-			arcNr = arcNr;
-		errlog("pos %d arcNr %d arcStart %lf arcEnd %lf timeExact %lf arcTimeEst %lf exactTime %lf arcCostEst %lf exactCost %lf\n", *posReport, arcNr,
-			model.arc[arcNr].fromTime / (double)model.params.nTidsperioder_perH, model.arc[arcNr].toTime / (double)model.params.nTidsperioder_perH, *timeExact,
-			model.arc[arcNr].time, accumTime, model.arc[arcNr].totCost / 100.0,
-			model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.main_eca.price +
-			model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot * model.params.fuel.main_noEca.price +
-			model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot * model.params.fuel.aux_noEca.price +
-			model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.aux_eca.price +
-			accumTime * model.params.priceTime);
-
-	}
+	//if (SKRIV_UT_NOTHING == 0) {
+	//	if (arcNr == 29303)
+	//		arcNr = arcNr;
+	//	errlog("pos %d arcNr %d arcStart %lf arcEnd %lf timeExact %lf arcTimeEst %lf exactTime %lf arcCostEst %lf exactCost %lf\n", *posReport, arcNr,
+	//		model.arc[arcNr].fromTime / (double)model.params.nTidsperioder_perH, model.arc[arcNr].toTime / (double)model.params.nTidsperioder_perH, *timeExact,
+	//		model.arc[arcNr].time, accumTime, model.arc[arcNr].totCost / 100.0,
+	//		model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.main_eca.price +
+	//		model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot * model.params.fuel.main_noEca.price +
+	//		model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot * model.params.fuel.aux_noEca.price +
+	//		model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.aux_eca.price +
+	//		accumTime * model.params.priceTime);
+	//}
 
 
 
@@ -3978,8 +3978,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 
 					rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 						windDirection, windSpeed, &rel_windDir);
-					if (model.params.includeNazanin_safety >= 1)
-						absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
+					absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
 					if (printGlobal == 1) {
 						printf("checkP %d vWind %.3lf uWind %.3lf, windDirection %.3lf windSpeed %.3lf rel_windSpeed %.3lf rel_windDir %.3lf\n", i, vWind,
 							uWind, windDirection, windSpeed, rel_windSpeed, rel_windDir);
@@ -3991,6 +3990,7 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 					windSpeed = 0;
 					windDirection = 0;
 					rel_windDir = 0;
+					absWindDirDiff = 0;
 					rel_windSpeed = baseGroundSpeed;
 					favorableWind = -1;
 				}
@@ -4064,7 +4064,8 @@ double evalWeatherDataAlongArcSection_equalTimeIntervals(int arcNr, int restrict
 					if (dist <= distStart) {
 						continue;
 					}
-					fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+					//fuelFactorMain = lookup_fuelFactorMainTable(rel_windSpeed, rel_windDir, waveHeight, rel_waveDir);
+					fuelFactorMain = lookup_fuelFactorMainTable(windSpeed, absWindDirDiff, waveHeight, rel_waveDir);
 
 					if (tidTotArc + timeArc > model.functions.timeNextWayPoint)
 						kvotTimeUse = (model.functions.timeNextWayPoint - (tidTotArc)) / timeArc;
@@ -5857,19 +5858,18 @@ int addPositionDataToReport_equalTimeIntervals(FILE* filpekG, int* posReport, in
 			//(*timeExact) += model.arc[arcNr].time - accumTime;
 		}
 	}
-	if (SKRIV_UT_NOTHING == 0) {
-		if (arcNr == 29303)
-			arcNr = arcNr;
-		errlog("pos %d arcNr %d arcStart %lf arcEnd %lf timeExact %lf arcTimeEst %lf exactTime %lf arcCostEst %lf exactCost %lf\n", *posReport, arcNr,
-			model.arc[arcNr].fromTime / (double)model.params.nTidsperioder_perH, model.arc[arcNr].toTime / (double)model.params.nTidsperioder_perH, *timeExact,
-			model.arc[arcNr].time, accumTime, model.arc[arcNr].totCost / 100.0,
-			model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.main_eca.price +
-			model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot * model.params.fuel.main_noEca.price +
-			model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot * model.params.fuel.aux_noEca.price +
-			model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.aux_eca.price +
-			accumTime * model.params.priceTime);
-
-	}
+	//if (SKRIV_UT_NOTHING == 0) {
+	//	if (arcNr == 29303)
+	//		arcNr = arcNr;
+	//	errlog("pos %d arcNr %d arcStart %lf arcEnd %lf timeExact %lf arcTimeEst %lf exactTime %lf arcCostEst %lf exactCost %lf\n", *posReport, arcNr,
+	//		model.arc[arcNr].fromTime / (double)model.params.nTidsperioder_perH, model.arc[arcNr].toTime / (double)model.params.nTidsperioder_perH, *timeExact,
+	//		model.arc[arcNr].time, accumTime, model.arc[arcNr].totCost / 100.0,
+	//		model.functions.valuesNow.totFuel_main * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.main_eca.price +
+	//		model.functions.valuesNow.totFuel_main * model.arc[arcNr].fuelQualityKvot * model.params.fuel.main_noEca.price +
+	//		model.functions.valuesNow.totFuel_aux * model.arc[arcNr].fuelQualityKvot * model.params.fuel.aux_noEca.price +
+	//		model.functions.valuesNow.totFuel_aux * (1 - model.arc[arcNr].fuelQualityKvot) * model.params.fuel.aux_eca.price +
+	//		accumTime * model.params.priceTime);
+	//}
 
 
 
@@ -6431,7 +6431,9 @@ int save_result_leg(FILE* filpekG, char* namnSol, int legNr) {
 
 	fprintf(filpekG, "\"totalDistance_kts\": %.1lf, \"totalTime_h\": %.1lf,\n", model.results.leg[legNr].distance / model.params.knots_to_km, 
 		model.results.leg[legNr].slutTidPkt - model.results.leg[legNr].startTidPkt);
-	fprintf(filpekG, "\"totalSteamingTime_h\": %.1lf\n", model.results.leg[legNr].slutTidPkt - model.results.leg[legNr].startTidPkt - 
+	fprintf(filpekG, "\"totalDistance_eca\": %.1lf, \"totalDistance_nonEca\": %.1lf,\n", model.results.leg[legNr].dist_eca / model.params.knots_to_km,
+		(model.results.leg[legNr].distance - model.results.leg[legNr].dist_eca) / model.params.knots_to_km);
+	fprintf(filpekG, "\"totalSteamingTime_h\": %.1lf\n", model.results.leg[legNr].slutTidPkt - model.results.leg[legNr].startTidPkt -
 		model.results.leg[legNr].totWaitingTime);
 
 
@@ -6685,7 +6687,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 	}
 
 	double timeNu = 0, fuel = 0, safety = 0, totCost = 0, distance = 0, channelCost = 0, emission = 0, tmpCheck = 0;
-	double costFuel = 0, costTime = 0;
+	double costFuel = 0, costTime = 0, dist_eca = 0;
 	double fuel_aux = 0, fuel_auxEca = 0, fuel_eca = 0, fuel_noEca = 0, hurricane = 0, distanceTp, distNu, distTmp;// , stability = 0;
 	double bowSlamming = 0, greenWater = 0, dynStability = 0, iceCoverage = 0, feasibleSafety = 0, timeExact = 0;
 	double fuelCostDollar, fuel_objCost = 0, voyageTime_objCost = 0, emission_objCost = 0;
@@ -6742,6 +6744,7 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		model.results.leg[legNr].fuel_aux = 0;
 		model.results.leg[legNr].fuel_auxEca = 0;
 		model.results.leg[legNr].distance = 0;
+		model.results.leg[legNr].dist_eca = 0;
 		model.results.leg[legNr].totWaitingTime = 0;
 		model.results.leg[legNr].channelCost = 0;
 		model.results.leg[legNr].totObjCost = 0;
@@ -7326,7 +7329,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 				}
 			}
 			distance += model.arc[arcNr].distance;
+			dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot);
 			model.results.leg[legNr].distance += model.arc[arcNr].distance;
+			model.results.leg[legNr].dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot);
 			//printf("arcNr2 %d totDist %.2lf\n", arcNr, distance / 1.852);
 			timeNu2 = model.arc[arcNr].time;
 			timeNu += timeNu2;
@@ -7390,7 +7395,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 
 									// spara pkten dar distTmp + distNu = distanceTp
 									distance += model.arc[arcNr].distance / nTp;
+									dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
 									model.results.leg[legNr].distance += model.arc[arcNr].distance / nTp;
+									model.results.leg[legNr].dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
 									//printf("arcNr3 %d totDist %.2lf\n", arcNr, distance / 1.852);
 									timeNu2 += model.arc[arcNr].time / nTp;
 									fuel2 += model.arc[arcNr].fuelBase / nTp;
@@ -7481,7 +7488,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 									pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev1].preferredPathPoint[i3]));
 									// spara pkten dar distTmp + distNu = distanceTp
 									distance += model.arc[arcNr].distance / nTp;
-									model.results.leg[legNr].distance += model.arc[arcNr].distance;
+									dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
+									model.results.leg[legNr].distance += model.arc[arcNr].distance / nTp;
+									model.results.leg[legNr].dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
 									timeNu2 += model.arc[arcNr].time / nTp;
 									fuel2 += model.arc[arcNr].fuelBase / nTp;
 									safety2 += model.arc[arcNr].safetyBase / nTp;
@@ -7560,7 +7569,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 									pointLast = pointLast.destinationPoint(distanceTp - distNu, pointLast.bearingTo(model.network.physicalLev[lev2 - 1].preferredPathPoint[i3]));
 									// spara pkten dar distTmp + distNu = distanceTp
 									distance += model.arc[arcNr].distance / nTp;
+									dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
 									model.results.leg[legNr].distance += model.arc[arcNr].distance / nTp;
+									model.results.leg[legNr].dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot) / nTp;
 									timeNu2 += model.arc[arcNr].time / nTp;
 									fuel2 += model.arc[arcNr].fuelBase / nTp;
 									safety2 += model.arc[arcNr].safetyBase / nTp;
@@ -7657,8 +7668,9 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 					}
 				}
 				distance += model.arc[arcNr].distance;
+				dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot);
 				model.results.leg[legNr].distance += model.arc[arcNr].distance;
-				//printf("arcNr4 %d totDist %.2lf\n", arcNr, distance / 1.852);
+				model.results.leg[legNr].dist_eca += model.arc[arcNr].distance * (1 - model.arc[arcNr].fuelQualityKvot);
 				timeNu2 = model.arc[arcNr].time;
 				timeNu += timeNu2;
 				fuel2 = model.arc[arcNr].fuelBase;
@@ -8163,6 +8175,8 @@ int writeSolutionToJson(std::string filename, int resAlt, char* namnSol, int ite
 		fprintf(filpekG, "\"averageRPM\": %.2lf,\n", model.functions.valuesNow.accumRPM);
 
 	fprintf(filpekG, "\"totalDistance_kts\": %.1lf, \"totalTime_h\": %.1lf,\n", distance / model.params.knots_to_km, timeNu);
+	fprintf(filpekG, "\"totalDistance_eca\": %.1lf, \"totalDistance_nonEca\": %.1lf,\n", dist_eca / model.params.knots_to_km, 
+		(distance - dist_eca) / model.params.knots_to_km);
 	fprintf(filpekG, "\"totalSteamingTime_h\": %.1lf, \"totalAdditionalTime_h\": %.1lf,\n", timeNu - model.functions.valuesNow.totWaitingTime,
 		model.functions.valuesNow.totWaitingTime); // timeNu);
 	fprintf(filpekG, "\"prefPath_totalDist_nm\": %.1lf,\n", model.preferredPath.totDist / model.params.knots_to_km);
@@ -9704,7 +9718,7 @@ long long determineLastSecondNeeded() {
 int estimate_nDaysNeededHistory(int weatherNr, long long lastSecondUTC_needed, long long* nSecondsHistory_first, long long* nSecondsHistory_firstStartDay) {
 	int nDaysNeeded;
 	long long nSecondsUTC_last = model.weather[weatherNr].secondsUTC[model.weather[weatherNr].nTimeIntervals - 1];
-	*nSecondsHistory_first = nSecondsUTC_last + model.weather_timeIntervall_h * 3600;
+	*nSecondsHistory_first = nSecondsUTC_last + 24 * 3600; // model.weather_timeIntervall_h * 3600;
 	*nSecondsHistory_firstStartDay = getFirstSecondOfDay(*nSecondsHistory_first);
 
 	long long nExtraSecondsNeeded = lastSecondUTC_needed - (*nSecondsHistory_first);
@@ -13031,7 +13045,8 @@ int createTimeArcs(int runAlt)
 		}
 
 		if (SKRIV_UT_NOTHING == 0)
-			printf("-- Time after creating basic solution %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+			printf("-- After creating basic solution delayVersion %d tidp_startHistoricDataOnly %d row %d\n", 
+				delayVersion, model.network.tidp_startHistoricDataOnly, __LINE__);
 
 		if (delayVersion >= 3 && model.network.tidp_startHistoricDataOnly < 999999) {
 			solve_SP_delay();
@@ -15336,6 +15351,7 @@ int loadVesselTableIDs_nazanin() {
 int voyageOpt(std::string inputPath, std::string resultName)
 {
 
+	//printf("start row %d\n", __LINE__);
 	double dist, cost;
 	long long Cost;
 	reset_errlog();
@@ -15374,7 +15390,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 		model.results.fileNameForecast = splitFilename(inputPath, 1);
 
 	//errlog("#######\nERROR! Change the below code rows as it is for analysis only\n");
-	model.params.nSpeedSettingDivideIter1 = 2; // 2 ger 3 speed settings, 4 ger 5 speed settings
+	model.params.nSpeedSettingDivideIter1 = 20; //  2; // 2 ger 3 speed settings, 4 ger 5 speed settings
 	model.params.nTidsperioder_perH_iter1 = 1; // 1 is default, 4 ger var 15:e minut
 	model.params.tidp_startHistoricDataOnly_iter1 = 0; // 999999; // 0 is default
 	model.results.forecastTypeOrig = -1;
@@ -15414,7 +15430,6 @@ int voyageOpt(std::string inputPath, std::string resultName)
 	printf("-- Time before creating physical network %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 	createPhysicalNetwork(0, 0);
 	checkMinnesAnvandning(__LINE__);
-
 
 	setupUsableSpeedSettings();
 
@@ -15478,14 +15493,19 @@ int voyageOpt(std::string inputPath, std::string resultName)
 		// freeAllMemory();
 
 		if (model.network.physicalLev[model.network.nPhysicalLevels - 1].nTimeIntervals[0] == 0) {
-			errlog("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map? I quit.\n");
-			printf("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map? I quit.\n");
-			postRequest("ERROR! Number of time intervals to the last level (" + std::to_string(model.network.nPhysicalLevels - 1) + ") is 0. Is the preferred path outside of the extent of the feasibility map ? I quit.", 1);
+			errlog("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map or does it go through an extra noGo area? I quit.\n");
+			printf("ERROR! Number of time intervals to the last level is 0. Is the preferred path outside of the extent of the feasibility map or does it go through an extra noGo area? I quit.\n");
+			//postRequest("ERROR! Number of time intervals to the last level (" + std::to_string(model.network.nPhysicalLevels - 1) + ") is 0. Is the preferred path outside of the extent of the feasibility map ? I quit.", 1);
+
+			filPek3 = fopen(resultName.c_str(), "w"); // "result_json.json", "w");
+			fprintf(filPek3, "{\n\t\"errorMessage\": \"no feasible optimized route available due to added extra noGo area\"\n}\n");
+			fclose(filPek3);
+			break;
 		}
 
 		printf("setting up data for dijkstra's algorithm\n");
 		auto tid0 = std::chrono::high_resolution_clock::now();
-		SattUppDijkstraNatverk3(&model);
+		SattUppDijkstraNatverk3(&model, model.params.resultPath);
 		auto tid1c = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::milli> fp_ms = tid1c - tid0;
 		errlog("sattUppDijkstra took %lf\n", fp_ms);
@@ -16109,7 +16129,7 @@ int voyageOpt_fixPartSol(std::string inputPath, std::string resultName)
 
 			printf("setting up data for dijkstra's algorithm\n");
 			auto tid0 = std::chrono::high_resolution_clock::now();
-			SattUppDijkstraNatverk3(&model);
+			SattUppDijkstraNatverk3(&model, model.params.resultPath);
 			auto tid1c = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::milli> fp_ms = tid1c - tid0;
 			errlog("sattUppDijkstra took %lf\n", fp_ms);
@@ -17391,6 +17411,8 @@ int solve_SP_delay() {
 		nAllocNoder += 2;
 	}
 
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- row %d\n", __LINE__);
 	modelDelay.Noder = (strNoder*)malloc2(nAllocNoder * sizeof(strNoder));
 	for (int i0 = 0; i0 < nAllocNoder; i0++)
 		modelDelay.Noder[i0].UtNod = NULL;
@@ -17473,13 +17495,21 @@ int solve_SP_delay() {
 		}
 
 	}
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- row %d\n", __LINE__);
 	for (i1 = 0; i1 < model.network.nChannels; i1++) {
 		cNr = i1;
 		model.functions.valuesNow.prefPathArc = 2;
 		// fuelQualityKvot = get_fuelQualityKvot(-i1 - 1, 0, -i1 - 1, 1);
+		if (SKRIV_UT_NOTHING == 0)
+			printf("-- i1 %d row %d\n", i1, __LINE__);
 		extraAreaCostKvot = get_totalExtraAreaCostKvot(-i1 - 1, 0, -i1 - 1, 1, &fuelQualityKvot);
 		tidInt = (int)(round(model.network.channel[i1].midTimeArrive / model.params.tIndexGerH));
+		if (SKRIV_UT_NOTHING == 0)
+			printf("-- i1 %d row %d\n", i1, __LINE__);
 		addBage_AB_delayFysiskt(-cNr - 1, 0, -cNr - 1, 1, 0, tidInt, fuelQualityKvot, extraAreaCostKvot);
+		if (SKRIV_UT_NOTHING == 0)
+			printf("-- i1 %d row %d\n", i1, __LINE__);
 	}
 
 	FILE* filpek;
@@ -17504,10 +17534,16 @@ int solve_SP_delay() {
 		fclose(filpek);
 	}
 
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- row %d\n", __LINE__);
 
-	SattUppDijkstraNatverk3(&modelDelay);
+	SattUppDijkstraNatverk3(&modelDelay, model.params.resultPath);
 	nod1 = modelDelay.nNoder - 1;
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- row %d\n", __LINE__);
 	AnropDijkstra2(nod1, nod1, &modelDelay, &Reached);
+	if (SKRIV_UT_NOTHING == 0)
+		printf("-- row %d\n", __LINE__);
 	//checkMinnesAnvandning(__LINE__);
 
 	//checkCosts_SP_delay_PP(0);
@@ -17919,7 +17955,7 @@ int solve_SP_delayPrefPath() {
 	}
 
 	checkMinnesAnvandning(__LINE__);
-	SattUppDijkstraNatverk3(&modelDelay_prefPath);
+	SattUppDijkstraNatverk3(&modelDelay_prefPath, model.params.resultPath);
 	nod1 = modelDelay_prefPath.nNoder - 1;
 	AnropDijkstra2(nod1, nod1, &modelDelay_prefPath, &Reached);
 	checkMinnesAnvandning(__LINE__);
@@ -18437,6 +18473,105 @@ time_t make_gmtime_now() {
 }
 
 
+int saveDateTimeInfo(char* namnFil) {
+	char* namn;
+	int allGood = 1;
+	namn = (char*)malloc2(256 * sizeof(char));
+	std::time_t tt2;
+
+#ifdef _WIN32
+	allGood = 0;
+	try {
+		// Get the last write time as a file_time_type
+		auto lastWriteTime = std::filesystem::last_write_time(namnFil);
+
+		// Convert to a more readable format (e.g., system_clock::time_point)
+		// Note: This conversion might involve a loss of precision depending on the underlying system.
+		auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+			lastWriteTime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now()
+		);
+
+		// Convert to time_t for printing
+		tt2 = std::chrono::system_clock::to_time_t(sctp);
+
+		// Print the time
+		// std::cout << "Last modified time of " << namnFil << ": " << std::ctime(&tt);
+		allGood = 1;
+
+	}
+	catch (const std::filesystem::filesystem_error& ex) {
+		// std::cerr << "Filesystem error: " << ex.what() << std::endl;
+		allGood = 0;
+	}
+	sprintf(namn, "%s/dateTime_setRedisKeys.txt", resultPath.c_str());
+	FILE* filNu = fopen(namn, "a+");
+	time_t tt = time(0);
+	tm* tidNu = localtime(&tt);
+	if (allGood == 1) {
+		fprintf(filNu, "%02d/%02d/%04d_%02d:%02d:%02d %s %s",
+			tidNu->tm_mday, tidNu->tm_mon + 1,
+			tidNu->tm_year + 1900,
+			tidNu->tm_hour, tidNu->tm_min,
+			tidNu->tm_sec, namnFil, std::ctime(&tt2));
+	}
+	else {
+		fprintf(filNu, "%02d/%02d/%04d_%02d:%02d:%02d\n",
+			tidNu->tm_mday, tidNu->tm_mon + 1,
+			tidNu->tm_year + 1900,
+			tidNu->tm_hour, tidNu->tm_min,
+			tidNu->tm_sec);
+	}
+	fclose(filNu);
+#else
+	sprintf(namn, "%s/dateTime_setRedisKeys.txt", resultPath.c_str());
+	FILE* filNu = fopen(namn, "a+");
+	time_t tt = time(0);
+	tm* tidNu = localtime(&tt);
+
+	/*
+	struct stat result;
+	if (stat(namnFil, &result) != 0)
+	{
+		printf("ERROR! Failed to get stats from file %s\n", namnFil);
+		allGood = 0;
+		fprintf(filNu, "%02d/%02d/%04d_%02d:%02d:%02d\n",
+			tidNu->tm_mday, tidNu->tm_mon + 1,
+			tidNu->tm_year + 1900,
+			tidNu->tm_hour, tidNu->tm_min,
+			tidNu->tm_sec);
+	}
+	else {
+		allGood = 1;
+		auto ticks = result.st_mtime;
+		char buffer[80];
+		std::tm* local_tm = std::localtime(&ticks);
+		if (local_tm) {
+			std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", local_tm);
+			fprintf(filNu, "%02d/%02d/%04d_%02d:%02d:%02d %s %s",
+				tidNu->tm_mday, tidNu->tm_mon + 1,
+				tidNu->tm_year + 1900,
+				tidNu->tm_hour, tidNu->tm_min,
+				tidNu->tm_sec, namnFil, buffer);
+		}
+		else
+			allGood = 0;
+	}
+	*/
+	allGood = 0;
+	if(allGood == 0)
+		fprintf(filNu, "%02d/%02d/%04d_%02d:%02d:%02d\n",
+			tidNu->tm_mday, tidNu->tm_mon + 1,
+			tidNu->tm_year + 1900,
+			tidNu->tm_hour, tidNu->tm_min,
+			tidNu->tm_sec);
+	fclose(filNu);
+
+#endif
+
+	free(namn);
+	return 0;
+}
+
 int redisSetKeys(std::string inputPath) {
 	int ii, i1, i2, i3, i4, i5, xPos1, yPos0, yPos1, nBands;
 	size_t nAlloc;
@@ -18455,7 +18590,8 @@ int redisSetKeys(std::string inputPath) {
 
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-
+	SKRIV_UT_NOTHING = 0;
+	printf("\n\n#################\nSKRIV_UT_NOTHING %d\n\n", SKRIV_UT_NOTHING);
 	sprintf(namn, "%s/missingFiles.txt", resultPath.c_str());
 	FILE* filNu = fopen(namn, "w");
 	fclose(filNu);
@@ -18563,6 +18699,8 @@ int redisSetKeys(std::string inputPath) {
 					model.weather[ii].filePos[i1].fileName);
 				postRequest("ERROR! Could not open forecast file " + std::string(model.weather[ii].filePos[i1].fileName) + ". This one must exist.I quit", 1);
 			}
+			//if (ii == 0 && i1 == 0)
+			//	saveDateTimeInfo(model.weather[ii].filePos[i1].fileName);
 			nBands = model.weather[ii].rasterPos[i1].Get_nBands();
 			model.weather[ii].filePos[i1].minX = model.weather[ii].rasterPos[i1].Get_minLongitude();
 			model.weather[ii].filePos[i1].maxX = model.weather[ii].rasterPos[i1].Get_maxLongitude();
@@ -18570,7 +18708,7 @@ int redisSetKeys(std::string inputPath) {
 				maxLong = model.weather[ii].filePos[i1].maxX;
 			if (i1 == 0) {
 				nSecondsUTC_last = model.weather[ii].rasterPos[i1].GetMetaData_nSecondsUTC_last(&nSecondsUTC_first);
-				nSecondsHistory_first = nSecondsUTC_last + model.weather_timeIntervall_h * 3600;
+				nSecondsHistory_first = nSecondsUTC_last + 24 * 3600; //  model.weather_timeIntervall_h * 3600;
 				nSecondsHistory_firstStartDay = getFirstSecondOfDay(nSecondsHistory_first);
 
 				nExtraSecondsNeeded = lastSecondUTC_needed - nSecondsHistory_first;
@@ -18850,6 +18988,7 @@ int redisSetKeys(std::string inputPath) {
 		free(arrFloat);
 
 		//printf("ii %d nBands %d nTimePeriods %d\n", ii, nBands, model.weather[ii].nTimeIntervals);
+		/*
 		if (ii == 2) {
 			lat = 74.4812;
 			lon = 116.0802;
@@ -18862,6 +19001,7 @@ int redisSetKeys(std::string inputPath) {
 					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4]);
 			}
 		}
+		*/
 
 		printf("setting metadata\n");
 		keyID.assign(model.weather[ii].weatherFileTypeName);
@@ -18900,6 +19040,7 @@ int redisSetKeys(std::string inputPath) {
 		redis.set(keyID, mData.dump());
 		printf("Setting of key %s done\n", keyID.c_str());
 
+		/*
 		if (ii == 2) {
 			printf("here ii == 2\n");
 			lat = 9.8;
@@ -18913,7 +19054,20 @@ int redisSetKeys(std::string inputPath) {
 					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
 					model.weather[ii].valueCell[i3][i5 + 1 + model.weather[ii].nCols * (i4 + 1)]);
 			}
+			lat = 16.4875;
+			lon = -80.9292;
+			rowDbl = (model.weather[ii].maxY - lat) / model.weather[ii].size_row;
+			colDbl = get_colDblFromWeatherFile(ii, lon);
+			i4 = (int)rowDbl;
+			i5 = (int)colDbl;
+			printf("\n\n###############\n");
+			for (i3 = 0; i3 < model.weather[ii].nTimeIntervals && i3 < 15; i3++) {
+				printf("pos %d i3 %d %lf filValue %lf\n", i5 + model.weather[ii].nCols * i4, i3,
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4],
+					model.weather[ii].valueCell[i3][i5 + model.weather[ii].nCols * i4] / 3.6);
+			}
 		}
+		*/
 		if (model.weather[ii].errorCode != 0) {
 			printf("weather %d errorCode sparad\n", ii);
 			model.params.errorCode = model.weather[ii].errorCode;
@@ -19093,10 +19247,8 @@ double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact){//, int s
 
 				rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 					windDirection, windSpeed, &rel_windDir);
-				if (model.params.includeNazanin_safety >= 1) {
-					absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
-				}
-
+				absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
+				
 				if (printGlobal == 1) {
 					printf("checkP %d vWind %.3lf uWind %.3lf, windDirection %.3lf windSpeed %.3lf rel_windSpeed %.3lf rel_windDir %.3lf\n", i, vWind,
 						uWind, windDirection, windSpeed, rel_windSpeed, rel_windDir);
@@ -19107,6 +19259,7 @@ double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact){//, int s
 				windSpeed = 0;
 				windDirection = 0;
 				rel_windDir = 0;
+				absWindDirDiff = 0;
 				rel_windSpeed = baseGroundSpeed;
 			}
 
@@ -19133,8 +19286,10 @@ double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact){//, int s
 				rel_waveDir -= 2 * M_PI;
 			if (rel_waveDir > M_PI)
 				rel_waveDir = 2 * M_PI - rel_waveDir;
+			//if (arcNr == -1)
+			//	printGlobal = 1;
 			if (printGlobal == 1) {
-				printf("checkP %d waveDirection %.3lf rel_waveDir %.3lf waveHeight %.3lf wavePeriod %.3lf\n", i, waveDirection, rel_waveDir, waveHeight, wavePeriod);
+				errlog("checkP %d waveDirection %.3lf rel_waveDir %.3lf waveHeight %.3lf wavePeriod %.3lf\n", i, waveDirection, rel_waveDir, waveHeight, wavePeriod);
 			}
 
 			//printGlobal = 1;
@@ -19153,6 +19308,7 @@ double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact){//, int s
 			if (speedOverGround < calmWaterSpeed / 2)
 				speedOverGround = calmWaterSpeed / 2;
 			timeArc = distNu / speedOverGround; // in hours
+
 			//errlog("uWind %.3lf vWind %.3lf\n", uWind, vWind);
 
 			//int tidInt = (int)(tidTot * model.weather_inv_timeIntervall_h);
@@ -21957,7 +22113,7 @@ int checkIfModifiedFile(int type, int tablePos) {
 	//time_t test = to_time_t(fileTime);
 	//printf("to_time_t: %I64d\n", test);
 
-	if (model.sqliteTables[type].table[tableNr].epochCount < model.tmpEpochCount - 10)
+	if (abs(model.sqliteTables[type].table[tableNr].epochCount - model.tmpEpochCount) > 10)
 		return 1;
 	else
 		return 0;
@@ -22390,11 +22546,20 @@ int getAllVariableValues(int checkPointNr, double tidpkt)
 	for (varNr = 0; varNr < model.nWeatherFiles; varNr++) {
 		tidIndex = model.weather[varNr].timeIntervalIndex[tidInt];
 		if (printGlobal == 1) {
-			errlog("checkP %d t %.3lf %d %d var %d pos %d from %d %d %d val %.3lf\n", checkPointNr, tidpkt, tidInt, tidIndex, varNr,
+			if(abs(tidpkt - 89.120)<0.1)
+				varNr = varNr;
+			errlog("checkP %d t %.3lf %d %d var %d pos %d from %d %d %d val %.3lf lat/lon %.4lf,%.4lf\n", checkPointNr, tidpkt, tidInt, tidIndex, varNr,
 				model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr],
 				model.weatherFunctions.checkPoint[checkPointNr].latPos[varNr],
 				model.weatherFunctions.checkPoint[checkPointNr].lonPos[varNr], model.weather[varNr].nCols,
-				model.weather[varNr].valueCell[tidIndex][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]]);
+				model.weather[varNr].valueCell[tidIndex][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]],
+				model.weatherFunctions.point_lat[checkPointNr], model.weatherFunctions.point_lon[checkPointNr]);
+			if (abs(tidpkt - 89.120) < 0.1)
+				errlog("-2 -1 1 2 m/s %.4lf %.4lf %.4lf %.4lf\n",
+					model.weather[varNr].valueCell[tidIndex-2][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]] / 3.6,
+					model.weather[varNr].valueCell[tidIndex-1][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]] / 3.6,
+					model.weather[varNr].valueCell[tidIndex+1][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]] / 3.6,
+					model.weather[varNr].valueCell[tidIndex+2][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]] / 3.6);
 		}
 		model.functions.varValue[varNr] = model.weather[varNr].valueCell[tidIndex][model.weatherFunctions.checkPoint[checkPointNr].pos_latLon[varNr]];
 		if (model.functions.varValue[varNr] < -1.0e10 || model.functions.varValue[varNr] > 1.0e10) {
@@ -22702,10 +22867,8 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 
 					rel_windSpeed = eval_relWindSpeed(baseGroundSpeed, model.weatherFunctions.vesselBearing[i],
 						windDirection, windSpeed, &rel_windDir);
-					if (model.params.includeNazanin_safety >= 1) {
-						absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
-					}
-
+					absWindDirDiff = eval_absWindDirDiff(model.weatherFunctions.vesselBearing[i], windDirection);
+					
 					if (printGlobal == 1) {
 						printf("checkP %d vWind %.3lf uWind %.3lf, windDirection %.3lf windSpeed %.3lf rel_windSpeed %.3lf rel_windDir %.3lf\n", i, vWind,
 							uWind, windDirection, windSpeed, rel_windSpeed, rel_windDir);
@@ -22717,6 +22880,7 @@ double evalWeatherDataAlongArcSection(int arcNr, double startKvot, double endKvo
 					windSpeed = 0;
 					windDirection = 0;
 					rel_windDir = 0;
+					absWindDirDiff = 0;
 					rel_windSpeed = baseGroundSpeed;
 					favorableWind = -1;
 				}

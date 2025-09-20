@@ -701,8 +701,8 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 				}
 				else {
 #endif
-				   if ((int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1) == 1878)
-					   printf("har nu\n");
+				   //if ((int)(model.Dijkstra.sp->nodeId(newNode) + model.Dijkstra.node_min - 1) == 1878)
+					   // printf("har nu\n");
 					// relocate the node in B if needed
 					bckNew = DistToBucket(&(newNode->dist),
 					DistToLevel(&(newNode->dist)));

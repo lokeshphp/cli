@@ -5643,9 +5643,9 @@ int loadParams_theRestOld(strParams* params)
 
 	if (!data["SKRIV_UT_NOTHING"].is_null()) {
 		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
-		if (SKRIV_UT_NOTHING < 2) {
-			reset_errlog();
-		}
+		//if (SKRIV_UT_NOTHING < 2) {
+		//	reset_errlog();
+		//}
 	}
 
 	if (!data["includeNazanin_safety"].is_null())
@@ -5787,6 +5787,9 @@ int loadParams_theRestOld(strParams* params)
 		vardeInt = (int)(params->nPkterOrto / 2.0);
 		if (vardeInt * 2 == params->nPkterOrto)
 			(params->nPkterOrto)++; // must be an uneven number of orthogonal points
+	}
+	if (!data["maxDeviationPreferred_km"].is_null()) {
+		params->maxDeviationPreferred_km = data["maxDeviationPreferred_km"];
 	}
 	if (!data["nMinutesBetweenPkterOrto"].is_null()) {
 		if (data["nMinutesBetweenPkterOrto"] < 1)
@@ -8839,7 +8842,7 @@ void testAnropRedisMap() {
 
 int updateCorridors(std::string inputPath) {
 	// download new corridors from api to file inputPath/tmp_corridors.json
-	reset_errlog();
+	// reset_errlog();
 	int retVal = call_api_corridors(inputPath);
 
 	printf("pfg efter call_api_corridors\n");
@@ -11493,13 +11496,15 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 		if (isOk == 1) {
 			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
 		}
+		if (isOk == 0)
+			isOk = -1;
 	}
 
 	//int isOk = check_physicalMap_ok(y1, x1, y2, x2p1.latitude().degrees(), p1.longitude().degrees(),
 //	p2.latitude().degrees(), p2.longitude().degrees(), 0);
 
 	if (printGlobal == 1)
-		printf("++check_isPhysicalArcOK xy %.3lf %.3lf %.3lf %.3lf isOk %d\n", x1, y1, x2, y2, isOk);
+		printf("++check_isPhysicalArcOK xy %.3lf %.3lf %.3lf %.3lf isOk %d isOk2 %d\n", x1, y1, x2, y2, isOk);
 	//int ok1;
 	//if (isOk == 1) {
 	//	ok1 = check_feasibleNodeRasterA(y1, x1);
@@ -11650,7 +11655,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 	int nChangeFactor;
 
 	checkNextLevel = 0;
-	if (thisLevel == 16)
+	if (thisLevel == 8 && pointPos == 27)
 		thisLevel = thisLevel;
 	if (nextLevel > 0) { // next physical level
 		if (nextLevel == 20)
@@ -12512,6 +12517,8 @@ int addArcsToNetwork()
 		if(i >= model.network.nPhysicalLevels - 3)
 			i = i;
 		try_addPhysicalArcsFromChannel(i);
+		if (i == 8)
+			i = i;
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			if (i == 8 && i1 == 24)
 				i = i;
@@ -12566,6 +12573,8 @@ int addArcsToNetwork()
 
 	double maxDist = 0, dist;
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i == 8)
+			i = i;
 		for (i2 = 0; i2 < model.network.physicalLev[i].nPoints; i2++) {
 			if (model.network.physicalLev[i].allowedPoint[i2] == 0)
 				continue; // not allowed node
@@ -13221,6 +13230,35 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 }
 
 
+int checkPrefPath_throughExtraNoGo() {
+	int i, arcOK, startProblem = 1, i1;
+	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		arcOK = check_isPhysicalArcOK(i, i + 1, model.params.preferredPathOrtoPos[i], model.params.preferredPathOrtoPos[i + 1]); // not a preferred path
+		if (arcOK == -1) {
+			if (startProblem == 0) {
+				// if pref path feasible but through extra noGo and not start/end of leg then
+				model.network.physicalLev[i].requirePrefPathFeasible = 1;
+			}
+			if ((model.network.physicalLev[i].legNr < model.network.physicalLev[i + 1].legNr &&
+				model.params.legProperties[model.network.physicalLev[i].legNr].endNode_exact == 1) ||
+				i == model.network.nPhysicalLevels - 2){
+				for (i1 = i; i1 >= 0; i1--) {
+					if (model.network.physicalLev[i1].requirePrefPathFeasible == 0)
+						break;
+					model.network.physicalLev[i1].requirePrefPathFeasible = 0;
+				}
+				startProblem = 1;
+			}
+		}
+		else
+			startProblem = 0;
+	}
+
+
+	return 0;
+}
+
+
 int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 {
 	int i, nInt, nPkterOrto = -1, i1, endPos, nIntLoc, roundKvot, nodExact;
@@ -13321,6 +13359,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	nIntervallPoints++;
 
 	model.network.physicalLev = (strNodeSeq*)malloc2((nInt + 1) * sizeof(strNodeSeq));
+	model.delay.nDelayed_months = 0;
 	nAllocPoints = 10;
 	model.network.physicalLev[0].preferredPathPoint = (spherical::Point*)malloc(nAllocPoints * sizeof(spherical::Point));
 	model.network.physicalLev[0].npreferredPathPoints = 0;
@@ -13568,6 +13607,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 
 	// loadChannels();
 	checkChannels();
+	checkPrefPath_throughExtraNoGo();
+
 	addArcsToNetwork();
 	checkMinnesAnvandning(__LINE__);
 
@@ -14285,11 +14326,11 @@ int calcWeatherPosAlongpreferredPathArc(spherical::Point p1, int level)
 	totDist = 0;
 	pMid = p1;
 	if (printGlobal == 1)
-		printf("level %d nprefPoints %d p1 %.3lf %.3lf\n", level,
+		errlog("level %d nprefPoints %d p1 %.3lf %.3lf\n", level,
 			model.network.physicalLev[level].npreferredPathPoints, p1.longitude().degrees(), p1.latitude().degrees());
 	for (i = 0; i < model.network.physicalLev[level].npreferredPathPoints; i++) {
-		if (printGlobal == 1)
-			printf("i %d innan totDist %.3lf\n", i, totDist);
+		//if (printGlobal == 1)
+		//	printf("i %d innan totDist %.3lf\n", i, totDist);
 		totDist += pMid.distanceTo(model.network.physicalLev[level].preferredPathPoint[i]) / 1000.0;
 		//if (i < model.network.physicalLev[level].npreferredPathPoints - 1)
 		pMid = model.network.physicalLev[level].preferredPathPoint[i];
@@ -15410,9 +15451,16 @@ double eval_fuelConsumption_both(int speedNr, double* consumptionAux, int fromLe
 		//		fromLevel, toLevel);
 		//	factor = 1;
 		//}
-		factor = 1;
-		vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainBase[model.functions.speedSetting95MCR_base] * factor;
-		vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxBase[model.functions.speedSetting95MCR_base];// .functions.fuelConsumption.c0
+		if (model.delay.nDelayed_months == 0) {
+			factor = 1;
+			vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainBase[model.functions.speedSetting95MCR_base] * factor;
+			vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxBase[model.functions.speedSetting95MCR_base];// .functions.fuelConsumption.c0
+		}
+		else {
+			factor = fuelFactorMain;
+			vardeMain = model.functions.rpmSetting_gerFuelConsumption_mainBase[model.functions.speedSetting95MCR_base] * factor;
+			vardeAux = model.functions.rpmSetting_gerFuelConsumption_auxBase[model.functions.speedSetting95MCR_base];// .functions.fuelConsumption.c0
+		}
 	}
 	else {
 		if (fromLevel >= 0) {
@@ -15943,10 +15991,12 @@ double lookup_speedDiffWindTable(double calmWaterSpeed, double rel_windSpeed, do
 	int iCalmWaterSpeed = get_tableIndex(calmWaterSpeed, model.functions.windFactor.shipSpeedCalmWater); // get_calmWaterSpeedIndex(calmWaterSpeed, model.functions.weatherFactors);
 	int pos;
 
-	if (printGlobal == 1)
-		printf("** wind table index dir %d windspeed %d baseShipSpeed %d baseShipSpeed %.3lf\n", iWindDir, iWindSpeed, iCalmWaterSpeed, calmWaterSpeed);
 	pos = iCalmWaterSpeed + model.functions.windFactor.shipSpeedCalmWater.nIndex *
 		(iWindDir + model.functions.windFactor.windDirection.nIndex * iWindSpeed);
+	if (printGlobal == 1)
+		errlog("** wind table index dir %d windspeed %d baseShipSpeed %d baseShipSpeed %.3lf pos %d value %.4lf\n", 
+			iWindDir, iWindSpeed, iCalmWaterSpeed, calmWaterSpeed, pos,
+			model.functions.windFactor.tableValue[pos]);
 	//printf("pos %d max %d\n", pos, model.functions.windFactor.shipSpeedCalmWater.nIndex * 
 	//	model.functions.windFactor.windDirection.nIndex * model.functions.windFactor.windSpeed.nIndex);
 	return model.functions.windFactor.tableValue[pos]; // windSpeed, windDir, calmWaterSpeed

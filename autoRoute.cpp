@@ -8052,7 +8052,7 @@ int genAutoRoute_old(std::string inputPath, std::string resultName) {
 	updateCostsSeaRouteArcs();
 
 	checkMinnesAnvandning(__LINE__);
-	SattUppDijkstraNatverk3(&modelSea);
+	SattUppDijkstraNatverk3(&modelSea, model.params.resultPath);
 
 	modelSea.BVArc = (int*)malloc2(modelSea.nNoder * sizeof(int));
 	modelSea.BVtempNodOrder = (int*)malloc2(modelSea.nNoder * sizeof(int));
@@ -8162,7 +8162,7 @@ int genAutoRoute_old(std::string inputPath, std::string resultName) {
 
 
 			checkMinnesAnvandning(__LINE__);
-			SattUppDijkstraNatverk3(&model);
+			SattUppDijkstraNatverk3(&model, model.params.resultPath);
 			checkMinnesAnvandning(__LINE__);
 
 			nod1 = model.autoRoute_startNod;
@@ -8264,7 +8264,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 	updateCostsSeaRouteArcs();
 
 	checkMinnesAnvandning(__LINE__);
-	SattUppDijkstraNatverk3(&modelSea);
+	SattUppDijkstraNatverk3(&modelSea, model.params.resultPath);
 
 	modelSea.BVArc = (int*)malloc2(modelSea.nNoder * sizeof(int));
 	modelSea.BVtempNodOrder = (int*)malloc2(modelSea.nNoder * sizeof(int));
@@ -8433,7 +8433,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 
 
 		checkMinnesAnvandning(__LINE__);
-		SattUppDijkstraNatverk3(&model);
+		SattUppDijkstraNatverk3(&model, model.params.resultPath);
 		checkMinnesAnvandning(__LINE__);
 		if (SKRIV_UT_NOTHING == 0)
 			printf("done SattUppDijkstraNatverk3 iter %d\n", iter);

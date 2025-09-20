@@ -686,6 +686,44 @@ int loadWeatherFiles_delayed_new(int year) {
 				if (ii == 0)
 					model.params.UTC_secondsStart = model.weather[ii].secondsUTC[0];
 
+				/*
+				nAlloc = (int)((3600 * 24 + model.weather[ii].secondsUTC[nBands - 1] - model.params.UTC_secondsStart) / 3600 / model.weather_timeIntervall_h) + 2;
+				model.weather[ii].timeIntervalIndex = (int*)malloc2(nAlloc * sizeof(int));
+
+				errlog("weather %d nTimeIntervals %d nTimeIntForecast %d timeIntervall_h %.2lf nAlloc %d\n",
+					ii, model.weather[ii].nTimeIntervals,
+					model.weather[ii].nTimeIntervals_forecast, model.weather_timeIntervall_h, nAlloc);
+				tidInt = 0;
+				for (i = 0; i < model.weather[ii].nTimeIntervals; i++) {
+
+					if (i == model.weather[ii].nTimeIntervals - 1)
+						maxTid = model.weather[ii].secondsUTC[i] + 3600 * 24 - 1;
+					else {
+						// maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
+						maxTid = (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]) / 2;
+					}
+
+					for (; tidInt < 100000; tidInt++) {
+						if (tidInt >= nAlloc) {
+							printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+								model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+							errlog("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
+								model.weather[ii].weatherFileTypeName, i, sekNu, maxTid);
+							break;
+						}
+						sekNu = (long long)(tidInt * model.weather_timeIntervall_h * 3600 + model.params.UTC_secondsStart);
+						if (sekNu <= maxTid)
+							model.weather[ii].timeIntervalIndex[tidInt] = i;
+						else
+							break;
+					}
+					//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
+				}
+				model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+				if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+					nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
+					*/
+
 			}
 			else {
 				if (abs(model.weather[ii].rasterPos[i1].Get_sizeCol() - size_col) > 0.0001)
@@ -729,7 +767,7 @@ int loadWeatherFiles_delayed_new(int year) {
 							// maxTid = model.weather[ii].secondsUTC[i + 1] - 1;
 							maxTid = (model.weather[ii].secondsUTC[i] + model.weather[ii].secondsUTC[i + 1]) / 2;
 						}
-					
+
 						for (; tidInt < 100000; tidInt++) {
 							if (tidInt >= nAlloc) {
 								printf("ERROR! Too many tidInt compared to allocated (%d vs %d) for weather param %d %s. I skip the rest, i %d sekNr %I64d maxTid %I64d\n", tidInt, nAlloc, ii,
@@ -745,12 +783,13 @@ int loadWeatherFiles_delayed_new(int year) {
 								break;
 						}
 						//printf("weather %d i %d tidInt %d (over maxTid) sekNu %I64d maxSec %I64d\n", ii, i, tidInt, sekNu, maxTid);
-						model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
-						if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
-							nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
 					}
+					model.weather[ii].nTimeIntervals_maxValue = tidInt - 1;
+					if (model.weather[ii].nTimeIntervals_maxValue > nMaxTimeInt)
+						nMaxTimeInt = model.weather[ii].nTimeIntervals_maxValue;
 				}
 			}
+
 			if (ii == 2 && i1 == 1)
 				ii = ii;
 			if (i1 < model.weather[ii].nFiles / 2.0)
@@ -2041,7 +2080,7 @@ int solveOnlyShortestPathWithoutTime_delay(int node, int yearPos, int alt) {
 		//}
 	}
 
-	SattUppDijkstraNatverk3(&model);
+	SattUppDijkstraNatverk3(&model, model.params.resultPath);
 	nod1 = 0;
 	nod2 = model.nNoder - 1;
 	AnropDijkstra2(nod1, nod2, &model, &Reached);
@@ -2938,7 +2977,7 @@ int generateDelayedFactors_old(std::string inputPath, int node, int manad)
 				for (i0 = 0; i0 < model.nStorms; i0++)
 					model.storms[i0].closestPointToRoute = 1e10;
 
-				SattUppDijkstraNatverk3(&model);
+				SattUppDijkstraNatverk3(&model, model.params.resultPath);
 				checkMinnesAnvandning(__LINE__);
 				nod1 = 0;
 				nod2 = model.nNoder - 1;
@@ -3280,20 +3319,26 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 
 	double calmWaterSpeed = model.params.preferredSpeed_calmWater;
 	int direction, x, y, grader, timep, okCover, nFeasible, nVal, okTidp;
-	double x1, x2, y1, y2, tid, tidBas, factor;
-	double sumVal[8], minVal[8], maxVal[8], coord[2][8], distArr[8];
+	double x1, x2, y1, y2, tid, tidBas, factor, factorFuel;
+	double sumVal[8], sumValFuel[8], minVal[8], maxVal[8], coord[2][8], distArr[8];
 	FILE* filpek, *filpek2;
 	
-	double* factor_posXYr;
+	double* factor_posXYr, * factorFuel_posXYr;
 	int* antal_posXYr, pos_XYr;
 
 	factor_posXYr = (double*)calloc(8 * model.delay.nXinterval * model.delay.nXinterval, sizeof(double));
+	factorFuel_posXYr = (double*)calloc(8 * model.delay.nXinterval * model.delay.nXinterval, sizeof(double));
 	antal_posXYr = (int*)calloc(8 * model.delay.nXinterval * model.delay.nXinterval, sizeof(int));
+
+	// the below is needed to calculate arc time
+	model.network.physicalLev = (strNodeSeq*)malloc2((1) * sizeof(strNodeSeq));
+	model.network.physicalLev[0].tidWait = 0;
+	model.network.physicalLev[0].legNr = 0;
 
 
 	if (node == 0 || node == 10000) {
 		filpek = fopen("data\\res_delayNew.txt", "w");
-		fprintf(filpek, "node\tyear\tday\tdirection\tdistance\ttime_factor\tmin_factor\tmax_factor\txMid\tyMid\n");
+		fprintf(filpek, "node\tyear\tday\tdirection\tdistance\ttime_factor\tmin_factor\tmax_factor\tfuel_factor\txMid\tyMid\n");
 	}
 	else {
 		filpek = fopen("data\\res_delayNew.txt", "a+");
@@ -3324,6 +3369,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 					minVal[direction] = 100;
 					maxVal[direction] = 0;
 					sumVal[direction] = 0;
+					sumValFuel[direction] = 0;
 					nVal = 0;
 				}
 				for (i1 = 0; i1 < nDaysMonths; i1++) {
@@ -3378,8 +3424,15 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 							minVal[direction] = factor;
 						if (maxVal[direction] < factor)
 							maxVal[direction] = factor;
+
+						factorFuel = model.functions.valuesNow.fuel_main / (tid *
+							model.functions.rpmSetting_gerFuelConsumption_mainBase[model.functions.speedSetting95MCR_base]);
+
+
 						sumVal[direction] += factor;
+						sumValFuel[direction] += factorFuel;
 						factor_posXYr[pos_XYr] += factor;
+						factorFuel_posXYr[pos_XYr] += factorFuel;
 						(antal_posXYr[pos_XYr])++;
 						if (i1 == 0) {
 							distArr[direction] = model.functions.valuesNow.distance;
@@ -3390,8 +3443,8 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 					nVal++;
 				}
 				for (direction = 0; direction < 8; direction++) {
-					fprintf(filpek, "%d\t%d\t%d\t%d\t%.3lf\t%.4lf\t%.4lf\t%.4lf\t%.3lf\t%.3lf\n", node, year, i1, direction * 45, distArr[direction],
-						sumVal[direction] / nVal, minVal[direction], maxVal[direction], coord[0][direction], coord[1][direction]);
+					fprintf(filpek, "%d\t%d\t%d\t%d\t%.3lf\t%.4lf\t%.4lf\t%.4lf\t%.4lf\t%.3lf\t%.3lf\n", node, year, i1, direction * 45, distArr[direction],
+						sumVal[direction] / nVal, minVal[direction], maxVal[direction], sumValFuel[direction] / nVal, coord[0][direction], coord[1][direction]);
 					if (abs(coord[0][direction] + 37.5) < 0.1 && abs(coord[0][direction] - 64.5) < 0.1)
 						direction = direction;
 				}
@@ -3407,7 +3460,7 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 		sprintf(namn, "data\\res_nodeDir_%d_%d.txt", i * 45, manad);
 		if (node == 0 || node == 10000) {
 			filpek2 = fopen(namn, "w");
-			fprintf(filpek2, "node\tdirection\ttime_factor\tnValues\txMid\tyMid\n");
+			fprintf(filpek2, "node\tdirection\ttime_factor\tfuel_factor\tnValues\txMid\tyMid\n");
 		}
 		else {
 			filpek2 = fopen(namn, "a+");
@@ -3416,8 +3469,9 @@ int generateDelayedFactors(std::string inputPath, int node, int manad)
 			for (y = 0; y < model.delay.nYinterval; y++) {
 				pos_XYr = i + 8 * (x + model.delay.nXinterval * y);
 				if (antal_posXYr[pos_XYr] > 0)
-					fprintf(filpek2, "%d\t%d\t%.4lf\t%d\t%.3lf\t%.3lf\n",
-						node, i * 45, factor_posXYr[pos_XYr] / antal_posXYr[pos_XYr], antal_posXYr[pos_XYr],
+					fprintf(filpek2, "%d\t%d\t%.4lf\t%.4lf\t%d\t%.3lf\t%.3lf\n",
+						node, i * 45, factor_posXYr[pos_XYr] / antal_posXYr[pos_XYr], 
+						factorFuel_posXYr[pos_XYr] / antal_posXYr[pos_XYr], antal_posXYr[pos_XYr],
 						x + model.boundingBox.xMin + 0.5, y + model.boundingBox.yMin + 0.5);
 				if (abs(x + model.boundingBox.xMin + 0.5 + 37.5) < 0.1 && abs(y + model.boundingBox.yMin + 0.5 - 64.5) < 0.1)
 					direction = direction;
