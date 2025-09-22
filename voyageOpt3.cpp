@@ -13234,7 +13234,7 @@ int checkPrefPath_throughExtraNoGo() {
 	int i, arcOK, startProblem = 1, i1;
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
 		arcOK = check_isPhysicalArcOK(i, i + 1, model.params.preferredPathOrtoPos[i], model.params.preferredPathOrtoPos[i + 1]); // not a preferred path
-		if (arcOK == -1) {
+		if (arcOK == -1 || startProblem == 1 && arcOK == 0) {
 			if (startProblem == 0) {
 				// if pref path feasible but through extra noGo and not start/end of leg then
 				model.network.physicalLev[i].requirePrefPathFeasible = 1;
@@ -13243,8 +13243,11 @@ int checkPrefPath_throughExtraNoGo() {
 				model.params.legProperties[model.network.physicalLev[i].legNr].endNode_exact == 1) ||
 				i == model.network.nPhysicalLevels - 2){
 				for (i1 = i; i1 >= 0; i1--) {
-					if (model.network.physicalLev[i1].requirePrefPathFeasible == 0)
-						break;
+					if (model.network.physicalLev[i1].requirePrefPathFeasible == 0) {
+						arcOK = check_isPhysicalArcOK(i1, i1 + 1, model.params.preferredPathOrtoPos[i1], model.params.preferredPathOrtoPos[i + 1]); // not a preferred path
+						if(arcOK == 1)
+							break;
+					}
 					model.network.physicalLev[i1].requirePrefPathFeasible = 0;
 				}
 				startProblem = 1;
