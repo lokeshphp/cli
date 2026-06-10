@@ -1054,6 +1054,10 @@ int addEnBage_AB(int thisLevel, int pos1, int nextLevel, int pos2, int tPos, int
 	//		model.nArcs, thisLevel, pos1, pos2, i4, tidInt, min_t, max_t);
 	//}
 
+	if (thisLevel >= 0) {
+		if (pos1 == model.params.preferredPathOrtoPos[thisLevel])
+			min_t = -1;
+	}
 	if (tidInt <= max_t && tidInt >= min_t) {
 		model.tmpTid2[2] = std::chrono::high_resolution_clock::now();
 		if (thisLevel < 0 && nextLevel < 0) {

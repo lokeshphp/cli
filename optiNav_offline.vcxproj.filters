@@ -57,6 +57,12 @@
     <ClCompile Include="voyageOpt3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="shortest_path_solver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="shortest_path_solver_chaptCPT.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="coordinate.h">

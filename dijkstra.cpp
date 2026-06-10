@@ -1,5 +1,7 @@
 #include "pch.h"
 extern int SKRIV_UT_NOTHING;
+extern double MAX_FAKTOR_NATVERK;
+int FAILED_BUCKET = 0;
 
 long long MAXVARDE_NATVERK = 100000000000000; // 100000000000;
 int skrivUtWarning = 0;
@@ -53,8 +55,8 @@ int SattUppDijkstraNatverk3(strModel* model, std::string saveNatvName) {
 	}
 	if (maxCost > 0) {
 		model->Dijkstra.FAKTOR_NATVERK = (long long)(MAXVARDE_NATVERK / maxCost);
-		if (model->Dijkstra.FAKTOR_NATVERK > 1e3)
-			model->Dijkstra.FAKTOR_NATVERK = 1e3; // 0000;
+		if (model->Dijkstra.FAKTOR_NATVERK > MAX_FAKTOR_NATVERK)
+			model->Dijkstra.FAKTOR_NATVERK = MAX_FAKTOR_NATVERK; //  1e3; // 0000;
 		if (model->Dijkstra.FAKTOR_NATVERK < 1) {
 			printf("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
 			errlog("ERROR! Too low FAKTOR_NATVERK (I set it to 1), maxCost of arc is %lf\n", maxCost);
@@ -789,22 +791,36 @@ int AnropDijkstra2(int NodA, int NodB, strModel *model, bool *Reached) {
 	sink = model->Dijkstra.nodes -
 		model->Dijkstra.node_min + NodB;
 
-	checkMinnesAnvandning(__LINE__);
-	if (NodA != NodB) {
-		for (currentNode = model->Dijkstra.nodes;
-			currentNode < model->Dijkstra.nodes + model->Dijkstra.nNoder;
-			currentNode++)
-			currentNode->tStamp = 0;
+	for (int nIter = 0; nIter < 10; nIter++) {
+		FAILED_BUCKET = 0;
+		checkMinnesAnvandning(__LINE__);
+		if (NodA != NodB) {
+			for (currentNode = model->Dijkstra.nodes;
+				currentNode < model->Dijkstra.nodes + model->Dijkstra.nNoder;
+				currentNode++)
+				currentNode->tStamp = 0;
 
-		checkMinnesAnvandning(__LINE__);
-		*Reached = model->Dijkstra.sp->sp(*model, source, sink, &OptCost); //, maxCost);
-		//*Reached = model->Dijkstra.sp->spTmp(*model, source, sink, &OptCost); //, maxCost);
-		checkMinnesAnvandning(__LINE__);
-		model->Dijkstra.OptCost = (long long)(OptCost / model->Dijkstra.FAKTOR_NATVERK);
+			checkMinnesAnvandning(__LINE__);
+			*Reached = model->Dijkstra.sp->sp(*model, source, sink, &OptCost); //, maxCost);
+			//*Reached = model->Dijkstra.sp->spTmp(*model, source, sink, &OptCost); //, maxCost);
+			checkMinnesAnvandning(__LINE__);
+			model->Dijkstra.OptCost = (long long)(OptCost / model->Dijkstra.FAKTOR_NATVERK);
+		}
+		else
+			*Reached = model->Dijkstra.sp->sp(*model, source, source, &OptCost); //, maxCost);
+
+		if (FAILED_BUCKET == 0)
+			break;
+		model->Dijkstra.FAKTOR_NATVERK /= 10;
+		if (model->Dijkstra.FAKTOR_NATVERK < 0.999) {
+			postRequest("Failed in Dijkstras alg, bucket error", 0);
+			break;
+		}
+		fprintf(stdout, "Failed to solve Dijkstra, trying again with FAKTOR_NATVERK %.2lf\n", model->Dijkstra.FAKTOR_NATVERK);
+		errlog("Failed to solve Dijkstra, trying again with FAKTOR_NATVERK to %.2lf\n", model->Dijkstra.FAKTOR_NATVERK);
+		ChangeArcCosts3(model);
+
 	}
-	else
-		*Reached = model->Dijkstra.sp->sp(*model, source, source, &OptCost); //, maxCost);
-
 	return 0;
 }
 

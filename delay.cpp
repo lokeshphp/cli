@@ -2236,7 +2236,7 @@ int createTimeArcs_delay(int year, int startDay, int neighbourPos)
 					continue;
 				if (nextLevel < 0 && i > 0)
 					continue; // i > 0 since onle add these arcs once...
-				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2) {
+				if (model.network.channel[cNr].outNoNormalArc_useTSS[i2b] == 1) {
 					continue; // do not include this arc as a tss should be used instead.
 				}
 				setupCheckPoints = 1;

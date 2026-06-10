@@ -155,6 +155,8 @@
     <ClCompile Include="filhantering.cpp" />
     <ClCompile Include="point.cpp" />
     <ClCompile Include="raster.cpp" />
+    <ClCompile Include="shortest_path_solver.cpp" />
+    <ClCompile Include="shortest_path_solver_chaptCPT.cpp" />
     <ClCompile Include="smartq.cpp" />
     <ClCompile Include="sp.cpp" />
     <ClCompile Include="sphericalpoint.cpp" />

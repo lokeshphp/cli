@@ -8,6 +8,7 @@
 #include <direct.h>
 
 #include <iostream>
+#include <fstream>
 #include <unordered_map>
 #include <sstream>
 
@@ -387,6 +388,7 @@ void postRequest(std::string errorMessage, int endProgram) {
 	if (endProgram == 1) {
 		exitKontrollerat(__LINE__);
 	}
+
 	/*
 	CURL* curl;
 	CURLcode res;
@@ -419,8 +421,51 @@ void postRequest(std::string errorMessage, int endProgram) {
 
 int call_api_corridors(std::string inputPath) {
 	// download new corridors from api to file inputPath/tmp_corridors.json
-	
-	return 0;
+	int retVal = 0;
+	/*
+	CURL* curl;
+	CURLcode res;
+	FILE* file;
+	char* fileName;
+
+
+	curl = curl_easy_init();
+	if (curl) {
+		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
+		curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/ivado/get-corridors");
+		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+		curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+
+		const char* namn = "data/testdata.txt";
+		FILE* fp = fopen(namn, "wb");
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+
+		struct curl_slist* headers = NULL;
+		headers = curl_slist_append(headers, "sec-ch-ua-platform: \"Windows\"");
+		headers = curl_slist_append(headers, "Referer: https://fleetview2-client.tnmservices.com/");
+		headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36");
+		headers = curl_slist_append(headers, "sec-ch-ua: \"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"");
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+		headers = curl_slist_append(headers, "sec-ch-ua-mobile: ?0");
+		headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		const char* data = "";
+		printf("here1\n");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
+		printf("here1b\n");
+		res = curl_easy_perform(curl);
+
+		fclose(fp);
+		printf("here1c\n");
+		curl_slist_free_all(headers);
+		printf("here1d\n");
+	}
+	curl_easy_cleanup(curl);
+	*/
+
+
+	return retVal;
 }
 
 //
@@ -440,6 +485,7 @@ int call_api_corridors(std::string inputPath) {
 // hindCast
 // --input=data\hc_2318.json --output=data\res_hc2318.json
 
+// --input=data\nogo.json --output=data\res_251028.json
 
 // if onboard is used then in input data use "onboard":2, (if 1 then hindcast data will be used after the planning horizon which shouldn't be available for onboard version)
 
@@ -457,6 +503,7 @@ int call_api_corridors(std::string inputPath) {
 
 // input parameters to generate new seaRoute paths (obs, change minLat in file_paramsAutoRoute.json if close to it to see correct geometry)
 // --inputSeaRoute=data\coordsNewSeaRoutes.json
+// to generate new arcs when sea routes have been updated, set newSeaRoutePathData to 1 in the input file and run autoRoute
 
 // --forecast=XX, if XX = 0 then not used, 1 (standard forecast - redis), ... add more alternatives
 //				  if XX < 0 then evaluate already optimized solutions against a specific weather
@@ -613,7 +660,7 @@ int main(int argc, char* argv[])
 	}
 	printf("weatherPath '%s'\n", model.params.weatherPath.c_str());
 
-	if (problTyp == 1) {// OptiNav forecast or setRedisKeys
+ 	if (problTyp == 1) {// OptiNav forecast or setRedisKeys
 		if (inputPath == "-") {
 			errlog0("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
 			printf("ERROR! Did not manage to identify an input name from %s or %s. I quit.\n", argv[1], argv[2]);
@@ -630,14 +677,14 @@ int main(int argc, char* argv[])
 			int returnVal = 1;
 			if (inputPath != "-") {
 
-				// returnVal = updateCorridors(inputPath);
-
 				returnVal = saveTablesToSQLite(inputPath);
 				//returnVal = saveMapsToBinary();
 
 				SKRIV_UT_NOTHING = 0;
 				returnVal = redisSetKeys(inputPath);
 				printf("cleaning4\n");
+				returnVal = updateCorridors(inputPath);
+
 			}
 			if (returnVal != 0) {
 				errlog("ERROR! Failed to set redis keys for weather\n");
@@ -652,6 +699,7 @@ int main(int argc, char* argv[])
 			printf("cleaning5\n");
 			printf("redis key generation took %.3lf\n", fp_ms);
 			errlog("redis key generation took %.3lf\n", fp_ms);
+
 			return 0;
 		}
 		resultPath = splitFilename(outputPath);

@@ -32,6 +32,7 @@
 #define POS_EVAL
 #endif
 
+extern int FAILED_BUCKET;
 //extern strModel model;
 
 #define LOW_LEVEL_BUCKET_SIZE(minArcLen) ( (minArcLen) > 0 ? (minArcLen) : 1 )
@@ -664,7 +665,9 @@ void SmartQ::dijkstra(Node *source, SP *sp)
 						currentNode->dist, arc->len, (currentNode->dist + arc->len),
 						newNode->dist);
 					//fflush(filcheck);
-					postRequest("Failed in Dijkstras alg, bucket error", 0);
+					FAILED_BUCKET = 1;
+					return(false);
+					// postRequest("Failed in Dijkstras alg, bucket error", 0);
 
 				}
 				assert(newNode->where != IN_SCANNED);

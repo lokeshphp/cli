@@ -5,6 +5,7 @@ extern int USE_KVOTCOST_CORRIDORS;
 extern double DEFAULT_KVOTMINCOST_TSS;
 extern double DEFAULT_KVOTMINCOST_CORRIDORS;
 extern double DEFAULT_TSS_ATTACTIONDISTANCE;
+extern double MAX_FAKTOR_NATVERK;
 
 #include "pch.h"
 #include <cstdio>
@@ -543,16 +544,18 @@ int writeAllArcsToGeojson(char* pszFilename)
 	initGeoJsonFil(filpekG, "allPhysicalArcs");
 
 	for (int i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i == 20)
+			i = i;
 		for (int i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
-			if (i == 27 && i1 ==23)
+			if (i == 3 && i1 ==46)
 				i = i;
 			for (int i2 = 0; i2 < model.network.physicalLev[i].nOutNodes[i1]; i2++) {
 				nod2 = model.network.physicalLev[i].outNode[i1][i2];
 				nextLevel = model.network.physicalLev[i].outLevel[i1][i2];
 
-				if (model.network.physicalLev[i].outRestrictedAreaNr[i1][i2] == -2) {
+				if (model.network.physicalLev[i].outNoNormalArc_useTSS[i1][i2] == 1) {
 					//if (model.params.preferredPathStraightLineFeasibleFrom[i] == 1 || (i1 != model.params.preferredPathOrtoPos[i] || nextLevel != i + 1 ||
 					//	nod2 != model.params.preferredPathOrtoPos[nextLevel]))
 						continue; // do not include this arc as a tss should be used instead.
@@ -641,7 +644,7 @@ int writeAllArcsToGeojson(char* pszFilename)
 					continue;
 				nod2 = model.network.channel[cNr].outNode[i2b];
 
-				if (model.network.channel[cNr].outRestrictedAreaNr[i2b] == -2)
+				if (model.network.channel[cNr].outNoNormalArc_useTSS[i2b] == 1)
 					continue; // do not include this arc as a tss should be used instead.
 
 				if (i1 == 0)
@@ -1636,7 +1639,7 @@ int setAllSpeedAltOK_ifPossible_level(int arcDelay, int posDelay){
 			set_speedSettingsFromBase(&(speedLevel[pos]), i, i);
 		}
 		speedLevel[pos].nShip_speedSettings = model.functions.nShip_speedSettingsBase;
-		speedSetting = chosenSetting;
+		speedSetting = chosenSetting + model.delay.changedSpeed[posDelay];
 	}
 	return speedSetting;
 }
@@ -2856,7 +2859,7 @@ int extendTssAlongPrefPath(int cNr, int posTss, int* levelPrefP, int alt) {
 	if (cNr == 8)
 		alt = alt;
 	findClosestNextPointAlongPrefPath(cNr, posTss, *levelPrefP, alt, &level1, &startP);
-	if (level1 < 0) {
+	if (level1 < 0 || level1 >= model.network.nPhysicalLevels - 1) {
 		*levelPrefP = -1;
 		return -1;
 	}
@@ -3074,7 +3077,7 @@ int getBastPhysLevelToConnectToChannel_tss(int alt, int cNr) {
 		x = model.network.channelTmp[cNr].point_x[nCoords - 1];
 		y = model.network.channelTmp[cNr].point_y[nCoords - 1];
 	}
-	if (cNr == 9)
+	if (cNr == 2)
 		cNr = cNr;
 	dirChannel = getDirChannelTmp(cNr, alt);
 
@@ -3438,6 +3441,45 @@ int getBastPhysLevelToConnectToChannelPolygon(int cNr, int startPos, int corrido
 }
 */
 
+double identify_minDist_channelToPrefPath(int cNr, int startEnd, int* minPosBast, double* distBastPrev2, double* distBastNext2) {
+	double minDist = 1e20, x, y, distPrev = -1, dist, x0;
+	int i0, i, minPos = 0, start_i0, direction;
+
+	if (startEnd == 0) {
+		start_i0 = 0;
+		direction = 1;
+	}
+	else {
+		start_i0 = model.network.nPhysicalLevels - 1;
+		direction = -1;
+	}
+
+	for (i0 = start_i0; i0 >= 0 && i0 < model.network.nPhysicalLevels; i0 += direction) {
+		x = model.network.physicalLev[i0].point_x[model.params.preferredPathOrtoPos[i0]];
+		y = model.network.physicalLev[i0].point_y[model.params.preferredPathOrtoPos[i0]];
+		for (i = 0; i < model.network.channel[cNr].nPoints; i++) {
+			x0 = model.network.channel[cNr].point_x[i];
+			check_translate_xCoord(&x0);
+			dist = estimateLargeCircleDistance2_km(y, x, model.network.channel[cNr].point_y[i], x0);
+			if (minDist > dist) {
+				minDist = dist;
+				*distBastPrev2 = distPrev;
+				minPos = i;
+			}
+			distPrev = dist;
+			if (minPos == i - 1)
+				*distBastNext2 = dist;
+		}
+		if (minDist < 50000) {
+			break; // close enough to pref path...
+		}
+	}
+	*minPosBast = minPos;
+	minDist = sqrt(minDist);
+
+	return minDist;
+}
+
 int identify_startEndOnChannel(int cNr, int startEnd) {
 	int i, minPos, posUse, ok;
 	double minDist = 1e20, dist, x, y, distBastPrev2, distPrev = -1, distBastNext2 = -1, x0, x1, x2;
@@ -3459,23 +3501,24 @@ int identify_startEndOnChannel(int cNr, int startEnd) {
 	//if (ok == 0)
 	//	return 0;
 
-	for (i = 0; i < model.network.channel[cNr].nPoints; i++) {
-		x0 = model.network.channel[cNr].point_x[i];
-		check_translate_xCoord(&x0);
-		dist = estimateLargeCircleDistance2_km(y, x, model.network.channel[cNr].point_y[i], x0);
-		if (minDist > dist) {
-			minDist = dist;
-			distBastPrev2 = distPrev;
-			minPos = i;
-		}
-		distPrev = dist;
-		if (minPos == i - 1)
-			distBastNext2 = dist;
-	}
+	minDist = identify_minDist_channelToPrefPath(cNr, startEnd, &minPos, &distBastPrev2, &distBastNext2);
+
+	//for (i = 0; i < model.network.channel[cNr].nPoints; i++) {
+	//	x0 = model.network.channel[cNr].point_x[i];
+	//	check_translate_xCoord(&x0);
+	//	dist = estimateLargeCircleDistance2_km(y, x, model.network.channel[cNr].point_y[i], x0);
+	//	if (minDist > dist) {
+	//		minDist = dist;
+	//		distBastPrev2 = distPrev;
+	//		minPos = i;
+	//	}
+	//	distPrev = dist;
+	//	if (minPos == i - 1)
+	//		distBastNext2 = dist;
+	//}
 	//printf("ident_startEndOnChannel startEnd %d minDist %.2lf minPos %d distBastPrev %.2lf distBastNext %.2lf nPoints %d\n",
 	//	startEnd, minDist, minPos, distBastPrev, distBastNext, model.network.channel[cNr].nPoints);
 
-	minDist = sqrt(minDist);
 	if (minPos > 0) {
 		x1 = model.network.channel[cNr].point_x[minPos - 1];
 		check_translate_xCoord(&x1);
@@ -4038,7 +4081,8 @@ int checkChannels() {
 		model.network.channel[cNr].outNode = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 		model.network.channel[cNr].outLevel = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc(model.network.channel[cNr].nAllocOutNodes * sizeof(int));
-
+		model.network.channel[cNr].outNoNormalArc_useTSS = (int*)calloc(model.network.channel[cNr].nAllocOutNodes, sizeof(int));
+		
 		model.network.channel[cNr].nConnectTo = 0;
 		model.network.channel[cNr].nAllocConnectTo = 100;
 		model.network.channel[cNr].connectTo_outLevel = (int*)malloc(model.network.channel[cNr].nAllocConnectTo * sizeof(int));
@@ -4053,7 +4097,7 @@ int checkChannels() {
 			// tss
 			continue; // only normal channels need to be checked, not tss 
 		}
-
+	
 		//}
 		nCoords = model.network.channel[cNr].nPoints;
 
@@ -4098,11 +4142,40 @@ int checkChannels() {
 		}
 		// check if start and end point of the channel is in preferred path's allowed area, no => skip
 		pos1 = getBastPhysLevelToConnectToChannel(1, cNr); // pos0 + 1);
-		if (pos1 < 0) {
-			errlog("ERROR! Corridor %d, endpoint %.3lf %.3lf does not give a position in the physical network\n", cNr,
-				model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1]);
+
+		if (pos1 < 0 || pos0 < 0) {
+			if(pos1 < 0)
+				errlog("ERROR! Corridor %d, endpoint %.3lf %.3lf does not give a position in the physical network\n", cNr,
+					model.network.channel[cNr].point_x[nCoords - 1], model.network.channel[cNr].point_y[nCoords - 1]);
+			model.network.channel[cNr].bastStartLevel = -1;
+			model.network.channel[cNr].bastEndLevel = -1;
+
 			continue;
 		}
+
+		int legNr1, legNr2, levelNr1, levelNr2;
+		levelNr1 = model.network.channel[cNr].bastStartLevel;
+		if (levelNr1 >= 0)
+			legNr1 = model.network.physicalLev[levelNr1].legNr;
+		else
+			legNr1 = model.network.channel[-levelNr1 - 1].legNr;
+		levelNr2 = model.network.channel[cNr].bastEndLevel;
+		if (levelNr2 >= 0)
+			legNr2 = model.network.physicalLev[levelNr2].legNr;
+		else
+			legNr2 = model.network.channel[-levelNr2 - 1].legNr;
+		if (legNr1 != legNr2 && 
+			!(legNr1 == legNr2 - 1 && model.params.legProperties[legNr1].endNode_exact != 1)) {
+			// different legs then not allowed channel, it is okay if the legs follow each other and no exact node requirement on legNr1
+			if(model.network.channel[cNr].bastStartLevel >= 0)
+				model.network.physicalLev[model.network.channel[cNr].bastStartLevel].followChannelExactly = 0;
+			model.network.channel[cNr].bastStartLevel = -1;
+			model.network.channel[cNr].bastEndLevel = -1;
+			model.network.channel[cNr].earliestStartLevel = 10000;
+			model.network.channel[cNr].latestEndLevel = -1;
+			continue;
+		}
+
 		// validate start and end node as valid in feasible network
 		//if (check_isCoordFeasiblePhysicalMap(model.network.channel[cNr].point_y[nCoords - 1],
 		//	model.network.channel[cNr].point_x[nCoords - 1]) == 0) {
@@ -4591,6 +4664,10 @@ int findPreviousNext_closePoint_prefPathToCoords(strClosePoints* point, int rikt
 		// ga sa langt
 		// om inte for langt mellan punkterna sa uppdatera punkten och return 1, annars return 0
 		if (dist1 <= dist2) {
+			if (dist2 < 0.000001) {
+				dist1 = 0.000001;
+				dist2 = 0.000001;
+			}
 			getNextPointPrefPath(point, riktning * dist1 / dist2, &y2b, &x2b, 0);
 			distNu = estimateLargeCircleDistance_km(y1b, x1b, y2b, x2b);
 			if (distNu > maxDist2 || (distNu > dist1 && distNu > maxDist0)) {
@@ -4875,7 +4952,8 @@ int sortChannelsInOrder(int* order, int nC) {
 		model.network.channel[cNr].outNode = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
 		model.network.channel[cNr].outLevel = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
 		model.network.channel[cNr].outRestrictedAreaNr = (int*)malloc2(model.params.nPkterOrto * 2 * sizeof(int));
-
+		model.network.channel[cNr].outNoNormalArc_useTSS = (int*)calloc(model.params.nPkterOrto * 2, sizeof(int));
+		
 		model.network.channel[cNr].extraCostChannel = 0.0;
 		model.network.channel[cNr].ID = str_alloc_cpy("tss");
 		model.network.channel[cNr].timeThroughChannel = -1.0;
@@ -5046,6 +5124,23 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	if (pos1 < 0)
 		return -1; // not an interesting tss
 
+	int legNr1, legNr2, levelNr1, levelNr2;
+	levelNr1 = model.network.channelTmp[cNr].bastStartLevel;
+	if (levelNr1 >= 0)
+		legNr1 = model.network.physicalLev[levelNr1].legNr;
+	else
+		legNr1 = model.network.channel[-levelNr1 - 1].legNr;
+	levelNr2 = model.network.channelTmp[cNr].bastEndLevel;
+	if (levelNr2 >= 0)
+		legNr2 = model.network.physicalLev[levelNr2].legNr;
+	else
+		legNr2 = model.network.channel[-levelNr2 - 1].legNr;
+	if (legNr1 != legNr2) {
+		model.network.channelTmp[cNr].bastStartLevel = -1;
+		model.network.channelTmp[cNr].bastEndLevel = -1;
+		return -1; // not an interesting tss as it connects to different legs.
+	}
+
 	if (pos1 <= pos0)
 		pos0 = pos0;
 
@@ -5105,6 +5200,8 @@ int check_tss_startSlutLevelOnlyPrefPath() {
 	int cNr, isAllowed, posTss, bastLevel;
 
 	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
+		if (model.network.channel[cNr].type == 0)
+			continue; // only fix tss
 		if (cNr == 8)
 			cNr = cNr;
 		if (model.network.channel[cNr].StartLevelOnlyPrefPath == 1) {
@@ -5130,6 +5227,21 @@ int check_tss_startSlutLevelOnlyPrefPath() {
 			else
 				model.network.channel[cNr].EndLevelOnlyPrefPath = 0;
 		}
+		int legNr1, legNr2, levelNr1, levelNr2;
+		levelNr1 = model.network.channel[cNr].bastStartLevel;
+		if (levelNr1 >= 0)
+			legNr1 = model.network.physicalLev[levelNr1].legNr;
+		else
+			legNr1 = model.network.channel[-levelNr1 - 1].legNr;
+		levelNr2 = model.network.channel[cNr].bastEndLevel;
+		if (levelNr2 >= 0)
+			legNr2 = model.network.physicalLev[levelNr2].legNr;
+		else
+			legNr2 = model.network.channel[-levelNr2 - 1].legNr;
+		if (legNr1 != legNr2) {
+			model.network.channel[cNr].bastStartLevel = -1;
+			model.network.channel[cNr].bastEndLevel = -1;
+		}
 	}
 	return 0;
 }
@@ -5144,7 +5256,7 @@ int load_tss_optiNav()
 	double kvotMinCost;
 
 	if (USE_KVOTCOST_CORRIDORS == 0)
-		default_kvotCost = 0; //  DEFAULT_KVOTMINCOST_TSS;
+		default_kvotCost = 0; //  DEFAULT_KVOTMINCOST_TSS; // cannot be used because of min cost issues
 
 	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
 	sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.params.tssName.c_str());
@@ -5209,6 +5321,8 @@ int load_tss_optiNav()
 		initBoundingBox(&(model.network.boundingbox));
 
 		pos2 = 0;
+		if (pos == 38)
+			pos = pos;
 		for (auto it2 = coords.begin(); it2 != coords.end(); ++it2) {
 			dataIt2 = it2.value();
 			i2 = 0;
@@ -5225,7 +5339,7 @@ int load_tss_optiNav()
 			pos2++;
 		}
 		model.network.nCoords = pos2;
-		if (pos == 55)
+		if (pos == 69)
 			pos = pos;
 		useTss = checkTssRightArea(&firstPoints, &lastPoints);
 		if (useTss != 0)
@@ -5242,7 +5356,7 @@ int load_tss_optiNav()
 					keepPrefPath = prop["keepPrefPath"];
 			}
 			if (USE_KVOTCOST_CORRIDORS == 0) {
-				kvotMinCost = 0.0; // kvotCost;
+				kvotMinCost = kvotCost; //  0.0; // kvotCost;
 				kvotCost = 0.0;
 			}else
 				kvotMinCost = 0.0;
@@ -5647,6 +5761,21 @@ int loadParams_theRestOld(strParams* params)
 		//	reset_errlog();
 		//}
 	}
+	if (!data["MAX_FAKTOR_NATVERK"].is_null()) {
+		MAX_FAKTOR_NATVERK = data["MAX_FAKTOR_NATVERK"];
+	}
+
+	if (!data["url_errorEmail_api"].is_null()) {
+		params->url_errorEmail_api = data["url_errorEmail_api"];
+	}
+	else
+		params->url_errorEmail_api = "";
+
+	if (!data["url_getCorridors"].is_null()) {
+		params->url_getCorridors = data["url_getCorridors"];
+	}
+	else
+		params->url_getCorridors = "";
 
 	if (!data["includeNazanin_safety"].is_null())
 		params->includeNazanin_safety = data["includeNazanin_safety"];
@@ -8843,23 +8972,34 @@ void testAnropRedisMap() {
 int updateCorridors(std::string inputPath) {
 	// download new corridors from api to file inputPath/tmp_corridors.json
 	// reset_errlog();
-	int retVal = call_api_corridors(inputPath);
 
-	printf("pfg efter call_api_corridors\n");
-	if (retVal != 0)
+	if (model.params.url_getCorridors != "") {
+		int retVal = call_api_corridors(inputPath);
+		printf("pfg efter call_api_corridors\n");
+		if (retVal != 0)
+			return -1;
+	}
+	else {
+		printf("ERROR! No url given for getCorridors api\n");
 		return -1;
+	}
 
 	model.params.indataPath = inputPath;
+	model.params.resultPath = inputPath;
+
 	// test the file tmp_corridors.json if there are corridors in it
 	loadFileParams_feasibilityAuto(&(model.paramsAutoRoute));
 	printf("pfg efter loadFileParams_feasibilityAuto\n");
-	load_autoCorridors(1);
-	printf("pfg efter load_autoCorridors\n");
+	
+	// printf("skipping loadFileParams_feasibilityAuto\n");
+	loadSave_downloadedCorridors();
+	printf("pfg efter loadSave_downloadedCorridors\n");
+
+	/*
 	if (model.nAutoCorridors < 2) {
 		postRequest("ERROR! Updating corridors failed (call to api). I use the old corridors\n", 0);
 		return -1;
 	}
-
 	char* filUt, * filIn;
 	filUt = (char*)malloc(256 * sizeof(char));
 	filIn = (char*)malloc(256 * sizeof(char));
@@ -8870,6 +9010,7 @@ int updateCorridors(std::string inputPath) {
 
 	free(filUt);
 	free(filIn);
+	*/
 
 	return 0;
 }
@@ -10757,6 +10898,98 @@ int getMost_restrictedAreaCoords(double lat1, double lon1, double lat2, double l
 	return minPos;
 }
 
+OGRLineString create_ogrLine_straight(double lat1, double lon1, double lat2, double lon2) {
+
+	OGRLineString line;
+	line.addPoint(lat1, lon1);
+	line.addPoint(lat2, lon2);
+	return line;
+}
+
+
+OGRLineString create_ogrLine_channel(int cNr, double lat1, double lon1, double lat2, double lon2) {
+
+	OGRLineString line;
+	int startPos = 0, endPos;
+	double x, y;
+
+	for (int i = 0; i < model.network.channel[cNr].nPoints; i++) {
+		line.addPoint(model.network.channel[cNr].point[i].latitude().degrees(), model.network.channel[cNr].point[i].longitude().degrees());
+	}
+	if(model.network.channel[cNr].nPoints < 2)
+		line.addPoint(model.network.channel[cNr].point[0].latitude().degrees(), model.network.channel[cNr].point[0].longitude().degrees());
+
+	return line;
+}
+
+OGRLineString create_ogrLine_prefPath(int lev1, int lev2, double lat1, double lon1, double lat2, double lon2) {
+
+	OGRLineString line;
+	int startPos = 0, endPos;
+	double x, y;
+
+	int level = lev1;
+	startPos = 0;
+	if (lev1 < 0) {
+		startPos = model.network.channel[-level - 1].preferredPathPoint_posConnectFrom;
+		if (startPos < 0) {
+			errlog("ERROR! This shouldn't happen, row %d\n", __LINE__);
+			printf("ERROR! This shouldn't happen, row %d\n", __LINE__);
+			startPos = 0;
+		}
+		level = lev2 - 1;
+		// pointLast = model.network.physicalLev[level].preferredPathPoint[startPos];
+	}
+
+	endPos = model.network.physicalLev[level].npreferredPathPoints;
+
+	if (lev2 < 0)
+		endPos = model.network.channel[-lev2 - 1].preferredPathPoint_posConnectTo + 1;
+
+	if (endPos <= startPos)
+		endPos = startPos + 1;
+
+	line.addPoint(lat1, lon1);
+	int nPkter = 1;
+	for (int i3 = startPos; i3 < endPos; i3++) {
+		y = model.network.physicalLev[level].preferredPathPoint[i3].latitude().degrees();
+		x = model.network.physicalLev[level].preferredPathPoint[i3].longitude().degrees();
+		if (abs(y - lat1) + abs(x - lon1) > 0.00001) {
+			line.addPoint(y, x);
+			nPkter++;
+		}
+	}
+	if (abs(y - lat2) + abs(x - lon2) > 0.00001) {
+		line.addPoint(lat2, lon2);
+		nPkter++;
+	}
+	if(nPkter < 2)
+		line.addPoint(y, x);
+
+	return line;
+}
+
+int getMost_restrictedAreaLine(OGRLineString line) {
+	int i, pos, minPos = -1;
+	double min_speed = 1e10;
+
+	for (pos = 0; pos < model.nRestrictedAreas; pos++) {
+		for (i = 0; i < model.restrictedArea[pos].nPolygons; i++) {
+			if (line.Intersects(model.restrictedArea[pos].polygon_GDAL[i])) {
+				break;
+			}
+		}
+		if (i < model.restrictedArea[pos].nPolygons) {
+			if (min_speed > model.restrictedArea[pos].max_speed) {
+				minPos = pos;
+				min_speed = model.restrictedArea[pos].max_speed;
+			}
+		}
+	}
+
+	return minPos;
+}
+
 int check_extraNoGoMap_ok(double lat1, double lon1, double lat2, double lon2, int mapAlt, int pos_noGoMap) {
 	Raster::strPhysRaster physicalMap;
 	double row1Dbl, col1Dbl, row2Dbl, col2Dbl, delta_row, delta_col;
@@ -11356,7 +11589,7 @@ int check_isPhysicalArcOK_old2(int startLevel, int slutLevel, spherical::Point p
 	return isOk;
 }
 
-int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc)
+int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc, int followPrefPathExact)
 {
 	int arcOK = 1, mittPktPos1, mittPktPos2, level1, level2, connectChannels = 0, posEnd2;
 	double x1, y1, x2, y2;
@@ -11487,14 +11720,58 @@ int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int
 
 	int isOk = check_physicalMap_ok(y1, x1, y2, x2, 0);
 
+	int i1;
+	double y1a, x1a, y1b, x1b;
 	if (isOk == 1) {
 		for (int i = 0; i < model.nExtraNoGoAreas; i++) {
-			isOk = check_extraNoGoMap_ok(y1, x1, y2, x2, 0, i);
+			if (pos1 == model.params.preferredPathOrtoPos[startLevel] && pos2 == model.params.preferredPathOrtoPos[slutLevel] && slutLevel == startLevel + 1 && followPrefPathExact == 1) {
+				y1a = y1;
+				x1a = x1;
+				for (i1 = 0; i1 < model.network.physicalLev[startLevel].npreferredPathPoints; i1++) {
+					if (i1 < model.network.physicalLev[startLevel].npreferredPathPoints) {
+						y1b = model.network.physicalLev[startLevel].preferredPathPoint[i1].latitude().degrees();
+						x1b = model.network.physicalLev[startLevel].preferredPathPoint[i1].longitude().degrees();
+					}
+					else {
+						y1b = y2;
+						x1b = x2;
+					}
+					isOk = check_extraNoGoMap_ok(y1a, x1a, y1b, x1b, 0, i);
+					if (isOk == 0)
+						break;
+					y1a = y1b;
+					x1a = x1b;
+				}
+				if (i1 < model.network.physicalLev[startLevel].npreferredPathPoints + 1)
+					break;
+			}
+			else
+				isOk = check_extraNoGoMap_ok(y1, x1, y2, x2, 0, i);
 			if (isOk == 0)
 				break;
 		}
 		if (isOk == 1) {
-			isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
+			if (pos1 == model.params.preferredPathOrtoPos[startLevel] && pos2 == model.params.preferredPathOrtoPos[slutLevel] && followPrefPathExact == 1) {
+				y1a = y1;
+				x1a = x1;
+				for (i1 = 0; i1 < model.network.physicalLev[startLevel].npreferredPathPoints + 1; i1++) {
+					if (i1 < model.network.physicalLev[startLevel].npreferredPathPoints) {
+						y1b = model.network.physicalLev[startLevel].preferredPathPoint[i1].latitude().degrees();
+						x1b = model.network.physicalLev[startLevel].preferredPathPoint[i1].longitude().degrees();
+					}
+					else {
+						y1b = y2;
+						x1b = x2;
+					}
+					isOk = check_noGoPolygons_ok(y1a, x1a, y1b, x1b);
+					if (isOk == 0)
+						break;
+					y1a = y1b;
+					x1a = x1b;
+				}
+			}
+			else
+				isOk = check_noGoPolygons_ok(y1, x1, y2, x2);
 		}
 		if (isOk == 0)
 			isOk = -1;
@@ -11526,8 +11803,13 @@ int getMostRestrictedArea(int startLevel, int slutLevel, int pos1, int pos2, int
 {
 	int areaNr, level1, level2;
 	double x1, y1, x2, y2;
+	int prefPath = 0;
 
 	if (startLevel >= 0 && slutLevel >= 0) {
+		if (pos1 == model.params.preferredPathOrtoPos[startLevel] && pos2 == model.params.preferredPathOrtoPos[slutLevel] && startLevel == slutLevel - 1
+			&& (model.params.preferredPathStraightLineFeasibleFrom[startLevel] == 0 || model.params.max_changeDirection == 0)) {
+			prefPath = 1;
+		}
 		x1 = model.network.physicalLev[startLevel].point_x[pos1];
 		y1 = model.network.physicalLev[startLevel].point_y[pos1];
 		x2 = model.network.physicalLev[slutLevel].point_x[pos2];
@@ -11541,6 +11823,17 @@ int getMostRestrictedArea(int startLevel, int slutLevel, int pos1, int pos2, int
 		}
 	}
 	else {
+		if (startLevel >= 0) {
+			if ((model.network.channel[-slutLevel - 1].straightArcFeasible_toChannelFromPrefPath == 0 || model.params.max_changeDirection == 0) &&
+				pos1 == model.params.preferredPathOrtoPos[startLevel] && model.network.channel[-slutLevel - 1].preferredPathPoint_posConnectTo >= 0)
+				prefPath = 1;
+		}
+		if (slutLevel >= 0) {
+			if ((model.network.channel[-startLevel - 1].straightArcFeasible_fromChannelToPrefPath == 0 || model.params.max_changeDirection == 0) &&
+				pos2 == model.params.preferredPathOrtoPos[slutLevel] && model.network.channel[-startLevel - 1].preferredPathPoint_posConnectFrom >= 0)
+				prefPath = 1;
+		}
+
 		if (slutLevel < 0) {
 			if (startLevel >= 0) {
 				x1 = model.network.physicalLev[startLevel].point_x[pos1];
@@ -11585,7 +11878,18 @@ int getMostRestrictedArea(int startLevel, int slutLevel, int pos1, int pos2, int
 		}
 	}
 
-	areaNr = getMost_restrictedAreaCoords(y1, x1, y2, x2);
+	OGRLineString line;
+	if(startLevel < 0 && startLevel == slutLevel)
+		line = create_ogrLine_channel(-startLevel - 1, y1, x1, y2, x2);
+	else {
+		if (prefPath == 0)
+			line = create_ogrLine_straight(y1, x1, y2, x2);
+		else
+			line = create_ogrLine_prefPath(startLevel, slutLevel, y1, x1, y2, x2);
+	}
+	areaNr = getMost_restrictedAreaLine(line);
+
+
 
 	return areaNr;
 }
@@ -11655,7 +11959,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 	int nChangeFactor;
 
 	checkNextLevel = 0;
-	if (thisLevel == 8 && pointPos == 27)
+	if (thisLevel == 3 && pointPos == 45)
 		thisLevel = thisLevel;
 	if (nextLevel > 0) { // next physical level
 		if (nextLevel == 20)
@@ -11699,7 +12003,7 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 			}
 			else {
 				if (model.network.physicalLev[thisLevel].requirePrefPathFeasible == 1) {
-					arcOK = check_isPhysicalArcOK(thisLevel, nextLevel, pointPos, i2); // a preferred path but through a channel
+					arcOK = check_isPhysicalArcOK(thisLevel, nextLevel, pointPos, i2, 0, 1); // a preferred path but through a channel
 					//printf("prefPath physical lev %d arcOK %d reqFeasible %d isFeasible %d\n",
 					//	thisLevel, arcOK, model.network.physicalLev[thisLevel].requirePrefPathFeasible, arcOK);
 				}
@@ -11708,9 +12012,22 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 				if (nextLevel == 18 && i2 == 31)
 					i2 = i2;
 				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+				if (arcPos >= model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]) {
+					model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] += 5;
+					model.network.physicalLev[thisLevel].outNode[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outNode[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outLevel[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outLevel[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					for (int ii = model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] - 5; ii < model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]; ii++)
+						model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos][ii] = 0;
+				}
 				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = i2;
 				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = nextLevel;
-				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, nextLevel, pointPos, i2);
+				//model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, nextLevel, pointPos, i2);
 				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 				(model.network.physicalLev[thisLevel].nOutNodesTot)++;
 				(model.network.physicalLev[nextLevel].nInNodes[i2])++;
@@ -11735,6 +12052,8 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 		if (thisLevel == 16)
 			thisLevel = thisLevel;
  		for (i2 = 0; i2 < model.network.nChannels; i2++) {
+			if(thisLevel==9 && pointPos==34)
+				checkMinnesAnvandning(__LINE__);
 			if (model.network.channel[i2].type == 0) { // normal corridor
 				if (thisLevel < model.network.channel[i2].earliestStartLevel ||
 					thisLevel > model.network.channel[i2].latestEndLevel)
@@ -11753,12 +12072,31 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 			//if(model.network.channel[i2].nPolygonUsePoints[0] == 0){
 			if (model.network.channel[i2].type == 0)
 				i2 = i2;
+			if (thisLevel == 9 && pointPos == 34)
+				checkMinnesAnvandning(__LINE__);
 			arcOK = check_isPhysicalArcOK(thisLevel, -i2 - 1, pointPos, 0, 1);
+			if (thisLevel == 9 && pointPos == 34)
+				checkMinnesAnvandning(__LINE__);
 			if (arcOK == 1) {
 				arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+				if (arcPos >= model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]) {
+					model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] += 5;
+					model.network.physicalLev[thisLevel].outNode[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outNode[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outLevel[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outLevel[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos] = (int*)realloc(
+						model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+					for (int ii = model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] - 5; ii < model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]; ii++)
+						model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos][ii] = 0;
+				}
 				model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
 				model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
-				model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+				//model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+				if (thisLevel == 9 && pointPos == 34)
+					checkMinnesAnvandning(__LINE__);
 				if (model.network.channel[i2].type != 0) { // tss
 					if (model.network.channel[i2].nConnectFrom >= model.network.channel[i2].nAllocConnectFrom) {
 						model.network.channel[i2].nAllocConnectFrom += 100;
@@ -11769,10 +12107,16 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 					}
 					model.network.channel[i2].connectFrom_outLevel[model.network.channel[i2].nConnectFrom] = thisLevel;
 					model.network.channel[i2].connectFrom_outNode[model.network.channel[i2].nConnectFrom] = pointPos;
+					if (thisLevel == 9 && pointPos == 34)
+						checkMinnesAnvandning(__LINE__);
 					(model.network.channel[i2].nConnectFrom)++;
 				}
+				if (thisLevel == 9 && pointPos == 34)
+					checkMinnesAnvandning(__LINE__);
 				(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 				(model.network.physicalLev[thisLevel].nOutNodesTot)++;
+				if (thisLevel == 9 && pointPos == 34)
+					checkMinnesAnvandning(__LINE__);
 			}
 			else {
 				if (model.params.preferredPathOrtoPos[thisLevel] == pointPos && model.network.channel[i2].bastStartLevel == thisLevel &&
@@ -11780,19 +12124,37 @@ int try_addPhysicalArcsLevel(int thisLevel, int pointPos, int nextLevel)
 					model.network.channel[i2].straightArcFeasible_toChannelFromPrefPath = 0;
 					// add an arc from pref path to channel since the pref path needs to be able to use the channel if it passes it
 					arcPos = model.network.physicalLev[thisLevel].nOutNodes[pointPos];
+					if (arcPos >= model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]) {
+						model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] += 5;
+						model.network.physicalLev[thisLevel].outNode[pointPos] = (int*)realloc(
+							model.network.physicalLev[thisLevel].outNode[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+						model.network.physicalLev[thisLevel].outLevel[pointPos] = (int*)realloc(
+							model.network.physicalLev[thisLevel].outLevel[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+						model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos] = (int*)realloc(
+							model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+						model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos] = (int*)realloc(
+							model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos], model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] * sizeof(int));
+						for (int ii = model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos] - 5; ii < model.network.physicalLev[thisLevel].nAllocOutNodes[pointPos]; ii++)
+							model.network.physicalLev[thisLevel].outNoNormalArc_useTSS[pointPos][ii] = 0;
+					}
+
 					model.network.physicalLev[thisLevel].outNode[pointPos][arcPos] = 0;
 					model.network.physicalLev[thisLevel].outLevel[pointPos][arcPos] = -i2 - 1;
-					model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
+					//model.network.physicalLev[thisLevel].outRestrictedAreaNr[pointPos][arcPos] = getMostRestrictedArea(thisLevel, -i2 - 1, pointPos, 0, 1);
 					model.network.channel[i2].connectFrom_outLevel[model.network.channel[i2].nConnectFrom] = thisLevel;
 					model.network.channel[i2].connectFrom_outNode[model.network.channel[i2].nConnectFrom] = pointPos;
 					(model.network.channel[i2].nConnectFrom)++;
 					(model.network.physicalLev[thisLevel].nOutNodes[pointPos])++;
 					(model.network.physicalLev[thisLevel].nOutNodesTot)++;
+					if (thisLevel == 9 && pointPos == 34)
+						checkMinnesAnvandning(__LINE__);
 				}
 			}
 		
 		}
 	}
+	if (thisLevel == 9 && pointPos == 34)
+		checkMinnesAnvandning(__LINE__);
 
 	return checkNextLevel;
 }
@@ -11810,8 +12172,12 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 		}
 		else {
 			// tss
-			if (model.network.channel[cNr].latestEndLevel != toLevel)
-				continue;
+			if (cNr == 1)
+				cNr = cNr;
+			if (model.network.channel[cNr].latestEndLevel != toLevel) {
+				if (model.network.channel[cNr].latestEndLevel != toLevel - 1 || model.network.channel[cNr].bastEndDist > model.params.basDistArcs * 0.3)
+					continue;
+			}
 		}
 		pos = model.network.channel[cNr].nPoints - 1;
 		if (model.network.channel[cNr].type == 0)
@@ -11833,7 +12199,7 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 			//	continue; // last node in channel not okay
 
 			//if (model.network.channel[i2].nPolygonUsePoints[0] == 0) {
-			arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1);
+			arcOK = check_isPhysicalArcOK(-cNr - 1, toLevel, pos, i1, 1);
 
 			if (toLevel == 18 && i1 == 31)
 				i1 = i1;
@@ -11845,11 +12211,14 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 					model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr].outRestrictedAreaNr, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr].outNoNormalArc_useTSS = (int*)realloc(model.network.channel[cNr].outNoNormalArc_useTSS, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+					for (int ii = model.network.channel[cNr].nAllocOutNodes - 50; ii < model.network.channel[cNr].nAllocOutNodes; ii++)
+						model.network.channel[cNr].outNoNormalArc_useTSS[ii] = 0;
 				}
 				model.network.channel[cNr].outNode[arcPos] = i1;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr].outLevel[arcPos] = toLevel;
-				model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
+				//model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
 
 				if (model.network.channel[cNr].type != 0) { // tss
 					if (model.network.channel[cNr].nConnectTo >= model.network.channel[cNr].nAllocConnectTo) {
@@ -11882,11 +12251,14 @@ int try_addPhysicalArcsFromChannel(int toLevel)
 						model.network.channel[cNr].outNode = (int*)realloc(model.network.channel[cNr].outNode, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 						model.network.channel[cNr].outLevel = (int*)realloc(model.network.channel[cNr].outLevel, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
 						model.network.channel[cNr].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr].outRestrictedAreaNr, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+						model.network.channel[cNr].outNoNormalArc_useTSS = (int*)realloc(model.network.channel[cNr].outNoNormalArc_useTSS, model.network.channel[cNr].nAllocOutNodes * sizeof(int));
+						for (int ii = model.network.channel[cNr].nAllocOutNodes - 50; ii < model.network.channel[cNr].nAllocOutNodes; ii++)
+							model.network.channel[cNr].outNoNormalArc_useTSS[ii] = 0;
 					}
 					model.network.channel[cNr].outNode[arcPos] = i1;
 					//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 					model.network.channel[cNr].outLevel[arcPos] = toLevel;
-					model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
+					//model.network.channel[cNr].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr - 1, toLevel, pos, i1);
 
 					if (model.network.channel[cNr].type != 0) { // tss
 						if (model.network.channel[cNr].nConnectTo >= model.network.channel[cNr].nAllocConnectTo) {
@@ -11919,7 +12291,21 @@ int try_addPhysicalArcsBetweenChannels()
 		for (cNr2 = 0; cNr2 < model.network.nChannels; cNr2++) {
 			if (cNr1 == cNr2)
 				continue;
+			if (model.network.channel[cNr1].bastEndLevel >= 0 && model.network.channel[cNr2].bastStartLevel >= 0) {
+				if (model.network.physicalLev[model.network.channel[cNr1].bastEndLevel].legNr !=
+					model.network.physicalLev[model.network.channel[cNr2].bastStartLevel].legNr &&
+					model.params.legProperties[model.network.physicalLev[model.network.channel[cNr1].bastEndLevel].legNr].endNode_exact == 1)
+					continue; // different legs, don't connect the tss if the end point of first leg has to be visited exactly
+			}
+			else
+				continue; // could not figure out the levels, I skip the connection
+
 			pos = model.network.channel[cNr1].nPoints - 1;
+			if (cNr1 == 7 && cNr2 == 6)
+				cNr1 = cNr1;
+			if (model.network.channel[cNr1].bastEndLevel > model.network.channel[cNr2].bastEndLevel ||
+				model.network.channel[cNr1].bastStartLevel > model.network.channel[cNr2].bastStartLevel)
+				continue; // going backwards...
 			arcOK = check_isPhysicalArcOK(-cNr1 - 1, -cNr2 - 1, pos, 0, 1);
 			if (arcOK == 1) {
 				//printf("--add arc to physLev %d pointPos %d from channel %d\n", toLevel, i1, cNr);
@@ -11929,11 +12315,14 @@ int try_addPhysicalArcsBetweenChannels()
 					model.network.channel[cNr1].outNode = (int*)realloc(model.network.channel[cNr1].outNode, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr1].outLevel = (int*)realloc(model.network.channel[cNr1].outLevel, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
 					model.network.channel[cNr1].outRestrictedAreaNr = (int*)realloc(model.network.channel[cNr1].outRestrictedAreaNr, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
+					model.network.channel[cNr1].outNoNormalArc_useTSS = (int*)realloc(model.network.channel[cNr1].outNoNormalArc_useTSS, model.network.channel[cNr1].nAllocOutNodes * sizeof(int));
+					for (int ii = model.network.channel[cNr1].nAllocOutNodes - 50; ii < model.network.channel[cNr1].nAllocOutNodes; ii++)
+						model.network.channel[cNr1].outNoNormalArc_useTSS[ii] = 0;
 				}
 				model.network.channel[cNr1].outNode[arcPos] = 0;
 				//model.network.channel[cNr].outPolyPoint[arcPos] = -1;
 				model.network.channel[cNr1].outLevel[arcPos] = -cNr2 - 1;
-				model.network.channel[cNr1].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr1 - 1, -cNr2 - 1, pos, 0, 1);
+				//model.network.channel[cNr1].outRestrictedAreaNr[arcPos] = getMostRestrictedArea(-cNr1 - 1, -cNr2 - 1, pos, 0, 1);
 
 				if (model.network.channel[cNr1].type != 0) { // tss
 					if (model.network.channel[cNr1].nConnectTo >= model.network.channel[cNr1].nAllocConnectTo) {
@@ -11964,6 +12353,100 @@ int try_addPhysicalArcsBetweenChannels()
 			}
 		}
 	}
+	return 0;
+}
+
+int identify_mostRestrictedAreaArcs() {
+	int i, i1, i2, pos2, lev2, cNr, pos, toLevel;
+	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+			if(i==28 && i1 ==35)
+				i = i;
+			for (i2 = 0; i2 < model.network.physicalLev[i].nOutNodes[i1]; i2++) {
+				pos2 = model.network.physicalLev[i].outNode[i1][i2];
+				lev2 = model.network.physicalLev[i].outLevel[i1][i2];
+				if (pos2 == 34)
+					pos2 = pos2;
+				if (lev2 >= 0)
+					model.network.physicalLev[i].outRestrictedAreaNr[i1][i2] = getMostRestrictedArea(i, lev2, i1, pos2);
+				else
+					model.network.physicalLev[i].outRestrictedAreaNr[i1][i2] = getMostRestrictedArea(i, lev2, i1, pos2, 1);
+			}
+		}
+	}
+
+	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
+		model.network.channel[cNr].outRestrictedAreaNr_channel = getMostRestrictedArea(-cNr - 1, -cNr - 1, 0, 1);
+		pos = model.network.channel[cNr].nPoints - 1;
+		for (i1 = 0; i1 < model.network.channel[cNr].nOutNodes; i1++) {
+			toLevel = model.network.channel[cNr].outLevel[i1];
+			if (toLevel >= 0)
+				model.network.channel[cNr].outRestrictedAreaNr[i1] = getMostRestrictedArea(-cNr - 1, toLevel, pos, model.network.channel[cNr].outNode[i1]);
+			else
+				model.network.channel[cNr].outRestrictedAreaNr[i1] = getMostRestrictedArea(-cNr - 1, toLevel, pos, 0, 1);
+		}
+	}
+
+	return 0;
+}
+
+int isOtherTssCloser(int fromLev, int fromNode, int arcPos) {
+	double x0, y0, x1, y1, xBas = 0, yBas = 0, distNu, distBas;
+	int nOutNodes, i, pos, toLev, outLevel, toNode;
+	if (fromLev >= 0) {
+		x0 = model.network.physicalLev[fromLev].point_x[fromNode];
+		y0 = model.network.physicalLev[fromLev].point_y[fromNode];
+		nOutNodes = model.network.physicalLev[fromLev].nOutNodes[fromNode];
+	}
+	else {
+		x0 = model.network.channel[-fromLev - 1].point_x[model.network.channel[-fromLev - 1].nPoints - 1];
+		y0 = model.network.channel[-fromLev - 1].point_y[model.network.channel[-fromLev - 1].nPoints - 1];
+		nOutNodes = model.network.channel[-fromLev - 1].nOutNodes;
+	}
+
+	for (i = -1; i < nOutNodes; i++) {
+		if (i == arcPos)
+			continue;
+		if (i == -1)
+			pos = arcPos;
+		else
+			pos = i;
+		if (fromLev >= 0)
+			outLevel = model.network.physicalLev[fromLev].outLevel[fromNode][pos];
+		else
+			outLevel = model.network.channel[-fromLev - 1].outLevel[pos];
+		if (fromLev >= 0) {
+			toLev = model.network.physicalLev[fromLev].outLevel[fromNode][pos];
+			toNode = model.network.physicalLev[fromLev].outNode[fromNode][pos];
+		}
+		else {
+			toLev = model.network.channel[-fromLev - 1].outLevel[pos];
+			toNode = model.network.channel[-fromLev - 1].outNode[pos];
+		}
+		if (toLev >= 0)
+			continue; // not a tss
+		x1 = model.network.channel[-toLev - 1].point_x[toNode];
+		y1 = model.network.channel[-toLev - 1].point_y[toNode];
+		distNu = estimateLargeCircleDistance_km(y0, x0, y1, x1);
+		if (i == -1) {
+			distBas = distNu;
+			yBas = y1;
+			xBas = x1;
+		}
+		else {
+			if (distNu > distBas)
+				continue; // only interested in other tss that starts before
+			distNu += model.network.channel[-toLev - 1].distance_km;
+			x1 = model.network.channel[-toLev - 1].point_x[model.network.channel[-toLev - 1].nPoints - 1];
+			y1 = model.network.channel[-toLev - 1].point_y[model.network.channel[-toLev - 1].nPoints - 1];
+			distNu += estimateLargeCircleDistance_km(y1, x1, yBas, xBas);
+			if (distNu < distBas + model.params.tss_attractionDistance_km)
+				return 1;
+		}
+	}
+
+
+
 	return 0;
 }
 
@@ -12044,8 +12527,11 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 							continue; // used in the tss route
 						if (fromLev >= 0) {
 							toLev = model.network.physicalLev[fromLev].outLevel[fromNode][arcPos];
-							if (toLev < 0)
-								continue; // do not remove connection to channel
+							if (toLev < 0) {
+								int otherCloser = isOtherTssCloser(fromLev, fromNode, arcPos);
+								if(otherCloser == 0)
+									continue; // do not remove connection to channel
+							}
 							toNode = model.network.physicalLev[fromLev].outNode[fromNode][arcPos];
 							if (fromLev == 15 && fromNode == 23 && toLev == 16 && toNode == 23)
 								toNode = toNode;
@@ -12060,8 +12546,8 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 									toNode = toNode;
 								// require to follow pref path exactly
 								model.params.preferredPathStraightLineFeasibleFrom[fromLev] = 0;
-								if (model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] == -2)
-									model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -1;
+								if (model.network.physicalLev[fromLev].outNoNormalArc_useTSS[fromNode][arcPos] == 1)
+									model.network.physicalLev[fromLev].outNoNormalArc_useTSS[fromNode][arcPos] = 0;
 								continue; // do not remove arcs along prefPath for certain tss (given for the tss)
 							}
 
@@ -12076,9 +12562,9 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 							//		model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -1;
 							//	continue; // do not remove arcs along prefPath for certain tss (given for the tss)
 							//}
-							if (fromNode == 25 && toLev == 28 && toNode == 23)
+							if (fromLev == 4)
 								toNode = toNode;
-							model.network.physicalLev[fromLev].outRestrictedAreaNr[fromNode][arcPos] = -2;
+							model.network.physicalLev[fromLev].outNoNormalArc_useTSS[fromNode][arcPos] = 1;
 						}
 						// do not remove connection from channel here, it's done elsewhere
 						//else
@@ -12279,7 +12765,7 @@ int remove_all_arcs_nonPrefPath_level(int lev, int alt) {
 			//	continue; // for the first level, keep the arcs going to prefpath or going to corridors
 			//if (alt == 2 && i1 == model.params.preferredPathOrtoPos[lev])
 			//	continue; // for the level before tss connection, keep the arcs going from prefpath
-			model.network.physicalLev[lev].outRestrictedAreaNr[i1][i2b] = -2;
+			model.network.physicalLev[lev].outNoNormalArc_useTSS[i1][i2b] = 1;
 		}
 	}
 	//if(alt == 1)
@@ -12386,7 +12872,7 @@ int identify_arcsNoUse_tss() {
 		if (connected_to_tss == 1) {
 			for (i2 = 0; i2 < model.network.channel[cNr].nOutNodes; i2++) {
 				if (model.network.channel[cNr].outLevel[i2] >= 0) {
-					model.network.channel[cNr].outRestrictedAreaNr[i2] = -2;
+					model.network.channel[cNr].outNoNormalArc_useTSS[i2] = 1;
 				}
 			}
 		}
@@ -12414,11 +12900,15 @@ int addArcsToNetwork()
 		//	model.network.physicalLev[i].nPoints * sizeof(int));
 		//model.network.physicalLev[i].nAllocOutArcs = (int*)malloc2(
 		//	model.network.physicalLev[i].nPoints * sizeof(int));
+		model.network.physicalLev[i].nAllocOutNodes = (int*)malloc2(
+			model.network.physicalLev[i].nPoints * sizeof(int));
 		model.network.physicalLev[i].outNode = (int**)malloc2(
 			model.network.physicalLev[i].nPoints * sizeof(int*));
 		model.network.physicalLev[i].outLevel = (int**)malloc2(
 			model.network.physicalLev[i].nPoints * sizeof(int*));
 		model.network.physicalLev[i].outRestrictedAreaNr = (int**)malloc2(
+			model.network.physicalLev[i].nPoints * sizeof(int*));
+		model.network.physicalLev[i].outNoNormalArc_useTSS = (int**)malloc(
 			model.network.physicalLev[i].nPoints * sizeof(int*));
 		//model.network.physicalLev[i].outArc = (strArcInfo**)malloc2(
 		//	model.network.physicalLev[i].nPoints * sizeof(strArcInfo*));
@@ -12430,13 +12920,18 @@ int addArcsToNetwork()
 				model.network.physicalLev[i].nInNodes[i1] = 0;
 			//model.network.physicalLev[i].nOutArcs[i1] = 0;
 			//model.network.physicalLev[i].nAllocOutArcs[i1] = 1000;
+			if (i == 9 && i1 == 34)
+				i = i;
 			if (i < model.network.nPhysicalLevels - 1) {
-				model.network.physicalLev[i].outNode[i1] = (int*)malloc2(
-					model.network.physicalLev[i + 1].nPoints * sizeof(int));
-				model.network.physicalLev[i].outLevel[i1] = (int*)malloc2(
-					model.network.physicalLev[i + 1].nPoints * sizeof(int));
-				model.network.physicalLev[i].outRestrictedAreaNr[i1] = (int*)malloc2(
-					model.network.physicalLev[i + 1].nPoints * sizeof(int));
+				model.network.physicalLev[i].nAllocOutNodes[i1] = model.network.physicalLev[i + 1].nPoints + 2;
+				model.network.physicalLev[i].outNode[i1] = (int*)malloc(
+					model.network.physicalLev[i].nAllocOutNodes[i1] * sizeof(int));
+				model.network.physicalLev[i].outLevel[i1] = (int*)malloc(
+					model.network.physicalLev[i].nAllocOutNodes[i1] * sizeof(int));
+				model.network.physicalLev[i].outRestrictedAreaNr[i1] = (int*)malloc(
+					model.network.physicalLev[i].nAllocOutNodes[i1] * sizeof(int));
+				model.network.physicalLev[i].outNoNormalArc_useTSS[i1] = (int*)calloc(
+					model.network.physicalLev[i].nAllocOutNodes[i1], sizeof(int));
 				//model.network.physicalLev[i].outArc[i1] = (strArcInfo*)malloc2(
 				//	model.network.physicalLev[i].nAllocOutArcs[i1] * sizeof(strArcInfo));
 			}
@@ -12505,11 +13000,12 @@ int addArcsToNetwork()
 		else
 			break;
 	}
-	checkMinnesAnvandning(__LINE__);
 
 	if (SKRIV_UT_NOTHING == 0)
 		printf("nCorridors %d\n", model.network.nChannels);
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
+		if (i >= 24)
+			i = i;
 		//printf("level %d\n", i);
 		//if (i >= 14)
 		//	printf("test\n");
@@ -12517,19 +13013,14 @@ int addArcsToNetwork()
 		if(i >= model.network.nPhysicalLevels - 3)
 			i = i;
 		try_addPhysicalArcsFromChannel(i);
-		if (i == 8)
-			i = i;
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
-			if (i == 8 && i1 == 24)
+			if (model.params.preferredPathOrtoPos[i] == i1)
 				i = i;
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
 			if (model.network.physicalLev[i].nInNodes[i1] == 0 && model.params.preferredPathOrtoPos[i] != i1) {// && model.network.physicalLev[i].nodeConnectedFromChannel[i1] == 0)
 				continue; // no physical arcs to this node so no use to look for arcs out from it...
 			}
-
-			if (i == 11 && i1 == 6)
-				i1 = i1;
 
 			if ((model.network.physicalLev[i].onlyPrefPath != 1 || model.params.preferredPathOrtoPos[i] == i1) && model.network.physicalLev[i].followChannelExactly == 0) {
 				for (i2 = i + 1; i2 < model.network.nPhysicalLevels; i2++) { // not if onlyPrefPath whole physical
@@ -12563,17 +13054,15 @@ int addArcsToNetwork()
 	}
 	identify_arcsNoUse_tss();
 
-
 	//for (i = 0; i < model.network.nChannels; i++){//  .nUsedChannels; i++) {
 	//	cNr = i; // model.network.usedChannel[i];
 	//	try_addPhysicalArcsFromChannel(cNr, noDataVal);
 	//}
 
-	checkMinnesAnvandning(__LINE__);
 
 	double maxDist = 0, dist;
 	for (i = 0; i < model.network.nPhysicalLevels; i++) {
-		if (i == 8)
+		if (i == 38 || i == 43)
 			i = i;
 		for (i2 = 0; i2 < model.network.physicalLev[i].nPoints; i2++) {
 			if (model.network.physicalLev[i].allowedPoint[i2] == 0)
@@ -12589,15 +13078,19 @@ int addArcsToNetwork()
 			pointNr2 = model.params.preferredPathOrtoPos[i + 1];
 			if (pointNr2 < 0)
 				pointNr2 = (int)model.network.physicalLev[i+1].nPoints / 2;
-			arcOK = check_isPhysicalArcOK(i, i + 1, pointNr1, pointNr2);
+			if (model.network.physicalLev[i].onlyPrefPath == 1)
+				arcOK = 0;
+			else
+				arcOK = check_isPhysicalArcOK(i, i + 1, pointNr1, pointNr2);
 			if (arcOK <= 0)
 				model.params.preferredPathStraightLineFeasibleFrom[i] = 0;
 		}
 	}
 	model.network.nPhysicalNodes = nNoder;
 	model.network.nPhysicalArcs = nBagar;
-	checkMinnesAnvandning(__LINE__);
 	errlog("Fysiskt natverk: %d noder och %d bagar\n", nNoder, nBagar);
+
+	identify_mostRestrictedAreaArcs();
 
 
 	return 0;
@@ -13231,20 +13724,25 @@ int identifyStartEndAllowed(double distInt, double* startDistBad, double* endDis
 
 
 int checkPrefPath_throughExtraNoGo() {
-	int i, arcOK, startProblem = 1, i1;
+	int i, arcOK, startProblem = 1, i1, lastProblem = 0;
 	for (i = 0; i < model.network.nPhysicalLevels - 1; i++) {
+		if (i == model.network.nPhysicalLevels - 2)
+			i = i;
+		if (i >= 40)
+			i = i;
 		arcOK = check_isPhysicalArcOK(i, i + 1, model.params.preferredPathOrtoPos[i], model.params.preferredPathOrtoPos[i + 1]); // not a preferred path
-		if (arcOK == -1 || startProblem == 1 && arcOK == 0) {
+		if (arcOK == -1 || (startProblem == 1 && arcOK == 0) || ((arcOK == 0 || arcOK == -2) && i == model.network.nPhysicalLevels - 2)) {
 			if (startProblem == 0) {
 				// if pref path feasible but through extra noGo and not start/end of leg then
 				model.network.physicalLev[i].requirePrefPathFeasible = 1;
+				lastProblem = 1;
 			}
 			if ((model.network.physicalLev[i].legNr < model.network.physicalLev[i + 1].legNr &&
 				model.params.legProperties[model.network.physicalLev[i].legNr].endNode_exact == 1) ||
 				i == model.network.nPhysicalLevels - 2){
 				for (i1 = i; i1 >= 0; i1--) {
 					if (model.network.physicalLev[i1].requirePrefPathFeasible == 0) {
-						arcOK = check_isPhysicalArcOK(i1, i1 + 1, model.params.preferredPathOrtoPos[i1], model.params.preferredPathOrtoPos[i + 1]); // not a preferred path
+						arcOK = check_isPhysicalArcOK(i1, i1 + 1, model.params.preferredPathOrtoPos[i1], model.params.preferredPathOrtoPos[i1 + 1]); // not a preferred path
 						if(arcOK == 1)
 							break;
 					}
@@ -13253,8 +13751,30 @@ int checkPrefPath_throughExtraNoGo() {
 				startProblem = 1;
 			}
 		}
-		else
-			startProblem = 0;
+		else {
+			if (arcOK == 0) {
+				if (lastProblem == 1) {
+					if ((model.network.physicalLev[i].legNr < model.network.physicalLev[i + 1].legNr &&
+						model.params.legProperties[model.network.physicalLev[i].legNr].endNode_exact == 1) ||
+						i == model.network.nPhysicalLevels - 2) {
+						for (i1 = i; i1 >= 0; i1--) {
+							if (model.network.physicalLev[i1].requirePrefPathFeasible == 0) {
+								arcOK = check_isPhysicalArcOK(i1, i1 + 1, model.params.preferredPathOrtoPos[i1], model.params.preferredPathOrtoPos[i1 + 1]); // not a preferred path
+								if (arcOK == 1)
+									break;
+							}
+							model.network.physicalLev[i1].requirePrefPathFeasible = 0;
+						}
+						startProblem = 1;
+						lastProblem = 0;
+					}
+				}
+			}
+			else {
+				lastProblem = 0;
+				startProblem = 0;
+			}
+		}
 	}
 
 
@@ -13283,6 +13803,7 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 	errlog("tot haversine dist of prefered path %lf nPoints in prefPath %d\n",
 		distTot, model.preferredPath.nPoints);
 
+	checkMinnesAnvandning(__LINE__);
 	model.preferredPath.totDist = distTot;
 
 	if (model.params.varyStartEndArcLength == 1)
@@ -13481,6 +14002,8 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		model.network.physicalLev[nIntervallPoints - 1].legNr = 0;
 	}
 	for (i = 0; i < nIntervallPoints; i++) {
+		if (i == 41)
+			i = i;
 		if (i > 0)
 			distTot += intervallPoint[i - 1].distanceTo(intervallPoint[i]) / 1000.0;
 		model.network.physicalLev[i].distTot = distTot;
@@ -13504,11 +14027,18 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 		if (i == nIntervallPoints - 2)
 			i = i;
 
-		if (i > 0 && model.network.physicalLev[i - 1].legNr < legNr)
+		if (i > 0 && model.network.physicalLev[i - 1].legNr < legNr) {
 			model.network.physicalLev[i].tidWait = model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_waitingTime;
-		else
+			model.network.physicalLev[i].bransleWaitMain = model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_waitingTime *
+				model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_fuelConsumption_main_mpd / 24.0;
+			model.network.physicalLev[i].bransleWaitAux = model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_waitingTime *
+				model.params.legProperties[model.network.physicalLev[i - 1].legNr].endNode_fuelConsumption_aux_mpd / 24.0;
+		}
+		else {
 			model.network.physicalLev[i].tidWait = 0.0;
-
+			model.network.physicalLev[i].bransleWaitMain = 0.0;
+			model.network.physicalLev[i].bransleWaitAux = 0.0;
+		}
 
 		if (i == 0 || i == nIntervallPoints - 1 || model.network.physicalLev[i].onlyPrefPath == 1 || nodExact == 1) {
 			model.network.physicalLev[i].nPoints = 0;
@@ -13617,8 +14147,6 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 
 	if (model.params.hindCast == 0)
 		calc_stormsNearby();
-
-	checkMinnesAnvandning(__LINE__);
 
 	if (SKRIV_UT_NOTHING == 0){
 		writeAllChannelsToGeojson();
@@ -13769,6 +14297,12 @@ int adderaArcDelay_felHall(int nodNr1, int nodNr2, double cost, int speedSetting
 			break;
 	}
 
+	if (modelDelay.Noder[nodNr1].nUtNoder >= modelDelay.Noder[nodNr1].nAllocUtNoder) {
+		modelDelay.Noder[nodNr1].nAllocUtNoder += 50;
+		modelDelay.Noder[nodNr1].UtNod = (int*)realloc(modelDelay.Noder[nodNr1].UtNod, modelDelay.Noder[nodNr1].nAllocUtNoder * sizeof(int));
+		modelDelay.Noder[nodNr1].UtNodCost = (double*)realloc(modelDelay.Noder[nodNr1].UtNodCost, modelDelay.Noder[nodNr1].nAllocUtNoder * sizeof(double));
+		modelDelay.Noder[nodNr1].outArcNr = (int*)realloc(modelDelay.Noder[nodNr1].outArcNr, modelDelay.Noder[nodNr1].nAllocUtNoder * sizeof(int));
+	}
 	modelDelay.Noder[nodNr1].UtNod[modelDelay.Noder[nodNr1].nUtNoder] = nodNr2;
 	modelDelay.Noder[nodNr1].UtNodCost[modelDelay.Noder[nodNr1].nUtNoder] = cost;
 	if (cost < 0)
@@ -16093,7 +16627,7 @@ int saveSP_delay(int iter) { // not used
 		for (i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			routeToEnd = &(model.delayRouteToEnd[i][i1]);
 
-			if (routeToEnd->time < -0.5)
+			if (routeToEnd->base_time < -0.5)
 				continue;
 
 			if (forsta != 1)
@@ -16101,7 +16635,7 @@ int saveSP_delay(int iter) { // not used
 			else
 				forsta = 0;
 			fprintf(filpek, "  {\"type\":\"Feature\", \"properties\":{\"fromLevel\":%d, \"fromNodPos\":%d, \"nArcs\":%d, \"time\":%.3lf},\n",
-				i, i1, routeToEnd->nBVArcs, routeToEnd->time);
+				i, i1, routeToEnd->nBVArcs, routeToEnd->base_time + routeToEnd->changed_time);
 			fprintf(filpek, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[");
 			addArcDelayToGeojson(filpek, routeToEnd);
 			fprintf(filpek, "]]}}\n");
@@ -16114,7 +16648,7 @@ int saveSP_delay(int iter) { // not used
 		for (i1 = 0; i1 < 2; i1++) {
 			routeToEnd = &(model.delayRouteToEnd_channel[i][i1]);
 
-			if (routeToEnd->time < -0.5)
+			if (routeToEnd->base_time < -0.5)
 				continue;
 
 			if (forsta != 1)
@@ -16122,7 +16656,7 @@ int saveSP_delay(int iter) { // not used
 			else
 				forsta = 0;
 			fprintf(filpek, "  {\"type\":\"Feature\", \"properties\":{\"fromLevel\":%d, \"fromNodPos\":%d, \"nArcs\":%d, \"time\":%.3lf},\n",
-				-i - 1, i1, routeToEnd->nBVArcs, routeToEnd->time);
+				-i - 1, i1, routeToEnd->nBVArcs, routeToEnd->base_time + routeToEnd->changed_time);
 			fprintf(filpek, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[");
 			addArcDelayToGeojson(filpek, routeToEnd);
 			fprintf(filpek, "]]}}\n");

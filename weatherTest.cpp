@@ -6,6 +6,7 @@
 #include <chrono>
 
 #include <iostream>
+#include <fstream>
 #include <unordered_map>
 #include <sstream>
 
@@ -408,81 +409,50 @@ int call_api_corridors(std::string resultPath) {
 	FILE* file;
 	char* fileName;
 
-	//struct MemoryStruct chunk;
-	//chunk.memory = malloc(1);  /* grown as needed by the realloc above */
-	//chunk.size = 0;    /* no data at this point */
 
-	printf("hej1\n");
 	curl = curl_easy_init();
 	if (curl) {
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "GET");
-		curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/ivado/get-corridors");
+		//if (model.params.url_getCorridors != "")
+		// curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/ivado/get-corridors");
+		curl_easy_setopt(curl, CURLOPT_URL, model.params.url_getCorridors.c_str());
 		curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 		curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+
+		char* namn = (char*)malloc(256 * sizeof(char));
+		sprintf(namn, "%s/corridors_downloaded.json", resultPath.c_str());
+		//const char* namn = "data/corridors_tmp.json";
+		FILE* fp = fopen(namn, "wb");
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+
 		struct curl_slist* headers = NULL;
-		headers = curl_slist_append(headers, "sec-ch-ua: \"Google Chrome\";v=\"123\", \"Not:A-Brand\";v=\"8\", \"Chromium\";v=\"123\"");
-		headers = curl_slist_append(headers, "sec-ch-ua-mobile: ?0");
-		headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
-		headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36");
-		headers = curl_slist_append(headers, "Content-Type: application/json");
-		headers = curl_slist_append(headers, "Accept: application/json, text/plain, */*");
-		headers = curl_slist_append(headers, "Referer: https://optinav-beta.tnmservices.ai/");
 		headers = curl_slist_append(headers, "sec-ch-ua-platform: \"Windows\"");
-
-
-
+		headers = curl_slist_append(headers, "Referer: https://fleetview2-client.tnmservices.com/");
+		headers = curl_slist_append(headers, "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36");
+		headers = curl_slist_append(headers, "sec-ch-ua: \"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\", \"Google Chrome\";v=\"138\"");
+		headers = curl_slist_append(headers, "Content-Type: application/json");
+		headers = curl_slist_append(headers, "sec-ch-ua-mobile: ?0");
+		std::string token = load_entire_file(resultPath + "/autoRoute/token_id.txt");
+		std::string authorization = "Authorization: Bearer " + token;
+		// headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiYzA3ZTExOTcwMzY2ZDViM2Q2NDhlMDM4NmI3MTlmYWQ3YWExOWVlYjJkOWMxYzVmM2ZhMDYzZDhjOTc1ODUyMzM3NzNiODJkYTI0YWJjYjgiLCJpYXQiOjE3NjgyMTY4ODIuNzgyOTA1LCJuYmYiOjE3NjgyMTY4ODIuNzgyOTA3LCJleHAiOjE4MzEyODg4ODIuNTAzODE1LCJzdWIiOiI3MCIsInNjb3BlcyI6WyIqIl19.DudizR1tcwVm_dRmYUtf5G3ucU5Kuyx6M90t9XoLruc6iUIepUkqzmIgVaS7wS75p1OU_9WhKXxC11h8a9G-QtwF8BpEpCgJ_RZao2wsxS_jZl6Yofn0KwqwVSDNGik1HKh9d-YMFPk7CuMT0BE5pyQ7wpqEzw86IVEoXvMafEpzWwWPD-FZrUCX6Kn7Ook8voftcBqwv6-CfYzczaOEwx2z2Ff5N_Zvxxt7p9228uMOn7HLWWm-vCGiFI4GNQdWtWpnE7SjeRel66VVyoHIIRFz00gfUBEmMOYCDc7SbrdmKe5vSIRDjeL4CvoWDGVqKfb8P71_se7VaIvgPSZXqX7b0qAGfWVtI8CuVfkiWULp800X9APCVs22-yA1f4lUrXush7i1EsAXDUS5zlE4ZhJzohEAoGa-GC86O9hATl_Mp1kMQb0hKaVmKnYE1uzSVwLe2ESNVez2Qizm9nXBERK2kYByLgpDOsys6vFnutFOtejgMofjaRxB5xKz5cDFJyKo98-7Jr0I57ajkn9UtPiEF6j9tZ0I51xp4gFSZf_fPCJHW61LmQsa8onX6CAWgTfNuqX0UA-I-ms1qTu-KWWzllFru0bxKKfg2dUgmhd2vnjPdcsZY7Ou31GTLBzznJE4VKPq880ccYDMtD9xmWuxA538z6rPBT98zil-hik");
+		printf("url api: '%s'\n", model.params.url_getCorridors.c_str());
+		//printf("curl authorization: '%s'\n", authorization.c_str());
+		headers = curl_slist_append(headers, authorization.c_str());
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-		printf("hej2\n");
-		/* send all data to this function  */
-		//curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-		/* we pass our 'chunk' struct to the callback function */
-		//curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
-
-		fileName = (char*)malloc(256 * sizeof(char));
-		//sprintf(fileName, "%s/corridorsTest.txt", resultPath.c_str());
-		sprintf(fileName, "%stmp_corridors.json", resultPath.c_str());
-		printf("hej3\n");
-		file = fopen(fileName, "w");
-		printf("hej4\n");
-		printf("%s\n", "testing");
-		printf("%s\n", resultPath.c_str());
-		printf("%s\n", fileName);
-
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, file);
-		printf("hej5\n");
-
+		const char* data = "";
+		printf("here1\n");
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
+		printf("here1b\n");
 		res = curl_easy_perform(curl);
-		printf("hej6\n");
+		printf("here1bb\n");
 
-		/* check for errors */
-		if (res != CURLE_OK) {
-			printf("curl_easy_perform() failed: %s\n",
-				curl_easy_strerror(res));
-			retVal = -1;
-		}
-		else {
-			/*
-			 * Now, our chunk.memory points to a memory block that is chunk.size
-			 * bytes big and contains the remote file.
-			 *
-			 * Do something nice with it!
-			 */
-
-			printf("file %s saved with corridors\n", fileName);
-		}
-		printf("hej7\n");
-		free(fileName);
-
+		fclose(fp);
+		printf("here1c\n");
 		curl_slist_free_all(headers);
+		printf("here1d\n");
 	}
-	else
-		retVal = -1;
-	printf("hej8\n");
 	curl_easy_cleanup(curl);
-	fclose(file);
-	printf("hej9\n");
-	// exit(0);
 
 	return retVal;
 }
@@ -512,58 +482,72 @@ void postRequest(std::string errorMessage, int endProgram) {
 	printf("postRequest: %s\n", errorMessage.c_str());
 
 	if (SEND_POST_REQUEST == 1) {
-		char* namn;
-		namn = (char*)malloc2(256 * sizeof(char));
-		char* datumNamn = (char*)malloc2(256 * sizeof(char));
-		char* namnDir = (char*)malloc2(256 * sizeof(char));
-
-		time_t rawtime;
-		time(&rawtime);
-		struct tm tmBas = *localtime(&rawtime);
-		// struct tm tmBas = { std::time(0) };
-		//setTMtime(&tmBas, endTime);
-		fixReadableDate_file(tmBas, datumNamn);
-		sprintf(namnDir, "%s/postRequestFiles", model.params.resultPath.c_str());
-		struct stat sb;
-		if (stat(namnDir, &sb) != 0) {
-			mkdir(namnDir, 0777);
+		if (model.params.url_errorEmail_api == "") {
+			printf("ERROR! No url given for the api to send emails. I skip this\n");
 		}
-		sprintf(namn, "%s/postRequestFiles/input_%s", model.params.resultPath.c_str(), datumNamn);
-		//sprintf(namn, "%s", model.params.indataPathName.c_str());
-		write_copyAtoB(namn, (char*)"json", (char*)model.params.indataPathName.c_str(), (char*)"w");
-		errlog("OBS! Sending the following message to POST and saves the input file as %s\n%s.json\n", errorMessage.c_str(),
-			namn);
+		else {
+			char* namn;
+			namn = (char*)malloc2(256 * sizeof(char));
+			char* datumNamn = (char*)malloc2(256 * sizeof(char));
+			char* namnDir = (char*)malloc2(256 * sizeof(char));
 
-		CURL* curl;
-		CURLcode res;
-		curl = curl_easy_init();
-		if (curl) {
-			curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
-			curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/weather/notify");
-			curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-			curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
-			struct curl_slist* headers = NULL;
-			//headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImU5ODhjNjk3ZTI1NDA4ZWQzNTMzNjdhZmI4NmFkNzUzYmIyOWFlMWU3NzRmMzNiYWRiMDllZmYyOTdiNjE4ZjlmMDZhOTk3YmU3NWY2ZTM3In0.eyJhdWQiOiIxIiwianRpIjoiZTk4OGM2OTdlMjU0MDhlZDM1MzM2N2FmYjg2YWQ3NTNiYjI5YWUxZTc3NGYzM2JhZGIwOWVmZjI5N2I2MThmOWYwNmE5OTdiZTc1ZjZlMzciLCJpYXQiOjE2NDc1MjE4NDksIm5iZiI6MTY0NzUyMTg0OSwiZXhwIjoxNjc5MDU3ODQ5LCJzdWIiOiIyIiwic2NvcGVzIjpbXX0.UVbHJMid3B_5WyzD5VJ9AA1wllGtlr_aK4JRuQ66jRgSmn0fZGzB6D4Cm97sFUSltHp8cOPfQf0jOTC_sjFz0UoFGckSNrbw0GTwue3h9cduvdSZB7rUB7VgR_0XOL6hOiEgPzBOQU4okDwp52KZ5avZDE8x5PWF76qADJ2_835_9AMOq-myBQwFkysFiohJDZo5GS0MabVilJ58tls94KhX2er_8qj2_SpYGVWUVCCy_FYe8XnVrXOSO7j06LYvtpkR5Lspcp4Z9egDGb-NcqB80x9ilNc1CzzClt1DC1yMUUyTo1Z0162A6vxh5vM0Ly0pEX2r3UNfNDWo4-IDH-BB1aczK-43NTE2yafpPqHklj6FvzhdJAHX3Pht3SBFrHT2IG15yFeCj1fhJB9oHTwLnG4BYOmWwO6FohV5DSEolrFTOLWA1MoOrztN-xx4nmrmM6p53awVrRanNMbwnh6X7qPqS668Kd9ZQmR-EkyYHxEvib1YitOH7smnTFzI2P5Jfymf9K2fti3AyzzLGVa3HCKUHSaHU6yMaLk4ZECqRAcxOaYjQZFFJTqWSyY9weozmR1M-GdGFJ1shI9qqDl9utcCPoZ0-IxsJ8hKoVYT2KmqgAd-9vZLAXB2p_Q0twl1riqMyzg1J2W52HNNv8Mcu3WVZOWpLGjHuiy_O9o");
-			//headers = curl_slist_append(headers, "Cookie: XSRF-TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
-			headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
+			time_t rawtime;
+			time(&rawtime);
+			struct tm tmBas = *localtime(&rawtime);
+			// struct tm tmBas = { std::time(0) };
+			//setTMtime(&tmBas, endTime);
+			fixReadableDate_file(tmBas, datumNamn);
+			sprintf(namnDir, "%s/postRequestFiles", model.params.resultPath.c_str());
+			struct stat sb;
+			if (stat(namnDir, &sb) != 0) {
+				mkdir(namnDir, 0777);
+			}
+			sprintf(namn, "%s/postRequestFiles/input_%s", model.params.resultPath.c_str(), datumNamn);
+			//sprintf(namn, "%s", model.params.indataPathName.c_str());
+			write_copyAtoB(namn, (char*)"json", (char*)model.params.indataPathName.c_str(), (char*)"w");
+			errlog("OBS! Sending the following message to POST and saves the input file as %s\n%s.json\n", errorMessage.c_str(),
+				namn);
 
-			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-			curl_mime* mime;
-			curl_mimepart* part;
-			mime = curl_mime_init(curl);
-			part = curl_mime_addpart(mime);
-			curl_mime_name(part, "type");
-			curl_mime_data(part, "error", CURL_ZERO_TERMINATED);
-			part = curl_mime_addpart(mime);
-			curl_mime_name(part, "message");
-			curl_mime_data(part, errorMessage.c_str(), CURL_ZERO_TERMINATED);
-			curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
-			printf("calling curl_easy_perform:\n\n");
-			res = curl_easy_perform(curl);
-			printf("\n... done with the call to curl_easy_perform\n\n");
-			curl_mime_free(mime);
+			CURL* curl;
+			CURLcode res;
+			curl = curl_easy_init();
+			if (curl) {
+				curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
+				// curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-api-beta.tnmservices.ai/api/weather/notify");
+				// curl_easy_setopt(curl, CURLOPT_URL, "https://optinav-a8cbbffregdneudk.eastus-01.azurewebsites.net/api/weather/notify");
+				curl_easy_setopt(curl, CURLOPT_URL, model.params.url_errorEmail_api.c_str());
+				curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+				curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+				struct curl_slist* headers = NULL;
+				//headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImU5ODhjNjk3ZTI1NDA4ZWQzNTMzNjdhZmI4NmFkNzUzYmIyOWFlMWU3NzRmMzNiYWRiMDllZmYyOTdiNjE4ZjlmMDZhOTk3YmU3NWY2ZTM3In0.eyJhdWQiOiIxIiwianRpIjoiZTk4OGM2OTdlMjU0MDhlZDM1MzM2N2FmYjg2YWQ3NTNiYjI5YWUxZTc3NGYzM2JhZGIwOWVmZjI5N2I2MThmOWYwNmE5OTdiZTc1ZjZlMzciLCJpYXQiOjE2NDc1MjE4NDksIm5iZiI6MTY0NzUyMTg0OSwiZXhwIjoxNjc5MDU3ODQ5LCJzdWIiOiIyIiwic2NvcGVzIjpbXX0.UVbHJMid3B_5WyzD5VJ9AA1wllGtlr_aK4JRuQ66jRgSmn0fZGzB6D4Cm97sFUSltHp8cOPfQf0jOTC_sjFz0UoFGckSNrbw0GTwue3h9cduvdSZB7rUB7VgR_0XOL6hOiEgPzBOQU4okDwp52KZ5avZDE8x5PWF76qADJ2_835_9AMOq-myBQwFkysFiohJDZo5GS0MabVilJ58tls94KhX2er_8qj2_SpYGVWUVCCy_FYe8XnVrXOSO7j06LYvtpkR5Lspcp4Z9egDGb-NcqB80x9ilNc1CzzClt1DC1yMUUyTo1Z0162A6vxh5vM0Ly0pEX2r3UNfNDWo4-IDH-BB1aczK-43NTE2yafpPqHklj6FvzhdJAHX3Pht3SBFrHT2IG15yFeCj1fhJB9oHTwLnG4BYOmWwO6FohV5DSEolrFTOLWA1MoOrztN-xx4nmrmM6p53awVrRanNMbwnh6X7qPqS668Kd9ZQmR-EkyYHxEvib1YitOH7smnTFzI2P5Jfymf9K2fti3AyzzLGVa3HCKUHSaHU6yMaLk4ZECqRAcxOaYjQZFFJTqWSyY9weozmR1M-GdGFJ1shI9qqDl9utcCPoZ0-IxsJ8hKoVYT2KmqgAd-9vZLAXB2p_Q0twl1riqMyzg1J2W52HNNv8Mcu3WVZOWpLGjHuiy_O9o");
+				//headers = curl_slist_append(headers, "Cookie: XSRF-TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
+				// headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiNDA3YTc1YTUzNDc3MGU2NDRjOTBlN2E0ZTNiODgyYTEzM2YzMzBlM2QwMjQ5MzcwYzFmYzJmYzYwYzcyMTZiNTBhYmY2OGNmNmFkOWUxNWYiLCJpYXQiOjE2NzkwODQ4NzUuMzAwMjYzLCJuYmYiOjE2NzkwODQ4NzUuMzAwMjY3LCJleHAiOjQ4MzQ3NTg0NzUuMjgwNDQ0LCJzdWIiOiIyIiwic2NvcGVzIjpbIioiXX0.lIY-jGjOFBVk_SkxAyDMeD8HIeZ3bZKb_d4q3N4LM4JJ8lnRYd9O6yFh1x5aTOuOJOyEQbfjQklBjmCl7OQlLqjRilsmp7X9O196tM-44s036MdTq8jkVQHRBrKFK0AqK2v58ZJsrD1fQVMcIZ4694vpHaLJDaCUN9VhOA1hcAATZP7hXs-lbLnP1ajoTLwGkctnaAVfIHvapkcWd1RTSGYBud42WV-CUdVKUYSBP9ej70BK5G0OZJbK5Gtnwqp2CdnOyL-mIWIfjTciu2Mo2YTYnfv6kfBIcSrmWYqVrb5VMCYwn6GS14S6ZycIiEmLL_o1Xvt-E1pG8F1Uvv9vSowrxKHio6ulWxzWroX0YWFNqeAhu0_gdUnafK9kKHPCHvVwjd179oUzz2DbT7OiEwtiMCxy_icF-A-As1YX8c9qTnd1KF1cV7C33eb4_ds5n5d1g6CbcqmhhLitEpXrU5K2yqFd8u_0gkuyMgg7PLYSXYd_lLSJROmqvh_VKziN4xJ_k16Ho3WM2Pwy4akMsbJ567hnNeQ-Kt6lF4JsTrkl0IJ-7L4sPO8T3ehlyn-cvN8FUv5ISt_ohzM-J8GBfZfIAWTbBg9P7D1xNqwszbgpqyBm-4nU5R--iUpkew95WH364SO4uT2DwEg1DgR4zRdoYpPqKtiH1U1CqFUew0o");
+				// headers = curl_slist_append(headers, "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiIyIiwianRpIjoiYzA3ZTExOTcwMzY2ZDViM2Q2NDhlMDM4NmI3MTlmYWQ3YWExOWVlYjJkOWMxYzVmM2ZhMDYzZDhjOTc1ODUyMzM3NzNiODJkYTI0YWJjYjgiLCJpYXQiOjE3NjgyMTY4ODIuNzgyOTA1LCJuYmYiOjE3NjgyMTY4ODIuNzgyOTA3LCJleHAiOjE4MzEyODg4ODIuNTAzODE1LCJzdWIiOiI3MCIsInNjb3BlcyI6WyIqIl19.DudizR1tcwVm_dRmYUtf5G3ucU5Kuyx6M90t9XoLruc6iUIepUkqzmIgVaS7wS75p1OU_9WhKXxC11h8a9G-QtwF8BpEpCgJ_RZao2wsxS_jZl6Yofn0KwqwVSDNGik1HKh9d-YMFPk7CuMT0BE5pyQ7wpqEzw86IVEoXvMafEpzWwWPD-FZrUCX6Kn7Ook8voftcBqwv6-CfYzczaOEwx2z2Ff5N_Zvxxt7p9228uMOn7HLWWm-vCGiFI4GNQdWtWpnE7SjeRel66VVyoHIIRFz00gfUBEmMOYCDc7SbrdmKe5vSIRDjeL4CvoWDGVqKfb8P71_se7VaIvgPSZXqX7b0qAGfWVtI8CuVfkiWULp800X9APCVs22-yA1f4lUrXush7i1EsAXDUS5zlE4ZhJzohEAoGa-GC86O9hATl_Mp1kMQb0hKaVmKnYE1uzSVwLe2ESNVez2Qizm9nXBERK2kYByLgpDOsys6vFnutFOtejgMofjaRxB5xKz5cDFJyKo98-7Jr0I57ajkn9UtPiEF6j9tZ0I51xp4gFSZf_fPCJHW61LmQsa8onX6CAWgTfNuqX0UA-I-ms1qTu-KWWzllFru0bxKKfg2dUgmhd2vnjPdcsZY7Ou31GTLBzznJE4VKPq880ccYDMtD9xmWuxA538z6rPBT98zil-hik");
+				std::string token = load_entire_file(model.params.resultPath + "/autoRoute/token_id.txt");
+				std::string authorization = "Authorization: Bearer " + token;
+				printf("url api: '%s'\n", model.params.url_errorEmail_api.c_str());
+				//printf("load token from '%s/autoRoute/token_id.txt'\n", model.params.resultPath.c_str());
+				//printf("curl authorization: '%s'\n", authorization.c_str());
+				headers = curl_slist_append(headers, authorization.c_str());
+
+				curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+				curl_mime* mime;
+				curl_mimepart* part;
+				mime = curl_mime_init(curl);
+				part = curl_mime_addpart(mime);
+				curl_mime_name(part, "type");
+				curl_mime_data(part, "error", CURL_ZERO_TERMINATED);
+				part = curl_mime_addpart(mime);
+				curl_mime_name(part, "message");
+				curl_mime_data(part, errorMessage.c_str(), CURL_ZERO_TERMINATED);
+				curl_easy_setopt(curl, CURLOPT_MIMEPOST, mime);
+				printf("calling curl_easy_perform:\n\n");
+				res = curl_easy_perform(curl);
+				printf("\n... done with the call to curl_easy_perform\n\n");
+				curl_mime_free(mime);
+			}
+			curl_easy_cleanup(curl);
 		}
-		curl_easy_cleanup(curl);
 	}
 
 	if (endProgram == 1) {
@@ -730,16 +714,17 @@ int main(int argc, char* argv[])
 				resultPath = inputPath;
 				reset_errlog();
 
-				printf("pfg innan updateCorridors\n");
-				//printf("\n\ntesting to call the api to update corridors\n");
-				updateCorridors(inputPath);
-				//exit(0);
 
 				printf("pfg innan saveTablesToSQLite\n");
 				returnVal = saveTablesToSQLite(inputPath);
 				//returnVal = saveMapsToBinary();
 
 				returnVal = redisSetKeys(inputPath);
+
+				printf("pfg innan updateCorridors\n");
+				//printf("\n\ntesting to call the api to update corridors\n");
+				updateCorridors(inputPath);
+				//exit(0);
 			}
 			if (returnVal != 0) {
 				errlog("ERROR! Failed to set redis keys for weather\n");

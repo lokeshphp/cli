@@ -11,6 +11,7 @@
 extern strModel model;
 extern std::string resultPath;
 extern int SKRIV_UT_NOTHING;
+extern double MAX_FAKTOR_NATVERK;
 
 double DIST_SPLIT = 100.0; // 250.0;
 
@@ -58,6 +59,9 @@ int loadParams_autoRoute(strParamsAutoRoute* params)
 		SKRIV_UT_NOTHING = data["SKRIV_UT_NOTHING"];
 		if (SKRIV_UT_NOTHING < 2)
 			reset_errlog();
+	}
+	if (!data["MAX_FAKTOR_NATVERK"].is_null()) {
+		MAX_FAKTOR_NATVERK = data["MAX_FAKTOR_NATVERK"];
 	}
 
 	if (!data["startPoint_lon"].is_null())
@@ -552,7 +556,6 @@ int loadStartEndPairsSeaRoutes(std::string inputPath)
 
 
 	std::ifstream fil;
-
 
 	errlog("trying to open %s\n", inputPath.c_str());
 	fil.open(inputPath.c_str());
@@ -1138,7 +1141,7 @@ int load_autoCorridorsOld()
 	return 0;
 }
 
-int load_autoCorridors(int alt)
+int loadSave_downloadedCorridors()
 {
 	std::ifstream fil;
 	char* namn;
@@ -1149,11 +1152,7 @@ int load_autoCorridors(int alt)
 	if (USE_KVOTCOST_CORRIDORS == 0)
 		default_kvotCost = DEFAULT_KVOTMINCOST_CORRIDORS;
 
-	//sprintf(namn, "%s/input.json", model.params.indataPath.c_str());
-	if(alt == 0)
-		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
-	else
-		sprintf(namn, "%s/tmp_corridors.json", model.params.indataPath.c_str());
+	sprintf(namn, "%s/corridors_downloaded.json", model.params.indataPath.c_str());
 	errlog("trying to open %s\n", namn);
 	if (!(check_file_exist(namn))) {
 		postRequest(std::string(namn) + " does not exist but given in input data as the corridors to load in OptiNav-autoRoute. Did an update of the corridor api fail? I continue without corridors\n", 0);
@@ -1170,7 +1169,8 @@ int load_autoCorridors(int alt)
 		fil >> data;
 	}
 	catch (...) {
-		postRequest("ERROR! json file " + std::string(namn) + " is not valid. I continue without corridors.", 0);
+		printf("..ERROR here\n");
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid. I don't save any downloaded corridors or tss.", 0);
 		fil.close();
 		model.nAutoCorridors = 0;
 		return 0;
@@ -1179,11 +1179,14 @@ int load_autoCorridors(int alt)
 	printf("..");
 
 	if (data["Data"].is_null()) {
-		postRequest("ERROR! no data in corridors file. I continue without corridors.", 0);
+		postRequest("ERROR! no data in downloaded corridors file. I don't save any downloaded corridors or tss.", 0);
 		model.nAutoCorridors = 0;
 		return 0;
 	}
 	json data2 = data["Data"];
+
+	json featuresCorridors = json::array_t(), featuresTSS = json::array_t();
+	int nTSS = 0;
 
 	nAlloc = 2 * data2.size();
 	model.autoCorridors = (strTss*)malloc(nAlloc * sizeof(strTss));
@@ -1192,15 +1195,171 @@ int load_autoCorridors(int alt)
 	for (auto it = data2.begin(); it != data2.end(); ++it) {
 		pos++;
 		json dataNu = it.value();
-		if (dataNu["geometry"].is_null()) {
-			errlog("ERROR! corridor %d do not have a geometry. I skip this one\n", pos);
-			continue;
+
+		int typ = 0; // corridor
+		if (!dataNu["corridor_type"].is_null()) {
+			if (dataNu["corridor_type"] == "tss")
+				typ = 1; // tss
 		}
+		//if (!dataNu["type"].is_null()) {
+		//	if (dataNu["type"] == "tss")
+		//		typ = 1; // tss
+		//}
+
+		json addObject;
+		if (!dataNu["id"].is_null()) {
+			addObject["id"] = dataNu["id"];
+		}
+		addObject["type"] = "Feature";
+		json propObj;
+		for (auto it = dataNu.begin(); it != dataNu.end(); it++) {
+			if (it.key() == "id" || it.key() == "type" || it.key() == "geometry" || it.key() == "coordinates")
+				continue;
+			propObj[it.key()] = it.value();
+		}
+		addObject["properties"] = propObj;
 		if (dataNu["coordinates"].is_null()) {
-			errlog("ERROR! corridor %d has geometry but no coordinates. I skip this one\n", pos);
+			continue; // no geometry so no corridor to save
+		}
+
+		addObject["geometry"] = json::object_t({ {"type", "LineString"}, {"coordinates", dataNu["coordinates"]} });
+		if (typ == 0) {
+			featuresCorridors.push_back(addObject);
+		}
+		else
+			featuresTSS.push_back(addObject);
+	}
+
+	model.nAutoCorridors = (int)(featuresCorridors.size());
+	nTSS = (int)(featuresTSS.size());
+
+	json crs84 = json::object_t({ {"name", "urn:ogc:def:crs:OGC:1.3:CRS84"} });
+	json dataNewCorridors, dataNewTSS;
+	if (model.nAutoCorridors >= 2) {
+		dataNewCorridors["type"] = "FeatureCollection";
+		dataNewCorridors["name"] = model.paramsAutoRoute.corridorsNameNew;
+		dataNewCorridors["crs"] = json::object_t({ {"type", "name"}, {"properties", crs84} });
+		dataNewCorridors["features"] = featuresCorridors;
+
+		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
+		std::ofstream output_file(namn);
+		if (!output_file.is_open()) {
+			std::cout << "\n Failed to open output file" + model.paramsAutoRoute.corridorsNameNew;
+			postRequest("ERROR! Failed to save the downloaded corridors to file.", 0);
+		}
+		else {
+			output_file << dataNewCorridors;
+			output_file.close();
+		}
+	}
+	else {
+		postRequest("ERROR! Failed to read the downloaded corridors.", 0);
+	}
+	if (nTSS >= 2) {
+		dataNewTSS["type"] = "FeatureCollection";
+		dataNewTSS["name"] = model.paramsAutoRoute.tssName;
+		dataNewTSS["crs"] = json::object_t({ {"type", "name"}, {"properties", crs84} });
+		dataNewTSS["features"] = featuresTSS;
+
+		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.tssName.c_str());
+		std::ofstream output_file(namn);
+		if (!output_file.is_open()) {
+			std::cout << "\n Failed to open output file" + model.paramsAutoRoute.tssName;
+		}
+		else {
+			output_file << dataNewTSS;
+			output_file.close();
+		}
+	}
+	else {
+		postRequest("ERROR! Failed to read the downloaded tss.", 0);
+	}
+
+	free(namn);
+	printf("done\n");
+
+
+	return 0;
+}
+
+int load_autoCorridors(int alt)
+{
+	std::ifstream fil;
+	char* namn;
+	std::string namnStr;
+	namn = (char*)malloc2(256 * sizeof(char));
+	double kvotCost, default_kvotCost = 0.5;
+
+	// alt == 0: corridors
+	// alt == 1: TSS
+
+	if (USE_KVOTCOST_CORRIDORS == 0)
+		default_kvotCost = DEFAULT_KVOTMINCOST_CORRIDORS;
+
+	if (alt == 0) {
+		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.corridorsNameNew.c_str());
+		model.nAutoCorridors = 0;
+	}
+	else {
+		sprintf(namn, "%s/%s", model.params.indataPath.c_str(), model.paramsAutoRoute.tssName.c_str());
+		model.nTss = 0;
+	}
+	errlog("trying to open %s\n", namn);
+	if (!(check_file_exist(namn))) {
+		if (alt == 0) {
+			postRequest(std::string(namn) + " does not exist but given in input data to load in OptiNav. I continue without corridors\n", 0);
+		}
+		else {
+			postRequest(std::string(namn) + " does not exist but given in input data to load in OptiNav. I continue without tss\n", 0);
+		}
+		return 0;
+	}
+	printf("opens %s", namn);
+	fil.open(namn);
+
+	int nAutoCorridors, pos2, useCorridor;
+	json data, geom, coords, dataIt2, prop;
+	int i2, nAlloc = 0, nPointsTot = 0, nPointsNu, pos, oneWay;
+	try {
+		fil >> data;
+	}
+	catch (...) {
+		printf("..ERROR here\n");
+		postRequest("ERROR! json file " + std::string(namn) + " is not valid. I continue without corridors/tss.", 0);
+		fil.close();
+		return 0;
+	}
+	fil.close();
+	printf("..");
+
+	if (data["features"].is_null()) {
+		postRequest("ERROR! no features in file " + std::string(namn) + ".I continue without corridors/tss.", 0);
+		return 0;
+	}
+	json data2 = data["features"];
+
+	nAlloc = data2.size();
+	if(alt == 0)
+		model.autoCorridors = (strTss*)malloc(nAlloc * sizeof(strTss));
+	else
+		model.tss = (strTss*)malloc(nAlloc * sizeof(strTss));
+
+	pos = 0;
+	nAutoCorridors = 0;
+	for (auto it = data2.begin(); it != data2.end(); ++it) {
+		pos++;
+		json dataNu = it.value();
+
+		if (dataNu["geometry"].is_null()) {
+			errlog("ERROR! alt %d corridor %d do not have a geometry. I skip this one\n", alt, pos);
 			continue;
 		}
-		coords = dataNu["coordinates"];
+		json dataNu2 = dataNu["geometry"];
+		if (dataNu2["coordinates"].is_null()) {
+			errlog("ERROR! alt %d corridor %d has geometry but no coordinates. I skip this one\n", alt, pos);
+			continue;
+		}
+		coords = dataNu2["coordinates"];
 
 		model.autoCorridors[nAutoCorridors].nCoords = coords.size();
 		model.autoCorridors[nAutoCorridors].xCoord = (double*)malloc(model.autoCorridors[nAutoCorridors].nCoords * sizeof(double));
@@ -1268,8 +1427,10 @@ int load_autoCorridors(int alt)
 		}
 	}
 	model.nAutoCorridors = nAutoCorridors;
+
 	free(namn);
 	printf("done\n");
+
 
 	return 0;
 }
@@ -2108,6 +2269,12 @@ int updateCostsSeaRouteArcs() {
 			}
 			modelSea.arc[i].totCost = modelSea.arc[i].distance * costFactorArea * costKvot;
 		}
+		if (modelSea.Noder[nod1].nUtNoder >= modelSea.Noder[nod1].nAllocUtNoder) {
+			modelSea.Noder[nod1].nAllocUtNoder += 10;
+			modelSea.Noder[nod1].UtNod = (int*)realloc(modelSea.Noder[nod1].UtNod, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+			modelSea.Noder[nod1].UtNodCost = (double*)realloc(modelSea.Noder[nod1].UtNodCost, modelSea.Noder[nod1].nAllocUtNoder * sizeof(double));
+			modelSea.Noder[nod1].outArcNr = (int*)realloc(modelSea.Noder[nod1].outArcNr, modelSea.Noder[nod1].nAllocUtNoder * sizeof(int));
+		}
 		modelSea.Noder[nod1].UtNod[modelSea.Noder[nod1].nUtNoder] = nod2;
 		modelSea.Noder[nod1].UtNodCost[modelSea.Noder[nod1].nUtNoder] = modelSea.arc[i].totCost;
 		modelSea.Noder[nod1].outArcNr[modelSea.Noder[nod1].nUtNoder] = i;
@@ -2870,17 +3037,45 @@ strAutoCells* addSmallerCells(strAutoCells* thisCell, double xBas, double yBas, 
 	return cells;
 }
 
+double getUsable_y(double y) {
+	if (y < model.boundingBox.yMin) {
+		y = model.boundingBox.yMin + 0.00000001;
+	}
+	if (y > model.boundingBox.yMax) {
+		y = model.boundingBox.yMax - 0.00000001;
+	}
+	return y;
+}
+
 double getUsable_x(double x) {
-	if (x < model.paramsAutoRoute.x_min)
-		x += 360;
-	if (x > model.paramsAutoRoute.x_min + 360)
-		x -= 360;
+	double diff1, diff2;
+	if (x < model.boundingBox.xMin) {
+		if (x < model.boundingBox.xMin - 10)
+			x += 360;
+		else
+			x = model.boundingBox.xMin + 0.00000001;
+	}
+	if (x > model.boundingBox.xMax) {
+		diff1 = x - 360 - model.boundingBox.xMin;
+		diff2 = model.boundingBox.xMax - x;
+		if (diff1 >= diff2) {
+			if (diff1 >= 0)
+				x -= 360;
+			else
+				x = model.boundingBox.xMin + 0.00000001;
+		}
+		else {
+			x = model.boundingBox.xMax - 0.00000001;;
+		}
+	}
+
 	return x;
 }
 
 
 int identifyCellFromPoint(double y, double x, int* yPos, int* xPos, int* level) {
 
+	y = getUsable_y(y);
 	*yPos = (y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
 	x = getUsable_x(x);
 	*xPos = (x - model.paramsAutoRoute.x_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
@@ -3118,7 +3313,7 @@ int addArcs_tss() {
 		model.autoPath[pathNr].type = 0;
 		model.autoPath[pathNr].kvotCost = model.tss[i].kvotCost; // 0.01;
 
-		if (i == 11)
+		if (i == 8)
 			i = i;
 		firstTraff = 0;
 		for (i1 = model.tss[i].firstTraffCoord - 1; i1 <= model.tss[i].lastTraffCoord; i1++) {
@@ -3135,8 +3330,9 @@ int addArcs_tss() {
 					//if (i1 == model.autoCorridors[i].firstTraffCoord)
 					firstTraff = generate_nodes_along_pathSegment(model.tss[i].autoPathNr, 1, i1, y1, x1, y2, x2);
 				}
-				else
+				else {
 					generate_nodes_along_pathSegment(model.tss[i].autoPathNr, 0, i1, y1, x1, y2, x2);
+				}
 			}
 			x1 = x2;
 			y1 = y2;
@@ -3948,7 +4144,7 @@ int addSmallerCellsToCell(int pos, int i, int i1, int mustUse) {
 	int isLand, i2;
 	double x, y;
 
-	if (pos == 194)
+	if (pos == 179)
 		pos = pos;
 	model.autoRoute[pos].smallerCells = NULL;
 	model.autoRoute[pos].smallerCellsType = 0;
@@ -3966,7 +4162,7 @@ int addSmallerCellsToCell(int pos, int i, int i1, int mustUse) {
 		evalCostArc_cells(&(model.autoRoute[pos]), 2, y, x, y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // vertical
 		evalCostArc_cells(&(model.autoRoute[pos]), 3, y, x + model.paramsAutoRoute.discretizationSizeLevel[0], y + model.paramsAutoRoute.discretizationSizeLevel[0], x); // diagonal down
 
-		if (pos == 194)
+		if (pos == 179)
 			pos = pos;
 		if (isLand == 0 || mustUse == 1) {
 			if (0 < model.paramsAutoRoute.nCellLevels - 1) {
@@ -4047,9 +4243,14 @@ int createCells_new() {
 			iPos = iPos;
 		if (x < 13)
 			x = x;
+		y = getUsable_y(y);
 		yPosDbl = (y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
 		x = getUsable_x(x);
 		xPosDbl = (x - model.paramsAutoRoute.x_min) / model.paramsAutoRoute.discretizationSizeLevel[0];
+		if (xPosDbl < 0)
+			xPosDbl = 0;
+		if (xPosDbl >= model.paramsAutoRoute.nXbasLevel)
+			xPosDbl = model.paramsAutoRoute.nXbasLevel - 1;
 		if (iPos >= 0) {
 			dx = xPosDbl - xPosDbl_prev;
 			dy = yPosDbl - yPosDbl_prev;
@@ -4821,7 +5022,7 @@ int addArcsOutFromNodeBase(int nodNr, int cellPos, int i, int i1) {
 	}
 	else {
 		if (nodPos < model.Noder[nodNr].nAllocUtNoder + 9) {
-			model.Noder[nodNr].nAllocUtNoder += 8;
+			model.Noder[nodNr].nAllocUtNoder += 9;
 			model.Noder[nodNr].UtNod = (int*)realloc(model.Noder[nodNr].UtNod, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
 			model.Noder[nodNr].UtNodCost = (double*)realloc(model.Noder[nodNr].UtNodCost, model.Noder[nodNr].nAllocUtNoder * sizeof(double));
 			model.Noder[nodNr].outArcNr = (int*)realloc(model.Noder[nodNr].outArcNr, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
@@ -4909,7 +5110,7 @@ int addArcsOutFromNodeSmall(int nodNr, int cellPos, int iBas, int i1Bas, int i, 
 	}
 	else {
 		if (nodPos < model.Noder[nodNr].nAllocUtNoder + 9) {
-			model.Noder[nodNr].nAllocUtNoder += 8;
+			model.Noder[nodNr].nAllocUtNoder += 9;
 			model.Noder[nodNr].UtNod = (int*)realloc(model.Noder[nodNr].UtNod, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
 			model.Noder[nodNr].UtNodCost = (double*)realloc(model.Noder[nodNr].UtNodCost, model.Noder[nodNr].nAllocUtNoder * sizeof(double));
 			model.Noder[nodNr].outArcNr = (int*)realloc(model.Noder[nodNr].outArcNr, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
@@ -5083,6 +5284,7 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 	posIpath = model.autoPath[pathNr].nNoder - 1;
 
 	if (prevNodNr >= 0) {
+		checkAllocNode(prevNodNr);
 		nodPos = model.Noder[prevNodNr].nUtNoder;
 		model.Noder[prevNodNr].UtNod[nodPos] = nodNr;
 		model.Noder[prevNodNr].outArcNr[nodPos] = model.nArcs;
@@ -5111,7 +5313,10 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 	nodPos = model.Noder[nodNr].nUtNoder;
 	y = model.autoPath[pathNr].nodCoord_y[posIpath];
 	x = model.autoPath[pathNr].nodCoord_x[posIpath];
+	y = getUsable_y(y);
 	yPos = (int)((y - model.paramsAutoRoute.y_min) / model.paramsAutoRoute.discretizationSizeLevel[0]);
+	if (x < 2)
+		x = x;
 	x = getUsable_x(x);
 	xPos = (int)((x - model.paramsAutoRoute.x_min) / model.paramsAutoRoute.discretizationSizeLevel[0]);
 	yLocal = y - yPos * model.paramsAutoRoute.discretizationSizeLevel[0] - model.paramsAutoRoute.y_min;
@@ -5149,7 +5354,6 @@ int addArcsInOutFromPathNode(int nodNr, int pathNr, int prevNodNr, double distPr
 				y1 = y0 + model.paramsAutoRoute.discretizationSizeLevel[1];
 				x1 = x0 + model.paramsAutoRoute.discretizationSizeLevel[1];
 			}
-
 
 			costKvot = getCostKvotFromBadKvots_feasibility(y1, x1, y, x);
 			if (costKvot < 2.001 || model.autoPath[pathNr].type >= 10 ||
@@ -5196,6 +5400,7 @@ int addArcsOutFromNodeSmall2(int nodNr, int cellPos, int iBas, int i1Bas, int i,
 		model.Noder[nodNr].UtNodCost = (double*)malloc(model.Noder[nodNr].nAllocUtNoder * sizeof(double));
 		model.Noder[nodNr].outArcNr = (int*)malloc(model.Noder[nodNr].nAllocUtNoder * sizeof(int));
 	}
+	checkAllocNode(nodNr);
 
 	// right
 	//model.Noder[nodNr].UtNod[nodPos] = model.autoRoute[cellPos].smallerCells[cellPos2].nodeNr[1];
@@ -5304,17 +5509,23 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 	cellPos = xPos + model.paramsAutoRoute.nXbasLevel * yPos;
 	if (pathNr < 0) {
 		y = model.paramsAutoRoute.startPoint_lat[0];
+		y = getUsable_y(y);
 		yPos2 = (y - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 		x = getUsable_x(model.paramsAutoRoute.startPoint_lon[0]);
 		xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 		//cellPos2 = xPos2 + model.paramsAutoRoute.nDiscreteSizeLevel[1] * yPos2;
 
 		//nodNr = model.nNoder - 2;
+		if(nodNr < 0 || nodNr >= model.nAllocNoder)
+			printf("\n\n#####################\nERROR nodNr %d nAllocNoder %d\n###################\n\n", nodNr, model.nAllocNoder);
 		model.Noder[nodNr].nAllocUtNoder = 16;
 		model.Noder[nodNr].UtNod = (int*)malloc(16 * sizeof(int));
 		model.Noder[nodNr].outArcNr = (int*)malloc(16 * sizeof(int));
 		model.Noder[nodNr].UtNodCost = (double*)malloc(16 * sizeof(double));
 		posEnd = model.paramsAutoRoute.nCellsBase;
+		if(posEnd < 0 || posEnd >= (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2))
+			printf("\n\n#####################\nERROR posEnd %d nAlloc %d\n###################\n\n", 
+				posEnd, (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2));
 		model.autoRoute[posEnd].y = model.paramsAutoRoute.startPoint_lat[0];
 		model.autoRoute[posEnd].x = model.paramsAutoRoute.startPoint_lon[0];
 		pos = 0;
@@ -5331,6 +5542,7 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 			y = model.autoPath[pathNr].nodCoord_y[model.autoPath[pathNr].nNoder - 1];
 			x = model.autoPath[pathNr].nodCoord_x[model.autoPath[pathNr].nNoder - 1];
 		}
+		y = getUsable_y(y);
 		yPos2 = (y - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 		x = getUsable_x(x);
 		xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
@@ -5350,6 +5562,8 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 
 	for (i = startY; i < yPos2 + 3; i++) {
 		for (i1 = startX; i1 < xPos2 + 3; i1++) {
+			if (cellPos == 179)
+				i = i;
 			if (i == 13 && i1 == -1)
 				i = i;
 			posNod = 0;
@@ -5360,6 +5574,12 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 			//if (i < 0) {
 			//	posNod += 2;
 			//}
+			if (cellPos < 0 || cellPos >= (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2))
+				printf("\n\n#####################\nERROR cellPos %d nAlloc %d\n###################\n\n",
+					cellPos, (model.paramsAutoRoute.nYbasLevel * model.paramsAutoRoute.nXbasLevel + 2));
+			if (model.autoRoute[cellPos].nXsmall < 0 || model.autoRoute[cellPos].nXsmall > 100000)
+				printf("\n\n#####################\nERROR model.autoRoute[%d].nXsmall %d \n###################\n\n",
+					cellPos, model.autoRoute[cellPos].nXsmall);
 			if (i1 >= model.autoRoute[cellPos].nXsmall) {
 				if (i1 > model.autoRoute[cellPos].nXsmall) {
 					// continue; // too high up
@@ -5415,11 +5635,16 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 
 			if (pos >= model.Noder[nodNr].nAllocUtNoder) {
 				model.Noder[nodNr].nAllocUtNoder += 8;
+				if (model.Noder[nodNr].nAllocUtNoder < 8 || model.Noder[nodNr].nAllocUtNoder > 100000)
+					printf("\n\n#####################\nERROR model.Noder[%d].nAllocUtNoder %d \n###################\n\n",
+						nodNr, model.Noder[nodNr].nAllocUtNoder);
 				model.Noder[nodNr].UtNod = (int*)realloc(model.Noder[nodNr].UtNod, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
 				model.Noder[nodNr].UtNodCost = (double*)realloc(model.Noder[nodNr].UtNodCost, model.Noder[nodNr].nAllocUtNoder * sizeof(double));
 				model.Noder[nodNr].outArcNr = (int*)realloc(model.Noder[nodNr].outArcNr, model.Noder[nodNr].nAllocUtNoder * sizeof(int));
 			}
 
+			if (cellPosUse == 179 && cellPos2 == 148)
+				pos = pos;
 			model.Noder[nodNr].UtNod[pos] = model.autoRoute[cellPosUse].smallerCells[cellPos2].nodeNr[posNod];
 			//evalCostArc2(model.paramsAutoRoute.startPoint_lat[0], model.paramsAutoRoute.startPoint_lon[0],
 			//	y1, x1, &cost, &dist);
@@ -5442,6 +5667,9 @@ int addArcsSmallFromStartNode(int yPos, int xPos, int level, int nodNr, int path
 		if (model.nArcs >= model.nAllocArcs) {
 			model.nAllocArcs += 1000000;
 			model.arc = (strArcInfo*)realloc(model.arc, model.nAllocArcs * sizeof(strArcInfo));
+			if (model.nAllocArcs < 1000 || model.nAllocArcs > 900000000)
+				printf("\n\n#####################\nERROR model.nAllocArcs %d \n###################\n\n",
+					model.nAllocArcs);
 		}
 		model.arc[model.nArcs].fromLevel = posEnd;
 		model.arc[model.nArcs].fromPointNr = -10;
@@ -5551,6 +5779,7 @@ int addArcsSmallToEndNode(int yPos, int xPos, int level, int nodEnd, int pathNr,
 
 	if (pathNr < 0) {
 		y = model.paramsAutoRoute.endPoint_lat[model.paramsAutoRoute.nStartSlut - 1];
+		y = getUsable_y(y);
 		yPos2 = (y - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 		x = getUsable_x(model.paramsAutoRoute.endPoint_lon[model.paramsAutoRoute.nStartSlut - 1]);
 		xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
@@ -5572,6 +5801,7 @@ int addArcsSmallToEndNode(int yPos, int xPos, int level, int nodEnd, int pathNr,
 			y = model.autoPath[pathNr].nodCoord_y[model.autoPath[pathNr].nNoder - 1];
 			x = model.autoPath[pathNr].nodCoord_x[model.autoPath[pathNr].nNoder - 1];
 		}
+		y = getUsable_y(y);
 		yPos2 = (y - model.paramsAutoRoute.y_min - yPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
 		x = getUsable_x(x);
 		xPos2 = (x - model.paramsAutoRoute.x_min - xPos * model.paramsAutoRoute.discretizationSizeLevel[0]) / model.paramsAutoRoute.discretizationSizeLevel[1];
@@ -5966,6 +6196,8 @@ int createCellNetwork2() { // not used
 	for (i = 0; i < model.paramsAutoRoute.nYbasLevel; i++) {
 		for (i1 = 0; i1 < model.paramsAutoRoute.nXbasLevel; i1++) {
 			pos = i1 + model.paramsAutoRoute.nXbasLevel * i;
+			if (pos >= 179)
+				pos = pos;
 			if (model.autoRoute[pos].smallerCellsType == 0)
 				continue;
 
@@ -5974,7 +6206,7 @@ int createCellNetwork2() { // not used
 			// model.autoRoute[pos].smallerCells = (strAutoCells*)malloc(nAlloc * sizeof(strAutoCells));
 			x = model.paramsAutoRoute.x_min + i1 * model.paramsAutoRoute.discretizationSizeLevel[0];
 			y = model.paramsAutoRoute.y_min + i * model.paramsAutoRoute.discretizationSizeLevel[0];
-			if (pos == 18)
+			if (pos == 179)
 				pos = pos;
 			model.autoRoute[pos].smallerCells = addSmallerCells(&(model.autoRoute[pos]), x, y, 1);
 
@@ -8289,6 +8521,7 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 
 	int nActualIter = 0, minPos = -1, iTmp;
 	double minCost = 1e10, minDist = 1e10;
+	modelSea.nBVArcsUse = 0;
 
 	for (iTmp = 0; iTmp < model.paramsAutoRoute.nAltRutter; iTmp++) {
 		model.paramsAutoRoute.cost_route[iTmp] = -1.0;
@@ -8391,10 +8624,11 @@ int genAutoRoute(std::string inputPath, std::string resultName) {
 		if (model.paramsAutoRoute.corridorsName != "-")
 			load_autoCorridorsOld();
 	}
-	if (SKRIV_UT_NOTHING == 0)
+	if (SKRIV_UT_NOTHING == 0) {
 		save_tss_geojson(ii0);
+		checkMinnesAnvandning(__LINE__);
+	}
 	addArcs_tss();
-	checkMinnesAnvandning(__LINE__);
 	addArcs_corridors();
 	if (SKRIV_UT_NOTHING == 0)
 		printf("done with addArcs_corridors\n");

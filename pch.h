@@ -115,6 +115,8 @@ struct strLegProp {
 	int path_fixed; // 1 if the leg has to be followed exactly
 	int path_pos;
 	double endNode_waitingTime;
+	double endNode_fuelConsumption_main_mpd;
+	double endNode_fuelConsumption_aux_mpd;
 	int endNode_exact; // 1 if the end node of the leg must be exactly visited
 
 	int physLevelFirst;
@@ -140,6 +142,9 @@ struct strLegCommercial {
 
 struct strParams
 {
+	std::string url_errorEmail_api;
+	std::string url_getCorridors;
+
 	double tss_attractionDistance_km;
 	int useSimulering;
 	double simulationSpeed_kmh;
@@ -430,6 +435,7 @@ struct strArcInfo
 	double fuel_auxEca;//
 	double fuel_noEca;//
 	double fuel_eca;//
+	double speedDiffCurrent;
 	double fuelQualityKvot;
 	double extraAreaCostKvot;
 	double kvotCost;
@@ -507,6 +513,8 @@ struct strChannel {
 	//int* outPolyPoint;
 	int* outLevel;
 	int* outRestrictedAreaNr;
+	int outRestrictedAreaNr_channel;
+	int* outNoNormalArc_useTSS;
 	int nArcsToPoint;
 	int* nAllocTimeIntervals;
 	int* nTimeIntervals;
@@ -548,11 +556,13 @@ struct strNodeSeq
 	spherical::Point *point;
 	double* point_x;
 	double* point_y;
+	int* nAllocOutNodes;
 	int *nOutNodes;
 	int* nInNodes;
 	int** outNode;
 	int** outLevel;
 	int** outRestrictedAreaNr;
+	int** outNoNormalArc_useTSS;
 
 	double* minDistPrevNode;
 	int* minDistPrevNode_level;
@@ -586,6 +596,8 @@ struct strNodeSeq
 
 	int legNr;
 	double tidWait;
+	double bransleWaitMain;
+	double bransleWaitAux;
 };
 
 struct strNetwork
@@ -870,6 +882,7 @@ struct strValuesNow {
 	double totDistance_movingNoCorridors;
 	double totTime_movingNoCorridors;
 	double totFuel_mainMovingNoCorridors;
+	double totFuel_auxMovingNoCorridors;
 
 	double totCorridorWaitingFuel_mainECA;
 	double totCorridorWaitingFuel_mainNonECA;
@@ -1124,6 +1137,7 @@ struct strDijkstra {
 	long node_min;
 	long long OptCost;
 	double FAKTOR_NATVERK;
+	double MAX_FAKTOR_NATVERK;
 };
 
 struct strNoder
@@ -1274,12 +1288,17 @@ struct strDelay {
 };
 
 struct strDelayToEnd {
-	double time;
+	double base_time;
+	double changed_time;
 	double distance;
-	double fuel_main_noEca;
-	double fuel_main_eca;
-	double fuel_aux_noEca;
-	double fuel_aux_eca;
+	double base_fuel_main_noEca;
+	double base_fuel_main_eca;
+	double base_fuel_aux_noEca;
+	double base_fuel_aux_eca;
+	double changed_fuel_main_noEca;
+	double changed_fuel_main_eca;
+	double changed_fuel_aux_noEca;
+	double changed_fuel_aux_eca;
 
 	int nBVArcs;
 	int* BVArc;
@@ -2042,6 +2061,8 @@ int saveTablesToSQLite(std::string inputPath);
 int updateCorridors(std::string inputPath);
 int call_api_corridors(std::string inputPath);
 int load_autoCorridors(int alt);
+int loadSave_downloadedCorridors();
+
 int loadFileParams_feasibilityAuto(strParamsAutoRoute* params);
 
 
@@ -2178,7 +2199,7 @@ int getManadDagFranUTCSeconds(long long seconds, int* dag);
 void getBastSpeedPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
 void getBastConsumptionPos(int nSettings, double target, int* indexUnder, int* indexOver, double* kvot);
 double evalWeatherDataAlongArc(int arcNr, int legNr, double timeExact); //  , int speedSettingGiven = -1);
-int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc = 0);
+int check_isPhysicalArcOK(int startLevel, int slutLevel, int pos1, int pos2, int allowShortArc = 0, int followPrefPathExact = 0);
 void 	initModelStatusValues();
 long long make_gmtime_fromDateTimeString(std::string tidpkt, strParams* params = NULL);
 int evalDistanceBetweenPrefPathAndChannel(int level1, int level2);
@@ -2224,6 +2245,8 @@ void SwapArray(int* Array, int a, int b);
 
 int check_realloc_coords(int nUsed);
 
+double get_totalExtraAreaCostKvot(int thisLevel, int pos1, int nextLevel, int pos2, double* fuelQualityKvot);
+
 /*
 restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcNr].fromLevel, modelDelay.arc[arcNr].fromPointNr,
 	modelDelay.arc[arcNr].outNodePos);
@@ -2235,6 +2258,10 @@ restrictedAreaNr = get_restrictedAreaNr(modelDelay.arc[arcNr].fromLevel, modelDe
 
 	*/
 
+
+int solve_dijkstras_claude(strModel* model);
+int solve_dijkstras_chatGPT(strModel* model);
+std::string load_entire_file(const std::string& path);
 
 #endif //PCH_H
 

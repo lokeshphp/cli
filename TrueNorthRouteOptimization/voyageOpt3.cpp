@@ -8370,6 +8370,50 @@ void testAnropRedisMap() {
 }
 */
 
+int slitCorridors_download(std::string inputPath) {
+	json data;
+	std::ifstream fil;
+	char* namn = (char*)malloc2(256 * sizeof(char));
+	sprintf(namn, "%s/corridors_download.json", inputPath.c_str());
+	char* namn1 = (char*)malloc2(256 * sizeof(char));
+	sprintf(namn1, "%s/corridors_downloadUse.json", inputPath.c_str());
+	char* namn2 = (char*)malloc2(256 * sizeof(char));
+	sprintf(namn2, "%s/tss_downloadUse.json", inputPath.c_str());
+
+	FILE* filCorridor = fopen(namn1, "w");
+	FILE* filTSS = fopen(namn2, "w");
+	init_geojson(filCorridor, "corridor_namn");
+	init_geojson(filTSS, "tss_namn");
+
+	fil.open(namn);
+	if (fil.is_open() == TRUE) {
+		fil >> data;
+
+		if (!data["Data"].is_null()) {
+			json data2 = data["Data"];
+			for (auto it = data.begin(); it != data.end(); ++it) {
+				json dataFeature = it.value();
+				int typ = 0; // corridor
+				if (!dataFeature["type"].is_null()) {
+					if (dataFeature["type"] == "tss")
+						typ = 1;
+				}
+
+			}
+		}
+		else {
+			postRequest("ERROR! The reading of the downloading corridors failed. No field 'Data'. I will still continue to update weather.", 0);
+			break;
+
+		}
+		fil.close();
+	}
+	else {
+		postRequest("ERROR! The downloading of the corridor file failed, file " + namn + "not found. I will still continue to update weather.", 0);
+	}
+}
+
+
 int updateCorridors(std::string inputPath) {
 	// download new corridors from api to file inputPath/tmp_corridors.json
 	reset_errlog();
@@ -8380,6 +8424,9 @@ int updateCorridors(std::string inputPath) {
 		return -1;
 
 	model.params.indataPath = inputPath;
+
+	retVal = splitCorridors_download(inputPath);
+
 	// test the file tmp_corridors.json if there are corridors in it
 	loadFileParams_feasibilityAuto(&(model.paramsAutoRoute));
 	printf("pfg efter loadFileParams_feasibilityAuto\n");
