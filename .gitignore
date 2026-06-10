@@ -74,3 +74,5 @@ out/build/x64-debug/CMakeFiles/3.22.22022201-MSVC_2/CMakeDetermineCompilerABI_C.
 /.vs/
 /x64/Release
 /x64/Debug
+/TrueNorthRouteOptimization/voyageOpt2.cpp
+/TrueNorthRouteOptimization/voyageOpt3.cpp
