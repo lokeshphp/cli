@@ -1,0 +1,303 @@
+Do the planning for the dateTime Thu Mar 19 03:04:00 2026
+
+OBS! leg 1 commercial assigned_speed 11.50 and assigned_consumption 0.00 but allowable_variation is 0.000000.
+OBS! leg 2 commercial assigned_speed 11.50 and assigned_consumption 0.00 but allowable_variation is 0.000000.
+OBS! leg 3 commercial assigned_speed 11.50 and assigned_consumption 0.00 but allowable_variation is 0.000000.
+Loaded shipDraft 10.030
+Loaded freeBoard 4.390
+Loaded shipLength 177.000
+Max free ice cover 0.010
+OBS! max rpm is taken from 84.00 rpm setting
+max rpm gives a calmWaterSpeed of 13.50 knots and a fuel consumption of (main/aux) 0.92 0.08 ton/hour
+OBS No fuelFactorTableID given in input data in tag 'ship_specification'. I use the default one 'fuelFactor_table'.
+nPoints in preferredPath 74 from 3 legs
+Loading corridors
+ERROR! No emissionFactor for extra fuel given in input data, I use default 1
+ERROR! No quantity_mts for extra fuel given in input data, I set it to 0
+trying to open /OptiNav/data/table_parameters.json
+OBS! No maxWaveHeight_warning is set for parameter shipTables/BC03_025,000-039,999_DWT_B_Wave_Matrix.txt, I set it to 4.99 meters
+OBS! No maxWindSpeed_warning is set for parameter shipTables/BC03_025,000-039,999_DWT_B_Wind_Matrix.txt, I set it to 28.00 knots
+pos_wind_u 0
+pos_wind_v 1
+pos_current_u 2
+pos_current_v 3
+pos_waveHeight 4
+pos_wavePeriod 5
+pos_waveDirection 6
+pos_iceThickness 7
+tot haversine dist of prefered path 11904.012685 nPoints in prefPath 74
+boundingBox in calc_boundingBoxFrompreferredPath alt 0 set to min/max 116.033 174.033
+boundingBox in calc_boundingBoxFrompreferredPath alt 0 after prefPath points min/max 116.033 174.033
+boundingBox in calc_boundingBoxFrompreferredPath alt 0 after deltaX min/max 102.203 187.864
+nHoursIntervals: 8.000000
+legNr 0 nIntDbl 44.272371 nInt 45 distInt 173.154336
+legNr 1 nIntDbl 13.293353 nInt 14 distInt 167.116600
+legNr 2 nIntDbl 10.070712 nInt 11 distInt 161.131552
+recalculate distInt, nIntDbl 9.893222 nInt 11 distInt 174.120874, startDistBad 0.00 endDistBad 31.24
+trying to open /OptiNav/data/feasibilityMaps/TSS_OptiNav_all_TSS_Path3.geojson
+Fysiskt natverk: 0 noder och 0 bagar
+Fysiskt natverk: 4485 noder och 12623 bagar
+nStorms 1 minSpeed 1.00 maxSpeed 43.00
+nStormsUse 1
+OBS! leg 0 commercial opt, using 1 speed settings with allowedVariation 0.00 Speed 11.50 fuel 0.00, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds 0 11.50 knots, fuel consumption main/aux  0 14.00 2.00 mpd
+OBS! leg 1 commercial opt, using 1 speed settings with allowedVariation 0.00 Speed 11.50 fuel 0.00, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds 0 11.50 knots, fuel consumption main/aux  0 14.00 2.00 mpd
+OBS! leg 2 commercial opt, using 1 speed settings with allowedVariation 0.00 Speed 11.50 fuel 0.00, with data interpolated from the speed/fuel table by Trung, calmwaterspeeds 0 11.50 knots, fuel consumption main/aux  0 14.00 2.00 mpd
+OBS! Setting preferred speed to average of all speed settings right now: 11.50 knots (it is modified if eta is given)
+weather 0 nTimeIntervals 98 nTimeIntForecast 78 timeIntervall_h 3.00 nAlloc 240
+weather 1 nTimeIntervals 98 nTimeIntForecast 78 timeIntervall_h 3.00 nAlloc 240
+weather 2 nTimeIntervals 31 nTimeIntForecast 7 timeIntervall_h 3.00 nAlloc 248
+weather 3 nTimeIntervals 31 nTimeIntForecast 7 timeIntervall_h 3.00 nAlloc 248
+weather 4 nTimeIntervals 98 nTimeIntForecast 78 timeIntervall_h 3.00 nAlloc 240
+weather 5 nTimeIntervals 98 nTimeIntForecast 78 timeIntervall_h 3.00 nAlloc 240
+weather 6 nTimeIntervals 98 nTimeIntForecast 78 timeIntervall_h 3.00 nAlloc 240
+weather 7 nTimeIntervals 31 nTimeIntForecast 7 timeIntervall_h 3.00 nAlloc 248
+extends weather wind_uComponent to nMaxTimeInt 246 from 238 endValue 97
+extends weather wind_vComponent to nMaxTimeInt 246 from 238 endValue 97
+extends weather waveHeight to nMaxTimeInt 246 from 238 endValue 97
+extends weather wavePeriod to nMaxTimeInt 246 from 238 endValue 97
+extends weather waveDirection to nMaxTimeInt 246 from 238 endValue 97
+Time where only historic data is used: 243
+getMonthsToUseForDelay dist 11904.01 speedAver 22.00 tidp_startHist 243 tripHours 541.09 midMonth 4
+nMonths 1
+trying to open /OptiNav/data/delay/delayFactorScale_shipSize.json
+OBS! Calculating estimate time for the trip by following preferred path at preferred speed.
+	forecast i 0 timeExact 8.093870
+	forecast i 1 timeExact 15.845151
+	forecast i 2 timeExact 23.694631
+	forecast i 3 timeExact 31.116110
+	forecast i 4 timeExact 38.274135
+	forecast i 5 timeExact 45.733580
+	forecast i 6 timeExact 53.946375
+	forecast i 7 timeExact 62.091461
+	forecast i 8 timeExact 70.031935
+	forecast i 9 timeExact 77.980105
+	forecast i 10 timeExact 86.125008
+	forecast i 11 timeExact 94.918174
+	forecast i 12 timeExact 103.498057
+	forecast i 13 timeExact 111.712698
+	forecast i 14 timeExact 119.715902
+	forecast i 15 timeExact 127.779736
+	forecast i 16 timeExact 135.948603
+	forecast i 17 timeExact 144.477114
+	forecast i 18 timeExact 153.167383
+	forecast i 19 timeExact 161.536275
+	forecast i 20 timeExact 169.703501
+	forecast i 21 timeExact 177.607303
+	forecast i 22 timeExact 186.251350
+	forecast i 23 timeExact 194.911870
+	forecast i 24 timeExact 203.750566
+	forecast i 25 timeExact 213.144836
+	forecast i 26 timeExact 222.231461
+	forecast i 27 timeExact 231.041898
+	forecast i 28 timeExact 239.900107
+	forecast i 29 timeExact 248.872038
+	histData i 30 timeExact 258.480990
+	histData i 31 timeExact 267.975691
+	histData i 32 timeExact 277.537009
+	histData i 33 timeExact 287.332915
+	histData i 34 timeExact 296.802271
+	histData i 35 timeExact 306.107155
+	histData i 36 timeExact 315.584836
+	histData i 37 timeExact 325.152980
+	histData i 38 timeExact 334.615616
+	histData i 39 timeExact 343.741192
+	histData i 40 timeExact 353.187809
+	histData i 41 timeExact 362.572012
+	histData i 42 timeExact 371.982845
+	histData i 43 timeExact 381.150843
+	histData i 44 timeExact 390.186732
+	histData i 45 timeExact 398.996541
+	histData i 46 timeExact 408.003684
+	histData i 47 timeExact 417.293333
+	histData i 48 timeExact 426.356198
+	histData i 49 timeExact 435.144599
+	histData i 50 timeExact 443.859019
+	histData i 51 timeExact 452.446347
+	histData i 52 timeExact 461.069064
+	histData i 53 timeExact 469.408242
+	histData i 54 timeExact 477.572819
+	histData i 55 timeExact 485.846356
+	histData i 56 timeExact 494.180548
+	histData i 57 timeExact 502.249117
+	histData i 58 timeExact 510.419954
+	histData i 59 timeExact 519.075829
+	histData i 60 timeExact 527.242363
+	histData i 61 timeExact 535.067208
+	histData i 62 timeExact 543.026665
+	histData i 63 timeExact 550.857607
+	histData i 64 timeExact 559.302966
+	histData i 65 timeExact 568.473729
+	histData i 66 timeExact 577.875382
+	histData i 67 timeExact 587.142540
+	histData i 68 timeExact 596.430413
+	histData i 69 timeExact 598.042921
+OLD! preferred path and speed gives ending time 598.04: end date/time 2026-04-13T01:06:00
+
+OBS! Calculating estimate time for the trip by following preferred path at preferred speed.
+preferred path and speed gives ending time 598.04: end date/time 2026-04-13T01:06:00
+Dijkstra network, nNodes 2168, nArcs 12628
+Dijkstra network, nNodes 75, nArcs 76
+ERROR: nod 71
+
+level 0 nMaxTimeIntLevel 1
+level 1 nMaxTimeIntLevel 1
+level 2 nMaxTimeIntLevel 1
+level 3 nMaxTimeIntLevel 3
+level 4 nMaxTimeIntLevel 5
+level 5 nMaxTimeIntLevel 7
+level 6 nMaxTimeIntLevel 8
+level 7 nMaxTimeIntLevel 10
+level 8 nMaxTimeIntLevel 11
+level 9 nMaxTimeIntLevel 10
+level 10 nMaxTimeIntLevel 10
+level 11 nMaxTimeIntLevel 12
+level 12 nMaxTimeIntLevel 12
+level 13 nMaxTimeIntLevel 13
+level 14 nMaxTimeIntLevel 14
+level 15 nMaxTimeIntLevel 15
+level 16 nMaxTimeIntLevel 16
+level 17 nMaxTimeIntLevel 16
+level 18 nMaxTimeIntLevel 16
+level 19 nMaxTimeIntLevel 16
+level 20 nMaxTimeIntLevel 15
+level 21 nMaxTimeIntLevel 15
+level 22 nMaxTimeIntLevel 20
+level 23 nMaxTimeIntLevel 20
+level 24 nMaxTimeIntLevel 21
+level 25 nMaxTimeIntLevel 22
+level 26 nMaxTimeIntLevel 23
+level 27 nMaxTimeIntLevel 24
+level 28 nMaxTimeIntLevel 23
+level 29 nMaxTimeIntLevel 19
+level 30 nMaxTimeIntLevel 11
+level 31 nMaxTimeIntLevel 2
+level 32 nMaxTimeIntLevel 0
+level 33 nMaxTimeIntLevel 0
+level 34 nMaxTimeIntLevel 0
+level 35 nMaxTimeIntLevel 0
+level 36 nMaxTimeIntLevel 0
+level 37 nMaxTimeIntLevel 0
+level 38 nMaxTimeIntLevel 0
+level 39 nMaxTimeIntLevel 0
+level 40 nMaxTimeIntLevel 0
+level 41 nMaxTimeIntLevel 0
+level 42 nMaxTimeIntLevel 0
+level 43 nMaxTimeIntLevel 0
+level 44 nMaxTimeIntLevel 0
+level 45 nMaxTimeIntLevel 0
+level 46 nMaxTimeIntLevel 0
+level 47 nMaxTimeIntLevel 0
+level 48 nMaxTimeIntLevel 0
+level 49 nMaxTimeIntLevel 0
+level 50 nMaxTimeIntLevel 0
+level 51 nMaxTimeIntLevel 0
+level 52 nMaxTimeIntLevel 0
+level 53 nMaxTimeIntLevel 0
+level 54 nMaxTimeIntLevel 0
+level 55 nMaxTimeIntLevel 0
+level 56 nMaxTimeIntLevel 0
+level 57 nMaxTimeIntLevel 0
+level 58 nMaxTimeIntLevel 0
+level 59 nMaxTimeIntLevel 0
+level 60 nMaxTimeIntLevel 0
+level 61 nMaxTimeIntLevel 0
+level 62 nMaxTimeIntLevel 0
+level 63 nMaxTimeIntLevel 0
+level 64 nMaxTimeIntLevel 0
+level 65 nMaxTimeIntLevel 0
+level 66 nMaxTimeIntLevel 0
+level 67 nMaxTimeIntLevel 0
+level 68 nMaxTimeIntLevel 0
+level 69 nMaxTimeIntLevel 0
+
+Dijkstra network, nNodes 6830, nArcs 36989
+sattUppDijkstra took 2.527920
+after Dijkstra 4.042736 solve bucket dijkstra took 1.453408
+Solution base (dist 11949.669) will be saved as no 0, cost                                                         28457253
+OBS! Rounding tm_min from 4 to 0
+maxWaveHeight 2.980 at tp 90 2026-03-22T21:04:00
+maxWindSpeed 53.684 km/h 28.987 kts at tp 81 2026-03-22T12:04:00
+maxLateMidTimeArrive_h 0.2 level 1 av 71
+minLateMidTimeArrive_h -4.2 level 69 av 71
+
+level 0 nMaxTimeIntLevel 1
+level 1 nMaxTimeIntLevel 1
+level 2 nMaxTimeIntLevel 2
+level 3 nMaxTimeIntLevel 3
+level 4 nMaxTimeIntLevel 4
+level 5 nMaxTimeIntLevel 7
+level 6 nMaxTimeIntLevel 11
+level 7 nMaxTimeIntLevel 16
+level 8 nMaxTimeIntLevel 17
+level 9 nMaxTimeIntLevel 17
+level 10 nMaxTimeIntLevel 17
+level 11 nMaxTimeIntLevel 23
+level 12 nMaxTimeIntLevel 24
+level 13 nMaxTimeIntLevel 26
+level 14 nMaxTimeIntLevel 29
+level 15 nMaxTimeIntLevel 30
+level 16 nMaxTimeIntLevel 35
+level 17 nMaxTimeIntLevel 32
+level 18 nMaxTimeIntLevel 32
+level 19 nMaxTimeIntLevel 32
+level 20 nMaxTimeIntLevel 32
+level 21 nMaxTimeIntLevel 32
+level 22 nMaxTimeIntLevel 42
+level 23 nMaxTimeIntLevel 45
+level 24 nMaxTimeIntLevel 47
+level 25 nMaxTimeIntLevel 50
+level 26 nMaxTimeIntLevel 52
+level 27 nMaxTimeIntLevel 54
+level 28 nMaxTimeIntLevel 57
+level 29 nMaxTimeIntLevel 58
+level 30 nMaxTimeIntLevel 28
+level 31 nMaxTimeIntLevel 0
+level 32 nMaxTimeIntLevel 0
+level 33 nMaxTimeIntLevel 0
+level 34 nMaxTimeIntLevel 0
+level 35 nMaxTimeIntLevel 0
+level 36 nMaxTimeIntLevel 0
+level 37 nMaxTimeIntLevel 0
+level 38 nMaxTimeIntLevel 0
+level 39 nMaxTimeIntLevel 0
+level 40 nMaxTimeIntLevel 0
+level 41 nMaxTimeIntLevel 0
+level 42 nMaxTimeIntLevel 0
+level 43 nMaxTimeIntLevel 0
+level 44 nMaxTimeIntLevel 0
+level 45 nMaxTimeIntLevel 0
+level 46 nMaxTimeIntLevel 0
+level 47 nMaxTimeIntLevel 0
+level 48 nMaxTimeIntLevel 0
+level 49 nMaxTimeIntLevel 0
+level 50 nMaxTimeIntLevel 0
+level 51 nMaxTimeIntLevel 0
+level 52 nMaxTimeIntLevel 0
+level 53 nMaxTimeIntLevel 0
+level 54 nMaxTimeIntLevel 0
+level 55 nMaxTimeIntLevel 0
+level 56 nMaxTimeIntLevel 0
+level 57 nMaxTimeIntLevel 0
+level 58 nMaxTimeIntLevel 0
+level 59 nMaxTimeIntLevel 0
+level 60 nMaxTimeIntLevel 0
+level 61 nMaxTimeIntLevel 0
+level 62 nMaxTimeIntLevel 0
+level 63 nMaxTimeIntLevel 0
+level 64 nMaxTimeIntLevel 0
+level 65 nMaxTimeIntLevel 0
+level 66 nMaxTimeIntLevel 0
+level 67 nMaxTimeIntLevel 0
+level 68 nMaxTimeIntLevel 0
+level 69 nMaxTimeIntLevel 0
+
+Dijkstra network, nNodes 7525, nArcs 27126
+sattUppDijkstra took 1.790113
+after Dijkstra 3.151768 solve bucket dijkstra took 1.280166
+Solution base (dist 11950.073) will be saved as no 1, cost                                                         28449929
+OBS! Rounding tm_min from 4 to 0
+maxWaveHeight 2.880 at tp 87 2026-03-22T18:04:00
+maxWindSpeed 53.484 km/h 28.879 kts at tp 81 2026-03-22T12:04:00
+maxLateMidTimeArrive_h 0.1 level 25 av 71
+minLateMidTimeArrive_h -0.3 level 3 av 71
+OptiNav took 2169.466

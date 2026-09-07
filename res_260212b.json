@@ -1,0 +1,2698 @@
+{
+"type": "FeatureCollection",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+  {"type":"Feature", "properties":{"dateUTC":"12-Feb 08:11",
+  "full_date":"2026-02-12T08:11:00",
+"solutionID":"base",
+    "legPos":0,
+    "arcNr":0,
+    "splitPos":0,
+    "arc obj cost":1062856.12,
+    "level from":0,
+    "posNodefrom":0,
+    "arcStart":0,
+    "accumTimeStart_h":0.000000,
+    "arrive-midTimeArriveDiff_h":0.00,
+    "level to":1,
+    "posNodeTo":34,
+    "toTime":3,
+    "hours":8.80, "checkHours":8.796, "distance_nm":100.9,
+    "WindF":-3.056, "WaveF":-1.702, "CurrentF":0.301, "DelayF":0.000, "allWeatherFactors": -4.457,
+    "accumDistance_km":0.00, "distanceLeft_nm":6326.0,
+    "Position_lat_lon":"51 46N, 003 29E", "bearing":338,
+    "Wpt":1,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.61056, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.538
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.47, "rpm":102.00,
+    "windSpeed_km_h":45.906, "relativeWindDirection_degrees":25,
+    "waveHeight_m":0.730, "wavePeriod_s":4.010,
+    "relativeWaveDirection_degrees":29,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":14.8, "windDirection_degrees":-23, "windDir_letters":"WNW",
+    "currentReal_knots":0.058, "currentDirection_degrees":113,
+    "waveDirection_degrees":-40,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[3.4883,51.7750]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"12-Feb 16:58",
+  "full_date":"2026-02-12T16:58:00",
+"solutionID":"base",
+    "legPos":0,
+    "arcNr":69,
+    "splitPos":0,
+    "arc obj cost":1017886.70,
+    "level from":2,
+    "posNodefrom":34,
+    "arcStart":35,
+    "accumTimeStart_h":8.796014,
+    "arrive-midTimeArriveDiff_h":-0.00,
+    "level to":3,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":8.41, "checkHours":8.409, "distance_nm":92.2,
+    "WindF":-3.221, "WaveF":-5.399, "CurrentF":0.673, "DelayF":0.000, "allWeatherFactors": -7.947,
+    "accumDistance_km":186.84, "distanceLeft_nm":6225.1,
+    "Position_lat_lon":"53 20N, 002 27E", "bearing":338,
+    "Wpt":2,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.64419, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.306
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":10.96, "rpm":102.00,
+    "windSpeed_km_h":52.479, "relativeWindDirection_degrees":39,
+    "waveHeight_m":1.962, "wavePeriod_s":7.796,
+    "relativeWaveDirection_degrees":60,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"high",
+    "windSpeedReal_knots":20.2, "windDirection_degrees":-127, "windDir_letters":"NE",
+    "currentReal_knots":0.160, "currentDirection_degrees":174,
+    "waveDirection_degrees":-128,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[2.4551,53.3334]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"13-Feb 01:23",
+  "full_date":"2026-02-13T01:23:00",
+"solutionID":"base",
+    "legPos":0,
+    "arcNr":684,
+    "splitPos":0,
+    "arc obj cost":989778.77,
+    "level from":3,
+    "posNodefrom":34,
+    "arcStart":69,
+    "accumTimeStart_h":17.205292,
+    "arrive-midTimeArriveDiff_h":-0.05,
+    "level to":4,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":8.17, "checkHours":8.171, "distance_nm":91.8,
+    "WindF":-2.056, "WaveF":-4.502, "CurrentF":0.708, "DelayF":0.000, "allWeatherFactors": -5.849,
+    "accumDistance_km":357.57, "distanceLeft_nm":6133.0,
+    "Position_lat_lon":"54 44N, 001 26E", "bearing":327,
+    "Wpt":3,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.55639, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.126
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.23, "rpm":102.00,
+    "windSpeed_km_h":38.077, "relativeWindDirection_degrees":59,
+    "waveHeight_m":2.203, "wavePeriod_s":8.066,
+    "relativeWaveDirection_degrees":79,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":17.7, "windDirection_degrees":-152, "windDir_letters":"ENE",
+    "currentReal_knots":0.115, "currentDirection_degrees":161,
+    "waveDirection_degrees":-136,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[1.4427,54.7492]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"13-Feb 09:33",
+  "full_date":"2026-02-13T09:33:00",
+"solutionID":"base",
+    "legPos":0,
+    "arcNr":792,
+    "splitPos":0,
+    "arc obj cost":981973.12,
+    "level from":4,
+    "posNodefrom":34,
+    "arcStart":102,
+    "accumTimeStart_h":25.376494,
+    "arrive-midTimeArriveDiff_h":-0.05,
+    "level to":5,
+    "posNodeTo":0,
+    "toTime":-1,
+    "hours":8.11, "checkHours":8.113, "distance_nm":92.2,
+    "WindF":-2.571, "WaveF":-1.842, "CurrentF":-0.414, "DelayF":0.000, "allWeatherFactors": -4.827,
+    "accumDistance_km":527.59, "distanceLeft_nm":6041.2,
+    "Position_lat_lon":"56 01N, 000 02W", "bearing":318,
+    "Wpt":4,
+    "nChangeBearingInbetweenNodes":4,
+    "nChangeBearing_lessThanXdegrees":2,
+    "fuelConsumptionMain_ton_day":13.57024, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.094
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.36, "rpm":102.00,
+    "windSpeed_km_h":28.662, "relativeWindDirection_degrees":38,
+    "waveHeight_m":1.726, "wavePeriod_s":7.959,
+    "relativeWaveDirection_degrees":108,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":9.4, "windDirection_degrees":-137, "windDir_letters":"NE",
+    "currentReal_knots":0.016, "currentDirection_degrees":-75,
+    "waveDirection_degrees":-156,"waveDir_letters":"ENE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-0.0408,56.0252]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"13-Feb 17:40",
+  "full_date":"2026-02-13T17:40:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":843,
+    "splitPos":0,
+    "arc obj cost":964028.91,
+    "level from":5,
+    "posNodefrom":0,
+    "arcStart":134,
+    "accumTimeStart_h":33.489504,
+    "arrive-midTimeArriveDiff_h":-0.05,
+    "level to":6,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":7.97, "checkHours":7.967, "distance_nm":93.4,
+    "WindF":-0.730, "WaveF":-2.138, "CurrentF":0.771, "DelayF":0.000, "allWeatherFactors": -2.097,
+    "accumDistance_km":698.33, "distanceLeft_nm":5949.0,
+    "Position_lat_lon":"57 07N, 001 55W", "bearing":142,
+    "Wpt":5,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.54767, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":4.995
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.73, "rpm":102.00,
+    "windSpeed_km_h":8.571, "relativeWindDirection_degrees":132,
+    "waveHeight_m":0.662, "wavePeriod_s":2.820,
+    "relativeWaveDirection_degrees":74,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":15.4, "windDirection_degrees":-64, "windDir_letters":"NNW",
+    "currentReal_knots":0.063, "currentDirection_degrees":-6,
+    "waveDirection_degrees":-158,"waveDir_letters":"ENE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-1.9299,57.1296]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"14-Feb 01:38",
+  "full_date":"2026-02-14T01:38:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":1083,
+    "splitPos":0,
+    "arc obj cost":951957.80,
+    "level from":6,
+    "posNodefrom":34,
+    "arcStart":166,
+    "accumTimeStart_h":41.456892,
+    "arrive-midTimeArriveDiff_h":-0.05,
+    "level to":7,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":7.87, "checkHours":7.869, "distance_nm":92.9,
+    "WindF":-1.243, "WaveF":-0.931, "CurrentF":0.718, "DelayF":0.000, "allWeatherFactors": -1.456,
+    "accumDistance_km":871.38, "distanceLeft_nm":5855.5,
+    "Position_lat_lon":"55 53N, 000 12W", "bearing":150,
+    "Wpt":6,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.53983, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":4.931
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.81, "rpm":102.00,
+    "windSpeed_km_h":19.033, "relativeWindDirection_degrees":171,
+    "waveHeight_m":2.204, "wavePeriod_s":6.323,
+    "relativeWaveDirection_degrees":151,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":22.3, "windDirection_degrees":-64, "windDir_letters":"NNW",
+    "currentReal_knots":0.127, "currentDirection_degrees":-59,
+    "waveDirection_degrees":-89,"waveDir_letters":"N",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-0.2020,55.8994]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"14-Feb 09:30",
+  "full_date":"2026-02-14T09:30:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":1620,
+    "splitPos":0,
+    "arc obj cost":943248.96,
+    "level from":7,
+    "posNodefrom":34,
+    "arcStart":197,
+    "accumTimeStart_h":49.325669,
+    "arrive-midTimeArriveDiff_h":-0.05,
+    "level to":8,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":7.80, "checkHours":7.799, "distance_nm":93.4,
+    "WindF":-0.438, "WaveF":0.171, "CurrentF":0.131, "DelayF":0.000, "allWeatherFactors": -0.136,
+    "accumDistance_km":1043.50, "distanceLeft_nm":5762.6,
+    "Position_lat_lon":"54 33N, 001 09E", "bearing":156,
+    "Wpt":7,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.52773, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":4.883
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.98, "rpm":102.00,
+    "windSpeed_km_h":17.903, "relativeWindDirection_degrees":173,
+    "waveHeight_m":2.379, "wavePeriod_s":7.240,
+    "relativeWaveDirection_degrees":177,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":21.7, "windDirection_degrees":-69, "windDir_letters":"NNW",
+    "currentReal_knots":0.131, "currentDirection_degrees":-57,
+    "waveDirection_degrees":-70,"waveDir_letters":"NNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[1.1513,54.5576]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"14-Feb 17:18",
+  "full_date":"2026-02-14T17:18:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":2427,
+    "splitPos":0,
+    "arc obj cost":977469.99,
+    "level from":8,
+    "posNodefrom":34,
+    "arcStart":228,
+    "accumTimeStart_h":57.124429,
+    "arrive-midTimeArriveDiff_h":0.02,
+    "level to":9,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":8.09, "checkHours":8.089, "distance_nm":93.4,
+    "WindF":-0.397, "WaveF":-0.335, "CurrentF":-2.767, "DelayF":0.000, "allWeatherFactors": -3.499,
+    "accumDistance_km":1216.54, "distanceLeft_nm":5669.1,
+    "Position_lat_lon":"53 07N, 002 12E", "bearing":165,
+    "Wpt":8,
+    "nChangeBearingInbetweenNodes":2,
+    "nChangeBearing_lessThanXdegrees":1,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.056
+, "current_kts":-0.3
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.55, "rpm":102.00,
+    "windSpeed_km_h":16.190, "relativeWindDirection_degrees":87,
+    "waveHeight_m":1.610, "wavePeriod_s":7.314,
+    "relativeWaveDirection_degrees":159,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":14.1, "windDirection_degrees":-56, "windDir_letters":"NNW",
+    "currentReal_knots":0.328, "currentDirection_degrees":81,
+    "waveDirection_degrees":-74,"waveDir_letters":"NNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[2.2072,53.1314]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"15-Feb 01:23",
+  "full_date":"2026-02-15T01:23:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":2556,
+    "splitPos":0,
+    "arc obj cost":1071527.62,
+    "level from":9,
+    "posNodefrom":34,
+    "arcStart":260,
+    "accumTimeStart_h":65.213803,
+    "arrive-midTimeArriveDiff_h":0.02,
+    "level to":10,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":8.86, "checkHours":8.856, "distance_nm":93.4,
+    "WindF":-3.246, "WaveF":-1.295, "CurrentF":-6.498, "DelayF":0.000, "allWeatherFactors": -11.040,
+    "accumDistance_km":1389.59, "distanceLeft_nm":5575.7,
+    "Position_lat_lon":"51 39N, 002 01E", "bearing":207,
+    "Wpt":9,
+    "nChangeBearingInbetweenNodes":2,
+    "nChangeBearing_lessThanXdegrees":1,
+    "fuelConsumptionMain_ton_day":13.58751, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":5.567
+, "current_kts":-0.8
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":10.55, "rpm":102.00,
+    "windSpeed_km_h":36.815, "relativeWindDirection_degrees":14,
+    "waveHeight_m":0.784, "wavePeriod_s":6.344,
+    "relativeWaveDirection_degrees":154,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":8.3, "windDirection_degrees":67, "windDir_letters":"SSW",
+    "currentReal_knots":0.772, "currentDirection_degrees":56,
+    "waveDirection_degrees":-105,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[2.0295,51.6576]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"15-Feb 10:15",
+  "full_date":"2026-02-15T10:15:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":2856,
+    "splitPos":0,
+    "arc obj cost":2236626.54,
+    "level from":10,
+    "posNodefrom":34,
+    "arcStart":295,
+    "accumTimeStart_h":74.069341,
+    "arrive-midTimeArriveDiff_h":0.02,
+    "level to":11,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":18.46, "checkHours":18.457, "distance_nm":186.4,
+    "WindF":-11.205, "WaveF":-14.895, "CurrentF":-3.157, "DelayF":0.000, "allWeatherFactors": -29.256,
+    "accumDistance_km":1562.63, "distanceLeft_nm":5482.3,
+    "Position_lat_lon":"50 32N, 000 27E", "bearing":250,
+    "Wpt":10,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.66364, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":11.661
+, "current_kts":-0.4
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":10.10, "rpm":102.00,
+    "windSpeed_km_h":61.738, "relativeWindDirection_degrees":44,
+    "waveHeight_m":2.047, "wavePeriod_s":6.055,
+    "relativeWaveDirection_degrees":49,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"high",
+    "windSpeedReal_knots":25.7, "windDirection_degrees":83, "windDir_letters":"S",
+    "currentReal_knots":0.374, "currentDirection_degrees":22,
+    "waveDirection_degrees":69,"waveDir_letters":"SSW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[0.4539,50.5404]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"16-Feb 04:42",
+  "full_date":"2026-02-16T04:42:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":5914,
+    "splitPos":0,
+    "arc obj cost":1163025.34,
+    "level from":12,
+    "posNodefrom":34,
+    "arcStart":368,
+    "accumTimeStart_h":92.526228,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":13,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":10.03, "checkHours":10.028, "distance_nm":92.9,
+    "WindF":-6.937, "WaveF":-14.257, "CurrentF":0.150, "DelayF":0.000, "allWeatherFactors": -21.044,
+    "accumDistance_km":1907.77, "distanceLeft_nm":5295.9,
+    "Position_lat_lon":"49 27N, 004 03W", "bearing":225,
+    "Wpt":11,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.76156, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":3.663
+, "current_kts":-0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":9.26, "rpm":102.00,
+    "windSpeed_km_h":58.899, "relativeWindDirection_degrees":43,
+    "waveHeight_m":3.250, "wavePeriod_s":12.058,
+    "relativeWaveDirection_degrees":38,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"high",
+    "windSpeedReal_knots":24.4, "windDirection_degrees":-18, "windDir_letters":"WNW",
+    "currentReal_knots":0.178, "currentDirection_degrees":-24,
+    "waveDirection_degrees":7,"waveDir_letters":"W",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-4.0506,49.4536]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"16-Feb 14:44",
+  "full_date":"2026-02-16T14:44:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":20768,
+    "splitPos":0,
+    "arc obj cost":1053229.78,
+    "level from":13,
+    "posNodefrom":33,
+    "arcStart":408,
+    "accumTimeStart_h":102.553753,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":14,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":9.68, "checkHours":9.682, "distance_nm":90.9,
+    "WindF":-3.222, "WaveF":-17.097, "CurrentF":0.561, "DelayF":0.000, "allWeatherFactors": -19.758,
+    "accumDistance_km":2079.73, "distanceLeft_nm":5203.1,
+    "Position_lat_lon":"48 21N, 005 42W", "bearing":207,
+    "Wpt":12,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.69013, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":9.38, "rpm":102.00,
+    "windSpeed_km_h":51.124, "relativeWindDirection_degrees":52,
+    "waveHeight_m":4.377, "wavePeriod_s":11.920,
+    "relativeWaveDirection_degrees":63,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":22.5, "windDirection_degrees":-16, "windDir_letters":"WNW",
+    "currentReal_knots":0.113, "currentDirection_degrees":-83,
+    "waveDirection_degrees":-0,"waveDir_letters":"W",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-5.7040,48.3533]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"17-Feb 00:25",
+  "full_date":"2026-02-17T00:25:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":31147,
+    "splitPos":0,
+    "arc obj cost":1135814.87,
+    "level from":14,
+    "posNodefrom":33,
+    "arcStart":447,
+    "accumTimeStart_h":112.236006,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":15,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":10.42, "checkHours":10.420, "distance_nm":93.6,
+    "WindF":-6.699, "WaveF":-16.636, "CurrentF":0.056, "DelayF":0.000, "allWeatherFactors": -23.280,
+    "accumDistance_km":2247.99, "distanceLeft_nm":5112.2,
+    "Position_lat_lon":"47 00N, 006 42W", "bearing":207,
+    "Wpt":13,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.78653, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":8.98, "rpm":102.00,
+    "windSpeed_km_h":42.677, "relativeWindDirection_degrees":5,
+    "waveHeight_m":4.110, "wavePeriod_s":13.249,
+    "relativeWaveDirection_degrees":78,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":11.0, "windDirection_degrees":51, "windDir_letters":"SW",
+    "currentReal_knots":0.101, "currentDirection_degrees":158,
+    "waveDirection_degrees":-15,"waveDir_letters":"WNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-6.7160,47.0021]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"17-Feb 10:50",
+  "full_date":"2026-02-17T10:50:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":41215,
+    "splitPos":0,
+    "arc obj cost":2588272.57,
+    "level from":15,
+    "posNodefrom":33,
+    "arcStart":489,
+    "accumTimeStart_h":122.655999,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":16,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":23.71, "checkHours":23.714, "distance_nm":184.8,
+    "WindF":-22.286, "WaveF":-39.226, "CurrentF":-2.250, "DelayF":0.000, "allWeatherFactors": -63.763,
+    "accumDistance_km":2421.26, "distanceLeft_nm":5018.7,
+    "Position_lat_lon":"45 36N, 007 44W", "bearing":209,
+    "Wpt":14,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.85851, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":7.79, "rpm":102.00,
+    "windSpeed_km_h":76.211, "relativeWindDirection_degrees":17,
+    "waveHeight_m":4.330, "wavePeriod_s":12.499,
+    "relativeWaveDirection_degrees":80,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"high",
+    "windSpeedReal_knots":30.0, "windDirection_degrees":36, "windDir_letters":"SW",
+    "currentReal_knots":0.045, "currentDirection_degrees":67,
+    "waveDirection_degrees":-18,"waveDir_letters":"WNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-7.7392,45.6134]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"18-Feb 10:33",
+  "full_date":"2026-02-18T10:33:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":58461,
+    "splitPos":0,
+    "arc obj cost":1007155.47,
+    "level from":17,
+    "posNodefrom":33,
+    "arcStart":584,
+    "accumTimeStart_h":146.370053,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":18,
+    "posNodeTo":32,
+    "toTime":-1,
+    "hours":9.26, "checkHours":9.263, "distance_nm":93.9,
+    "WindF":-3.107, "WaveF":-11.237, "CurrentF":-0.156, "DelayF":0.000, "allWeatherFactors": -14.500,
+    "accumDistance_km":2763.58, "distanceLeft_nm":4833.8,
+    "Position_lat_lon":"42 51N, 009 40W", "bearing":189,
+    "Wpt":15,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.67369, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":10.14, "rpm":102.00,
+    "windSpeed_km_h":44.812, "relativeWindDirection_degrees":22,
+    "waveHeight_m":4.270, "wavePeriod_s":12.463,
+    "relativeWaveDirection_degrees":104,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":13.8, "windDirection_degrees":39, "windDir_letters":"SW",
+    "currentReal_knots":0.159, "currentDirection_degrees":-5,
+    "waveDirection_degrees":-23,"waveDir_letters":"WNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-9.6746,42.8653]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"18-Feb 19:48",
+  "full_date":"2026-02-18T19:48:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":77100,
+    "splitPos":0,
+    "arc obj cost":922840.19,
+    "level from":18,
+    "posNodefrom":32,
+    "arcStart":621,
+    "accumTimeStart_h":155.633210,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":19,
+    "posNodeTo":32,
+    "toTime":-1,
+    "hours":8.50, "checkHours":8.498, "distance_nm":93.3,
+    "WindF":-2.910, "WaveF":-5.195, "CurrentF":0.186, "DelayF":0.000, "allWeatherFactors": -7.919,
+    "accumDistance_km":2937.55, "distanceLeft_nm":4739.9,
+    "Position_lat_lon":"41 19N, 010 00W", "bearing":196,
+    "Wpt":16,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.63124, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":10.98, "rpm":102.00,
+    "windSpeed_km_h":42.045, "relativeWindDirection_degrees":4,
+    "waveHeight_m":2.970, "wavePeriod_s":11.804,
+    "relativeWaveDirection_degrees":104,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":10.7, "windDirection_degrees":80, "windDir_letters":"S",
+    "currentReal_knots":0.049, "currentDirection_degrees":-68,
+    "waveDirection_degrees":-31,"waveDir_letters":"WNW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-10.0039,41.3200]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"19-Feb 04:18",
+  "full_date":"2026-02-19T04:18:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":90610,
+    "splitPos":0,
+    "arc obj cost":1331423.89,
+    "level from":19,
+    "posNodefrom":32,
+    "arcStart":655,
+    "accumTimeStart_h":164.131249,
+    "arrive-midTimeArriveDiff_h":0.05,
+    "level to":20,
+    "posNodeTo":32,
+    "toTime":-1,
+    "hours":12.27, "checkHours":12.262, "distance_nm":140.2,
+    "WindF":-3.038, "WaveF":-4.022, "CurrentF":0.444, "DelayF":0.000, "allWeatherFactors": -6.616,
+    "accumDistance_km":3110.35, "distanceLeft_nm":4646.6,
+    "Position_lat_lon":"39 49N, 010 34W", "bearing":196,
+    "Wpt":17,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.58996, "fuelConsumptionAux_ton_day":1.49906, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.43, "rpm":102.00,
+    "windSpeed_km_h":39.583, "relativeWindDirection_degrees":5,
+    "waveHeight_m":2.353, "wavePeriod_s":11.190,
+    "relativeWaveDirection_degrees":114,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":9.5, "windDirection_degrees":61, "windDir_letters":"SSW",
+    "currentReal_knots":0.032, "currentDirection_degrees":130,
+    "waveDirection_degrees":-40,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-10.5720,39.8270]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"19-Feb 16:33",
+  "full_date":"2026-02-19T16:33:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":104147,
+    "splitPos":1,
+    "arc obj cost":880783.74,
+    "level from":20,
+    "posNodefrom":32,
+    "arcStart":688,
+    "accumTimeStart_h":172.364847,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":21,
+    "posNodeTo":32,
+    "toTime":720,
+    "hours":8.12, "checkHours":8.128, "distance_nm":93.6,
+    "WindF":-1.627, "WaveF":-2.581, "CurrentF":0.402, "DelayF":0.000, "allWeatherFactors": -3.806,
+    "accumDistance_km":3369.93, "distanceLeft_nm":4506.4,
+    "Position_lat_lon":"37 34N, 011 23W", "bearing":196,
+    "Wpt":18,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.59292, "fuelConsumptionAux_ton_day":1.50201, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.51, "rpm":102.00,
+    "windSpeed_km_h":33.093, "relativeWindDirection_degrees":7,
+    "waveHeight_m":2.108, "wavePeriod_s":10.643,
+    "relativeWaveDirection_degrees":121,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.1, "windDirection_degrees":53, "windDir_letters":"SW",
+    "currentReal_knots":0.062, "currentDirection_degrees":-151,
+    "waveDirection_degrees":-47,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-11.3976,37.5832]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"20-Feb 00:42",
+  "full_date":"2026-02-20T00:42:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":115879,
+    "splitPos":1,
+    "arc obj cost":1321200.59,
+    "level from":21,
+    "posNodefrom":32,
+    "arcStart":720,
+    "accumTimeStart_h":180.437509,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":22,
+    "posNodeTo":32,
+    "toTime":753,
+    "hours":12.17, "checkHours":12.172, "distance_nm":140.3,
+    "WindF":-1.647, "WaveF":-5.103, "CurrentF":1.267, "DelayF":0.000, "allWeatherFactors": -5.484,
+    "accumDistance_km":3543.21, "distanceLeft_nm":4412.8,
+    "Position_lat_lon":"36 05N, 011 56W", "bearing":197,
+    "Wpt":19,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.57937, "fuelConsumptionAux_ton_day":1.49960, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.53, "rpm":102.00,
+    "windSpeed_km_h":33.504, "relativeWindDirection_degrees":14,
+    "waveHeight_m":2.446, "wavePeriod_s":15.306,
+    "relativeWaveDirection_degrees":116,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":7.1, "windDirection_degrees":33, "windDir_letters":"WSW",
+    "currentReal_knots":0.111, "currentDirection_degrees":-148,
+    "waveDirection_degrees":-43,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-11.9436,36.0874]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"20-Feb 12:52",
+  "full_date":"2026-02-20T12:52:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":143387,
+    "splitPos":0,
+    "arc obj cost":1318958.52,
+    "level from":23,
+    "posNodefrom":32,
+    "arcStart":785,
+    "accumTimeStart_h":196.693400,
+    "arrive-midTimeArriveDiff_h":0.08,
+    "level to":24,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":12.15, "checkHours":12.142, "distance_nm":140.6,
+    "WindF":-0.349, "WaveF":-4.858, "CurrentF":0.260, "DelayF":0.000, "allWeatherFactors": -4.947,
+    "accumDistance_km":3803.13, "distanceLeft_nm":4272.5,
+    "Position_lat_lon":"33 50N, 012 45W", "bearing":205,
+    "Wpt":20,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.55247, "fuelConsumptionAux_ton_day":1.49842, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.58, "rpm":102.00,
+    "windSpeed_km_h":5.275, "relativeWindDirection_degrees":36,
+    "waveHeight_m":2.228, "wavePeriod_s":13.981,
+    "relativeWaveDirection_degrees":109,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":9.9, "windDirection_degrees":-105, "windDir_letters":"NNE",
+    "currentReal_knots":0.036, "currentDirection_degrees":-97,
+    "waveDirection_degrees":-43,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-12.7546,33.8464]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"21-Feb 01:00",
+  "full_date":"2026-02-21T01:00:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":158583,
+    "splitPos":1,
+    "arc obj cost":877507.28,
+    "level from":24,
+    "posNodefrom":33,
+    "arcStart":817,
+    "accumTimeStart_h":204.779600,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":25,
+    "posNodeTo":34,
+    "toTime":850,
+    "hours":8.09, "checkHours":8.097, "distance_nm":93.5,
+    "WindF":-1.095, "WaveF":-2.400, "CurrentF":0.025, "DelayF":0.000, "allWeatherFactors": -3.470,
+    "accumDistance_km":4063.47, "distanceLeft_nm":4131.9,
+    "Position_lat_lon":"31 42N, 013 54W", "bearing":204,
+    "Wpt":21,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.55561, "fuelConsumptionAux_ton_day":1.50130, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.55, "rpm":102.00,
+    "windSpeed_km_h":22.826, "relativeWindDirection_degrees":112,
+    "waveHeight_m":2.224, "wavePeriod_s":13.260,
+    "relativeWaveDirection_degrees":118,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":20.2, "windDirection_degrees":-148, "windDir_letters":"ENE",
+    "currentReal_knots":0.030, "currentDirection_degrees":62,
+    "waveDirection_degrees":-52,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-13.9011,31.7127]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"21-Feb 09:05",
+  "full_date":"2026-02-21T09:05:00",
+"solutionID":"base",
+    "legPos":1,
+    "arcNr":171588,
+    "splitPos":1,
+    "arc obj cost":1300008.22,
+    "level from":25,
+    "posNodefrom":34,
+    "arcStart":850,
+    "accumTimeStart_h":212.916260,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":26,
+    "posNodeTo":34,
+    "toTime":882,
+    "hours":11.99, "checkHours":11.992, "distance_nm":140.2,
+    "WindF":-1.394, "WaveF":-3.183, "CurrentF":0.943, "DelayF":0.000, "allWeatherFactors": -3.633,
+    "accumDistance_km":4236.72, "distanceLeft_nm":4038.4,
+    "Position_lat_lon":"30 15N, 014 32W", "bearing":197,
+    "Wpt":22,
+    "nChangeBearingInbetweenNodes":4,
+    "nChangeBearing_lessThanXdegrees":3,
+    "fuelConsumptionMain_ton_day":13.55445, "fuelConsumptionAux_ton_day":1.50072, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.69, "rpm":102.00,
+    "windSpeed_km_h":24.665, "relativeWindDirection_degrees":106,
+    "waveHeight_m":2.282, "wavePeriod_s":12.287,
+    "relativeWaveDirection_degrees":124,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":20.3, "windDirection_degrees":-146, "windDir_letters":"ENE",
+    "currentReal_knots":0.038, "currentDirection_degrees":-59,
+    "waveDirection_degrees":-52,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-14.5447,30.2581]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"21-Feb 21:06",
+  "full_date":"2026-02-21T21:06:00",
+"solutionID":"base",
+    "legPos":2,
+    "arcNr":177966,
+    "splitPos":0,
+    "arc obj cost":1112211.79,
+    "level from":27,
+    "posNodefrom":0,
+    "arcStart":914,
+    "accumTimeStart_h":228.923378,
+    "arrive-midTimeArriveDiff_h":0.17,
+    "level to":28,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":10.26, "checkHours":10.249, "distance_nm":123.0,
+    "WindF":-1.400, "WaveF":-0.715, "CurrentF":2.130, "DelayF":0.000, "allWeatherFactors": 0.015,
+    "accumDistance_km":4496.29, "distanceLeft_nm":3898.2,
+    "Position_lat_lon":"28 04N, 015 21W", "bearing":192,
+    "Wpt":23,
+    "nChangeBearingInbetweenNodes":3,
+    "nChangeBearing_lessThanXdegrees":2,
+    "fuelConsumptionMain_ton_day":13.51244, "fuelConsumptionAux_ton_day":1.49789, "fuelECA_ton":0.000
+, "current_kts":0.3
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.00, "rpm":102.00,
+    "windSpeed_km_h":16.522, "relativeWindDirection_degrees":106,
+    "waveHeight_m":1.631, "wavePeriod_s":7.265,
+    "relativeWaveDirection_degrees":157,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":14.5, "windDirection_degrees":-125, "windDir_letters":"NE",
+    "currentReal_knots":0.270, "currentDirection_degrees":-123,
+    "waveDirection_degrees":-110,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-15.3625,28.0802]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"22-Feb 07:20",
+  "full_date":"2026-02-22T07:20:00",
+"solutionID":"base",
+    "legPos":2,
+    "arcNr":178610,
+    "splitPos":1,
+    "arc obj cost":1486354.41,
+    "level from":28,
+    "posNodefrom":34,
+    "arcStart":941,
+    "accumTimeStart_h":235.729011,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":29,
+    "posNodeTo":34,
+    "toTime":969,
+    "hours":13.71, "checkHours":13.727, "distance_nm":163.8,
+    "WindF":-1.671, "WaveF":-0.486, "CurrentF":2.574, "DelayF":-1.291, "allWeatherFactors": -0.875,
+    "accumDistance_km":4724.04, "distanceLeft_nm":3775.3,
+    "Position_lat_lon":"26 09N, 016 00W", "bearing":200,
+    "Wpt":24,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.52275, "fuelConsumptionAux_ton_day":1.50158, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.93, "rpm":102.00,
+    "windSpeed_km_h":26.300, "relativeWindDirection_degrees":126,
+    "waveHeight_m":2.228, "wavePeriod_s":6.686,
+    "relativeWaveDirection_degrees":167,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":23.4, "windDirection_degrees":-139, "windDir_letters":"NE",
+    "currentReal_knots":0.150, "currentDirection_degrees":-170,
+    "waveDirection_degrees":-123,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Fcst", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-16.0032,26.1601]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"22-Feb 21:04",
+  "full_date":"2026-02-22T21:04:00",
+"solutionID":"base",
+    "legPos":2,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1094404.05,
+    "level from":30,
+    "posNodefrom":33,
+    "arcStart":998,
+    "accumTimeStart_h":249.560997,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":31,
+    "posNodeTo":32,
+    "toTime":1025,
+    "hours":10.10, "checkHours":10.102, "distance_nm":121.2,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":3.905, "DelayF":-3.934, "allWeatherFactors": -0.029,
+    "accumDistance_km":5027.46, "distanceLeft_nm":3611.4,
+    "Position_lat_lon":"23 30N, 016 42W", "bearing":191,
+    "Wpt":25,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.3
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.00, "rpm":102.00,
+    "windSpeed_km_h":3.122, "relativeWindDirection_degrees":14,
+    "waveHeight_m":1.676, "wavePeriod_s":13.020,
+    "relativeWaveDirection_degrees":91,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":10.7, "windDirection_degrees":-99, "windDir_letters":"N",
+    "currentReal_knots":0.422, "currentDirection_degrees":-141,
+    "waveDirection_degrees":-56,"waveDir_letters":"NNW",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-16.7079,23.5124]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"23-Feb 07:11",
+  "full_date":"2026-02-23T07:11:00",
+"solutionID":"base",
+    "legPos":2,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":769672.44,
+    "level from":32,
+    "posNodefrom":34,
+    "arcStart":1052,
+    "accumTimeStart_h":263.001669,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":33,
+    "posNodeTo":0,
+    "toTime":-1,
+    "hours":7.10, "checkHours":7.105, "distance_nm":82.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.513, "DelayF":-3.657, "allWeatherFactors": -3.144,
+    "accumDistance_km":5251.91, "distanceLeft_nm":3490.2,
+    "Position_lat_lon":"21 35N, 017 21W", "bearing":174,
+    "Wpt":26,
+    "nChangeBearingInbetweenNodes":6,
+    "nChangeBearing_lessThanXdegrees":5,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.54, "rpm":102.00,
+    "windSpeed_km_h":16.010, "relativeWindDirection_degrees":87,
+    "waveHeight_m":1.589, "wavePeriod_s":12.741,
+    "relativeWaveDirection_degrees":178,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":14.5, "windDirection_degrees":-95, "windDir_letters":"N",
+    "currentReal_knots":0.224, "currentDirection_degrees":-127,
+    "waveDirection_degrees":-60,"waveDir_letters":"NNW",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.3606,21.5933]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"23-Feb 14:17",
+  "full_date":"2026-02-23T14:17:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1279163.26,
+    "level from":33,
+    "posNodefrom":0,
+    "arcStart":1080,
+    "accumTimeStart_h":270.106306,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":34,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":11.81, "checkHours":11.808, "distance_nm":140.2,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.661, "DelayF":-3.157, "allWeatherFactors": -1.496,
+    "accumDistance_km":5403.74, "distanceLeft_nm":3408.2,
+    "Position_lat_lon":"20 52N, 016 53W", "bearing":189,
+    "Wpt":27,
+    "nChangeBearingInbetweenNodes":2,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.87, "rpm":102.00,
+    "windSpeed_km_h":12.834, "relativeWindDirection_degrees":135,
+    "waveHeight_m":0.935, "wavePeriod_s":13.435,
+    "relativeWaveDirection_degrees":62,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":17.8, "windDirection_degrees":-83, "windDir_letters":"N",
+    "currentReal_knots":0.275, "currentDirection_degrees":-58,
+    "waveDirection_degrees":143,"waveDir_letters":"SE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-16.8970,20.8746]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"24-Feb 02:05",
+  "full_date":"2026-02-24T02:05:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":848093.35,
+    "level from":34,
+    "posNodefrom":34,
+    "arcStart":1112,
+    "accumTimeStart_h":277.968112,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":35,
+    "posNodeTo":34,
+    "toTime":1144,
+    "hours":7.83, "checkHours":7.829, "distance_nm":93.5,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.404, "DelayF":-1.885, "allWeatherFactors": -0.481,
+    "accumDistance_km":5663.36, "distanceLeft_nm":3268.1,
+    "Position_lat_lon":"18 34N, 017 17W", "bearing":189,
+    "Wpt":28,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.94, "rpm":102.00,
+    "windSpeed_km_h":13.332, "relativeWindDirection_degrees":140,
+    "waveHeight_m":1.715, "wavePeriod_s":11.923,
+    "relativeWaveDirection_degrees":59,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":18.2, "windDirection_degrees":-84, "windDir_letters":"N",
+    "currentReal_knots":0.142, "currentDirection_degrees":-110,
+    "waveDirection_degrees":136,"waveDir_letters":"SE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.2884,18.5691]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"24-Feb 09:54",
+  "full_date":"2026-02-24T09:54:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1263534.51,
+    "level from":35,
+    "posNodefrom":34,
+    "arcStart":1143,
+    "accumTimeStart_h":285.859714,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":36,
+    "posNodeTo":34,
+    "toTime":1174,
+    "hours":11.66, "checkHours":11.663, "distance_nm":140.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":2.040, "DelayF":-1.975, "allWeatherFactors": 0.064,
+    "accumDistance_km":5836.43, "distanceLeft_nm":3174.6,
+    "Position_lat_lon":"17 01N, 017 32W", "bearing":189,
+    "Wpt":29,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.3
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.01, "rpm":102.00,
+    "windSpeed_km_h":12.429, "relativeWindDirection_degrees":138,
+    "waveHeight_m":1.851, "wavePeriod_s":11.633,
+    "relativeWaveDirection_degrees":33,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":17.9, "windDirection_degrees":-85, "windDir_letters":"N",
+    "currentReal_knots":0.287, "currentDirection_degrees":-128,
+    "waveDirection_degrees":113,"waveDir_letters":"SSE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.5443,17.0318]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"24-Feb 21:35",
+  "full_date":"2026-02-24T21:35:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":821623.41,
+    "level from":37,
+    "posNodefrom":33,
+    "arcStart":1206,
+    "accumTimeStart_h":301.405774,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":38,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":7.58, "checkHours":7.584, "distance_nm":91.2,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.030, "DelayF":-0.821, "allWeatherFactors": 0.209,
+    "accumDistance_km":6095.75, "distanceLeft_nm":3034.6,
+    "Position_lat_lon":"14 42N, 017 45W", "bearing":179,
+    "Wpt":30,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.03, "rpm":102.00,
+    "windSpeed_km_h":8.722, "relativeWindDirection_degrees":155,
+    "waveHeight_m":1.796, "wavePeriod_s":12.176,
+    "relativeWaveDirection_degrees":55,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":16.4, "windDirection_degrees":-82, "windDir_letters":"N",
+    "currentReal_knots":0.135, "currentDirection_degrees":-110,
+    "waveDirection_degrees":57,"waveDir_letters":"SSW",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.7503,14.7112]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"25-Feb 05:10",
+  "full_date":"2026-02-25T05:10:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":800223.03,
+    "level from":38,
+    "posNodefrom":33,
+    "arcStart":1236,
+    "accumTimeStart_h":308.989955,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":39,
+    "posNodeTo":32,
+    "toTime":-1,
+    "hours":7.39, "checkHours":7.387, "distance_nm":88.7,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.425, "DelayF":-1.361, "allWeatherFactors": 0.064,
+    "accumDistance_km":6264.69, "distanceLeft_nm":2943.4,
+    "Position_lat_lon":"13 11N, 017 43W", "bearing":163,
+    "Wpt":31,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.01, "rpm":102.00,
+    "windSpeed_km_h":4.990, "relativeWindDirection_degrees":176,
+    "waveHeight_m":1.653, "wavePeriod_s":11.984,
+    "relativeWaveDirection_degrees":120,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":14.9, "windDirection_degrees":-74, "windDir_letters":"NNW",
+    "currentReal_knots":0.253, "currentDirection_degrees":-102,
+    "waveDirection_degrees":-108,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.7260,13.1921]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"25-Feb 12:33",
+  "full_date":"2026-02-25T12:33:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":797872.78,
+    "level from":39,
+    "posNodefrom":32,
+    "arcStart":1266,
+    "accumTimeStart_h":316.376596,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":40,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":7.36, "checkHours":7.365, "distance_nm":88.5,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.632, "DelayF":-1.497, "allWeatherFactors": 0.135,
+    "accumDistance_km":6428.97, "distanceLeft_nm":2854.7,
+    "Position_lat_lon":"11 46N, 017 17W", "bearing":164,
+    "Wpt":32,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.02, "rpm":102.00,
+    "windSpeed_km_h":7.036, "relativeWindDirection_degrees":168,
+    "waveHeight_m":1.381, "wavePeriod_s":11.954,
+    "relativeWaveDirection_degrees":64,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":15.9, "windDirection_degrees":-71, "windDir_letters":"NNW",
+    "currentReal_knots":0.137, "currentDirection_degrees":-56,
+    "waveDirection_degrees":42,"waveDir_letters":"SW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-17.2939,11.7763]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"25-Feb 19:55",
+  "full_date":"2026-02-25T19:55:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":834263.63,
+    "level from":40,
+    "posNodefrom":34,
+    "arcStart":1295,
+    "accumTimeStart_h":323.741542,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":41,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":7.70, "checkHours":7.701, "distance_nm":94.1,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":3.144, "DelayF":-1.452, "allWeatherFactors": 1.692,
+    "accumDistance_km":6592.90, "distanceLeft_nm":2766.1,
+    "Position_lat_lon":"10 21N, 016 53W", "bearing":130,
+    "Wpt":33,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.4
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.22, "rpm":102.00,
+    "windSpeed_km_h":12.624, "relativeWindDirection_degrees":112,
+    "waveHeight_m":1.365, "wavePeriod_s":12.657,
+    "relativeWaveDirection_degrees":97,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":16.3, "windDirection_degrees":-63, "windDir_letters":"NNW",
+    "currentReal_knots":0.414, "currentDirection_degrees":-51,
+    "waveDirection_degrees":42,"waveDir_letters":"SW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-16.8909,10.3560]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"26-Feb 03:37",
+  "full_date":"2026-02-26T03:37:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":826878.40,
+    "level from":41,
+    "posNodefrom":33,
+    "arcStart":1326,
+    "accumTimeStart_h":331.442402,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":42,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":7.63, "checkHours":7.633, "distance_nm":92.8,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":3.026, "DelayF":-1.754, "allWeatherFactors": 1.273,
+    "accumDistance_km":6767.12, "distanceLeft_nm":2672.1,
+    "Position_lat_lon":"09 20N, 015 40W", "bearing":138,
+    "Wpt":34,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.4
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.16, "rpm":102.00,
+    "windSpeed_km_h":2.872, "relativeWindDirection_degrees":134,
+    "waveHeight_m":1.037, "wavePeriod_s":12.728,
+    "relativeWaveDirection_degrees":43,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":13.5, "windDirection_degrees":-43, "windDir_letters":"NW",
+    "currentReal_knots":0.381, "currentDirection_degrees":-40,
+    "waveDirection_degrees":176,"waveDir_letters":"E",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-15.6831,9.3368]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"26-Feb 11:15",
+  "full_date":"2026-02-26T11:15:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":852794.57,
+    "level from":42,
+    "posNodefrom":33,
+    "arcStart":1356,
+    "accumTimeStart_h":339.075091,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":43,
+    "posNodeTo":31,
+    "toTime":-1,
+    "hours":7.87, "checkHours":7.872, "distance_nm":94.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.605, "DelayF":-1.817, "allWeatherFactors": -0.212,
+    "accumDistance_km":6939.08, "distanceLeft_nm":2579.2,
+    "Position_lat_lon":"08 11N, 014 37W", "bearing":118,
+    "Wpt":35,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.97, "rpm":102.00,
+    "windSpeed_km_h":2.142, "relativeWindDirection_degrees":43,
+    "waveHeight_m":1.019, "wavePeriod_s":13.330,
+    "relativeWaveDirection_degrees":123,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":11.5, "windDirection_degrees":-31, "windDir_letters":"WNW",
+    "currentReal_knots":0.230, "currentDirection_degrees":-42,
+    "waveDirection_degrees":29,"waveDir_letters":"WSW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-14.6291,8.1939]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"26-Feb 19:07",
+  "full_date":"2026-02-26T19:07:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1208296.43,
+    "level from":43,
+    "posNodefrom":31,
+    "arcStart":1388,
+    "accumTimeStart_h":346.947005,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":44,
+    "posNodeTo":31,
+    "toTime":-1,
+    "hours":11.15, "checkHours":11.153, "distance_nm":138.6,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":8.515, "DelayF":-3.585, "allWeatherFactors": 4.930,
+    "accumDistance_km":7113.63, "distanceLeft_nm":2485.0,
+    "Position_lat_lon":"07 27N, 013 13W", "bearing":128,
+    "Wpt":36,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.7
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.43, "rpm":102.00,
+    "windSpeed_km_h":11.528, "relativeWindDirection_degrees":51,
+    "waveHeight_m":0.869, "wavePeriod_s":13.731,
+    "relativeWaveDirection_degrees":178,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":10.1, "windDirection_degrees":-9, "windDir_letters":"W",
+    "currentReal_knots":0.724, "currentDirection_degrees":-27,
+    "waveDirection_degrees":-36,"waveDir_letters":"NW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-13.2287,7.4594]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"27-Feb 06:16",
+  "full_date":"2026-02-27T06:16:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1208601.59,
+    "level from":44,
+    "posNodefrom":31,
+    "arcStart":1417,
+    "accumTimeStart_h":354.351328,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":45,
+    "posNodeTo":31,
+    "toTime":1447,
+    "hours":11.16, "checkHours":11.156, "distance_nm":138.4,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":8.526, "DelayF":-3.813, "allWeatherFactors": 4.712,
+    "accumDistance_km":7370.32, "distanceLeft_nm":2346.4,
+    "Position_lat_lon":"06 02N, 011 23W", "bearing":128,
+    "Wpt":37,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.8
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.41, "rpm":102.00,
+    "windSpeed_km_h":13.595, "relativeWindDirection_degrees":42,
+    "waveHeight_m":0.983, "wavePeriod_s":13.070,
+    "relativeWaveDirection_degrees":5,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":8.8, "windDirection_degrees":-4, "windDir_letters":"W",
+    "currentReal_knots":0.758, "currentDirection_degrees":-38,
+    "waveDirection_degrees":137,"waveDir_letters":"SE",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-11.3939,6.0419]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"27-Feb 17:26",
+  "full_date":"2026-02-27T17:26:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1178477.52,
+    "level from":46,
+    "posNodefrom":30,
+    "arcStart":1477,
+    "accumTimeStart_h":369.256732,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":47,
+    "posNodeTo":29,
+    "toTime":-1,
+    "hours":10.88, "checkHours":10.878, "distance_nm":137.9,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":11.755, "DelayF":-3.925, "allWeatherFactors": 7.830,
+    "accumDistance_km":7626.69, "distanceLeft_nm":2207.9,
+    "Position_lat_lon":"04 47N, 009 26W", "bearing":115,
+    "Wpt":38,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.8
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.68, "rpm":102.00,
+    "windSpeed_km_h":21.160, "relativeWindDirection_degrees":31,
+    "waveHeight_m":0.952, "wavePeriod_s":12.612,
+    "relativeWaveDirection_degrees":82,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.5, "windDirection_degrees":38, "windDir_letters":"SW",
+    "currentReal_knots":0.804, "currentDirection_degrees":-29,
+    "waveDirection_degrees":74,"waveDir_letters":"SSW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-9.4493,4.7983]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"28-Feb 04:18",
+  "full_date":"2026-02-28T04:18:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":787753.29,
+    "level from":47,
+    "posNodefrom":29,
+    "arcStart":1506,
+    "accumTimeStart_h":376.527438,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":48,
+    "posNodeTo":28,
+    "toTime":1535,
+    "hours":7.27, "checkHours":7.272, "distance_nm":92.2,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":8.222, "DelayF":-2.950, "allWeatherFactors": 5.271,
+    "accumDistance_km":7882.16, "distanceLeft_nm":2070.0,
+    "Position_lat_lon":"03 50N, 007 21W", "bearing":114,
+    "Wpt":39,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":1.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.68, "rpm":102.00,
+    "windSpeed_km_h":24.598, "relativeWindDirection_degrees":27,
+    "waveHeight_m":0.942, "wavePeriod_s":13.114,
+    "relativeWaveDirection_degrees":116,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.2, "windDirection_degrees":53, "windDir_letters":"SW",
+    "currentReal_knots":1.371, "currentDirection_degrees":1,
+    "waveDirection_degrees":40,"waveDir_letters":"SW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-7.3536,3.8438]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"28-Feb 11:34",
+  "full_date":"2026-02-28T11:34:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1236552.21,
+    "level from":48,
+    "posNodefrom":28,
+    "arcStart":1535,
+    "accumTimeStart_h":383.742434,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":49,
+    "posNodeTo":28,
+    "toTime":1564,
+    "hours":11.41, "checkHours":11.414, "distance_nm":139.4,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":7.529, "DelayF":-5.002, "allWeatherFactors": 2.527,
+    "accumDistance_km":8052.98, "distanceLeft_nm":1977.8,
+    "Position_lat_lon":"03 08N, 005 58W", "bearing":120,
+    "Wpt":40,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.8
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":12.21, "rpm":102.00,
+    "windSpeed_km_h":26.000, "relativeWindDirection_degrees":23,
+    "waveHeight_m":0.979, "wavePeriod_s":13.281,
+    "relativeWaveDirection_degrees":123,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.5, "windDirection_degrees":61, "windDir_letters":"SSW",
+    "currentReal_knots":1.072, "currentDirection_degrees":7,
+    "waveDirection_degrees":28,"waveDir_letters":"WSW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-5.9830,3.1483]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"28-Feb 23:00",
+  "full_date":"2026-02-28T23:00:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":853677.12,
+    "level from":50,
+    "posNodefrom":28,
+    "arcStart":1595,
+    "accumTimeStart_h":398.820748,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":51,
+    "posNodeTo":28,
+    "toTime":-1,
+    "hours":7.88, "checkHours":7.880, "distance_nm":93.4,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":2.334, "DelayF":-3.475, "allWeatherFactors": -1.141,
+    "accumDistance_km":8311.16, "distanceLeft_nm":1838.4,
+    "Position_lat_lon":"02 00N, 003 57W", "bearing":120,
+    "Wpt":41,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.3
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.85, "rpm":102.00,
+    "windSpeed_km_h":22.780, "relativeWindDirection_degrees":31,
+    "waveHeight_m":1.041, "wavePeriod_s":12.877,
+    "relativeWaveDirection_degrees":175,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.5, "windDirection_degrees":45, "windDir_letters":"SW",
+    "currentReal_knots":0.310, "currentDirection_degrees":-9,
+    "waveDirection_degrees":-34,"waveDir_letters":"NW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-3.9609,2.0034]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"01-Mar 06:53",
+  "full_date":"2026-03-01T06:53:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1330277.37,
+    "level from":51,
+    "posNodefrom":28,
+    "arcStart":1627,
+    "accumTimeStart_h":406.700809,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":52,
+    "posNodeTo":29,
+    "toTime":-1,
+    "hours":12.28, "checkHours":12.279, "distance_nm":141.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.061, "DelayF":-5.880, "allWeatherFactors": -5.819,
+    "accumDistance_km":8484.14, "distanceLeft_nm":1745.0,
+    "Position_lat_lon":"01 14N, 002 36W", "bearing":127,
+    "Wpt":42,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.51, "rpm":102.00,
+    "windSpeed_km_h":24.260, "relativeWindDirection_degrees":21,
+    "waveHeight_m":1.065, "wavePeriod_s":12.831,
+    "relativeWaveDirection_degrees":172,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":4.9, "windDirection_degrees":54, "windDir_letters":"SW",
+    "currentReal_knots":0.144, "currentDirection_degrees":35,
+    "waveDirection_degrees":-28,"waveDir_letters":"WNW",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-2.6068,1.2365]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"01-Mar 19:09",
+  "full_date":"2026-03-01T19:09:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":888568.56,
+    "level from":52,
+    "posNodefrom":29,
+    "arcStart":1659,
+    "accumTimeStart_h":414.859655,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":53,
+    "posNodeTo":30,
+    "toTime":1692,
+    "hours":8.20, "checkHours":8.202, "distance_nm":93.9,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.326, "DelayF":-4.037, "allWeatherFactors": -4.363,
+    "accumDistance_km":8745.80, "distanceLeft_nm":1603.7,
+    "Position_lat_lon":"00 10S, 000 43W", "bearing":127,
+    "Wpt":43,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.44, "rpm":102.00,
+    "windSpeed_km_h":24.739, "relativeWindDirection_degrees":29,
+    "waveHeight_m":1.069, "wavePeriod_s":11.762,
+    "relativeWaveDirection_degrees":66,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.6, "windDirection_degrees":50, "windDir_letters":"SW",
+    "currentReal_knots":0.045, "currentDirection_degrees":162,
+    "waveDirection_degrees":-151,"waveDir_letters":"ENE",
+    "max iceCover":0.006, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[-0.7213,-0.1715]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"02-Mar 03:21",
+  "full_date":"2026-03-02T03:21:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1329968.90,
+    "level from":53,
+    "posNodefrom":30,
+    "arcStart":1692,
+    "accumTimeStart_h":423.100818,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":54,
+    "posNodeTo":30,
+    "toTime":1725,
+    "hours":12.28, "checkHours":12.277, "distance_nm":140.2,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.870, "DelayF":-5.890, "allWeatherFactors": -6.760,
+    "accumDistance_km":8919.61, "distanceLeft_nm":1509.8,
+    "Position_lat_lon":"01 01S, 000 35E", "bearing":120,
+    "Wpt":44,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.42, "rpm":102.00,
+    "windSpeed_km_h":25.833, "relativeWindDirection_degrees":17,
+    "waveHeight_m":1.119, "wavePeriod_s":11.577,
+    "relativeWaveDirection_degrees":81,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":4.3, "windDirection_degrees":79, "windDir_letters":"S",
+    "currentReal_knots":0.074, "currentDirection_degrees":101,
+    "waveDirection_degrees":-130,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[0.5847,-1.0249]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"02-Mar 15:38",
+  "full_date":"2026-03-02T15:38:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1332304.84,
+    "level from":55,
+    "posNodefrom":30,
+    "arcStart":1758,
+    "accumTimeStart_h":439.458951,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":56,
+    "posNodeTo":30,
+    "toTime":-1,
+    "hours":12.30, "checkHours":12.298, "distance_nm":140.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.887, "DelayF":-6.057, "allWeatherFactors": -6.944,
+    "accumDistance_km":9179.29, "distanceLeft_nm":1369.6,
+    "Position_lat_lon":"02 10S, 002 37E", "bearing":120,
+    "Wpt":45,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.41, "rpm":102.00,
+    "windSpeed_km_h":22.036, "relativeWindDirection_degrees":17,
+    "waveHeight_m":1.081, "wavePeriod_s":11.884,
+    "relativeWaveDirection_degrees":128,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":3.7, "windDirection_degrees":51, "windDir_letters":"SW",
+    "currentReal_knots":0.119, "currentDirection_degrees":168,
+    "waveDirection_degrees":-82,"waveDir_letters":"N",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[2.6178,-2.1755]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"03-Mar 03:55",
+  "full_date":"2026-03-03T03:55:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1328657.97,
+    "level from":56,
+    "posNodefrom":30,
+    "arcStart":1791,
+    "accumTimeStart_h":447.678244,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":57,
+    "posNodeTo":30,
+    "toTime":1824,
+    "hours":12.26, "checkHours":12.264, "distance_nm":140.4,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.228, "DelayF":-6.214, "allWeatherFactors": -6.443,
+    "accumDistance_km":9439.07, "distanceLeft_nm":1229.3,
+    "Position_lat_lon":"03 19S, 004 39E", "bearing":120,
+    "Wpt":46,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.45, "rpm":102.00,
+    "windSpeed_km_h":26.660, "relativeWindDirection_degrees":23,
+    "waveHeight_m":1.094, "wavePeriod_s":12.175,
+    "relativeWaveDirection_degrees":56,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.8, "windDirection_degrees":73, "windDir_letters":"SSW",
+    "currentReal_knots":0.050, "currentDirection_degrees":-124,
+    "waveDirection_degrees":-154,"waveDir_letters":"ENE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[4.6523,-3.3281]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"03-Mar 16:12",
+  "full_date":"2026-03-03T16:12:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":890057.04,
+    "level from":58,
+    "posNodefrom":31,
+    "arcStart":1856,
+    "accumTimeStart_h":464.021573,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":59,
+    "posNodeTo":32,
+    "toTime":-1,
+    "hours":8.22, "checkHours":8.216, "distance_nm":93.7,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.448, "DelayF":-4.229, "allWeatherFactors": -4.677,
+    "accumDistance_km":9699.13, "distanceLeft_nm":1088.9,
+    "Position_lat_lon":"04 38S, 006 35E", "bearing":125,
+    "Wpt":47,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.40, "rpm":102.00,
+    "windSpeed_km_h":28.910, "relativeWindDirection_degrees":18,
+    "waveHeight_m":1.208, "wavePeriod_s":12.135,
+    "relativeWaveDirection_degrees":99,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.7, "windDirection_degrees":85, "windDir_letters":"S",
+    "currentReal_knots":0.113, "currentDirection_degrees":-169,
+    "waveDirection_degrees":-116,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[6.5840,-4.6461]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"04-Mar 00:25",
+  "full_date":"2026-03-04T00:25:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1331614.94,
+    "level from":59,
+    "posNodefrom":32,
+    "arcStart":1889,
+    "accumTimeStart_h":472.237447,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":60,
+    "posNodeTo":33,
+    "toTime":-1,
+    "hours":12.29, "checkHours":12.292, "distance_nm":141.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.179, "DelayF":-6.064, "allWeatherFactors": -6.243,
+    "accumDistance_km":9872.60, "distanceLeft_nm":995.3,
+    "Position_lat_lon":"05 32S, 007 51E", "bearing":125,
+    "Wpt":48,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.47, "rpm":102.00,
+    "windSpeed_km_h":27.721, "relativeWindDirection_degrees":16,
+    "waveHeight_m":1.190, "wavePeriod_s":12.157,
+    "relativeWaveDirection_degrees":102,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":4.9, "windDirection_degrees":84, "windDir_letters":"S",
+    "currentReal_knots":0.028, "currentDirection_degrees":124,
+    "waveDirection_degrees":-112,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[7.8660,-5.5424]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"04-Mar 12:42",
+  "full_date":"2026-03-04T12:42:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":1,
+    "arc obj cost":1312571.14,
+    "level from":60,
+    "posNodefrom":33,
+    "arcStart":1922,
+    "accumTimeStart_h":480.478899,
+    "arrive-midTimeArriveDiff_h":-99999, 
+    "level to":61,
+    "posNodeTo":33,
+    "toTime":1954,
+    "hours":12.12, "checkHours":12.116, "distance_nm":141.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":1.245, "DelayF":-5.470, "allWeatherFactors": -4.225,
+    "accumDistance_km":10133.67, "distanceLeft_nm":854.3,
+    "Position_lat_lon":"06 47S, 009 51E", "bearing":118,
+    "Wpt":49,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.64, "rpm":102.00,
+    "windSpeed_km_h":25.540, "relativeWindDirection_degrees":27,
+    "waveHeight_m":1.171, "wavePeriod_s":12.091,
+    "relativeWaveDirection_degrees":83,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.2, "windDirection_degrees":65, "windDir_letters":"SSW",
+    "currentReal_knots":0.097, "currentDirection_degrees":-108,
+    "waveDirection_degrees":-125,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[9.8579,-6.7963]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"05-Mar 00:49",
+  "full_date":"2026-03-05T00:49:00",
+"solutionID":"base",
+    "legPos":3,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":866995.78,
+    "level from":62,
+    "posNodefrom":34,
+    "arcStart":1987,
+    "accumTimeStart_h":496.645207,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":63,
+    "posNodeTo":0,
+    "toTime":-1,
+    "hours":8.00, "checkHours":8.003, "distance_nm":93.5,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.628, "DelayF":-3.142, "allWeatherFactors": -2.514,
+    "accumDistance_km":10394.86, "distanceLeft_nm":713.3,
+    "Position_lat_lon":"08 03S, 011 51E", "bearing":118,
+    "Wpt":50,
+    "nChangeBearingInbetweenNodes":3,
+    "nChangeBearing_lessThanXdegrees":1,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.68, "rpm":102.00,
+    "windSpeed_km_h":26.669, "relativeWindDirection_degrees":21,
+    "waveHeight_m":1.196, "wavePeriod_s":12.096,
+    "relativeWaveDirection_degrees":69,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.4, "windDirection_degrees":77, "windDir_letters":"SSW",
+    "currentReal_knots":0.113, "currentDirection_degrees":-27,
+    "waveDirection_degrees":-138,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[11.8534,-8.0537]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"05-Mar 08:49",
+  "full_date":"2026-03-05T08:49:00",
+"solutionID":"base",
+    "legPos":4,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":804934.50,
+    "level from":63,
+    "posNodefrom":0,
+    "arcStart":2019,
+    "accumTimeStart_h":504.648209,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":64,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":7.43, "checkHours":7.430, "distance_nm":87.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.363, "DelayF":-1.414, "allWeatherFactors": -1.777,
+    "accumDistance_km":10567.93, "distanceLeft_nm":619.8,
+    "Position_lat_lon":"08 45S, 013 15E", "bearing":336,
+    "Wpt":51,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.76, "rpm":102.00,
+    "windSpeed_km_h":20.981, "relativeWindDirection_degrees":5,
+    "waveHeight_m":0.642, "wavePeriod_s":11.589,
+    "relativeWaveDirection_degrees":74,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":4.3, "windDirection_degrees":63, "windDir_letters":"SSW",
+    "currentReal_knots":0.047, "currentDirection_degrees":42,
+    "waveDirection_degrees":-139,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[13.2530,-8.7533]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"05-Mar 16:15",
+  "full_date":"2026-03-05T16:15:00",
+"solutionID":"base",
+    "legPos":4,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":798142.02,
+    "level from":64,
+    "posNodefrom":34,
+    "arcStart":2048,
+    "accumTimeStart_h":512.078340,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":65,
+    "posNodeTo":0,
+    "toTime":-1,
+    "hours":7.37, "checkHours":7.367, "distance_nm":87.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.178, "DelayF":-1.228, "allWeatherFactors": -1.049,
+    "accumDistance_km":10729.70, "distanceLeft_nm":532.5,
+    "Position_lat_lon":"07 25S, 012 38E", "bearing":336,
+    "Wpt":52,
+    "nChangeBearingInbetweenNodes":4,
+    "nChangeBearing_lessThanXdegrees":3,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.86, "rpm":102.00,
+    "windSpeed_km_h":12.277, "relativeWindDirection_degrees":21,
+    "waveHeight_m":1.023, "wavePeriod_s":12.993,
+    "relativeWaveDirection_degrees":52,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.3, "windDirection_degrees":84, "windDir_letters":"S",
+    "currentReal_knots":0.058, "currentDirection_degrees":1,
+    "waveDirection_degrees":-127,"waveDir_letters":"NE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[12.6480,-7.4275]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"05-Mar 23:37",
+  "full_date":"2026-03-05T23:37:00",
+"solutionID":"base",
+    "legPos":5,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":95863.46,
+    "level from":65,
+    "posNodefrom":0,
+    "arcStart":2078,
+    "accumTimeStart_h":519.445771,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":66,
+    "posNodeTo":0,
+    "toTime":2082,
+    "hours":0.88, "checkHours":0.885, "distance_nm":10.5,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.000, "DelayF":-0.108, "allWeatherFactors": -0.108,
+    "accumDistance_km":10891.47, "distanceLeft_nm":445.1,
+    "Position_lat_lon":"06 04S, 012 15E", "bearing":21,
+    "Wpt":53,
+    "nChangeBearingInbetweenNodes":3,
+    "nChangeBearing_lessThanXdegrees":2,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.88, "rpm":102.00,
+    "windSpeed_km_h":11.830, "relativeWindDirection_degrees":4,
+    "waveHeight_m":0.734, "wavePeriod_s":13.277,
+    "relativeWaveDirection_degrees":7,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.7, "windDirection_degrees":63, "windDir_letters":"SSW",
+    "currentReal_knots":0.058, "currentDirection_degrees":0,
+    "waveDirection_degrees":-119,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[12.2568,-6.0791]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"06-Mar 00:30",
+  "full_date":"2026-03-06T00:30:00",
+"solutionID":"base",
+    "legPos":6,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":772982.17,
+    "level from":66,
+    "posNodefrom":0,
+    "arcStart":2081,
+    "accumTimeStart_h":520.330660,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":67,
+    "posNodeTo":0,
+    "toTime":-1,
+    "hours":7.14, "checkHours":7.135, "distance_nm":84.7,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.444, "DelayF":-1.326, "allWeatherFactors": -0.882,
+    "accumDistance_km":10910.93, "distanceLeft_nm":434.6,
+    "Position_lat_lon":"06 00S, 012 17E", "bearing":336,
+    "Wpt":54,
+    "nChangeBearingInbetweenNodes":5,
+    "nChangeBearing_lessThanXdegrees":4,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.88, "rpm":102.00,
+    "windSpeed_km_h":16.870, "relativeWindDirection_degrees":30,
+    "waveHeight_m":0.841, "wavePeriod_s":12.995,
+    "relativeWaveDirection_degrees":49,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.2, "windDirection_degrees":65, "windDir_letters":"SSW",
+    "currentReal_knots":0.172, "currentDirection_degrees":137,
+    "waveDirection_degrees":-117,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[12.2862,-6.0046]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"06-Mar 07:38",
+  "full_date":"2026-03-06T07:38:00",
+"solutionID":"base",
+    "legPos":7,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":749104.41,
+    "level from":67,
+    "posNodefrom":0,
+    "arcStart":2110,
+    "accumTimeStart_h":527.465848,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":68,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":6.91, "checkHours":6.915, "distance_nm":80.3,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.422, "DelayF":-2.179, "allWeatherFactors": -2.601,
+    "accumDistance_km":11067.85, "distanceLeft_nm":349.9,
+    "Position_lat_lon":"04 46S, 011 47E", "bearing":290,
+    "Wpt":55,
+    "nChangeBearingInbetweenNodes":1,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.0
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.61, "rpm":102.00,
+    "windSpeed_km_h":24.585, "relativeWindDirection_degrees":25,
+    "waveHeight_m":0.999, "wavePeriod_s":12.860,
+    "relativeWaveDirection_degrees":79,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":5.6, "windDirection_degrees":65, "windDir_letters":"SSW",
+    "currentReal_knots":0.070, "currentDirection_degrees":-38,
+    "waveDirection_degrees":-112,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[11.7871,-4.7727]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"06-Mar 14:33",
+  "full_date":"2026-03-06T14:33:00",
+"solutionID":"base",
+    "legPos":7,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":1451198.54,
+    "level from":68,
+    "posNodefrom":34,
+    "arcStart":2138,
+    "accumTimeStart_h":534.380627,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":69,
+    "posNodeTo":35,
+    "toTime":-1,
+    "hours":13.40, "checkHours":13.396, "distance_nm":155.7,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-1.997, "DelayF":-2.870, "allWeatherFactors": -4.866,
+    "accumDistance_km":11216.55, "distanceLeft_nm":269.6,
+    "Position_lat_lon":"04 13S, 010 34E", "bearing":322,
+    "Wpt":56,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.1
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.62, "rpm":102.00,
+    "windSpeed_km_h":15.162, "relativeWindDirection_degrees":31,
+    "waveHeight_m":1.090, "wavePeriod_s":12.645,
+    "relativeWaveDirection_degrees":68,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":6.4, "windDirection_degrees":87, "windDir_letters":"S",
+    "currentReal_knots":0.081, "currentDirection_degrees":-2,
+    "waveDirection_degrees":-120,"waveDir_letters":"NNE",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[10.5787,-4.2326]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"07-Mar 03:57",
+  "full_date":"2026-03-07T03:57:00",
+"solutionID":"base",
+    "legPos":7,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":733621.79,
+    "level from":70,
+    "posNodefrom":35,
+    "arcStart":2191,
+    "accumTimeStart_h":547.776245,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":71,
+    "posNodeTo":34,
+    "toTime":-1,
+    "hours":6.77, "checkHours":6.772, "distance_nm":78.9,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-1.261, "DelayF":-1.068, "allWeatherFactors": -2.330,
+    "accumDistance_km":11504.95, "distanceLeft_nm":113.9,
+    "Position_lat_lon":"02 08S, 009 03E", "bearing":340,
+    "Wpt":57,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.65, "rpm":102.00,
+    "windSpeed_km_h":19.187, "relativeWindDirection_degrees":17,
+    "waveHeight_m":1.006, "wavePeriod_s":12.215,
+    "relativeWaveDirection_degrees":22,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":3.6, "windDirection_degrees":52, "windDir_letters":"SW",
+    "currentReal_knots":0.184, "currentDirection_degrees":-76,
+    "waveDirection_degrees":-92,"waveDir_letters":"N",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[9.0503,-2.1365]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"07-Mar 10:43",
+  "full_date":"2026-03-07T10:43:00",
+"solutionID":"base",
+    "legPos":7,
+    "arcNr":182463,
+    "splitPos":0,
+    "arc obj cost":323210.88,
+    "level from":71,
+    "posNodefrom":34,
+    "arcStart":2218,
+    "accumTimeStart_h":554.548107,
+    "arrive-midTimeArriveDiff_h":0.18,
+    "level to":72,
+    "posNodeTo":0,
+    "toTime":2230,
+    "hours":2.98, "checkHours":2.983, "distance_nm":35.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.478, "DelayF":-0.310, "allWeatherFactors": -0.789,
+    "accumDistance_km":11651.00, "distanceLeft_nm":35.0,
+    "Position_lat_lon":"00 54S, 008 36E", "bearing":37,
+    "Wpt":58,
+    "nChangeBearingInbetweenNodes":4,
+    "nChangeBearing_lessThanXdegrees":3,
+    "fuelConsumptionMain_ton_day":13.50000, "fuelConsumptionAux_ton_day":1.50000, "fuelECA_ton":0.000
+, "current_kts":-0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":11.73, "rpm":102.00,
+    "windSpeed_km_h":15.908, "relativeWindDirection_degrees":14,
+    "waveHeight_m":0.936, "wavePeriod_s":12.423,
+    "relativeWaveDirection_degrees":85,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":4.2, "windDirection_degrees":21, "windDir_letters":"WSW",
+    "currentReal_knots":0.165, "currentDirection_degrees":-153,
+    "waveDirection_degrees":-42,"waveDir_letters":"NW",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[8.6002,-0.9025]}}
+,
+  {"type":"Feature", "properties":{"dateUTC":"07-Mar 13:42",
+  "full_date":"2026-03-07T13:42:00",
+"solutionID":"base",
+    "legPos":7,
+    "arcNr":-2,
+    "splitPos":0,
+    "arc obj cost":0.00,
+    "level from":72,
+    "posNodefrom":0,
+    "arcStart":2218,
+    "accumTimeStart_h":557.531579,
+    "arrive-midTimeArriveDiff_h":558.53,
+    "level to":72,
+    "posNodeTo":0,
+    "toTime":2230,
+    "hours":0.00, "checkHours":0.000, "distance_nm":0.0,
+    "WindF":0.000, "WaveF":0.000, "CurrentF":0.000, "DelayF":0.000, "allWeatherFactors": 0.000,
+    "accumDistance_km":11715.81, "distanceLeft_nm":0.0,
+    "Position_lat_lon":"00 36S, 008 49E", "bearing":37,
+    "Wpt":59,
+    "nChangeBearingInbetweenNodes":0,
+    "nChangeBearing_lessThanXdegrees":0,
+    "fuelConsumptionMain_ton_day":0.00000, "fuelConsumptionAux_ton_day":0.00000, "fuelECA_ton":0.000
+, "current_kts":-0.2
+, "speedSetting":2, "speedCalmWater_kts":12.00, "speedOnGround_kts":0.00, "rpm":102.00,
+    "windSpeed_km_h":15.908, "relativeWindDirection_degrees":14,
+    "waveHeight_m":0.936, "wavePeriod_s":12.423,
+    "relativeWaveDirection_degrees":85,
+    "waveHeight_level":"normal",
+    "windSpeed_level":"normal",
+    "windSpeedReal_knots":0.0, "windDirection_degrees":0, "windDir_letters":"-",
+    "currentReal_knots":0.000, "currentDirection_degrees":0,
+    "waveDirection_degrees":0,"waveDir_letters":"-",
+    "max iceCover":0.000, "forecastType":"Ext. Hist", "waitingTime":0.000, "worstStormValue":0.000},
+    "geometry":{"type": "Point", "coordinates":[8.8201,-0.6101]}}
+, { "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 3.488316, 51.774953, 0.0 ]
+, [ 3.402142, 51.909560, 0.0 ]
+, [ 3.402142, 51.909560, 0.0 ]
+, [ 2.936298, 52.622416, 0.0 ]
+, [ 2.455050, 53.333385, 0.0 ]
+, [ 1.957510, 54.042352, 0.0 ]
+, [ 1.442727, 54.749194, 0.0 ]
+, [ 1.442727, 54.749194, 0.0 ]
+, [ 0.712949, 55.389416, 0.0 ]
+, [ -0.040765, 56.025151, 0.0 ]
+, [ -0.146527, 56.103602, 0.0 ]
+, [ -1.097399, 56.662453, 0.0 ]
+, [ -1.938272, 57.137347, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+, [ -1.051917, 56.517525, 0.0 ]
+, [ -0.201981, 55.899440, 0.0 ]
+, [ -0.201981, 55.899440, 0.0 ]
+, [ 0.486077, 55.230380, 0.0 ]
+, [ 1.151307, 54.557577, 0.0 ]
+, [ 1.688227, 53.845651, 0.0 ]
+, [ 2.207161, 53.131409, 0.0 ]
+, [ 2.207161, 53.131409, 0.0 ]
+, [ 2.211374, 53.125502, 0.0 ]
+, [ 2.519824, 52.416550, 0.0 ]
+, [ 2.029532, 51.657567, 0.0 ]
+, [ 2.029532, 51.657567, 0.0 ]
+, [ 1.728135, 51.176974, 0.0 ]
+, [ 1.448769, 50.941586, 0.0 ]
+, [ 0.453871, 50.540430, 0.0 ]
+, [ 0.453871, 50.540430, 0.0 ]
+, [ -0.681813, 50.266886, 0.0 ]
+, [ -1.804267, 49.982404, 0.0 ]
+, [ -3.296151, 49.730565, 0.0 ]
+, [ -4.050562, 49.453609, 0.0 ]
+, [ -4.050562, 49.453609, 0.0 ]
+, [ -4.609812, 49.089483, 0.0 ]
+, [ -5.160889, 48.722694, 0.0 ]
+, [ -5.703958, 48.353316, 0.0 ]
+, [ -6.216510, 47.678843, 0.0 ]
+, [ -6.715958, 47.002146, 0.0 ]
+, [ -7.062827, 46.540242, 0.0 ]
+, [ -7.403837, 46.077306, 0.0 ]
+, [ -7.739167, 45.613373, 0.0 ]
+, [ -8.091649, 45.158715, 0.0 ]
+, [ -8.438544, 44.702990, 0.0 ]
+, [ -8.780013, 44.246231, 0.0 ]
+, [ -9.082783, 43.786684, 0.0 ]
+, [ -9.380929, 43.326350, 0.0 ]
+, [ -9.674587, 42.865252, 0.0 ]
+, [ -9.841268, 42.092728, 0.0 ]
+, [ -10.003936, 41.319967, 0.0 ]
+, [ -10.291141, 40.573846, 0.0 ]
+, [ -10.572008, 39.827028, 0.0 ]
+, [ -10.851077, 39.079843, 0.0 ]
+, [ -11.124294, 38.332006, 0.0 ]
+, [ -11.397628, 37.583199, 0.0 ]
+, [ -11.665516, 36.833774, 0.0 ]
+, [ -11.943617, 36.087380, 0.0 ]
+, [ -12.216484, 35.340354, 0.0 ]
+, [ -12.487945, 34.593657, 0.0 ]
+, [ -12.754568, 33.846369, 0.0 ]
+, [ -13.142224, 33.135773, 0.0 ]
+, [ -13.523647, 32.423996, 0.0 ]
+, [ -13.901122, 31.712659, 0.0 ]
+, [ -14.272844, 31.000228, 0.0 ]
+, [ -14.544694, 30.258105, 0.0 ]
+, [ -14.812464, 29.515428, 0.0 ]
+, [ -15.076332, 28.772223, 0.0 ]
+, [ -15.288144, 28.167487, 0.0 ]
+, [ -15.386344, 28.078420, 0.0 ]
+, [ -15.362515, 28.080191, 0.0 ]
+, [ -15.362490, 28.080165, 0.0 ]
+, [ -15.362490, 28.080165, 0.0 ]
+, [ -15.305863, 28.020151, 0.0 ]
+, [ -15.295467, 27.915834, 0.0 ]
+, [ -15.557064, 27.273642, 0.0 ]
+, [ -15.746702, 26.803100, 0.0 ]
+, [ -15.746702, 26.803100, 0.0 ]
+, [ -16.003163, 26.160086, 0.0 ]
+, [ -16.256810, 25.516624, 0.0 ]
+, [ -16.415637, 24.839981, 0.0 ]
+, [ -16.572737, 24.163172, 0.0 ]
+, [ -16.707942, 23.512405, 0.0 ]
+, [ -16.841817, 22.861522, 0.0 ]
+, [ -17.102398, 22.227609, 0.0 ]
+, [ -17.360632, 21.593284, 0.0 ]
+, [ -17.283590, 20.958662, 0.0 ]
+, [ -17.189508, 20.702458, 0.0 ]
+, [ -16.994624, 20.681088, 0.0 ]
+, [ -16.916670, 20.747702, 0.0 ]
+, [ -16.938124, 20.880842, 0.0 ]
+, [ -16.896958, 20.874606, 0.0 ]
+, [ -16.896966, 20.874564, 0.0 ]
+, [ -16.896966, 20.874564, 0.0 ]
+, [ -16.942259, 20.636122, 0.0 ]
+, [ -17.071952, 19.867447, 0.0 ]
+, [ -17.160556, 19.337914, 0.0 ]
+, [ -17.160556, 19.337914, 0.0 ]
+, [ -17.288371, 18.569115, 0.0 ]
+, [ -17.415038, 17.800231, 0.0 ]
+, [ -17.544335, 17.031826, 0.0 ]
+, [ -17.672573, 16.263340, 0.0 ]
+, [ -17.711599, 15.487288, 0.0 ]
+, [ -17.750332, 14.711230, 0.0 ]
+, [ -17.738147, 13.951676, 0.0 ]
+, [ -17.726041, 13.192121, 0.0 ]
+, [ -17.509364, 12.484277, 0.0 ]
+, [ -17.293869, 11.776260, 0.0 ]
+, [ -17.091892, 11.066220, 0.0 ]
+, [ -16.890892, 10.356046, 0.0 ]
+, [ -16.286084, 9.846935, 0.0 ]
+, [ -15.683140, 9.336752, 0.0 ]
+, [ -15.155300, 8.765668, 0.0 ]
+, [ -14.629081, 8.193853, 0.0 ]
+, [ -13.928259, 7.827196, 0.0 ]
+, [ -13.228671, 7.459383, 0.0 ]
+, [ -12.619396, 6.989023, 0.0 ]
+, [ -12.011348, 6.517882, 0.0 ]
+, [ -11.393889, 6.041885, 0.0 ]
+, [ -10.777515, 5.565192, 0.0 ]
+, [ -10.113029, 5.182110, 0.0 ]
+, [ -9.449349, 4.798336, 0.0 ]
+, [ -8.752880, 4.480404, 0.0 ]
+, [ -8.057018, 4.161813, 0.0 ]
+, [ -7.353590, 3.843827, 0.0 ]
+, [ -6.650688, 3.525264, 0.0 ]
+, [ -5.982962, 3.148277, 0.0 ]
+, [ -5.315720, 2.770863, 0.0 ]
+, [ -4.638126, 2.387312, 0.0 ]
+, [ -3.960911, 2.003428, 0.0 ]
+, [ -3.283745, 1.620070, 0.0 ]
+, [ -2.606836, 1.236485, 0.0 ]
+, [ -1.978431, 0.767207, 0.0 ]
+, [ -1.350165, 0.297836, 0.0 ]
+, [ -0.721341, -0.171533, 0.0 ]
+, [ -0.092486, -0.640881, 0.0 ]
+, [ 0.584693, -1.024925, 0.0 ]
+, [ 1.262035, -1.408825, 0.0 ]
+, [ 1.939765, -1.792285, 0.0 ]
+, [ 2.617778, -2.175495, 0.0 ]
+, [ 3.295906, -2.559704, 0.0 ]
+, [ 3.974441, -2.943555, 0.0 ]
+, [ 4.652303, -3.328105, 0.0 ]
+, [ 5.330694, -3.712190, 0.0 ]
+, [ 5.956973, -4.179396, 0.0 ]
+, [ 6.583999, -4.646104, 0.0 ]
+, [ 7.224553, -5.094557, 0.0 ]
+, [ 7.866001, -5.542377, 0.0 ]
+, [ 8.514027, -5.989514, 0.0 ]
+, [ 9.163115, -6.435890, 0.0 ]
+, [ 9.857887, -6.796347, 0.0 ]
+, [ 10.553701, -7.155813, 0.0 ]
+, [ 11.202891, -7.605251, 0.0 ]
+, [ 11.853440, -8.053722, 0.0 ]
+, [ 12.550946, -8.413070, 0.0 ]
+, [ 13.221841, -8.756923, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+, [ 12.949994, -8.090534, 0.0 ]
+, [ 12.648030, -7.427513, 0.0 ]
+, [ 12.648030, -7.427513, 0.0 ]
+, [ 12.237365, -6.522306, 0.0 ]
+, [ 12.202526, -6.179772, 0.0 ]
+, [ 12.241487, -6.086812, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+, [ 12.348307, -6.012498, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+, [ 12.062595, -5.875392, 0.0 ]
+, [ 11.940053, -5.683319, 0.0 ]
+, [ 11.834737, -4.985540, 0.0 ]
+, [ 11.807289, -4.803429, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+, [ 10.752512, -4.399171, 0.0 ]
+, [ 10.578677, -4.232558, 0.0 ]
+, [ 10.578677, -4.232558, 0.0 ]
+, [ 10.170980, -3.704712, 0.0 ]
+, [ 9.763768, -3.176680, 0.0 ]
+, [ 9.406894, -2.656642, 0.0 ]
+, [ 9.050320, -2.136501, 0.0 ]
+, [ 8.825209, -1.519504, 0.0 ]
+, [ 8.600228, -0.902485, 0.0 ]
+, [ 8.575360, -0.780559, 0.0 ]
+, [ 8.609454, -0.571185, 0.0 ]
+, [ 8.697125, -0.527362, 0.0 ]
+, [ 8.820150, -0.610139, 0.0 ]
+, [ 8.820150, -0.610139, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": -1, "ID": "routeInfo", "route_startTime": "2026-02-12T08:11:00", "route_endTime": "2026-03-07T13:42:00"
+, "fuelConsumption_ton": 349.77, "fuelEcaMain": 55.68, "fuelEcaAux": 6.14, "fuelNotEcaMain": 259.25, "fuelNotEcaAux": 28.70, "emission": 1105.54, "emissionEcaMain": 178.51, "emissionEcaAux": 19.69, "emissionNotEcaMain": 816.89, "emissionNotEcaAux": 90.44, "corridorWaitingFuelMain": 0.00, "corridorWaitingFuelAux": 0.00, "corridorWaitingEmissionMain": 0.00, "corridorWaitingEmissionAux": 0.00,    "WindF":-85.545, "WaveF":-159.864, "CurrentF":60.420, "DelayF":-104.839, "allWeatherFactors": -289.828
+, "average speed": 11.3, "safety": 0.000, "channel cost": 0.0, "total objective cost": 61698097.2,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":617410,
+    "fuel_dollarCost":292184,
+    "voyageTime_dollarCost":325227,
+    "fuel_objCost":29175145.7,
+    "voyageTime_objCost":32522675.4,
+    "emission_objCost":276.4,
+    "eta error cost":0.0,
+"storms": [
+], "maxLateMidTimeArrive_h": 0.2, "level_maxLateMidTimeArrive": 31,
+"maxEarlyMidTimeArrive_h": -0.1, "level_maxEarlyMidTimeArrive": 5,
+"averageRPM": 102.00,
+"totalDistance_kts": 6326.0, "totalTime_h": 557.5,
+"totalDistance_eca": 1083.5, "totalDistance_nonEca": 5242.6,
+"totalSteamingTime_h": 557.5, "totalAdditionalTime_h": 0.0,
+"prefPath_totalDist_nm": 6354.6,
+"maxWindSpeed_kts": 38.31, "maxWindSpeed_dateTime":"2026-02-17T17:11:00", "maxWindSpeed_dirLetters":"SW",
+"maxWaveHeight": 5.52, "maxWaveHeight_dateTime":"2026-02-17T22:11:00", "maxWaveHeight_dirLetters":"W",
+    "favorableWindForecast_h":64.219, "notFavorableWindForecast_h":185.342, "noDataFavorableWind_h":2.532
+,    "favorableWindHistory_h":236.078, "notFavorableWindHistory_h":69.361
+,    "favorableWaveForecast_h":14.073, "notFavorableWaveForecast_h":233.007, "noDataFavorableWave_h":5.044
+,    "favorableWaveHistory_h":42.363, "notFavorableWaveHistory_h":263.043
+,    "favorableWindWaveForecast_h":6.052, "notFavorableWindWaveForecast_h":241.029, "noDataFavorableWindWave_h":7.576
+,    "favorableWindWaveHistory_h":29.252, "notFavorableWindWaveHistory_h":273.623,
+"consumptionTransit_average": 13.56, "consumptionTransitAux_average": 1.50, "speedTransit_average": 11.35
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 3.488316, 51.774953, 0.0 ]
+, [ 3.402142, 51.909560, 0.0 ]
+, [ 3.402142, 51.909560, 0.0 ]
+, [ 2.936298, 52.622416, 0.0 ]
+, [ 2.455050, 53.333385, 0.0 ]
+, [ 1.957510, 54.042352, 0.0 ]
+, [ 1.442727, 54.749194, 0.0 ]
+, [ 1.442727, 54.749194, 0.0 ]
+, [ 0.712949, 55.389416, 0.0 ]
+, [ -0.040765, 56.025151, 0.0 ]
+, [ -0.146527, 56.103602, 0.0 ]
+, [ -1.097399, 56.662453, 0.0 ]
+, [ -1.938272, 57.137347, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+, [ -1.929898, 57.129616, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 0, "ID": "routeInfo", "leg_startTime": "2026-02-12T08:11:00", "leg_endTime": "2026-02-13T17:40:22"
+, "fuelConsumption_ton": 21.06, "fuelEcaMain": 18.97, "fuelEcaAux": 2.09, "fuelNotEcaMain": 0.00, "fuelNotEcaAux": 0.00, "emission": 67.53, "emissionEcaMain": 60.82, "emissionEcaAux": 6.71, "emissionNotEcaMain": 0.00, "emissionNotEcaAux": 0.00,    "WindF":-10.904, "WaveF":-13.445, "CurrentF":1.268, "DelayF":0.000, "allWeatherFactors": -23.081
+, "average speed": 11.3, "total objective cost": 4052494.7,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":40600,
+"averageRPM": 102.00,
+"totalDistance_kts": 377.1, "totalTime_h": 33.5,
+"totalDistance_eca": 377.1, "totalDistance_nonEca": 0.0,
+"totalSteamingTime_h": 33.5
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ -1.929898, 57.129616, 0.0 ]
+, [ -1.051917, 56.517525, 0.0 ]
+, [ -0.201981, 55.899440, 0.0 ]
+, [ -0.201981, 55.899440, 0.0 ]
+, [ 0.486077, 55.230380, 0.0 ]
+, [ 1.151307, 54.557577, 0.0 ]
+, [ 1.688227, 53.845651, 0.0 ]
+, [ 2.207161, 53.131409, 0.0 ]
+, [ 2.207161, 53.131409, 0.0 ]
+, [ 2.211374, 53.125502, 0.0 ]
+, [ 2.519824, 52.416550, 0.0 ]
+, [ 2.029532, 51.657567, 0.0 ]
+, [ 2.029532, 51.657567, 0.0 ]
+, [ 1.728135, 51.176974, 0.0 ]
+, [ 1.448769, 50.941586, 0.0 ]
+, [ 0.453871, 50.540430, 0.0 ]
+, [ 0.453871, 50.540430, 0.0 ]
+, [ -0.681813, 50.266886, 0.0 ]
+, [ -1.804267, 49.982404, 0.0 ]
+, [ -3.296151, 49.730565, 0.0 ]
+, [ -4.050562, 49.453609, 0.0 ]
+, [ -4.050562, 49.453609, 0.0 ]
+, [ -4.609812, 49.089483, 0.0 ]
+, [ -5.160889, 48.722694, 0.0 ]
+, [ -5.703958, 48.353316, 0.0 ]
+, [ -6.216510, 47.678843, 0.0 ]
+, [ -6.715958, 47.002146, 0.0 ]
+, [ -7.062827, 46.540242, 0.0 ]
+, [ -7.403837, 46.077306, 0.0 ]
+, [ -7.739167, 45.613373, 0.0 ]
+, [ -8.091649, 45.158715, 0.0 ]
+, [ -8.438544, 44.702990, 0.0 ]
+, [ -8.780013, 44.246231, 0.0 ]
+, [ -9.082783, 43.786684, 0.0 ]
+, [ -9.380929, 43.326350, 0.0 ]
+, [ -9.674587, 42.865252, 0.0 ]
+, [ -9.841268, 42.092728, 0.0 ]
+, [ -10.003936, 41.319967, 0.0 ]
+, [ -10.291141, 40.573846, 0.0 ]
+, [ -10.572008, 39.827028, 0.0 ]
+, [ -10.851077, 39.079843, 0.0 ]
+, [ -11.124294, 38.332006, 0.0 ]
+, [ -11.397628, 37.583199, 0.0 ]
+, [ -11.665516, 36.833774, 0.0 ]
+, [ -11.943617, 36.087380, 0.0 ]
+, [ -12.216484, 35.340354, 0.0 ]
+, [ -12.487945, 34.593657, 0.0 ]
+, [ -12.754568, 33.846369, 0.0 ]
+, [ -13.142224, 33.135773, 0.0 ]
+, [ -13.523647, 32.423996, 0.0 ]
+, [ -13.901122, 31.712659, 0.0 ]
+, [ -14.272844, 31.000228, 0.0 ]
+, [ -14.544694, 30.258105, 0.0 ]
+, [ -14.812464, 29.515428, 0.0 ]
+, [ -15.076332, 28.772223, 0.0 ]
+, [ -15.288144, 28.167487, 0.0 ]
+, [ -15.386344, 28.078420, 0.0 ]
+, [ -15.362515, 28.080191, 0.0 ]
+, [ -15.362490, 28.080165, 0.0 ]
+, [ -15.362490, 28.080165, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 1, "ID": "routeInfo", "leg_startTime": "2026-02-13T17:40:22", "leg_endTime": "2026-02-21T21:06:23"
+, "fuelConsumption_ton": 123.31, "fuelEcaMain": 36.71, "fuelEcaAux": 4.05, "fuelNotEcaMain": 74.39, "fuelNotEcaAux": 8.16, "emission": 390.79, "emissionEcaMain": 117.68, "emissionEcaAux": 12.98, "emissionNotEcaMain": 234.40, "emissionNotEcaAux": 25.73,    "WindF":-71.570, "WaveF":-145.218, "CurrentF":-8.915, "DelayF":0.000, "allWeatherFactors": -225.703
+, "average speed": 10.5, "total objective cost": 22045080.3,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":220803,
+"averageRPM": 102.00,
+"totalDistance_kts": 2050.7, "totalTime_h": 195.4,
+"totalDistance_eca": 706.4, "totalDistance_nonEca": 1344.3,
+"totalSteamingTime_h": 195.4
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ -15.362490, 28.080165, 0.0 ]
+, [ -15.305863, 28.020151, 0.0 ]
+, [ -15.295467, 27.915834, 0.0 ]
+, [ -15.557064, 27.273642, 0.0 ]
+, [ -15.746702, 26.803100, 0.0 ]
+, [ -15.746702, 26.803100, 0.0 ]
+, [ -16.003163, 26.160086, 0.0 ]
+, [ -16.256810, 25.516624, 0.0 ]
+, [ -16.415637, 24.839981, 0.0 ]
+, [ -16.572737, 24.163172, 0.0 ]
+, [ -16.707942, 23.512405, 0.0 ]
+, [ -16.841817, 22.861522, 0.0 ]
+, [ -17.102398, 22.227609, 0.0 ]
+, [ -17.360632, 21.593284, 0.0 ]
+, [ -17.283590, 20.958662, 0.0 ]
+, [ -17.189508, 20.702458, 0.0 ]
+, [ -16.994624, 20.681088, 0.0 ]
+, [ -16.916670, 20.747702, 0.0 ]
+, [ -16.938124, 20.880842, 0.0 ]
+, [ -16.896958, 20.874606, 0.0 ]
+, [ -16.896966, 20.874564, 0.0 ]
+, [ -16.896966, 20.874564, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 2, "ID": "routeInfo", "leg_startTime": "2026-02-21T21:06:24", "leg_endTime": "2026-02-23T14:17:22"
+, "fuelConsumption_ton": 25.76, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 23.18, "fuelNotEcaAux": 2.57, "emission": 81.16, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 73.05, "emissionNotEcaAux": 8.11,    "WindF":-3.071, "WaveF":-1.201, "CurrentF":9.122, "DelayF":-8.883, "allWeatherFactors": -4.033
+, "average speed": 11.9, "total objective cost": 4462642.7,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":44629,
+"averageRPM": 102.00,
+"totalDistance_kts": 490.0, "totalTime_h": 41.2,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 490.0,
+"totalSteamingTime_h": 41.2
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ -16.896966, 20.874564, 0.0 ]
+, [ -16.942259, 20.636122, 0.0 ]
+, [ -17.071952, 19.867447, 0.0 ]
+, [ -17.160556, 19.337914, 0.0 ]
+, [ -17.160556, 19.337914, 0.0 ]
+, [ -17.288371, 18.569115, 0.0 ]
+, [ -17.415038, 17.800231, 0.0 ]
+, [ -17.544335, 17.031826, 0.0 ]
+, [ -17.672573, 16.263340, 0.0 ]
+, [ -17.711599, 15.487288, 0.0 ]
+, [ -17.750332, 14.711230, 0.0 ]
+, [ -17.738147, 13.951676, 0.0 ]
+, [ -17.726041, 13.192121, 0.0 ]
+, [ -17.509364, 12.484277, 0.0 ]
+, [ -17.293869, 11.776260, 0.0 ]
+, [ -17.091892, 11.066220, 0.0 ]
+, [ -16.890892, 10.356046, 0.0 ]
+, [ -16.286084, 9.846935, 0.0 ]
+, [ -15.683140, 9.336752, 0.0 ]
+, [ -15.155300, 8.765668, 0.0 ]
+, [ -14.629081, 8.193853, 0.0 ]
+, [ -13.928259, 7.827196, 0.0 ]
+, [ -13.228671, 7.459383, 0.0 ]
+, [ -12.619396, 6.989023, 0.0 ]
+, [ -12.011348, 6.517882, 0.0 ]
+, [ -11.393889, 6.041885, 0.0 ]
+, [ -10.777515, 5.565192, 0.0 ]
+, [ -10.113029, 5.182110, 0.0 ]
+, [ -9.449349, 4.798336, 0.0 ]
+, [ -8.752880, 4.480404, 0.0 ]
+, [ -8.057018, 4.161813, 0.0 ]
+, [ -7.353590, 3.843827, 0.0 ]
+, [ -6.650688, 3.525264, 0.0 ]
+, [ -5.982962, 3.148277, 0.0 ]
+, [ -5.315720, 2.770863, 0.0 ]
+, [ -4.638126, 2.387312, 0.0 ]
+, [ -3.960911, 2.003428, 0.0 ]
+, [ -3.283745, 1.620070, 0.0 ]
+, [ -2.606836, 1.236485, 0.0 ]
+, [ -1.978431, 0.767207, 0.0 ]
+, [ -1.350165, 0.297836, 0.0 ]
+, [ -0.721341, -0.171533, 0.0 ]
+, [ -0.092486, -0.640881, 0.0 ]
+, [ 0.584693, -1.024925, 0.0 ]
+, [ 1.262035, -1.408825, 0.0 ]
+, [ 1.939765, -1.792285, 0.0 ]
+, [ 2.617778, -2.175495, 0.0 ]
+, [ 3.295906, -2.559704, 0.0 ]
+, [ 3.974441, -2.943555, 0.0 ]
+, [ 4.652303, -3.328105, 0.0 ]
+, [ 5.330694, -3.712190, 0.0 ]
+, [ 5.956973, -4.179396, 0.0 ]
+, [ 6.583999, -4.646104, 0.0 ]
+, [ 7.224553, -5.094557, 0.0 ]
+, [ 7.866001, -5.542377, 0.0 ]
+, [ 8.514027, -5.989514, 0.0 ]
+, [ 9.163115, -6.435890, 0.0 ]
+, [ 9.857887, -6.796347, 0.0 ]
+, [ 10.553701, -7.155813, 0.0 ]
+, [ 11.202891, -7.605251, 0.0 ]
+, [ 11.853440, -8.053722, 0.0 ]
+, [ 12.550946, -8.413070, 0.0 ]
+, [ 13.221841, -8.756923, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+, [ 13.252953, -8.753332, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 3, "ID": "routeInfo", "leg_startTime": "2026-02-23T14:17:22", "leg_endTime": "2026-03-05T08:49:52"
+, "fuelConsumption_ton": 146.59, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 131.93, "fuelNotEcaAux": 14.66, "emission": 461.90, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 415.71, "emissionNotEcaAux": 46.19,    "WindF":0.000, "WaveF":0.000, "CurrentF":62.843, "DelayF":-85.452, "allWeatherFactors": -22.609
+, "average speed": 11.9, "total objective cost": 25408821.7,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":254087,
+"averageRPM": 102.00,
+"totalDistance_kts": 2788.4, "totalTime_h": 234.5,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 2788.4,
+"totalSteamingTime_h": 234.5
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 13.252953, -8.753332, 0.0 ]
+, [ 12.949994, -8.090534, 0.0 ]
+, [ 12.648030, -7.427513, 0.0 ]
+, [ 12.648030, -7.427513, 0.0 ]
+, [ 12.237365, -6.522306, 0.0 ]
+, [ 12.202526, -6.179772, 0.0 ]
+, [ 12.241487, -6.086812, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+, [ 12.256813, -6.079136, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 4, "ID": "routeInfo", "leg_startTime": "2026-03-05T08:49:53", "leg_endTime": "2026-03-05T23:37:44"
+, "fuelConsumption_ton": 9.25, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 8.32, "fuelNotEcaAux": 0.92, "emission": 29.14, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 26.23, "emissionNotEcaAux": 2.91,    "WindF":0.000, "WaveF":0.000, "CurrentF":-0.185, "DelayF":-2.642, "allWeatherFactors": -2.827
+, "average speed": 11.8, "total objective cost": 1603076.5,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":16031,
+"averageRPM": 102.00,
+"totalDistance_kts": 174.7, "totalTime_h": 14.8,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 174.7,
+"totalSteamingTime_h": 14.8
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 12.256813, -6.079136, 0.0 ]
+, [ 12.348307, -6.012498, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+, [ 12.286198, -6.004635, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 5, "ID": "routeInfo", "leg_startTime": "2026-03-05T23:37:44", "leg_endTime": "2026-03-06T00:30:49"
+, "fuelConsumption_ton": 0.55, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 0.50, "fuelNotEcaAux": 0.06, "emission": 1.74, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 1.57, "emissionNotEcaAux": 0.17,    "WindF":0.000, "WaveF":0.000, "CurrentF":0.000, "DelayF":-0.108, "allWeatherFactors": -0.108
+, "average speed": 11.9, "total objective cost": 95863.5,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":959,
+"averageRPM": 102.00,
+"totalDistance_kts": 10.5, "totalTime_h": 0.9,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 10.5,
+"totalSteamingTime_h": 0.9
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 12.286198, -6.004635, 0.0 ]
+, [ 12.062595, -5.875392, 0.0 ]
+, [ 11.940053, -5.683319, 0.0 ]
+, [ 11.834737, -4.985540, 0.0 ]
+, [ 11.807289, -4.803429, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+, [ 11.787069, -4.772719, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 6, "ID": "routeInfo", "leg_startTime": "2026-03-06T00:30:50", "leg_endTime": "2026-03-06T07:38:56"
+, "fuelConsumption_ton": 4.46, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 4.01, "fuelNotEcaAux": 0.45, "emission": 14.05, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 12.65, "emissionNotEcaAux": 1.41,    "WindF":0.000, "WaveF":0.000, "CurrentF":0.444, "DelayF":-1.326, "allWeatherFactors": -0.882
+, "average speed": 11.9, "total objective cost": 772982.2,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":7730,
+"averageRPM": 102.00,
+"totalDistance_kts": 84.7, "totalTime_h": 7.1,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 84.7,
+"totalSteamingTime_h": 7.1
+}}
+,
+{ "type": "Feature",
+"geometry": { "type": "MultiLineString",
+"coordinates": [ [
+[ 11.787069, -4.772719, 0.0 ]
+, [ 10.752512, -4.399171, 0.0 ]
+, [ 10.578677, -4.232558, 0.0 ]
+, [ 10.578677, -4.232558, 0.0 ]
+, [ 10.170980, -3.704712, 0.0 ]
+, [ 9.763768, -3.176680, 0.0 ]
+, [ 9.406894, -2.656642, 0.0 ]
+, [ 9.050320, -2.136501, 0.0 ]
+, [ 8.825209, -1.519504, 0.0 ]
+, [ 8.600228, -0.902485, 0.0 ]
+, [ 8.575360, -0.780559, 0.0 ]
+, [ 8.609454, -0.571185, 0.0 ]
+, [ 8.697125, -0.527362, 0.0 ]
+, [ 8.820150, -0.610139, 0.0 ]
+, [ 8.820150, -0.610139, 0.0 ]
+
+]]},
+"properties": {
+"solutionID": "base", "legNr": 7, "ID": "routeInfo", "leg_startTime": "2026-03-06T07:38:57", "leg_endTime": "2026-03-07T13:42:53"
+, "fuelConsumption_ton": 18.79, "fuelEcaMain": 0.00, "fuelEcaAux": 0.00, "fuelNotEcaMain": 16.91, "fuelNotEcaAux": 1.88, "emission": 59.21, "emissionEcaMain": 0.00, "emissionEcaAux": 0.00, "emissionNotEcaMain": 53.29, "emissionNotEcaAux": 5.92,    "WindF":0.000, "WaveF":0.000, "CurrentF":-4.159, "DelayF":-6.427, "allWeatherFactors": -10.586
+, "average speed": 11.6, "total objective cost": 3257135.6,    "fuelConsumptionExtra_ton":0,
+    "emissionExtra":0,
+    "dollar_cost":32571,
+"averageRPM": 102.00,
+"totalDistance_kts": 349.9, "totalTime_h": 30.1,
+"totalDistance_eca": 0.0, "totalDistance_nonEca": 349.9,
+"totalSteamingTime_h": 30.1
+}}
+],
+"errorMessage":"OK"
+}

@@ -5,7 +5,6 @@
     "mapLandSeaAFileName":"feasibilityMaps/RasterA_land_250610.tif",
 
     "searoutePathFile":"marnet_densified_251119.geojson",
-    "newSeaRoutePathData":1,
     "mapAutoRoutePhysicalBFileName":"feasibilityMaps/RasterB_buffered2nm_250610.tif",
     "mapAutoRoutePhysicalAFileName":"feasibilityMaps/RasterA_buffered2nm_250610.tif",
     "tss":"feasibilityMaps/TSS_autoDownload.geojson",
