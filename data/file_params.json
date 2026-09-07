@@ -1,7 +1,7 @@
 {
     "SKRIV_UT_NOTHING":2,
-    "url_errorEmail_api":"https://optinav-api.tnmservices.ai/api/weather/notify",
-    "url_getCorridors":"https://optinav-api.tnmservices.ai/api/ivado/get-corridors",
+    "url_errorEmail_api":"https://optinav-api-beta.tnmservices.ai/api/weather/notify",
+    "url_getCorridors":"https://optinav-api-beta.tnmservices.ai/api/ivado/get-corridors",
     "delayVersion_tmp":5,
     "includeNazanin_safety":1,
     "ignore_windWave":0,

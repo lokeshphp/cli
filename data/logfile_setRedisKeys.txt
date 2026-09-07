@@ -1,0 +1,6 @@
+API base URL missing in configERROR! Hard coded nMaxLev_posToDelayedPrefPath 3, ie number of physical level before route must be on pref path with historical data
+OBS! minSpeedDiffWeatherFactor set to -10.000
+OBS! maxSpeedDiffWeatherFactor set to 8.000
+OBS! minSpeedDiffCurrent set to -10.000
+OBS! maxSpeedDiffCurrent set to 10.000
+trying to open /app/data//file_params.json

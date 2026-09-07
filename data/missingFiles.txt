@@ -1,0 +1,1 @@
+ERROR! Raster /app/data/weather/u0.grb cannot be open.

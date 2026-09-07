@@ -1,0 +1,46 @@
+{
+"waveFactorTables_scale":[
+{"tableID":"BC01_000,000-009,999_DWT_B_Wave_Matrix", "scale": 1.2}
+,
+{"tableID":"BC01_000,000-009,999_DWT_L_Wave_Matrix", "scale": 1.12}
+,
+{"tableID":"BC02_010,000-024,999_DWT_B_Wave_Matrix", "scale": 1.17}
+,
+{"tableID":"BC02_010,000-024,999_DWT_L_Wave_Matrix", "scale": 1.09375}
+,
+{"tableID":"BC03_025,000-039,999_DWT_B_Wave_Matrix", "scale": 1.14}
+,
+{"tableID":"BC03_025,000-039,999_DWT_L_Wave_Matrix", "scale": 1.0675}
+,
+{"tableID":"BC04_040,000-049,999_DWT_B_Wave_Matrix", "scale": 1.12}
+,
+{"tableID":"BC04_040,000-049,999_DWT_L_Wave_Matrix", "scale": 1.05}
+,
+{"tableID":"BC05_050,000-064,999_DWT_B_Wave_Matrix", "scale": 1.06857142857143}
+,
+{"tableID":"BC05_050,000-064,999_DWT_L_Wave_Matrix", "scale": 1.00714285714286}
+,
+{"tableID":"BC06_065,000-084,999_DWT_B_Wave_Matrix", "scale": 1}
+,
+{"tableID":"BC06_065,000-084,999_DWT_L_Wave_Matrix", "scale": 0.95}
+,
+{"tableID":"BC07_085,000-099,999_DWT_B_Wave_Matrix", "scale": 0.995454573002588}
+,
+{"tableID":"BC07_085,000-099,999_DWT_L_Wave_Matrix", "scale": 0.943636402203623}
+,
+{"tableID":"BC08_100,000-119,999_DWT_B_Wave_Matrix", "scale": 0.989394003672705}
+,
+{"tableID":"BC08_100,000-119,999_DWT_L_Wave_Matrix", "scale": 0.935151605141787}
+,
+{"tableID":"BC09_120,000-199,999_DWT_B_Wave_Matrix", "scale": 0.965151726353174}
+,
+{"tableID":"BC09_120,000-199,999_DWT_L_Wave_Matrix", "scale": 0.901212416894443}
+,
+{"tableID":"BC10_200,000-219,999_DWT_B_Wave_Matrix", "scale": 0.959091157023291}
+,
+{"tableID":"BC10_200,000-219,999_DWT_L_Wave_Matrix", "scale": 0.892727619832607}
+,
+{"tableID":"BC11_220,000-999,999_DWT_B_Wave_Matrix", "scale": 0.95}
+,
+{"tableID":"BC11_220,000-999,999_DWT_L_Wave_Matrix", "scale": 0.88}
+]}

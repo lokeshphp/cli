@@ -1,0 +1,47 @@
+{
+    "mapPhysicalBFileName":"feasibilityMaps/RasterB_feasible_251215.tif",
+    "mapPhysicalAFileName":"feasibilityMaps/RasterA_feasible_251215.tif",
+    "mapLandSeaBFileName":"feasibilityMaps/RasterB_land_250610.tif",
+    "mapLandSeaAFileName":"feasibilityMaps/RasterA_land_250610.tif",
+
+    "searoutePathFile_old":"marnet_densified_v5_noNorthRussia_noSeaOkhotsk.geojson",
+    "searoutePathFile":"marnet_densified_251119.geojson",
+    "newSeaRoutePathData":1,
+    "mapAutoRoutePhysicalBFileName":"feasibilityMaps/RasterB_buffered2nm_250610.tif",
+    "mapAutoRoutePhysicalAFileName":"feasibilityMaps/RasterA_buffered2nm_250610.tif",
+    "tss":"feasibilityMaps/TSS_autoDownload.geojson",
+    "autoRoute_corridorsNew":"feasibilityMaps/corridors_autoDownload.geojson",
+    "altRouteZones":"autoRoute/altRouteZones.tif",
+    "zoneConnections":"autoRoute/zoneConnections.json",
+    "limitSouth":[
+ 	{"minLat":-53, "minLon":-180, "maxLon":-53},
+	{"minLat":-45, "minLon":-54, "maxLon":114},
+	{"minLat":-53, "minLon":115, "maxLon":180}
+    ],
+    "extraCostFactorNoGoSeaRoutes": 20.0,
+    "optionalExtraAreas":[
+	{"areaID":"HRA",
+	 "fileNameA":"feasibilityMaps/Raster_hra_A3.tif",
+	 "fileNameB":"feasibilityMaps/Raster_hra_B3.tif",
+	 "extraCostFactor": 2.0},
+	{"areaID":"HRA_soft",
+	 "fileNameA":"feasibilityMaps/Raster_hra_A3.tif",
+	 "fileNameB":"feasibilityMaps/Raster_hra_B3.tif",
+	 "corridors":[
+{ "type": "Feature", "properties": { "id": "Suez_east", "costFactor":2.0, "maxDistConnectInside_nm": 120 }, "geometry": { "type": "LineString", "coordinates": [
+[ 41.77973, 15.00923 ], [ 42.5087391, 13.6563838 ], [ 42.57689669, 13.50461097 ], [ 42.69981337, 13.43322163 ], [ 43.01380431, 13.2064485 ], [ 43.11341925, 13.06460803 ], [ 43.32919031, 12.59387971 ], [ 45.01359511, 11.84690978 ], [ 45.52030572, 12.00684573 ],
+[54.228845,14.734591] ] } },
+{ "type": "Feature", "properties": { "id": "Suez_west", "costFactor":2.0, "maxDistConnectInside_nm": 120 }, "geometry": { "type": "LineString", "coordinates": [[54.228845,14.734591],
+[ 45.49270331, 12.12643783 ], [ 45.01700591, 11.95678174 ], [ 43.56132296, 12.5260715 ], [ 43.3588801, 12.63883791 ], [ 43.21446298, 12.93552602 ], [ 43.00847774, 13.26266715 ], [ 42.75144399, 13.49184042 ], [ 42.65113814, 13.56934377 ], [ 42.61441903, 13.65987742 ], [ 42.06290561, 14.72512358 ], [ 41.88666, 15.01063 ] ] } }
+	 ],
+	 "extraCostFactor": 2.0},
+	{"areaID":"ECA",
+	 "fileNameA":"eca/Raster_A_ECA_Border_20250425b.tif",
+	 "fileNameB":"eca/Raster_B_ECA_Border_20250425.tif",
+	 "extraCostFactor": 2.0},
+	{"areaID":"APC",
+	 "fileNameA":"feasibilityMaps/Raster_A_apc_231021.tif",
+	 "fileNameB":"feasibilityMaps/Raster_B_apc_231021.tif",
+	 "extraCostFactor": 2.0}
+    ]
+}
