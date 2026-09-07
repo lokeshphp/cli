@@ -1,0 +1,155 @@
+{
+    "timeIntervall_h":3,
+    "simulateTimeVisually": 0,
+    "weather_parameters":[
+	{
+	    "variableID":"wind_uComponent",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":3,
+	    "files":[
+		{
+		    "fileName":"u0.grb",
+		    "minLon":-180.04,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"wind_vComponent",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":3,
+	    "files":[
+		{
+		    "fileName":"v0.grb",
+		    "minLon":-180.04,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"current_uComponent",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":24,
+	    "files":[
+		{
+		    "fileName":"ucurr0_resampled.grb",
+		    "minLon":-180.04,
+		    "maxLon":-89.96
+		},
+		{
+		    "fileName":"ucurr1_resampled.grb",
+		    "minLon":-90.04,
+		    "maxLon":0.04
+		},
+		{
+		    "fileName":"ucurr2_resampled.grb",
+		    "minLon":-0.04,
+		    "maxLon":90.04
+		},
+		{
+		    "fileName":"ucurr3_resampled.grb",
+		    "minLon":89.96,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"current_vComponent",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":24,
+	    "files":[
+		{
+		    "fileName":"vcurr0_resampled.grb",
+		    "minLon":-180.04,
+		    "maxLon":-89.96
+		},
+		{
+		    "fileName":"vcurr1_resampled.grb",
+		    "minLon":-90.04,
+		    "maxLon":0.04
+		},
+		{
+		    "fileName":"vcurr2_resampled.grb",
+		    "minLon":-0.04,
+		    "maxLon":90.04
+		},
+		{
+		    "fileName":"vcurr3_resampled.grb",
+		    "minLon":89.96,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"waveHeight",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":3,
+	    "files":[
+		{
+		    "fileName":"swh0.grb",
+		    "minLon":-180.04,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"wavePeriod",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":3,
+	    "files":[
+		{
+		    "fileName":"mwp0.grb",
+		    "minLon":-180.04,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"waveDirection",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":3,
+	    "files":[
+		{
+		    "fileName":"mwd0.grb",
+		    "minLon":-180.04,
+		    "maxLon":180.04
+		}
+	    ]
+	},
+	{
+	    "variableID":"ice thickness(m)",
+	    "nBlock_x": 10,
+	    "nBlock_y": 10,
+	    "timeIntervall_expected_h":24,
+	    "files":[
+		{
+		    "fileName":"icetk0_resampled.grb",
+		    "minLon":-180.04,
+		    "maxLon":-89.96
+		},
+		{
+		    "fileName":"icetk1_resampled.grb",
+		    "minLon":-90.04,
+		    "maxLon":0.04
+		},
+		{
+		    "fileName":"icetk2_resampled.grb",
+		    "minLon":-0.04,
+		    "maxLon":90.04
+		},
+		{
+		    "fileName":"icetk3_resampled.grb",
+		    "minLon":89.96,
+		    "maxLon":180.04
+		}
+	    ]
+	}
+    ]
+}

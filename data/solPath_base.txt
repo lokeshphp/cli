@@ -1,0 +1,1 @@
+level;nodPos;speedSetting;arcNr(for_information_only);nod1(info);nod2(info)
