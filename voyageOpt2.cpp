@@ -49,6 +49,11 @@ FILE* filSaveSpec;
 int USE_ARC_TIME_EXACT = 1; // 0 if as good speed as possible from forecast to be used, 1 if the arc speed is used (discretization losses...)
 int DEF_nMAX_SPLITS = 100; // default is 100
 
+int USE_TWO_STEP_SOLVE = 0; // 1: run the coarse + refined (fas3) iterations also when includeNazanin_safety == 2 (set from input json key "useTwoStepSolve")
+int N_TIDSPERIODER_PERH_FAS3 = 4; // time discretization in the refined (fas3) iteration (set from input json key "nTidsperioder_perH_fas3")
+
+extern int TSS_BLOCK_BEYOND_SPAN; // defined in voyageOpt3.cpp, set from input json key "tss_blockBeyondSpan"
+
 extern double cos_table[20001];
 extern double sin_table[20001];
 extern double atan_table[20001];
@@ -3888,7 +3893,6 @@ int addPositionDataToReport(FILE* filpekG, int* posReport, int arcNr, int startS
 
 	if (model.arc[arcNr].fromLevel == 10)
 		arcNr = arcNr;
-	printf("after arc %d arcTime %.3lf totTid %.3lf\n", arcNr, accumTime, *timeExact);
 	if (filpekG != NULL) {
 		if (abs(model.arc[arcNr].time - accumTime) > 1.0) {
 			(model.delay.nDiffTimeSol)++;
@@ -6053,7 +6057,6 @@ int addPositionDataToReport_equalTimeIntervals(FILE* filpekG, int* posReport, in
 		plotPathTimeVisuellt(arcNr, timeOld, *timeExact);
 	}
 
-	printf("after arc %d arcTime %.3lf totTid %.3lf\n", arcNr, accumTime, *timeExact);
 	if (filpekG != NULL) {
 		if (abs(model.arc[arcNr].time - accumTime) > 1.0) {
 			(model.delay.nDiffTimeSol)++;
@@ -12117,21 +12120,35 @@ void loadWeatherFiles_redis() {
 #ifndef ONBOARD
 	onBoardDef = 0;
 	//#ifndef _WIN32_AAAAA
-	auto redis = Redis("tcp://127.0.0.1:6379/1");
+	// The Redis constructor itself throws if the uri cannot be parsed or no connection can be made.
+	// It used to be outside the try, so such a failure was an unhandled exception that killed the
+	// program before the error message below could be given. Keep it inside the try and let the rest
+	// of the function work on a reference so the code below is unchanged.
+	std::unique_ptr<Redis> redisPtr;
 	std::string redisTest;
 	try {
-		redisTest = redis.ping();
-		if (redisTest != "PONG") {
-			errlog("ERROR! Redis is not running on the server. Start it and try again\n");
-			printf("ERROR! Redis is not running on the server. Start it and try again\n");
-			postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
-		}
+		redisPtr = std::make_unique<Redis>("tcp://127.0.0.1:6379/1");
+		redisTest = redisPtr->ping();
+	}
+	catch (const std::exception& e) {
+		errlog("ERROR! Redis is not running on the server (%s). Start it and try again\n", e.what());
+		printf("ERROR! Redis is not running on the server (%s). Start it and try again\n", e.what());
+		postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
+		return;
 	}
 	catch (...) {
 		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
 		printf("ERROR! Redis is not running on the server. Start it and try again\n");
 		postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
+		return;
 	}
+	if (redisTest != "PONG") {
+		errlog("ERROR! Redis is not running on the server. Start it and try again\n");
+		printf("ERROR! Redis is not running on the server. Start it and try again\n");
+		postRequest("ERROR! Redis is not running on the server. Start it and try again", 1);
+		return;
+	}
+	Redis& redis = *redisPtr;
 
 	arrFloat = NULL;
 
@@ -15752,7 +15769,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 			freeAllNodData();
 			modify_midTimeArrive(iter);
 			model.params.maxDiffTimeFastSlow = model.params.maxDiffTimeFastSlow_fas3;
-			model.params.nTidsperioder_perH = 4;
+			model.params.nTidsperioder_perH = N_TIDSPERIODER_PERH_FAS3;
 			// errlog("ERROR! Change nTidsperioder_perH to 4 above\n");
 			model.params.tIndexGerH = 1.0 / model.params.nTidsperioder_perH;
 			if (iter == 1)
@@ -15857,7 +15874,7 @@ int voyageOpt(std::string inputPath, std::string resultName)
 			}
 		}
 
-		if (model.params.includeNazanin_safety == 2) {
+		if (model.params.includeNazanin_safety == 2 && USE_TWO_STEP_SOLVE == 0) {
 			iter = 2; // only do one optimization for this option
 		}
 		std::string resAltName;
@@ -17805,21 +17822,13 @@ int solve_SP_delay() {
 		}
 
 	}
-	if (SKRIV_UT_NOTHING == 0)
-		printf("-- row %d\n", __LINE__);
 	for (i1 = 0; i1 < model.network.nChannels; i1++) {
 		cNr = i1;
 		model.functions.valuesNow.prefPathArc = 2;
 		// fuelQualityKvot = get_fuelQualityKvot(-i1 - 1, 0, -i1 - 1, 1);
-		if (SKRIV_UT_NOTHING == 0)
-			printf("-- i1 %d row %d\n", i1, __LINE__);
 		extraAreaCostKvot = get_totalExtraAreaCostKvot(-i1 - 1, 0, -i1 - 1, 1, &fuelQualityKvot);
 		tidInt = (int)(round(model.network.channel[i1].midTimeArrive / model.params.tIndexGerH));
-		if (SKRIV_UT_NOTHING == 0)
-			printf("-- i1 %d row %d\n", i1, __LINE__);
 		addBage_AB_delayFysiskt(-cNr - 1, 0, -cNr - 1, 1, 0, tidInt, fuelQualityKvot, extraAreaCostKvot);
-		if (SKRIV_UT_NOTHING == 0)
-			printf("-- i1 %d row %d\n", i1, __LINE__);
 	}
 
 	FILE* filpek;
@@ -20959,6 +20968,30 @@ int loadParams_new(strParams* params)
 	}
 	if (!data["MAX_FAKTOR_NATVERK"].is_null()) {
 		MAX_FAKTOR_NATVERK = data["MAX_FAKTOR_NATVERK"];
+	}
+
+	if (!data["nTidsperioder_perH_iter1"].is_null()) {
+		params->nTidsperioder_perH_iter1 = data["nTidsperioder_perH_iter1"];
+		params->nTidsperioder_perH = params->nTidsperioder_perH_iter1;
+		params->tIndexGerH = 1.0 / params->nTidsperioder_perH;
+		errlog("OBS! nTidsperioder_perH_iter1 set to %d from the input file\n", params->nTidsperioder_perH_iter1);
+	}
+
+	if (!data["useTwoStepSolve"].is_null()) {
+		USE_TWO_STEP_SOLVE = data["useTwoStepSolve"];
+		errlog("OBS! useTwoStepSolve set to %d from the input file\n", USE_TWO_STEP_SOLVE);
+	}
+	if (!data["tss_blockBeyondSpan"].is_null()) {
+		TSS_BLOCK_BEYOND_SPAN = data["tss_blockBeyondSpan"];
+		errlog("OBS! tss_blockBeyondSpan set to %d from the input file\n", TSS_BLOCK_BEYOND_SPAN);
+	}
+	if (!data["maxDiffTimeFastSlow_h"].is_null()) {
+		params->maxDiffTimeFastSlow = data["maxDiffTimeFastSlow_h"];
+		errlog("OBS! maxDiffTimeFastSlow set to %.1lf from the input file\n", params->maxDiffTimeFastSlow);
+	}
+	if (!data["nTidsperioder_perH_fas3"].is_null()) {
+		N_TIDSPERIODER_PERH_FAS3 = data["nTidsperioder_perH_fas3"];
+		errlog("OBS! nTidsperioder_perH_fas3 set to %d from the input file\n", N_TIDSPERIODER_PERH_FAS3);
 	}
 
 

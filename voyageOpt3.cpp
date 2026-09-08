@@ -4809,17 +4809,24 @@ int comparePathsNetworkCoords(strClosePoints* firstPoints, strClosePoints* lastP
 
 }
 
+std::string CURRENT_TSS_NAME = "";
+
 int checkTssRightArea(strClosePoints* firstPoints, strClosePoints* lastPoints) {
 	int useTss = 0, pos0, pos1;
 
-	// check if bbox in 
+	// check if bbox in
 	useTss = eval_bboxesOverlap();
-	if (useTss == 0)
+	if (useTss == 0) {
+		errlog("tss '%s' NOT used: bounding box does not overlap the preferred path bounding box\n", CURRENT_TSS_NAME.c_str());
 		return useTss; // not using this tss as its bounding box is not overlapping prefPath bounding box
+	}
 
 	useTss = comparePathsNetworkCoords( firstPoints, lastPoints);
-	if (useTss == 0)
+	if (useTss == 0) {
+		errlog("tss '%s' NOT used: not close enough to the preferred path (max %.1lf km) or wrong direction\n",
+			CURRENT_TSS_NAME.c_str(), 30.0);
 		return useTss; // not close enough to prefPath
+	}
 
 
 
@@ -4939,8 +4946,11 @@ int sortChannelsInOrder(int* order, int nC) {
 	}
 
 	for (i = 0; i < nC; i++) {
-		if (model.network.channelTmp[order[i]].include_tssTmp == 0)
+		if (model.network.channelTmp[order[i]].include_tssTmp == 0) {
+			errlog("tss channelTmp %d (levels %d-%d) NOT included: another tss connects at the same start or end point\n",
+				order[i], model.network.channelTmp[order[i]].bastStartLevel, model.network.channelTmp[order[i]].bastEndLevel);
 			continue; // do not include this tss, pref path follows another one longer
+		}
 
 		copyChannelFromTmp(cNr, order[i]);
 
@@ -5118,11 +5128,15 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	model.network.channelTmp[cNr].bastEndDist = 1e10;
 
 	int pos0 = getBastPhysLevelToConnectToChannel_tss(0, cNr);
-	if (pos0 < 0)
+	if (pos0 < 0) {
+		errlog("tss '%s' NOT used: no physical level found to connect the tss start to\n", CURRENT_TSS_NAME.c_str());
 		return -1; // not an interesting tss
+	}
 	int pos1 = getBastPhysLevelToConnectToChannel_tss(1, cNr);
-	if (pos1 < 0)
+	if (pos1 < 0) {
+		errlog("tss '%s' NOT used: no physical level found to connect the tss end to\n", CURRENT_TSS_NAME.c_str());
 		return -1; // not an interesting tss
+	}
 
 	int legNr1, legNr2, levelNr1, levelNr2;
 	levelNr1 = model.network.channelTmp[cNr].bastStartLevel;
@@ -5136,10 +5150,18 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	else
 		legNr2 = model.network.channel[-levelNr2 - 1].legNr;
 	if (legNr1 != legNr2) {
+		errlog("tss '%s' NOT used: start connects to leg %d (level %d) but end to leg %d (level %d)\n",
+			CURRENT_TSS_NAME.c_str(), legNr1, levelNr1, legNr2, levelNr2);
 		model.network.channelTmp[cNr].bastStartLevel = -1;
 		model.network.channelTmp[cNr].bastEndLevel = -1;
 		return -1; // not an interesting tss as it connects to different legs.
 	}
+
+	errlog("tss '%s' ADDED as channelTmp %d: levels %d-%d (pointPos %d-%d), %.1lf km, %d points\n",
+		CURRENT_TSS_NAME.c_str(), cNr, model.network.channelTmp[cNr].bastStartLevel,
+		model.network.channelTmp[cNr].bastEndLevel, model.network.channelTmp[cNr].bastStartPointPos,
+		model.network.channelTmp[cNr].bastEndPointPos, model.network.channelTmp[cNr].distance_km,
+		model.network.channelTmp[cNr].nPoints);
 
 	if (pos1 <= pos0)
 		pos0 = pos0;
@@ -5305,6 +5327,12 @@ int load_tss_optiNav()
 
 		pos++;
 		json dataNu = it.value();
+		CURRENT_TSS_NAME = std::to_string(pos);
+		if (!(dataNu["properties"].is_null())) {
+			json propNu = dataNu["properties"];
+			if (!(propNu["id_name"].is_null()))
+				CURRENT_TSS_NAME = propNu["id_name"];
+		}
 		if (dataNu["geometry"].is_null()) {
 			errlog("ERROR! tss %d do not have a geometry. I skip this one\n", pos);
 			continue;
@@ -12450,6 +12478,19 @@ int isOtherTssCloser(int fromLev, int fromNode, int arcPos) {
 	return 0;
 }
 
+// Detailed tss debugging, both off by default as they log per arc and per evaluated bypass.
+int DIAG_TSS_CNR = -1; // tss channel number to log every bypass decision and blocked arc for, -1 = off
+int DIAG_TSS_STARTLEVEL = -1; // set DIAG_TSS_CNR automatically for the tss starting at this level, -1 = off
+int DIAG_LEVEL_DUMP = -1; // dump the arcs from this physical level to the next one, -1 = off
+
+// When a bypass chain around a tss is too long, all arcs of the chain used to be blocked, also the
+// arcs after the tss has ended. Those arcs are not a bypass of the tss and are shared with routes that
+// have nothing to do with the tss, so blocking them removes far more than intended (it can leave nodes
+// without any outgoing arc). Only arcs inside the level span of the tss are blocked now.
+// Set "tss_blockBeyondSpan":1 in the input json to get the old behaviour back.
+int TSS_BLOCK_BEYOND_SPAN = 0;
+int CURRENT_TSS_BASTENDLEVEL = -1; // bastEndLevel of the tss being processed in identify_arcsNoUse_tss
+
 int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int toNodeEnd, double dist_max, double distTot, int prefPathStart, int nivaBas, int keepPrefPath) { // not used
 	int i, toLev, toNode, arcPos, i1, nOutNodes, outLevel, maxLevel;
 	double distNu, x0, y0, x1, y1;
@@ -12514,6 +12555,11 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 			}
 			else {
 				// done, compare the costs
+				if (DIAG_TSS_CNR >= 0 && toLevEnd == toLev && toNodeEnd == toNode) {
+					errlog("      [tss %d] bypass ending at level %d node %d: %.1lf km vs threshold %.1lf km -> %s\n",
+						DIAG_TSS_CNR, toLev, toNode, distTot + distNu, dist_max,
+						(distTot + distNu >= dist_max) ? "BLOCKED" : "allowed (shorter than tss)");
+				}
 				if (distTot + distNu >= dist_max && toLevEnd == toLev && toNodeEnd == toNode) {
 					// do not use this set of arcs as they are too close to tss distance, set to not be used
 					for (i1 = 0; i1 < niva + 1; i1++) {
@@ -12525,6 +12571,9 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 						if (i1 < nivaBas && fromLev == model.temp_data.arrBas_fromLev[i1] &&
 							fromNode == model.temp_data.arrBas_fromNode[i1] && arcPos == model.temp_data.arrBas_fromPos[i1])
 							continue; // used in the tss route
+						if (TSS_BLOCK_BEYOND_SPAN == 0 && fromLev >= 0 && CURRENT_TSS_BASTENDLEVEL >= 0 &&
+							fromLev >= CURRENT_TSS_BASTENDLEVEL)
+							continue; // arc starts after the tss has ended, it is not a bypass of this tss
 						if (fromLev >= 0) {
 							toLev = model.network.physicalLev[fromLev].outLevel[fromNode][arcPos];
 							if (toLev < 0) {
@@ -12564,6 +12613,9 @@ int recursive_arcsLevels(int niva, int fromLev, int fromNode, int toLevEnd, int 
 							//}
 							if (fromLev == 4)
 								toNode = toNode;
+							if (DIAG_TSS_CNR >= 0 && model.network.physicalLev[fromLev].outNoNormalArc_useTSS[fromNode][arcPos] == 0)
+								errlog("        [tss %d] blocking arc level %d node %d -> level %d node %d (chain step %d of %d, chain ends at level %d node %d)\n",
+									DIAG_TSS_CNR, fromLev, fromNode, toLev, toNode, i1, niva, toLevEnd, toNodeEnd);
 							model.network.physicalLev[fromLev].outNoNormalArc_useTSS[fromNode][arcPos] = 1;
 						}
 						// do not remove connection from channel here, it's done elsewhere
@@ -12721,6 +12773,9 @@ int recursive_arcsNoUse_tss_tss(int cNr, double dist_tss_ext, int fromLev, int f
 	if (keepPrefPath == 0)
 		keepPrefPath = model.network.channel[cNr2].keepPrefPath_tss;
 
+	if (model.network.channel[cNr2].bastEndLevel > CURRENT_TSS_BASTENDLEVEL)
+		CURRENT_TSS_BASTENDLEVEL = model.network.channel[cNr2].bastEndLevel; // chained tss, the span reaches further
+
 	if (pos2 >= 0) {
 		identify_arcsNoUse_tss_levels(cNrLevel - 1, cNr, dist_tss_ext, fromLev, fromNode, pos2, prefPathStart, keepPrefPath);
 		x0 = model.network.channel[cNr].point_x[model.network.channel[cNr].nPoints - 1];
@@ -12775,10 +12830,24 @@ int remove_all_arcs_nonPrefPath_level(int lev, int alt) {
 	return 0;
 }
 
+int count_blockedArcs_tss() {
+	int lev, i1, i2, n = 0;
+	for (lev = 0; lev < model.network.nPhysicalLevels; lev++) {
+		for (i1 = 0; i1 < model.network.physicalLev[lev].nPoints; i1++) {
+			for (i2 = 0; i2 < model.network.physicalLev[lev].nOutNodes[i1]; i2++) {
+				if (model.network.physicalLev[lev].outNoNormalArc_useTSS[i1][i2] == 1)
+					n++;
+			}
+		}
+	}
+	return n;
+}
+
 int identify_arcsNoUse_tss() {
 	int cNr, i1, i2, fromLev, fromNode, prefPathStart, keepPrefPath, connected_to_tss;
 	int i_start, i_end, alt;
 	double dist_tss_ext, x0, y0, x1, y1, dist;
+	int nBlockedBefore, nBlockedAfter;
 
 	model.temp_data.nMax_recursive_arcsLevels = 4;
 	model.temp_data.arr_fromLev = (int*)malloc(model.temp_data.nMax_recursive_arcsLevels * sizeof(int));
@@ -12793,6 +12862,14 @@ int identify_arcsNoUse_tss() {
 	for (cNr = 0; cNr < model.network.nChannels; cNr++) {
 		if (model.network.channel[cNr].type == 0)
 			continue; // not a tss
+		nBlockedBefore = count_blockedArcs_tss();
+		CURRENT_TSS_BASTENDLEVEL = model.network.channel[cNr].bastEndLevel;
+		if (DIAG_TSS_STARTLEVEL >= 0)
+			DIAG_TSS_CNR = (model.network.channel[cNr].bastStartLevel == DIAG_TSS_STARTLEVEL) ? cNr : -1;
+		errlog("tss channel %d: levels %d-%d, %.1lf km, %d connectFrom, %d connectTo, attractionDist %.1lf km\n",
+			cNr, model.network.channel[cNr].bastStartLevel, model.network.channel[cNr].bastEndLevel,
+			model.network.channel[cNr].distance_km, model.network.channel[cNr].nConnectFrom,
+			model.network.channel[cNr].nConnectTo, model.params.tss_attractionDistance_km);
 		i_start = model.network.channel[cNr].bastStartLevel;
 		i_end = model.network.channel[cNr].bastEndLevel;
 		if (i_start >= 0 && i_start < model.network.nPhysicalLevels &&
@@ -12813,8 +12890,12 @@ int identify_arcsNoUse_tss() {
 					}
 					alt = 1;
 				}
+				errlog("    tss channel %d: forced prefPath on levels %d-%d, blocked arcs now %d (was %d)\n",
+					cNr, i_start, i_end - 1, count_blockedArcs_tss(), nBlockedBefore);
 				continue; // do not need to do any other removal of arcs for this tss so go to next one
 			}
+			errlog("    tss channel %d: NOT forcing prefPath (all levels %d-%d have >= 2 out-arcs), using distance comparison instead\n",
+				cNr, i_start, i_end);
 		}
 
 
@@ -12846,6 +12927,10 @@ int identify_arcsNoUse_tss() {
 			y1 = model.network.channel[cNr].point_y[0];
 			dist = estimateLargeCircleDistance_km(y0, x0, y1, x1);
 			dist_tss_ext += dist;
+			errlog("    tss channel %d: from level %d node %d, a bypass is blocked only if it is >= %.1lf km "
+				"(tss %.1lf km + connect %.1lf km - attraction %.1lf km), max %d arcs in the bypass chain\n",
+				cNr, fromLev, fromNode, dist_tss_ext, model.network.channel[cNr].distance_km, dist,
+				model.params.tss_attractionDistance_km, model.temp_data.nMax_recursive_arcsLevels);
 
 			for (i2 = 0; i2 < model.network.channel[cNr].nConnectTo; i2++) {
 				if (model.network.channel[cNr].connectTo_outLevel[i2] >= 0) {
@@ -12877,6 +12962,57 @@ int identify_arcsNoUse_tss() {
 			}
 		}
 
+		nBlockedAfter = count_blockedArcs_tss();
+		errlog("    tss channel %d: blocked %d bypass arcs (total blocked now %d)\n",
+			cNr, nBlockedAfter - nBlockedBefore, nBlockedAfter);
+	}
+
+	// summary: how many out-arcs survive per level, and how many nodes are left without any way onwards
+	int nTotAll = 0, nBlockedAll = 0, nDeadEndAll = 0;
+	errlog("=== tss arc blocking summary (tss_blockBeyondSpan %d) ===\n", TSS_BLOCK_BEYOND_SPAN);
+	for (i1 = 0; i1 < model.network.nPhysicalLevels; i1++) {
+		int nTot = 0, nBlocked = 0, nDeadEnd = 0;
+		for (i2 = 0; i2 < model.network.physicalLev[i1].nPoints; i2++) {
+			int nNode = 0, nNodeBlocked = 0;
+			for (int i3 = 0; i3 < model.network.physicalLev[i1].nOutNodes[i2]; i3++) {
+				nNode++;
+				if (model.network.physicalLev[i1].outNoNormalArc_useTSS[i2][i3] == 1)
+					nNodeBlocked++;
+			}
+			nTot += nNode;
+			nBlocked += nNodeBlocked;
+			if (nNode > 0 && nNode == nNodeBlocked)
+				nDeadEnd++; // node had arcs but all of them are blocked
+		}
+		nTotAll += nTot;
+		nBlockedAll += nBlocked;
+		nDeadEndAll += nDeadEnd;
+		if (nBlocked > 0)
+			errlog("level %d: %d of %d out-arcs blocked by tss logic, %d remain, %d nodes left with no arc out (prefPath node is %d)\n",
+				i1, nBlocked, nTot, nTot - nBlocked, nDeadEnd, model.params.preferredPathOrtoPos[i1]);
+	}
+	errlog("TOTAL: %d of %d physical out-arcs blocked by tss logic, %d remain, %d nodes left with no arc out\n",
+		nBlockedAll, nTotAll, nTotAll - nBlockedAll, nDeadEndAll);
+
+	// detailed dump of the arcs from DIAG_LEVEL_DUMP to the next level
+	if (DIAG_LEVEL_DUMP >= 0 && DIAG_LEVEL_DUMP < model.network.nPhysicalLevels) {
+		i1 = DIAG_LEVEL_DUMP;
+		errlog("--- arcs from level %d to level %d (prefPath node %d -> %d) ---\n", i1, i1 + 1,
+			model.params.preferredPathOrtoPos[i1], model.params.preferredPathOrtoPos[i1 + 1]);
+		for (i2 = 0; i2 < model.network.physicalLev[i1].nPoints; i2++) {
+			int nToNext = 0, nToNextBlocked = 0;
+			for (int i3 = 0; i3 < model.network.physicalLev[i1].nOutNodes[i2]; i3++) {
+				if (model.network.physicalLev[i1].outLevel[i2][i3] != i1 + 1)
+					continue;
+				nToNext++;
+				if (model.network.physicalLev[i1].outNoNormalArc_useTSS[i2][i3] == 1)
+					nToNextBlocked++;
+			}
+			if (nToNext > 0 || model.network.physicalLev[i1].allowedPoint[i2] == 1)
+				errlog("  node %d (allowed %d): %d arcs to level %d, %d blocked, %d remain\n",
+					i2, model.network.physicalLev[i1].allowedPoint[i2], nToNext, i1 + 1,
+					nToNextBlocked, nToNext - nToNextBlocked);
+		}
 	}
 
 

@@ -144,7 +144,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>C:\OSGeo4W\lib\gdal_i.lib;F:\TNM\curl\curl\builds\libcurl-vc-x64-debug-dll-ipv6-sspi-schannel\lib\libcurl_debug.lib;F:\TNM\sqlite3\sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>C:\OSGeo4W\lib\gdal_i.lib;F:\TNM\redis\hiredis-master\out\build\x64-Release\hiredis.lib;F:\TNM\redis\redis-plus-plus-master\out\build\x64-Release\redis++.lib;F:\TNM\curl\curl\builds\libcurl-vc-x64-debug-dll-ipv6-sspi-schannel\lib\libcurl_debug.lib;F:\TNM\sqlite3\sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
