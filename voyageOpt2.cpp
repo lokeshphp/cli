@@ -15779,6 +15779,11 @@ int voyageOpt(std::string inputPath, std::string resultName)
 		}
 		//checkMinnesAnvandning(__LINE__);
 		printf("-- Time before creating the time dimension %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
+		if (iter == 2 && SKRIV_UT_NOTHING == 0) {
+			// the network step 2 works with: arcs only around the route found in step 1. optPath still
+			// holds that route here, createTimeArcs below cuts the network with the same test.
+			writeAllArcsToGeojson((char*)"step2Arcs", "arcsStep2.geojson", 0, 1);
+		}
 		createTimeArcs(iter);
 		printf("-- Time after creating the time dimension %lf\n", std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - model.timeStart));
 
@@ -16008,6 +16013,12 @@ int voyageOpt(std::string inputPath, std::string resultName)
 					savePathToSolutionCheck(ii);
 				}
 #endif // _WIN32
+
+				if (iter == 2 && ii == 0 && SKRIV_UT_NOTHING == 0) {
+					// network as drawn in allArcs.geojson as long as the forecast lasts, then the
+					// optimal route only, for the part of the voyage that runs on the delay map
+					writeAllArcsToGeojson((char*)"forecastArcs", "arcsForecastOptimal.geojson", 1);
+				}
 			}
 			else {
 				errlog("ERROR! Did not manage to find a route from start to finish...\n");

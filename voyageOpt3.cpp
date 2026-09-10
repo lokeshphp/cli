@@ -436,6 +436,8 @@ int writePointsToGeojson(char* pszFilename, spherical::Point* point, int nPkter)
 	return 0;
 }
 
+extern int DIAG_CHANNELS;
+
 int writeAllNodesToGeojson(char* pszFilename)
 {
 	int forsta = 1;
@@ -532,23 +534,72 @@ int writeAllNodesToGeojson(char* pszFilename)
 	return 0;
 }
 
-int writeAllArcsToGeojson(char* pszFilename)
+int writeAllArcsToGeojson(char* pszFilename, const char* outFileName, int splitAtForecastEnd, int onlyAroundOptPath)
 {
 	int forsta = 1, nod2, nextLevel, cNr, prefPath, startPos;
 	double distance;
 	FILE* filpekG;
 	char* namn;
 	namn = (char*)malloc2(256 * sizeof(char));
-	sprintf(namn, "%s/allArcs.geojson", model.params.resultPath.c_str());
+	sprintf(namn, "%s/%s", model.params.resultPath.c_str(), outFileName);
 	filpekG = fopen(namn, "w");
 	initGeoJsonFil(filpekG, "allPhysicalArcs");
 
+	// splitAtForecastEnd: draw the network arcs as long as forecast weather is available, and from the
+	// nodes where the forecast runs out draw one arc to the end per node instead. Such an arc is what
+	// the network really holds there (genArcsToEnd_delayed, speedSetting -2) and it stands for the
+	// optimal route to the end over the delay map.
+	// The nodes that have a delay route to the end form a band of levels, not one single level, since
+	// a node far ahead can be reached within the forecast by a fast route and a node behind it only
+	// after the forecast has ended. Draw the network up to the last level of that band; beyond it the
+	// time expanded network holds nothing, as the delay arcs go straight to the destination.
+	int boundaryLevel = model.network.nPhysicalLevels; // no delay route found -> forecast the whole way
+	int delayArcNr = -1, nDelayRoutes = 0, minDelayLevel = model.network.nPhysicalLevels, maxDelayLevel = -1;
+	if (splitAtForecastEnd == 1) {
+		for (int i = 0; i < model.nBVArcs; i++) {
+			if (model.arc[model.BVArc[i]].speedSetting == -2) {
+				delayArcNr = model.BVArc[i]; // the delay arc the optimal route uses
+				break;
+			}
+		}
+		for (int i = 0; i < model.network.nPhysicalLevels; i++) {
+			if (model.delayRouteToEnd == NULL || model.delayRouteToEnd[i] == NULL)
+				continue;
+			for (int i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
+				if (model.delayRouteToEnd[i][i1].base_time < -0.5 || model.delayRouteToEnd[i][i1].nBVArcs < 1)
+					continue;
+				nDelayRoutes++;
+				if (i < minDelayLevel)
+					minDelayLevel = i;
+				if (i > maxDelayLevel)
+					maxDelayLevel = i;
+			}
+		}
+		if (maxDelayLevel >= 0)
+			boundaryLevel = maxDelayLevel + 1;
+
+		if (nDelayRoutes == 0)
+			errlog("%s: no node runs out of forecast data, the complete network is drawn\n", outFileName);
+		else
+			errlog("%s: network drawn for level 0-%d, %d nodes on levels %d-%d run out of forecast and get one arc to the end (forecast ends %d h after start)\n",
+				outFileName, boundaryLevel - 1, nDelayRoutes, minDelayLevel, maxDelayLevel,
+				model.network.tidp_startHistoricDataOnly);
+	}
 	for (int i = 0; i < model.network.nPhysicalLevels; i++) {
 		if (i == 20)
 			i = i;
+		if (splitAtForecastEnd == 1 && i >= boundaryLevel)
+			continue; // delay map is used from here, only the optimal route is drawn (below)
 		for (int i1 = 0; i1 < model.network.physicalLev[i].nPoints; i1++) {
 			if (model.network.physicalLev[i].allowedPoint[i1] == 0)
 				continue;
+			if (onlyAroundOptPath == 1) {
+				// same test as the one createTimeArcs uses to build the network of step 2
+				if (model.optPath.level[i].pointNr < 0)
+					continue; // the route of step 1 never reached this level
+				if (abs(i1 - model.optPath.level[i].pointNr) > model.params.maxDiff_pointNrFas3)
+					continue; // too far from the route of step 1
+			}
 			if (i == 3 && i1 ==46)
 				i = i;
 			for (int i2 = 0; i2 < model.network.physicalLev[i].nOutNodes[i1]; i2++) {
@@ -707,6 +758,58 @@ int writeAllArcsToGeojson(char* pszFilename)
 						model.network.channel[-nextLevel - 1].point_y[nod2]);
 			}
 		}
+	}
+
+	// The delay map part of the network. Every node that is reached when the forecast has run out gets
+	// one single arc straight to the end (made by genArcsToEnd_delayed), and that arc stands for the
+	// optimal route to the end over the delay map. Draw one such arc out of every node that has a
+	// feasible route to the end, with the geometry of the delay route it represents.
+	if (splitAtForecastEnd == 1) {
+		int nDelayDrawn = 0;
+		int optFromLev = -9999, optFromPos = -9999;
+		if (delayArcNr >= 0) {
+			optFromLev = model.arc[delayArcNr].fromLevel;
+			optFromPos = model.arc[delayArcNr].fromPointNr;
+		}
+		for (int i = 0; i < model.network.nPhysicalLevels + model.network.nChannels; i++) {
+			int lev, nPos;
+			if (i < model.network.nPhysicalLevels) {
+				lev = i;
+				if (model.delayRouteToEnd == NULL || model.delayRouteToEnd[lev] == NULL)
+					continue;
+				nPos = model.network.physicalLev[lev].nPoints;
+			}
+			else {
+				lev = -(i - model.network.nPhysicalLevels) - 1;
+				if (model.delayRouteToEnd_channel == NULL || model.delayRouteToEnd_channel[-lev - 1] == NULL)
+					continue;
+				nPos = 2;
+			}
+			for (int i1 = 0; i1 < nPos; i1++) {
+				strDelayToEnd* routeToEnd;
+				if (lev >= 0)
+					routeToEnd = &(model.delayRouteToEnd[lev][i1]);
+				else
+					routeToEnd = &(model.delayRouteToEnd_channel[-lev - 1][i1]);
+
+				if (routeToEnd->base_time < -0.5 || routeToEnd->nBVArcs < 1)
+					continue; // no feasible route to the end from this node
+
+				if (forsta != 1)
+					fprintf(filpekG, ", ");
+				else
+					forsta = 0;
+				fprintf(filpekG, "  {\"type\":\"Feature\", \"properties\":{\"level1\":%d, \"nodPos1\":%d, \"arcPos\":%d, \"level2\":%d, \"nodPos2\":%d, \"distance\":%.3lf, \"delayMapArc\":1, \"optimalRoute\":%d, \"nDelayArcs\":%d, \"time_h\":%.3lf},\n",
+					lev, i1, -1, model.network.nPhysicalLevels - 1, 0, routeToEnd->distance,
+					(lev == optFromLev && i1 == optFromPos) ? 1 : 0,
+					routeToEnd->nBVArcs, routeToEnd->base_time + routeToEnd->changed_time);
+				fprintf(filpekG, "    \"geometry\":{\"type\": \"MultiLineString\", \"coordinates\":[[");
+				addArcDelayToGeojson(filpekG, routeToEnd);
+				fprintf(filpekG, "]]}}\n");
+				nDelayDrawn++;
+			}
+		}
+		errlog("%s: %d arcs to the end over the delay map drawn\n", outFileName, nDelayDrawn);
 	}
 
 	fprintf(filpekG, "]}\n");
@@ -5116,6 +5219,14 @@ int addSplitTss(int* cNrUse, double kvotCost, double kvotMinCost, strClosePoints
 	}
 	model.network.channelTmp[cNr].nPoints = pos;
 	model.network.channelTmp[cNr].distance_km = distance;
+	if (model.network.channelTmp[cNr].nPoints < 2 || model.network.channelTmp[cNr].distance_km <= 0.0) {
+		// The usable part of the tss came out as a single point, so it has no direction and no length.
+		// Such a channel is of no use and it breaks code that asks for its end point, so skip it.
+		errlog("tss '%s' NOT used: only %d point(s) and %.1lf km left of it after cutting it to the preferred path\n",
+			CURRENT_TSS_NAME.c_str(), model.network.channelTmp[cNr].nPoints,
+			model.network.channelTmp[cNr].distance_km);
+		return -1;
+	}
 	if (cNr == 4)
 		cNr = cNr;
 
@@ -8919,7 +9030,9 @@ double get_colDblFromWeatherFile(int weatherNr, double lon)
 				colDbl, gridData.nCols, weatherNr, lon,
 				gridData.minX, gridData.minX,
 				gridData.maxX, tmpLon);
-			exit(0);
+			postRequest("ERROR! Could not find the column for longitude " + std::to_string(tmpLon) +
+				" in weather/delay grid " + std::to_string(weatherNr) + ". I quit.", 1);
+			exitKontrollerat(__LINE__, 0);
 		}
 		else {
 			if (colDbl < 0)
@@ -12482,6 +12595,7 @@ int isOtherTssCloser(int fromLev, int fromNode, int arcPos) {
 int DIAG_TSS_CNR = -1; // tss channel number to log every bypass decision and blocked arc for, -1 = off
 int DIAG_TSS_STARTLEVEL = -1; // set DIAG_TSS_CNR automatically for the tss starting at this level, -1 = off
 int DIAG_LEVEL_DUMP = -1; // dump the arcs from this physical level to the next one, -1 = off
+int DIAG_CHANNELS = 0; // 1 = log the points and levels of every channel after they are built
 
 // When a bypass chain around a tss is too long, all arcs of the chain used to be blocked, also the
 // arcs after the tss has ended. Those arcs are not a bypass of the tss and are shared with routes that
@@ -14276,6 +14390,15 @@ int createPhysicalNetwork(int sparaKorridorEnbart, int alt)
 
 	// loadChannels();
 	checkChannels();
+	for (int iCh = 0; DIAG_CHANNELS == 1 && iCh < model.network.nChannels; iCh++) {
+		errlog("channel %d: %d points, levels %d-%d, %.1lf km, start %.4lf %.4lf end %.4lf %.4lf\n",
+			iCh, model.network.channel[iCh].nPoints,
+			model.network.channel[iCh].bastStartLevel, model.network.channel[iCh].bastEndLevel,
+			model.network.channel[iCh].distance_km,
+			model.network.channel[iCh].point_x[0], model.network.channel[iCh].point_y[0],
+			model.network.channel[iCh].point_x[model.network.channel[iCh].nPoints - 1],
+			model.network.channel[iCh].point_y[model.network.channel[iCh].nPoints - 1]);
+	}
 	checkPrefPath_throughExtraNoGo();
 
 	addArcsToNetwork();
@@ -15372,6 +15495,21 @@ double eval_factorDelayedAlongPath(int level1, int level2, int tidp, double* spe
 	return model.network.physicalLev[level1].factorDelayedPrefPath;
 }
 
+// For a channel, pos is the code used for the ends of the channel in the delay model, 0 for the start
+// and 1 for the end, not an index in the point array. The end is the last point, so map it. Getting
+// this wrong reads outside the array for a channel that holds a single point, and gives the wrong
+// point for every channel that holds more than two.
+spherical::Point get_channelPointFromPosCode(int cNr, int pos)
+{
+	if (pos == 1)
+		pos = model.network.channel[cNr].nPoints - 1;
+	if (pos < 0)
+		pos = 0;
+	if (pos >= model.network.channel[cNr].nPoints)
+		pos = model.network.channel[cNr].nPoints - 1;
+	return model.network.channel[cNr].point[pos];
+}
+
 double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int pos2, int tidp)
 {
 	int i, pos_latLon, dir1, dir2, posLast, delayNr;
@@ -15383,13 +15521,13 @@ double eval_factorDelayedAlongArc(int thisLevel, int pos1, int nextLevel, int po
 		p1 = model.network.physicalLev[thisLevel].point[pos1];
 	}
 	else {
-		p1 = model.network.channel[-thisLevel - 1].point[pos1];
+		p1 = get_channelPointFromPosCode(-thisLevel - 1, pos1);
 	}
 	if (nextLevel >= 0) {
 		p2 = model.network.physicalLev[nextLevel].point[pos2];
 	}
 	else {
-		p2 = model.network.channel[-nextLevel - 1].point[pos2];
+		p2 = get_channelPointFromPosCode(-nextLevel - 1, pos2);
 	}
 	totDist = p1.distanceTo(p2) / 1000;
 
@@ -15517,13 +15655,13 @@ double eval_factorDelayedAlongArc_currSpeedDiff(int thisLevel, int pos1, int nex
 		p1 = model.network.physicalLev[thisLevel].point[pos1];
 	}
 	else {
-		p1 = model.network.channel[-thisLevel - 1].point[pos1];
+		p1 = get_channelPointFromPosCode(-thisLevel - 1, pos1);
 	}
 	if (nextLevel >= 0) {
 		p2 = model.network.physicalLev[nextLevel].point[pos2];
 	}
 	else {
-		p2 = model.network.channel[-nextLevel - 1].point[pos2];
+		p2 = get_channelPointFromPosCode(-nextLevel - 1, pos2);
 	}
 	totDist = p1.distanceTo(p2) / 1000;
 
@@ -15594,13 +15732,13 @@ double eval_speedDiffCurrent_delayedAlongArc(int thisLevel, int pos1, int nextLe
 		p1 = model.network.physicalLev[thisLevel].point[pos1];
 	}
 	else {
-		p1 = model.network.channel[-thisLevel - 1].point[pos1];
+		p1 = get_channelPointFromPosCode(-thisLevel - 1, pos1);
 	}
 	if (nextLevel >= 0) {
 		p2 = model.network.physicalLev[nextLevel].point[pos2];
 	}
 	else {
-		p2 = model.network.channel[-nextLevel - 1].point[pos2];
+		p2 = get_channelPointFromPosCode(-nextLevel - 1, pos2);
 	}
 	totDist = p1.distanceTo(p2) / 1000;
 

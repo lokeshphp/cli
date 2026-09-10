@@ -2010,6 +2010,7 @@ std::string splitFilename(std::string namn, int alt = 0);
 int fixReadableDate(struct tm tmBas, char* namn);
 int fixReadableDate_file(struct tm tmBas, char* namn);
 int initGeoJsonFil(FILE* filpek, const char* namn);
+int writeAllArcsToGeojson(char* pszFilename, const char* outFileName = "allArcs.geojson", int splitAtForecastEnd = 0, int onlyAroundOptPath = 0);
 void get_fuelUseKvotECA(double lat1, double lon1, double lat2, double lon2, int mapAlt, double* distECA, double* distOther);
 void get_UseKvotExtraArea(double lat1, double lon1, double lat2, double lon2, int posExtraArea, int extraType, int mapAlt, double* distArea, double* distOther);
 

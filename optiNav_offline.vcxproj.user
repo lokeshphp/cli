@@ -3,7 +3,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LocalDebuggerWorkingDirectory>..\..\weatherTest\testRun\shipping\</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>--input=data\13.5comm.json --output=data\res_260610.json</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>--input=data\test_BuenosAires_singapore3.json --output=data\res_260910f.json</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerCommandArguments>--input=data/hindcast2.json --output=data/res_tmp.json</LocalDebuggerCommandArguments>
